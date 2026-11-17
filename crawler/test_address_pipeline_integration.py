@@ -1921,7 +1921,8 @@ def test_verify_write_forces_active_false_admin_hidden_true_even_when_caller_tri
     값(active=True, admin_hidden=False)을 넣어 전달해도 절대 그 값이
     실제 INSERT에 반영되지 않는지("호출자가 덮어쓸 수 없는지") 확인한다."""
     original_supabase = crawl_topcv.supabase
-    fake = _FakeSupabase()
+    # 저장 뒤 DB가 계산한 값 다시 읽기(#884)에 돌려줄 행 — 숨김·비공개·공개 차단(연락처 없음)
+    fake = _FakeSupabase(select_result=[{"id": 12345, "active": False, "admin_hidden": True, "publish_gate_reason": "no_application_path"}])
     crawl_topcv.supabase = fake
     try:
         # 호출자가 의도적으로 "공개" 값을 넣어 verify_write 강제를 무력화하려는
@@ -2009,7 +2010,7 @@ def test_process_urls_verify_write_generates_manifest_with_created_ids() -> None
     original_browser_page = crawl_topcv.browser_page
     original_process_job_url = crawl_topcv.process_job_url
     original_load_lookup = crawl_topcv.load_existing_lookup_maps
-    fake = _FakeSupabase()
+    fake = _FakeSupabase(select_result=[{"id": 12345, "active": False, "admin_hidden": True, "publish_gate_reason": "no_application_path"}])  # 저장 뒤 다시 읽기(#884)
     crawl_topcv.supabase = fake
 
     existing_row = _make_existing_row(source_url="https://vieclam24h.vn/verify-write-existing.html")

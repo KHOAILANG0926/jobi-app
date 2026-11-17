@@ -461,5 +461,143 @@ class SharedCounter(unittest.TestCase):
         self.assertEqual(source_fields.JOB_ERRORS.failed, [])
 
 
+class _VerifyDb:
+    """검증 저장 시험용 가짜 DB: 입구 호출·숨김 UPDATE·다시 읽기 결과를 기록한다."""
+
+    def __init__(self, row=None, hide_fails=False):
+        self.row = row if row is not None else {"active": False, "admin_hidden": True, "publish_gate_reason": "no_application_path"}
+        self.hide_fails, self.ingested, self.hidden = hide_fails, [], []
+        db = self
+
+        class Q:
+            def __init__(self):
+                self.op = None
+
+            def update(self, payload):
+                self.op = ("update", payload)
+                return self
+
+            def select(self, *_):
+                self.op = ("select", None)
+                return self
+
+            def eq(self, *_):
+                return self
+
+            def execute(self):
+                if self.op[0] == "update":
+                    if db.hide_fails:
+                        raise RuntimeError("DB 503")
+                    db.hidden.append(self.op[1])
+                    return types.SimpleNamespace(data=[])
+                return types.SimpleNamespace(data=[db.row])
+
+        self.Q = Q
+
+    def table(self, _name):
+        return self.Q()
+
+
+def _v24_job(**kw):
+    job = {"title": "Nhân viên phục vụ", "company": "CTY A", "location": "Hà Nội", "source_url": "https://vieclam24h.vn/a.html",
+           "employer_phone": "", "contact_zalo": "", "active": True, "publish_gate_reason": "ok", "_resolved_locations": []}
+    job.update(kw)
+    return job
+
+
+class VerifyWriteNeverPublic(unittest.TestCase):
+    """Lee 2026-11-17 #872·#884: 검증 저장 공고는 숨김이 실패해도 공개되면 안 된다 → DB 공개 차단 규칙에 걸리는(연락처 없는) 공고만 저장."""
+
+    def _save(self, db, job):
+        ingest = mock.Mock(return_value=777)
+        with mock.patch.object(topcv, "supabase", db), mock.patch.object(topcv, "ingest_job", ingest), \
+                mock.patch.object(topcv, "crawler_policy_errors", lambda job: []), \
+                mock.patch.object(topcv, "_has_existing_work_locations", lambda job_id: False), \
+                mock.patch.object(topcv, "_replace_job_work_locations", lambda *a: None), topcv.enable_writes():
+            return topcv.upsert_job_record(job, {}, {}, verify_write=True), ingest
+
+    def test_contact_rule_matches_db_gate(self):
+        self.assertTrue(topcv.db_gate_has_contact({"employer_phone": "0912 345 678"}))
+        self.assertTrue(topcv.db_gate_has_contact({"contact_zalo": "84-912-345"}))
+        self.assertFalse(topcv.db_gate_has_contact({"employer_phone": "0912", "contact_zalo": ""}))
+        self.assertFalse(topcv.db_gate_has_contact({}))
+
+    def test_job_with_contact_is_not_saved(self):
+        db = _VerifyDb()
+        ingest = mock.Mock()
+        with mock.patch.object(topcv, "supabase", db), mock.patch.object(topcv, "ingest_job", ingest), topcv.enable_writes():
+            with self.assertRaises(topcv.VerifyWritePublishableError):
+                topcv.upsert_job_record(_v24_job(employer_phone="0912345678"), {}, {}, verify_write=True)
+        ingest.assert_not_called()
+
+    def test_no_contact_job_saved_hidden_and_checked(self):
+        db = _VerifyDb()
+        result, ingest = self._save(db, _v24_job())
+        self.assertEqual(result["id"], 777)
+        self.assertIs(ingest.call_args.args[1]["active"], False)
+        self.assertEqual(db.hidden, [{"admin_hidden": True}])
+
+    def test_hide_failure_stops_run(self):
+        with self.assertRaises(RuntimeError):
+            self._save(_VerifyDb(hide_fails=True), _v24_job())
+
+    def test_db_readback_publishable_stops_run(self):
+        for row in ({"active": True, "admin_hidden": True, "publish_gate_reason": "no_application_path"},
+                    {"active": False, "admin_hidden": False, "publish_gate_reason": "no_application_path"},
+                    {"active": False, "admin_hidden": True, "publish_gate_reason": "ok"}):
+            with self.subTest(row=row), self.assertRaises(RuntimeError):
+                self._save(_VerifyDb(row=row), _v24_job())
+
+
+class VerifyWriteFromDetails(unittest.TestCase):
+    """#884 B안: VPS가 받은 상세(파일)를 GitHub 서버가 사이트 접속 없이 검증 저장한다."""
+
+    def _args(self, argv):
+        return topcv.resolve_cli_mode(topcv.build_arg_parser().parse_args(argv))
+
+    def test_cli_modes(self):
+        self.assertEqual(self._args(["--verify-write-details", "d.json", "--verify-write", "--confirm-write"]), "verify_write_details")
+        self.assertEqual(self._args(["--dry-run-urls", "https://vieclam24h.vn/a.html", "--save-details-to", "d.json"]), "dry_run_urls")
+        for argv in (["--verify-write-details", "d.json"], ["--verify-write-details", "d.json", "--verify-write"],
+                     ["--save-details-to", "d.json", "--confirm-full-crawl"],
+                     ["--verify-write-details", "d.json", "--verify-write", "--confirm-write", "--dry-run-urls", "https://vieclam24h.vn/a.html"]):
+            with self.subTest(argv=argv), self.assertRaises(SystemExit):
+                self._args(argv)
+
+    def test_details_file_limits(self):
+        import json, tempfile
+        for items, ok in (([{"url": "u", "detail": {}}], True), ([], False), ([{"url": "u", "detail": {}}] * 11, False), ([{"url": "u"}], False)):
+            with self.subTest(n=len(items), ok=ok), tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+                json.dump(items, f)
+            if ok:
+                self.assertEqual(len(topcv.load_details_file(f.name)), 1)
+            else:
+                with self.assertRaises(SystemExit):
+                    topcv.load_details_file(f.name)
+
+    def test_saves_without_browser(self):
+        import asyncio, os, tempfile
+        saved = []
+
+        async def from_detail(url, detail, hint=None):
+            return {"source_url": url, "title": detail["t"], "company": "CTY A"}
+
+        def no_browser():
+            raise AssertionError("검증 저장(파일)은 사이트에 접속하면 안 된다")
+
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(topcv, "browser_page", no_browser), \
+                mock.patch.object(topcv, "job_from_detail", from_detail), \
+                mock.patch.object(topcv, "load_existing_lookup_maps", lambda: ({}, {})), \
+                mock.patch.object(topcv, "upsert_job_record", lambda job, a, b, verify_write: saved.append((job, verify_write)) or {"id": 5}):
+            os.chdir(d)
+            try:
+                m = asyncio.run(topcv.process_urls_verify_write(["u1"], details=[{"url": "u1", "detail": {"t": "x"}}]))
+            finally:
+                os.chdir(cwd)
+        self.assertEqual(m["created_ids"], [5])
+        self.assertEqual(saved, [({"source_url": "u1", "title": "x", "company": "CTY A"}, True)])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
