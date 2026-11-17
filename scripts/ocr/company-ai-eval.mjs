@@ -42,7 +42,37 @@ Post:
 """
 ${text}
 """`
-const PROMPTS = { v1: PROMPT_V1, v2: PROMPT_V2 }
+// 3차(#887 Lee 2026-11-17): 답에서 원문 줄을 빼고 이름 또는 null만(잘림 원인 제거). 예시 이름은 평가 사례에서 가져오지 않은 지어낸 이름(과적합 방지).
+// 근무지·고객사·홍보 문구 구별은 2차 그대로.
+const PROMPT_V3 = (text) => `From the Vietnamese job post below, copy the name of the employer exactly as it is written in the text.
+The employer is the company, shop, brand or recruitment agency that is hiring (if an agency posts, the agency).
+Rules:
+- Copy characters exactly from the text. Do not translate, correct, expand, or join words from different places. Do not use outside knowledge.
+- If a business-type word is written as part of the name, keep it as written (e.g. "Nhà hàng Hoa Sen", "Công ty ABC Vina").
+- Do not answer: a workplace location only (a mall, industrial park, street address) when the post does not say that place is the employer; a client or partner the employer works for; a slogan, greeting, headline or job title; salary words.
+- Answer null only if no specific employer name is written anywhere in the text.
+Answer only JSON: {"company": "<exact text>" or null}
+
+Post:
+"""
+${text}
+"""`
+const PROMPTS = { v1: PROMPT_V1, v2: PROMPT_V2, v3: PROMPT_V3 }
+const REPEATS = Number(process.env.EVAL_REPEATS || 1)
+
+// 최소 가드(3차 비교안): 원문 일치 + 길이 2~60 + 명백한 문장(!/? 끝) 제외만. 지금 규칙의 낱말 목록(hasNameWord)은 쓰지 않는다
+// — 접은 글자에서 "an(ăn)·minh(mình)·anh·cafe"가 구인 낱말 목록과 겹쳐 "AN café", "Minh Anh"를 버렸다(직접 확인).
+export function guardMinimal(ans, text) {
+  const c = String(ans?.company ?? '').trim()
+  if (!c || c === 'null') return { name: '', reject: '' }
+  const flat = String(text ?? '').normalize('NFC').replace(/\s+/g, ' ').trim()
+  const esc = String(c).normalize('NFC').replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s')
+  const hit = flat.match(new RegExp(esc, 'iu'))
+  if (!hit) return { name: '', reject: 'not_in_source' }
+  const v = hit[0].replace(/^[\s\-–•*:|\[\]]+|[\s\-–•*:|,.\[\]]+$/g, '').trim()
+  if (v.length < 2 || v.length > 60 || /[!?]$/.test(v)) return { name: '', reject: 'min_rule' }
+  return { name: v, reject: '' }
+}
 
 async function ask(text, version) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -111,26 +141,43 @@ for (const arg of process.argv.slice(2)) {
 const rows = []
 for (const [set, items] of sets) for (const it of items) {
   const row = { set, key: it.key, expected: it.expected, rule: readCompany(it.text).name }
-  for (const v of VERSIONS) {
-    let ai = { name: '', reject: 'error' }, raw = null
-    try { raw = await ask(it.text, v); ai = guardCompany(raw, it.text) } catch (e) { ai.reject = 'error:' + e.message }
-    row[v] = ai.name; row[v + '_raw'] = raw?.company ?? null; row[v + '_reject'] = ai.reject
+  for (const v of VERSIONS) for (let rep = 1; rep <= (v === 'v3' ? REPEATS : 1); rep++) {
+    const tag = v === 'v3' && REPEATS > 1 ? `${v}r${rep}` : v
+    // 오류(잘림·형식·호출 실패)는 '없음'과 따로 센다. 한 번 다시 묻고(재시도), 그래도 오류면 보류(error)로 남긴다.
+    let raw = null, firstError = '', err = ''
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { raw = await ask(it.text, v); err = ''; break } catch (e) { err = e.message; if (!attempt) firstError = e.message }
+    }
+    const g = err ? { name: '', reject: 'error:' + err } : guardCompany(raw, it.text)
+    const m = err ? { name: '', reject: 'error:' + err } : guardMinimal(raw, it.text)
+    row[tag] = g.name; row[tag + '_reject'] = g.reject; row[tag + '_min'] = m.name; row[tag + '_min_reject'] = m.reject
+    row[tag + '_raw'] = raw?.company ?? null; row[tag + '_first_error'] = firstError
   }
   rows.push(row)
 }
 
+const TAGS = VERSIONS.flatMap((v) => v === 'v3' && REPEATS > 1 ? Array.from({ length: REPEATS }, (_, i) => `${v}r${i + 1}`) : [v])
 const L = rows.filter((r) => r.set === 'labeled')
 const score = (k) => ({ exact: L.filter((r) => same(r[k], r.expected)).length, near: L.filter((r) => same(r[k], r.expected) || near(r[k], r.expected)).length,
-  wrongName: L.filter((r) => r[k] && !same(r[k], r.expected) && !near(r[k], r.expected)).length, missed: L.filter((r) => !r[k] && r.expected).length,
-  falseName: L.filter((r) => r[k] && !r.expected).length })
-const cell = (v) => String(v ?? '').replace(/\|/g, '/').replace(/\n/g, ' ').slice(0, 50)
-const out = [`## 회사 이름 AI 평가 (${MODEL}) — ${sets.map(([n, i]) => `${n} ${i.length}건`).join(' · ')}`, '',
-  '정답 사례: | 방식 | 정확히 맞음 | 맞음(앞뒤 말 차이 포함) | 다른 이름 | 놓침 | 이름 없는 글에 이름 |', '|---|---|---|---|---|---|',
-  ...['rule', ...VERSIONS].map((k) => { const x = score(k); return `| ${k} | ${x.exact} | ${x.near} | ${x.wrongName} | ${x.missed} | ${x.falseName} |` }), '',
-  ...VERSIONS.map((v) => `${v}: 원문에 없는 이름(가드가 버림) ${rows.filter((r) => r[v + '_reject'] === 'not_in_source' || r[v + '_reject'] === 'line_not_in_source').length}건 · 규칙 조건에 걸려 버림 ${rows.filter((r) => r[v + '_reject'] === 'rule').length}건 · 호출 오류 ${rows.filter((r) => String(r[v + '_reject']).startsWith('error')).length}건`), '',
-  `| 묶음 | 정답 | 지금 규칙 | ${VERSIONS.join(' | ')} |`, `|---|---|---|${VERSIONS.map(() => '---').join('|')}|`,
-  ...rows.filter((r) => r.set !== 'labeled' || VERSIONS.some((v) => !same(r[v], r.expected)))
-    .map((r) => `| ${r.set === 'labeled' ? '정답' : r.set + ' ' + String(r.key).slice(-6)} | ${cell(r.expected ?? '—')} | ${cell(r.rule)} | ${VERSIONS.map((v) => cell(r[v]) + (r[v + '_reject'] ? ` (${r[v + '_reject']}: ${cell(r[v + '_raw'])})` : '')).join(' | ')} |`)]
+  wrongName: L.filter((r) => r[k] && r.expected && !same(r[k], r.expected) && !near(r[k], r.expected)).length,
+  nameOnEmpty: L.filter((r) => r[k] && !r.expected).length, missed: L.filter((r) => !r[k] && r.expected && !String(r[k + '_reject'] ?? '').startsWith('error')).length,
+  error: L.filter((r) => String(r[k + '_reject'] ?? r[k.replace(/_min$/, '') + '_reject'] ?? '').startsWith('error')).length })
+const cell = (v) => String(v ?? '').replace(/\|/g, '/').replace(/\n/g, ' ').slice(0, 45)
+const cols = ['rule', ...TAGS.flatMap((t) => [t, t + '_min'])]
+const errs = (t) => ({ first: rows.filter((r) => r[t + '_first_error']).length, final: rows.filter((r) => String(r[t + '_reject']).startsWith('error')).length,
+  kinds: [...new Set(rows.map((r) => r[t + '_first_error']).filter(Boolean))].join(',') })
+const varies = (r) => new Set(TAGS.map((t) => fold(r[t + '_min'] || '∅'))).size > 1
+const out = [`## 회사 이름 AI 평가 (${MODEL}) — ${sets.map(([n, i]) => `${n} ${i.length}건`).join(' · ')} · 지시문 ${VERSIONS.join(',')} · 반복 ${REPEATS}`, '',
+  '### 정답 사례(정답표 있음)', '| 방식(가드) | 정확히 맞음 | 앞뒤 말 차이 포함 | 다른 이름 | 이름 없는 글에 이름 | 놓침 | 오류(보류) |', '|---|---|---|---|---|---|---|',
+  ...cols.map((k) => { const x = score(k); return `| ${k.replace(/_min$/, ' (최소 가드)')} | ${x.exact} | ${x.near} | ${x.wrongName} | ${x.nameOnEmpty} | ${x.missed} | ${x.error} |` }), '',
+  '### 오류·재시도', ...TAGS.map((t) => { const e = errs(t); return `- ${t}: 첫 시도 오류 ${e.first}건(${e.kinds || '-'}) → 재시도 뒤 남은 오류 ${e.final}건` }),
+  `- 가드가 원문에 없다고 버린 답: ${TAGS.map((t) => `${t} ${rows.filter((r) => r[t + '_reject'] === 'not_in_source').length}`).join(', ')}`,
+  `- 지금 규칙 가드가 버린 답(최소 가드는 통과): ${TAGS.map((t) => `${t} ${rows.filter((r) => r[t + '_reject'] === 'rule').length}`).join(', ')}`, '',
+  '### 반복 실행 편차(최소 가드 기준, 같은 글에 다른 답)', ...sets.map(([n]) => `- ${n}: ${rows.filter((r) => r.set === n && varies(r)).length}건`), '',
+  '### 정답표 없는 글(facebook·holdout) — 판단은 추정', `| 묶음 | 지금 규칙 | ${TAGS.map((t) => t + ' 최소 가드').join(' | ')} | 편차 |`, `|---|---|${TAGS.map(() => '---').join('|')}|---|`,
+  ...rows.filter((r) => r.set !== 'labeled').map((r) => `| ${r.set} ${String(r.key).slice(-6)} | ${cell(r.rule)} | ${TAGS.map((t) => cell(r[t + '_min']) + (r[t + '_min_reject'] ? ` (${r[t + '_min_reject']})` : '')).join(' | ')} | ${varies(r) ? '다름' : ''} |`), '',
+  '### 정답 사례 중 AI가 정답과 다른 것', `| 정답 | 지금 규칙 | ${TAGS.map((t) => t + ' 최소 가드').join(' | ')} |`, `|---|---|${TAGS.map(() => '---').join('|')}|`,
+  ...L.filter((r) => TAGS.some((t) => !same(r[t + '_min'], r.expected))).map((r) => `| ${cell(r.expected) || '(없음)'} | ${cell(r.rule)} | ${TAGS.map((t) => cell(r[t + '_min']) + (r[t + '_min_reject'] ? ` (${r[t + '_min_reject']})` : '')).join(' | ')} |`)]
 console.log(out.join('\n'))
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join('\n') + '\n')
 writeFileSync('company-ai-eval.json', JSON.stringify({ rows }, null, 1))

@@ -69,4 +69,4 @@ jobs:
           json.dump(list(hold.values()), open('/tmp/holdout.json', 'w'), ensure_ascii=False)
           print(len(main), len(hold), '건')
           PY
-          node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/company-ai-eval.mjs facebook=/tmp/fbposts.json holdout=/tmp/holdout.json
+          PROMPT_VERSIONS=v3 EVAL_REPEATS=3 node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/company-ai-eval.mjs facebook=/tmp/fbposts.json holdout=/tmp/holdout.json
