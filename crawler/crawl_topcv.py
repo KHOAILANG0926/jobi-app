@@ -46,7 +46,7 @@ from job_quality import (
     validate_job_payload,
 )
 from job_posting_policy import crawler_policy_errors
-from source_fields import REJECTIONS, rule_code, source_fields
+from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 from ingest_gateway import ingest_job, retry_held_once
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -2286,7 +2286,13 @@ def save_to_supabase(jobs: list[dict], source: str = "vieclam24h"):
             was_active_crawler = bool(
                 existing and existing.get("origin") == "crawler" and existing.get("active")
             )
-            result = upsert_job_record(job, by_source_url, by_key)
+            try:
+                result = upsert_job_record(job, by_source_url, by_key)
+            except Exception as exc:  # noqa: BLE001 — 이 공고만 실패로 남기고 계속(연속 3건이면 멈춤, #872 ②)
+                JOB_ERRORS.add(job.get("title", ""), exc, key=job.get("source_url"))
+                counts["error"] = counts.get("error", 0) + 1
+                continue
+            JOB_ERRORS.ok()
             counts[result["action"]] = counts.get(result["action"], 0) + 1
             if was_active_crawler and job.get("active") is False:
                 demoted += 1
@@ -2296,8 +2302,10 @@ def save_to_supabase(jobs: list[dict], source: str = "vieclam24h"):
         f"  ➕ 신규: {counts['inserted']}개 / 🔄 업데이트: {counts['updated']}개 / ⏭️ 변경 없음: {counts['unchanged']}개"
         f" / 🔻 재크롤 후 보류 전환: {demoted}개"
         f" / ❌ 실패: {counts['failed_existing_untouched'] + counts['failed_new_skipped']}개"
+        f" / ❌ 오류: {counts.get('error', 0)}개"
     )
     REJECTIONS.report()
+    JOB_ERRORS.report()
     if work_location_rows_total:
         print(f"  📍 근무지 주소 저장: {work_location_rows_total}건 (job_work_locations)")
     if not jobs:
@@ -2552,6 +2560,8 @@ async def main(sample_limit: int | None = None, sample_offset: int = 0, new_only
     print(f"\n📊 수집 완료: {len(jobs)}개")
     save_to_json(jobs, filename=f"jobs_output_{site}.json")
     save_to_supabase(jobs, source=site)
+    if JOB_ERRORS.failed:  # 오류 공고가 있으면 실행 기록을 실패로 남긴다(다른 공고는 이미 저장됨)
+        raise SystemExit(f"오류로 저장 못 한 공고 {len(JOB_ERRORS.failed)}건 — 다음 실행에서 다시 처리")
     print("\n✨ 완료!")
 
 

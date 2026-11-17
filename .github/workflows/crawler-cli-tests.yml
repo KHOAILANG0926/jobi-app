@@ -24,3 +24,5 @@ jobs:
       - run: python -I crawler/test_ingest_gateway.py
       - run: python -I crawler/test_korea_fb_survey.py
       - run: python -I crawler/test_finalize_reprocess_queue.py
+      # 공고 하나의 오류가 전체 수집을 멈추지 않는지(#872 ②). 브라우저·DB·네트워크 모듈은 시험 안에서 가짜로 바꿔 넣는다(열쇠 없음).
+      - run: python -I crawler/test_job_error_isolation.py

@@ -17,13 +17,16 @@ jobs:
     # 사용자 지시: 필터 검증·별도 재개 승인 전에는 예약/수동 모두 실행 금지.
     # 인자는 정합화하되 실제 수집 재개는 별도 승인 PR에서 결정한다.
     if: ${{ false }}
-    runs-on: ubuntu-latest
+    # 재개 승인 전 실행 환경만 맞춤(#872): 마지막 실제 실행 5건(2026-08-24~28)이 모두 의존성 설치에서 실패 —
+    # ubuntu-latest(24.04)에는 libasound2가 없는데 playwright 1.44 설치 목록에 24.04 항목이 없어 옛 이름을 설치함.
+    # 같은 crawler/requirements.txt를 쓰는 refresh-facebook-existing.yml과 같은 ubuntu-22.04·Python 3.12로 맞춘다.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'  # vietnam-provinces==2026.9.0은 Python 3.12 이상(3.11이면 설치 실패)
 
       - name: 의존성 설치
         run: |
