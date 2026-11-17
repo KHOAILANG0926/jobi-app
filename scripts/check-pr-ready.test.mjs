@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { checkCompletion, recordProblems, recentPrsFor, titleWords } from './check-pr-ready.mjs'
-import { evaluateFiles, parseGitDiff } from './check-repository-policy.mjs'
+import { evaluateFiles, parseNameStatusZ } from './check-repository-policy.mjs'
 
 const valid = `## 사용자 요청 및 확정된 완료 조건
 - 요청: 중복 작업 방지
@@ -94,10 +94,11 @@ assert.ok(evaluateFiles(['src/components/JobCard.tsx']).length > 0, 'job card ch
 assert.ok(evaluateFiles(['src/pages/KoreaJobDetail.tsx']).length > 0, 'Korea module needs scoped test')
 assert.ok(evaluateFiles(['src/pages/JobDetail.tsx', 'scripts/test-job-location-detail.mjs']).length === 0, 'tested detail updates pass')
 assert.ok(evaluateFiles(['src/lib/jobCoords.ts', 'src/lib/jobCoords.test.ts']).length === 0, 'tested coordinate changes pass')
+// 바뀐 파일 목록은 git의 정확한 목록(--name-status -z)에서, 바뀐 줄은 파일마다 따로 받은 diff로(S4-4 — 예전 diff 글 읽기 함수는 지움)
 const samplePatch = 'diff --git a/src/pages/JobDetail.tsx b/src/pages/JobDetail.tsx\n@@ -1,0 +1 @@\n+window.open(job.source_url)\n'
-const parsed = parseGitDiff(samplePatch)
-assert.deepEqual(parsed.files, ['src/pages/JobDetail.tsx'])
-assert.ok(evaluateFiles(parsed.files, '', parsed.patches).some(x => x.includes('원문 URL')), 'source URL leak blocked')
+const parsedFiles = parseNameStatusZ('M\0src/pages/JobDetail.tsx\0')
+assert.deepEqual(parsedFiles, ['src/pages/JobDetail.tsx'])
+assert.ok(evaluateFiles(parsedFiles, '', { 'src/pages/JobDetail.tsx': samplePatch }).some(x => x.includes('원문 URL')), 'source URL leak blocked')
 assert.ok(evaluateFiles(['src/pages/JobDetail.tsx', 'scripts/test-job-location-detail.mjs'], '', {'src/pages/JobDetail.tsx': '+// source_url is forbidden\n'}).length === 0, 'comment is not exposure')
 console.log('Expanded policy negative/positive cases: 10/10 passed')
 

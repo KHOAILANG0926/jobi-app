@@ -1,4 +1,5 @@
 -- 열 단위 권한 적용 결과 확인(운영 DB, 읽기 전용). 하나라도 어긋나면 에러로 끝나 워크플로가 실패한다.
+-- 2026-11-16: 이 점검을 돌리던 옛 직접 적용 워크플로(local-jobs-privileges-apply.yml)를 지우고, 이름 규칙(_production_check)으로 migrations-apply가 매번 돌린다.
 do $c$
 declare col text; role_name text; bad text := '';
 begin

@@ -34,6 +34,10 @@ jobs:
           node scripts/ci/ai-reader-guard.test.mjs
           node scripts/generate-occupation-category.mjs --check
           node supabase/tests/occupation_category.pglite.test.mjs
+      # #858: 운영 DB 시험 대신. 시험한 규칙 중 하나라도 '통과'가 아니면 이 단계가 실패한다(job_posting_rules.pglite.test.mjs가 exit 1).
+      # 단계 이름을 따로 둔 것은 #868(병합 뒤) STATUS 9절이 워크플로 전체가 아니라 이 단계 결과를 읽게 하려는 것.
+      - name: 공고 규칙 R1~R7·U2 시험(시험용 DB, job_posting_rules_test.sql)
+        run: node supabase/tests/job_posting_rules.pglite.test.mjs
       - name: OCR comparison tests (republish is the inspection table's job only; OCR never writes active=true)
         run: node --experimental-strip-types scripts/ocr/ocr-compare.test.mjs
       # AI 판독 교정 시험은 ANTHROPIC_API_KEY가 필요해 이 PR 검사에서 실행하지 않는다(포크 PR에는 Secrets가 없고, PR 코드에 키를 주지 않는다).

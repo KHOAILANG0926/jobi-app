@@ -59,7 +59,12 @@ jobs:
   direct-master-push:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ci
+          persist-credentials: false
       - name: master 커밋에 병합된 PR 근거 확인, 없으면 알림
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -68,12 +73,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # squash/rebase 병합도 GitHub의 commit->PR 연관 API로 확인.
-          prs=$(gh api "repos/$REPO/commits/$SHA/pulls" -H "Accept: application/vnd.github+json")
-          if echo "$prs" | jq -e 'any(.[]; .merged_at != null and .base.ref == "master" and .merge_commit_sha == env.SHA)' >/dev/null; then
-            echo "master 변경 확인: 병합 PR 연결됨 ($SHA)" >> "$GITHUB_STEP_SUMMARY"
+          # squash/rebase 병합도 GitHub의 commit->PR 연관 API로 확인. 병합 직후엔 연결이 늦게 생겨 다시 확인한다(scripts/ci/direct-push-check.sh, 잘못된 경보 #849 등 7건).
+          rc=0; out=$(bash scripts/ci/direct-push-check.sh) || rc=$?
+          echo "$out"
+          if [ "$rc" = 0 ]; then
+            echo "master 변경 확인: $out ($SHA)" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          [ "$rc" = 3 ] || { echo "::error::commit→PR 조회 실패 — 경보 판단 못 함"; exit "$rc"; }
           title="PR 없이 master 직접 푸시: ${SHA:0:7}"
           body="**master 직접 푸시 경고** — PR 병합 근거를 찾지 못했습니다.
 

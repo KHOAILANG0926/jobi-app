@@ -3,8 +3,13 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { isApprovedMigration, MANIFEST_PATH } from './approved-migrations.mjs'
+import { leeApprovedAt } from './decision-approval-gate.mjs'
 
 const PROTECTED = [/^STATUS\.md$/, /^scripts\/status\//, /^\.github\/workflows\/status-.*\.ya?ml$/]
+// S4-4(Lee 2026-11-15 승인): STATUS 보호 파일 중 status-*.yml 워크플로만, 지금 head 커밋에 대한 Lee 계정의 유효한 Approve가 있을 때 통과한다
+// (라벨만으로는 안 됨 — 라벨은 status-guard가 따로 본다). STATUS.md·scripts/status/는 예전처럼 예외 없이 막는다(보고 위조 대상).
+// Lee가 승인한 뒤 이 검사(checks)를 다시 돌리면 통과한다. 승인 뒤 새 커밋이 오면 그 커밋에 다시 승인해야 한다.
+const STATUS_WORKFLOW = /^\.github\/workflows\/status-.*\.ya?ml$/
 // 결정 0002(Lee 2026-10-18): 검사 통과한 migration은 자동 적용. 단 데이터 삭제·되돌리기 어려운 변경은 Lee 판단 →
 // migration은 아래 DESTRUCTIVE_SQL이 들어 있을 때만 막는다(새 표·함수·트리거 추가는 통과).
 const DESTRUCTIVE_SQL = /^\+(?!\s*--).*\b(?:drop\s+(?:table|column|schema|policy)|truncate\b|delete\s+from\b|alter\s+table\b[^;]*\bdrop\b)/im
@@ -89,7 +94,10 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
   const changed = new Set(paths)
   const hasTest = (re) => paths.some(p => re.test(p))
   for (const path of paths) {
-    if (PROTECTED.some(re => re.test(path)))
+    if (STATUS_WORKFLOW.test(path)) {
+      if (options.statusWorkflowApproved !== true)
+        errors.push(path + ': STATUS 보호 규정 위반 — status 워크플로 변경은 지금 커밋에 대한 Lee의 GitHub 승인(Approve) 뒤에만 통과')
+    } else if (PROTECTED.some(re => re.test(path)))
       errors.push(path + ': STATUS 보호 규정 위반')
     if (STRICT.some(re => re.test(path)))
       errors.push(path + ': 운영·보안·DB 변경은 별도 승인과 STRICT 검증 필요')
@@ -147,27 +155,37 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
   return errors
 }
 
-export function parseGitDiff(raw) {
-  const files = []
-  const patches = {}
-  let current = null
-  for (const line of raw.split('\n')) {
-    if (line.startsWith('diff --git a/')) {
-      const match = line.match(/^diff --git a\/(.+) b\/(.+)$/)
-      if (match) { current = match[2]; files.push(current); patches[current] = '' }
-    } else if (current) {
-      patches[current] += line + '\n'
-    }
+// 바뀐 파일 목록은 diff 글에서 읽지 않고 git의 정확한 목록(--name-status -z, NUL 구분)에서 받는다(S4-4 독립 검토 2회 —
+// 머리줄 글 읽기는 따옴표·' b/'가 든 경로를 잘못 읽어 보호를 피할 수 있었음 → 방법 변경). 이름 바꾸기·복사는 예전·새 이름 모두.
+export function nameStatusEntries(raw) {
+  const parts = String(raw).split('\0').filter((x, i, a) => !(x === '' && i === a.length - 1))
+  const entries = []
+  for (let i = 0; i < parts.length;) {
+    const st = parts[i++]
+    if (!/^[ACDMRTUXB]\d*$/.test(st)) throw new Error(`바뀐 파일 목록을 읽지 못함: ${JSON.stringify(st).slice(0, 80)}`)
+    const n = /^[RC]/.test(st) ? 2 : 1
+    const paths = []
+    for (let k = 0; k < n; k++) { const f = parts[i++]; if (f === undefined || f === '') throw new Error('바뀐 파일 목록이 중간에 끊김'); paths.push(f) }
+    entries.push({ status: st, paths })
   }
-  return { files: [...new Set(files)], patches }
+  return entries
 }
+export const parseNameStatusZ = (raw) => [...new Set(nameStatusEntries(raw).flatMap((e) => e.paths))]
+
 
 if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
   const base = event.pull_request?.base?.sha
   if (!base) process.exit(0)
-  const diff = execFileSync('git', ['diff', '--no-ext-diff', '--no-color', '--find-renames', base, 'HEAD', '--'], { encoding:'utf8', maxBuffer: 10 * 1024 * 1024 })
-  const { files, patches } = parseGitDiff(diff)
+  const entries = nameStatusEntries(execFileSync('git', ['diff', '--no-ext-diff', '--name-status', '-z', '--find-renames', base, 'HEAD', '--'], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }))
+  const files = [...new Set(entries.flatMap((e) => e.paths))]
+  // 파일 내용(바뀐 줄)도 diff 글의 머리줄로 나누지 않고 파일마다 정확한 경로(:(literal))로 따로 받는다 — 경로를 잘못 읽어 내용을 못 찾으면
+  // 빈 내용으로 통과하던 문제(삭제 SQL·원문 URL 검사, S4-4 최종 검토). 이름 바꾸기는 두 이름을 함께 넘겨 실제 바뀐 줄만.
+  const patches = {}
+  for (const e of entries) {
+    const patch = execFileSync('git', ['diff', '--no-ext-diff', '--no-color', '--find-renames', base, 'HEAD', '--', ...e.paths.map((p) => `:(literal)${p}`)], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 })
+    for (const p of e.paths) patches[p] = (patches[p] ?? '') + patch
+  }
   // Approvals must already exist on the PR base: a candidate cannot approve itself.
   let manifest = { approvals: [] }
   try { manifest = JSON.parse(execFileSync('git', ['show', `${base}:${MANIFEST_PATH}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })) } catch { /* missing approval fails closed */ }
@@ -190,7 +208,13 @@ if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
     leeDate: (d) => { const docs = ['CLAUDE.md', '.claude/RULES_CORE.md', 'AGENTS.md']; try { for (const f of readdirSync('docs/decisions/ko')) docs.push(`docs/decisions/ko/${f}`) } catch { /* 없음 */ }
       for (const f of docs) { try { if (new RegExp(`Lee\\s*${d}`).test(readFileSync(f, 'utf8'))) return f } catch { /* 없음 */ } } return null },
   }
-  const errors = evaluateFiles(files, event.pull_request?.body || '', patches, { approvedMigrations, resolve })
+  // status 워크플로가 바뀐 PR만 리뷰를 읽는다(읽기 전용 토큰). 못 읽으면 승인 없음으로 본다(닫힌 실패).
+  let statusWorkflowApproved = false
+  if (files.some((f) => STATUS_WORKFLOW.test(f))) {
+    const reviews = (gh(`pulls/${event.pull_request?.number}/reviews?per_page=100`, true) ?? []).flat()
+    statusWorkflowApproved = leeApprovedAt(reviews, event.pull_request?.head?.sha, event.pull_request?.user?.login)  // 작성자를 모르면 승인 없음은 leeApprovedAt 안에서
+  }
+  const errors = evaluateFiles(files, event.pull_request?.body || '', patches, { approvedMigrations, resolve, statusWorkflowApproved })
   errors.forEach(error => console.error('::error::' + error))
   if (errors.length) process.exit(1)
   console.log('Repository policy gate: ' + files.length + ' modified files checked')

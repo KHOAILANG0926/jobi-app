@@ -1,0 +1,10 @@
+# PR 코드를 펼친 뒤 PR 쪽 sandbox-run.sh를 실행(PR이 상자 실행기를 바꿔치기) → R1
+on: issue_comment
+permissions: { contents: write }
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ steps.guard.outputs.head_ref }}", persist-credentials: false }
+      - run: bash scripts/ci/sandbox-run.sh test .

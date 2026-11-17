@@ -10,7 +10,7 @@ import json
 import os
 import re
 import urllib.parse
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, nullcontext
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -46,7 +46,7 @@ from job_quality import (
     validate_job_payload,
 )
 from job_posting_policy import crawler_policy_errors
-from source_fields import REJECTIONS, rule_code, source_fields
+from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 from ingest_gateway import ingest_job, retry_held_once
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -83,6 +83,23 @@ class VerifyWriteExistingMatchError(RuntimeError):
     호출됐는데 match_existing_row()가 이미 있는 행을 찾으면, UPDATE 경로로
     넘어가지 않고 즉시 이 예외로 중단한다 — 검증 저장이 실수로 기존(운영)
     공고를 건드릴 가능성 자체를 구조적으로 차단한다."""
+
+
+class VerifyWritePublishableError(RuntimeError):
+    """검증 저장 대상이 DB 공개 차단 규칙에 걸리지 않는 공고(전화·Zalo 숫자 8자리 이상)면 저장하지 않는다
+    — Lee 2026-11-17 #872·#884: 입구(ingest_job)는 admin_hidden을 받지 않아 저장 뒤 따로 숨기는데, 그 숨김이
+    실패하면 연락처 있는 공고는 OCR 재공개 등으로 공개될 수 있다(로컬 PostgreSQL로 확인). 연락처 없는 공고는
+    DB 트리거 trg_zz0_publish_gate가 모든 INSERT·UPDATE에서 비공개로 덮으므로 어떤 실패에도 공개되지 않는다."""
+
+
+class VerifyWriteIsolationError(RuntimeError):
+    """검증 저장 뒤 숨김 UPDATE 실패 또는 DB 다시 읽기에서 숨김·비공개·공개 차단이 아님 — 그 배치를 바로 멈추고 실행을 실패로 끝낸다(#886 검토)."""
+
+
+def db_gate_has_contact(job: dict) -> bool:
+    """DB 공개 차단 규칙(public.job_publish_gate_reason, migration 20261101190000)의 연락처 줄과 같은 기준:
+    전화 또는 Zalo 숫자가 8자리 이상이면 연락처 있음. 검증 저장 대상 고르기에만 쓴다(공개 판정은 DB가 한다)."""
+    return any(len(re.sub(r"\D", "", str(job.get(k) or ""))) >= 8 for k in ("employer_phone", "contact_zalo"))
 
 
 def _require_write_enabled() -> None:
@@ -531,14 +548,30 @@ def guess_category(title: str, company: str = "", description: str = "") -> str:
     return classify(title, company, description)
 
 
+# 차단·확인 화면 제목(Cloudflare 등). 예전에는 "Attention"만 봐서 "Just a moment..." 확인 화면이면 0건을 조용히 넘겼다(#872 시험 run 44026690666).
+_BLOCK_TITLES = ("attention required", "just a moment", "verify you are human", "access denied", "checking your browser")
+
+
+def is_blocked_title(title: str) -> bool:
+    t = (title or "").lower()
+    return any(b in t for b in _BLOCK_TITLES)
+
+
+def listing_failure(pages: int, empty: int) -> str | None:
+    """목록 페이지를 하나 이상 열었는데 전부 0건이면 차단이나 화면 구조 변경 — 조용히 '수집 0개 완료'로 끝내지 않는다."""
+    if pages and empty == pages:
+        return f"목록 페이지 {pages}곳 모두 0건 — 차단 화면 또는 사이트 구조 변경 의심(위 제목 확인)"
+    return None
+
+
 async def crawl_category(page, url: str) -> list[dict]:
     print(f"  📄 로딩: {url}")
     await page.goto(url, wait_until="domcontentloaded", timeout=30000)
     await page.wait_for_timeout(3000)
 
     title_text = await page.title()
-    if "Attention" in title_text:
-        print("  ⛔ Cloudflare 차단")
+    if is_blocked_title(title_text):
+        print(f"  ⛔ 차단 화면(제목: {title_text[:60]!r})")
         return []
 
     # 스크롤로 더 로드
@@ -584,7 +617,7 @@ async def crawl_category(page, url: str) -> list[dict]:
         return items
     }""")
 
-    print(f"    수집: {len(raw_jobs)}개")
+    print(f"    수집: {len(raw_jobs)}개" + ("" if raw_jobs else f" (화면 제목: {title_text[:60]!r})"))
     return raw_jobs
 
 
@@ -1315,6 +1348,12 @@ async def process_job_url(page, url: str, listing_hint: dict | None = None) -> d
     재크롤에서 다시 만난 이미 아는 URL, --process-url/--reprocess-ids로 수동
     지정된 URL 모두 이 함수 하나로 상세 수집 + build_job_record를 거친다."""
     detail = await fetch_job_detail(page, url)
+    return await job_from_detail(url, detail, listing_hint)
+
+
+async def job_from_detail(url: str, detail: dict, listing_hint: dict | None = None) -> dict:
+    """상세페이지 수집 결과(detail) → 공고 기록. 사이트 접속 없음 — VPS가 받은 detail을 GitHub 서버가
+    검증·저장할 때(Lee 2026-11-17 #884 B안)도 같은 처리(build_job_record)를 거친다."""
     job = build_job_record(url, detail, listing_hint)
     # Opt-in only until the parser output has a reviewed persistence mapping.
     # The parsed object is ephemeral/private and excluded from DB payloads by underscore prefix.
@@ -1404,6 +1443,7 @@ async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0, new
     async with browser_page() as page:
         all_raw = []
         seen_hrefs = set()
+        pages_opened = pages_empty = 0
 
         for cat_url in CATEGORY_URLS:
             if new_only:
@@ -1413,10 +1453,16 @@ async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0, new
             elif len(all_raw) >= fetch_ceiling:
                 break
             raw = await crawl_category(page, cat_url)
+            pages_opened += 1
+            pages_empty += 0 if raw else 1
             for j in raw:
                 if j["href"] not in seen_hrefs:
                     seen_hrefs.add(j["href"])
                     all_raw.append(j)
+
+        problem = listing_failure(pages_opened, pages_empty)
+        if problem:
+            raise SystemExit(problem)
 
         # 중복 제거
         seen_titles = set()
@@ -2134,6 +2180,11 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             f"--verify-write: source_url={job.get('source_url')!r} (또는 같은 canonical key)이 "
             f"이미 id={existing['id']}로 존재한다 — 검증 저장은 신규 공고만 허용하므로 저장하지 않고 중단한다."
         )
+    if verify_write and db_gate_has_contact(job):
+        raise VerifyWritePublishableError(
+            f"--verify-write: {job.get('source_url')!r}는 연락처가 있어 DB 공개 차단 규칙에 걸리지 않는다 — "
+            "저장 뒤 숨김이 실패하면 공개될 수 있으므로 검증 저장하지 않는다."
+        )
 
     if job.get("_pipeline_failed"):
         print(f"    ❌ 파이프라인 실패[{job.get('_failure_stage')}]: {job.get('title', '')[:60]!r} — {job.get('_failure_reason')}")
@@ -2175,7 +2226,14 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             return {"action": "rule_rejected", "id": None, "rule": code}
         if verify_write:
             # 검증 저장 격리: 입구는 admin_hidden을 받지 않으므로 저장 직후 서버 키로 숨김(입구에서 이미 active=False).
-            supabase.table("local_jobs").update({"admin_hidden": True}).eq("id", job_id).execute()
+            try:
+                supabase.table("local_jobs").update({"admin_hidden": True}).eq("id", job_id).execute()
+                # DB가 계산한 값으로 다시 확인(숨김 실패·공개 가능이면 바로 멈춘다 — 위 연락처 확인과 같은 기준을 DB가 직접 판정).
+                row = (supabase.table("local_jobs").select("active,admin_hidden,publish_gate_reason").eq("id", job_id).execute().data or [{}])[0]
+            except Exception as exc:  # noqa: BLE001 — 숨김·다시 읽기 실패는 모두 격리 실패로 멈춘다
+                raise VerifyWriteIsolationError(f"검증 저장 id={job_id} 숨김·확인 실패: {type(exc).__name__}: {exc}") from exc
+            if row.get("active") or not row.get("admin_hidden") or row.get("publish_gate_reason") == "ok":
+                raise VerifyWriteIsolationError(f"검증 저장 id={job_id} 격리 확인 실패: {row}")
         action = "inserted"
     else:
         field_updates = compute_job_updates(existing, job)
@@ -2286,7 +2344,13 @@ def save_to_supabase(jobs: list[dict], source: str = "vieclam24h"):
             was_active_crawler = bool(
                 existing and existing.get("origin") == "crawler" and existing.get("active")
             )
-            result = upsert_job_record(job, by_source_url, by_key)
+            try:
+                result = upsert_job_record(job, by_source_url, by_key)
+            except Exception as exc:  # noqa: BLE001 — 이 공고만 실패로 남기고 계속(연속 3건이면 멈춤, #872 ②)
+                JOB_ERRORS.add(job.get("title", ""), exc, key=job.get("source_url"))
+                counts["error"] = counts.get("error", 0) + 1
+                continue
+            JOB_ERRORS.ok()
             counts[result["action"]] = counts.get(result["action"], 0) + 1
             if was_active_crawler and job.get("active") is False:
                 demoted += 1
@@ -2296,8 +2360,10 @@ def save_to_supabase(jobs: list[dict], source: str = "vieclam24h"):
         f"  ➕ 신규: {counts['inserted']}개 / 🔄 업데이트: {counts['updated']}개 / ⏭️ 변경 없음: {counts['unchanged']}개"
         f" / 🔻 재크롤 후 보류 전환: {demoted}개"
         f" / ❌ 실패: {counts['failed_existing_untouched'] + counts['failed_new_skipped']}개"
+        f" / ❌ 오류: {counts.get('error', 0)}개"
     )
     REJECTIONS.report()
+    JOB_ERRORS.report()
     if work_location_rows_total:
         print(f"  📍 근무지 주소 저장: {work_location_rows_total}건 (job_work_locations)")
     if not jobs:
@@ -2458,22 +2524,39 @@ async def reprocess_jobs(job_ids: list[int], *, confirm_write: bool = False) -> 
     return reports
 
 
-async def process_urls_dry_run(urls: list[str]) -> list[dict]:
+async def process_urls_dry_run(urls: list[str], save_details_to: str = "") -> list[dict]:
     """--dry-run-urls: 지정된 URL들을 표준 파이프라인의 처리 단계(상세 수집 ->
     필수정보/주소 추출 -> 주소·좌표 판정 -> 지원 경로 판정 -> 공개 게이트)까지만
     실행하고 upsert_job_record()는 절대 호출하지 않는다 — local_jobs/
     job_work_locations에 아무것도 쓰지 않는다. 카테고리 목록 페이지도 방문하지
     않으므로 신규 공고 수집이 아니다. 여러 건을 같은 함수(process_job_url)로
     검증할 때 쓴다(10건 재현성 검증 등)."""
-    reports = []
+    reports, details = [], []
     async with browser_page() as page:
         for url in urls:
-            job = await process_job_url(page, url)
-            reports.append(job)
+            detail = await fetch_job_detail(page, url)
+            details.append({"url": url, "detail": detail})
+            reports.append(await job_from_detail(url, detail))
+    if save_details_to:
+        # B안(#884): 사이트 접속은 VPS에서만, 검증·저장은 GitHub 서버가 이 파일로 한다(DB 열쇠는 VPS로 안 감).
+        with open(save_details_to, "w", encoding="utf-8") as f:
+            json.dump(details, f, ensure_ascii=False, default=str)
+        print(f"  💾 상세 수집 결과 저장: {save_details_to} ({len(details)}건)")
     return reports
 
 
-async def process_urls_verify_write(urls: list[str]) -> dict:
+def load_details_file(path: str) -> list[dict]:
+    """--verify-write-details 입력. 형식이 다르거나 10건을 넘으면 저장 전에 멈춘다(--sample-limit 상한과 같음)."""
+    with open(path, encoding="utf-8") as f:
+        items = json.load(f)
+    if not isinstance(items, list) or not all(isinstance(i, dict) and isinstance(i.get("url"), str) and isinstance(i.get("detail"), dict) for i in items):
+        raise SystemExit(f"{path}: 상세 수집 결과 형식이 아님([{{url, detail}}]). 중단합니다.")
+    if not 1 <= len(items) <= 10:
+        raise SystemExit(f"{path}: 1~10건만 검증 저장할 수 있습니다(입력 {len(items)}건). 중단합니다.")
+    return items
+
+
+async def process_urls_verify_write(urls: list[str], details: list[dict] | None = None) -> dict:
     """--verify-write-urls: migration 0018 적용 전 검증용 3~5건 실제 저장
     전용(2026-09-04 사용자 지시, "운영 적용 준비"). 여러 URL을 순차로
     upsert_job_record(..., verify_write=True)로 저장하고, 성공/스킵/실패
@@ -2494,11 +2577,13 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "entries": [],
     }
-    async with browser_page() as page:
+    # details가 있으면(VPS가 받은 상세, #884 B안) 사이트에 접속하지 않고 같은 처리·저장만 한다.
+    by_url = {d["url"]: d["detail"] for d in details or []}
+    async with (nullcontext() if details is not None else browser_page()) as page:
         for url in urls:
             entry: dict = {"url": url, "status": None, "id": None, "detail": None}
             try:
-                job = await process_job_url(page, url)
+                job = await (job_from_detail(url, by_url[url]) if details is not None else process_job_url(page, url))
                 if job.get("_pipeline_failed"):
                     entry["status"] = "failed"
                     entry["detail"] = f"{job.get('_failure_stage')}: {job.get('_failure_reason')}"
@@ -2526,6 +2611,16 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
             except VerifyWriteExistingMatchError as exc:
                 entry["status"] = "skipped_existing"
                 entry["detail"] = str(exc)
+            except VerifyWritePublishableError as exc:
+                entry["status"] = "skipped_has_contact"
+                entry["detail"] = str(exc)
+            except VerifyWriteIsolationError as exc:
+                # 숨김·격리 확인 실패: 다음 공고를 저장하지 않고 멈춘다. 그때까지 만든 번호는 manifest·로그에 남기고 실행은 실패로.
+                entry["status"] = "isolation_failed"
+                entry["detail"] = str(exc)
+                manifest["entries"].append(entry)
+                manifest["stopped"] = str(exc)
+                break
             except Exception as exc:  # noqa: BLE001 — 배치 하나의 실패로 전체를 중단하지 않기 위해 의도적으로 광범위 포착
                 entry["status"] = "failed"
                 entry["detail"] = f"{type(exc).__name__}: {exc}"
@@ -2538,6 +2633,9 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
         json.dump(manifest, f, ensure_ascii=False, indent=2, default=str)
     manifest["manifest_path"] = manifest_path
     print(f"    📄 manifest 저장: {manifest_path} (created_ids={manifest['created_ids']})")
+    if manifest.get("stopped"):
+        print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
+        raise SystemExit(f"검증 저장 중단(격리 확인 실패): {manifest['stopped']}")
     return manifest
 
 
@@ -2552,6 +2650,8 @@ async def main(sample_limit: int | None = None, sample_offset: int = 0, new_only
     print(f"\n📊 수집 완료: {len(jobs)}개")
     save_to_json(jobs, filename=f"jobs_output_{site}.json")
     save_to_supabase(jobs, source=site)
+    if JOB_ERRORS.failed:  # 오류 공고가 있으면 실행 기록을 실패로 남긴다(다른 공고는 이미 저장됨)
+        raise SystemExit(f"오류로 저장 못 한 공고 {len(JOB_ERRORS.failed)}건 — 다음 실행에서 다시 처리")
     print("\n✨ 완료!")
 
 
@@ -2577,6 +2677,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="쉼표구분 URL들을 --verify-write 모드로 실제 저장한다(신규만, active=False/"
              "admin_hidden=True 강제, manifest 파일 생성) — --confirm-write와 --verify-write를 "
              "모두 함께 지정해야 한다. migration 0018 적용 전 3~5건 검증 저장 전용.",
+    )
+    parser.add_argument(
+        "--save-details-to", type=str, default="",
+        help="--dry-run-urls와만: 받은 상세페이지 결과를 이 파일로 남긴다(DB 쓰기 없음). "
+             "GitHub 서버가 --verify-write-details로 검증 저장한다(Lee 2026-11-17 #884 B안, VPS에 DB 열쇠 없음).",
+    )
+    parser.add_argument(
+        "--verify-write-details", type=str, default="",
+        help="--save-details-to 파일을 사이트 접속 없이 검증 저장한다(--verify-write·--confirm-write 필수, 1~10건, "
+             "연락처 있는 공고는 저장 안 함).",
     )
     parser.add_argument(
         "--confirm-write", action="store_true",
@@ -2692,8 +2802,10 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
     # 전체 수집 확인을 다른 실행 모드에 섞어도 승인으로 취급하지 않는다.
     # 여러 대상 모드를 지정했을 때 기존 우선순위로 하나가 조용히 실행되는 것도 차단한다.
     explicit_modes = [
-        args.process_url, args.reprocess_ids, args.verify_write_urls, args.dry_run_urls,
+        args.process_url, args.reprocess_ids, args.verify_write_urls, args.dry_run_urls, args.verify_write_details,
     ]
+    if args.save_details_to and not args.dry_run_urls:
+        raise SystemExit("--save-details-to는 --dry-run-urls와만 쓸 수 있습니다. 중단합니다.")
     if sum(bool(value) for value in explicit_modes) > 1:
         raise SystemExit("실행 모드는 하나만 지정하세요. 중단합니다.")
     if args.confirm_full_crawl and any(explicit_modes):
@@ -2712,7 +2824,9 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
         raise SystemExit(
             "--verify-write는 --confirm-write와 함께 지정해야 합니다(둘 다 있어야 검증 저장이 실행됩니다). 중단합니다."
         )
-    if args.verify_write and not (args.process_url or args.verify_write_urls):
+    if args.verify_write_details and not (args.verify_write and args.confirm_write):
+        raise SystemExit("--verify-write-details는 --verify-write·--confirm-write와 함께 지정해야 합니다. 중단합니다.")
+    if args.verify_write and not (args.process_url or args.verify_write_urls or args.verify_write_details):
         raise SystemExit(
             "--verify-write는 --process-url 또는 --verify-write-urls와 함께 지정해야 합니다. 중단합니다."
         )
@@ -2742,6 +2856,8 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
                 "--verify-write-urls는 실제로 DB에 저장합니다. --confirm-write를 함께 지정하세요. 중단합니다."
             )
         return "verify_write_urls"
+    elif args.verify_write_details:
+        return "verify_write_details"
     elif args.dry_run_urls:
         return "dry_run_urls"
     else:
@@ -2772,9 +2888,13 @@ if __name__ == "__main__":
         urls = [u.strip() for u in args.verify_write_urls.split(",") if u.strip()]
         manifest = asyncio.run(process_urls_verify_write(urls))
         print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
+    elif mode == "verify_write_details":
+        items = load_details_file(args.verify_write_details)
+        manifest = asyncio.run(process_urls_verify_write([i["url"] for i in items], details=items))
+        print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
     elif mode == "dry_run_urls":
         urls = [u.strip() for u in args.dry_run_urls.split(",") if u.strip()]
-        reports = asyncio.run(process_urls_dry_run(urls))
+        reports = asyncio.run(process_urls_dry_run(urls, save_details_to=args.save_details_to))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
     elif mode == "full_crawl":
         asyncio.run(main(sample_limit=args.sample_limit, sample_offset=args.sample_offset, new_only=args.new_only, site=args.site))

@@ -1,16 +1,28 @@
-## 2026-11-14 — 공개 여부 쓰기 정리: OCR 재공개 삭제 + 마감 공고 공개 조회 제외 (#728 R4 4단계, Lee 확정 범위)
-- 요청: Lee 2026-11-14 4단계 수정 범위 확정 — ① OCR 중복 재공개 정리(불일치 보류는 유지) ② 재공개는 검사표만, DB 트리거 보호 유지 ③ keepExisting 죽은 코드·주석 정리 ④ 마감 공고를 공개 조회에서도 제외(관리자 숨김·크론은 그대로) ⑤ 검사 범위·화면 구성 불변.
-- 근거 [직접 확인, 폐기용 PGlite]: OCR의 active=true는 검사 기록이 없거나 옛 내용·미통과면 트리거가 되돌림(kept_hidden_by_trigger), 검사표가 통과시킨 뒤에만 성공 → 실제 공개 판정은 검사표. 내림→OCR ok→검사표 통과로 다시 공개되는 경로도 확인.
-- 변경: ocr-check.mjs 재공개 블록·ocr-compare.mjs canRepublish/OCR_REPUBLISH_FROM·그 시험 삭제(OCR은 내리기만, 정적 시험 추가). jobInspect.ts publishDecision의 죽은 keepExisting 삭제(동작 불변: 실패 시 내림). jobDetailView.isJobOpen 한 곳(마감 당일 열림, 베트남 날짜) → fetchJobsData(목록·검색·지도·상세·SSR·sitemap 공통 입구)와 급구·저장·최근 본 화면의 따로 쓰던 비교를 합침.
-- 지운 것/합친 것: OCR 재공개 블록·canRepublish(공개 조건 사본), keepExisting, 화면 3곳의 UTC 날짜 마감 비교를 isJobOpen 하나로.
-- 보강(GPT 검토 5번): 실제 job-inspect.mjs를 PGlite 소켓 서버에 붙여 돌리는 시험 supabase/tests/ocr_inspect_republish.pglite.test.mjs 추가(OCR 불일치→비공개→검사표 통과→재공개, 관리자 숨김 불변). 기존 occupation-publication-check.yml에 한 줄 연결하고 낡은 단계 이름(OCR republish …)을 현재 동작에 맞게 고침.
-- Codex P1 수정: 마감 걸러내기를 JobsContext 한 곳으로(useTodayVn이 베트남 자정에 구독자를 깨워 열어 둔 화면·오래된 SSR 목록도 다시 거름). 급구(지역별)·저장·최근 본 화면의 따로 쓰던 마감 비교 삭제, fetchJobsData·화면이 filterOpenJobs 하나를 씀. 시험: 자정 경계·열어 둔 채 자정·구독 해제·단일 필터 지점.
-- Codex P1(4ff6fae) 수정: OCR이 공개 공고를 내린 뒤 검사표가 돌기 전에 OCR이 정상으로 돌아오면 hold가 없어 재공개가 끊김 [직접 확인: 실제 job-inspect.mjs + 트리거로 재현]. 원인: 공개 공고를 내리는 문장에서 DB 트리거가 inspect_hold를 지우고, 검사 기록의 '공개' 항목도 통과 상태라 되살릴 근거가 없음. 수정: ocrCheckUpdateSql(hold)가 공개 중이던 공고에만 ocr_check.ocr_hold를 같은 문장에서 남기고, job-inspect.mjs가 이를 hold로 보며 다시 공개되거나 관리자가 숨기면 지움(OCR은 여전히 올리지 않음). tsconfig.tsbuildinfo는 npm run build가 바꾼 생성 파일이라 PR에서 제외(master 그대로).
-- 최종 검증(4단계): 검사표 기록 SQL을 job-inspect-write.mjs 한 곳으로 옮기고 읽을 때의 active·OCR 상태가 지금과 다르면 쓰지 않는 조건 추가 — 검사표가 공고를 읽은 뒤 OCR이 내리면 낡은 판정이 덮어써 재공개하던 동시 실행 틈 [직접 확인: 조건을 빼면 rowCount 1로 재현, 넣으면 0]. 시험에 동시 실행·기존 공개 공고 내용 변경·고용주 신규 공개·소유자 철회 추가.
-- Codex P1 2건(4aaa5bc): ① 검사표가 active=true를 요청해도 DB 공개 게이트가 거부하면 결과는 비공개인데 같은 문장에서 ocr_hold를 지워 원인 수정 뒤 되살릴 근거가 사라짐 [직접 확인: 실제 publish-gate 트리거로 재현, 표지 false] → 지우기를 별도 문장(CLEAR_OCR_HOLD_SQL)으로 옮겨 기록 문장이 돌려준 active가 true일 때만 실행. ② refresh-facebook-existing.yml이 OCR 뒤 검사표 없이 finalize를 불러, OCR이 더는 재공개하지 않는 지금 검사표 대기 공고가 unexplained_unpublished 실패로 셈 [직접 확인: crawler 시험 재현] → blocking_reason에 검사표 표지(inspect_hold·ocr_hold) 있는 비공개를 held:awaiting_inspect로 구분(실패 아님, 표지 없으면 여전히 실패, 공개→비공개 재처리·OCR 불일치 판정은 그대로). OCR 뒤 finalize를 부르는 곳은 이 workflow 하나(job-ocr-check는 OCR 뒤 검사표를 돌림).
-- Codex 후속(0309565): ① 검사표 대기(blocked + held:awaiting_inspect)를 아무도 다시 보지 않아 검사표가 공개해도 영구 blocked [직접 확인: 상태·필터를 지키는 가짜 대기열로 재현] → 상태 전이 책임을 finalize 한 곳에 둠: run()이 running과 함께 awaiting_inspect 보류 항목을 다음 실행에서 다시 판정(공개되면 success, 진짜 실패 사유면 그 사유, 아직 대기면 기록 그대로; 다른 보류는 끝난 상태로 두고 건드리지 않음). 시험의 가짜 DB 둘을 상태 지키는 하나로 합침. ② 기록·OCR 내림 표지 삭제·거부 보정을 한 트랜잭션으로 묶음(첫 UPDATE 행 잠금이 커밋까지 유지 → 그 사이 OCR·관리자·소유자 쓰기는 대기). 삭제 문장의 'active' 조건은 두 번째 안전장치로 시험.
-- Codex P1(c94b10f, finalize 98행): 검사표 대기 항목을 앞 50건만 조회해, 앞쪽이 계속 대기 중이면(갱신 없이 건너뜀) 51번째 이후가 공개돼도 success로 못 감 [직접 확인: limit·range를 실제로 자르는 가짜 DB로 재현]. awaiting_inspect_items()가 페이지 단위로 전부 모은 뒤 처리(처리 중 offset 밀림 방지). 시험: 앞 50건 대기 + 51번째 공개 → success, 앞 50건은 쓰지 않음, 앞쪽 일부 공개·실패도 그 항목만 변경.
-- 남은 문제: 운영 마감 크론 등록·실행 상태와 운영 API 응답은 직접 확인 못 함. DB 변경 없음.
+## 2026-11-17 — 회사 이름 동의 확정: 규칙 + AI 3회 (#872 R, #887 평가 결과, 병합·운영 적용은 Lee 승인 뒤)
+- 요청: 기존 companyReader·ai-classify로 동의 기반 확정. 정확히 같음 → 확정 / 포함 관계 → 짧은 이름이 원문에 따로 쓰이고 ok() 통과 때만 / AI 3회 오류 없이 같은 답 / 아니면 기존 보류·재시도.
+- 변경: companyReader.agreeCompany(판정 한 곳), scripts/ocr/read-company-ai.mjs(#887 v3 지시문 3회), scripts/ocr/ai-ask.mjs(ai-classify의 AI 부르기를 옮겨 둘이 같이 씀), ingest_gateway.confirm_company(원문에서 읽은 회사 이름만 — Facebook). 못 부름=company_ai_unavailable(held, 그 공고만), 확정 못 함=company_unconfirmed(unfound, 7일 뒤 다시·최대 2번). 짧은 이름으로 확정되면 그 이름으로 위치 다시 확인, 보류함은 원문 회사 표시를 남김(중복 PR #892 대조에서 받은 지적 2건).
+- 검증: companyReader.test(정답표 61건 + 동의 13건)·npm test 122/122·tsc·build·read-company-ai.test·test_ingest_gateway 로컬 통과. 3차 평가 AI 답으로 다시 판정: 정답표 중 틀린 이름 확정 0, 보류 6(NETCO·MEDIAMART·JOY THÁI·ILABY·SEN TÀI THU·Jollibee).
+- 남은 문제: 실제 AI 호출은 병합 뒤 Facebook 저장 실행에서만(PR 코드에는 열쇠 없음).
+
+## 2026-11-16 — S4 B단계 3차: 검사 결과를 검사 전용 GitHub 앱으로 (#808, Draft·대표 Approve 전 병합 금지)
+- 원인 [직접 확인]: #848 병합(1d57b24) 뒤 run 43797922253 — 교환 401 "Workflows can't get 'checks' at 'write' from this token exchange". Claude 앱 경로로는 불가 확정.
+- 변경: approval-checks.yml 잡에 environment ops-keys(기존 운영 열쇠 환경, R8) + actions/create-github-app-token@v2(permission-checks: write만), id-token 권한 삭제. approval-checks.mjs는 CHECKS_APP_TOKEN·CHECKS_APP_SLUG로만 올림(없으면 닫힌 실패), 고칠 대상은 이 앱이 만든 검사만.
+- 지운 것: #846·#848의 appToken(permissions) 인자·CHECKS_PERMISSIONS·교환 권한 시험(claude-publish.mjs는 d05ccbd와 똑같이 되돌림).
+- 남은 문제: 대표님 앱·environment 설정 뒤 실제 실행으로 두 검사 생성 확인 → 필수 지정 → 봇 켜기 → 실증 4건.
+
+## 2026-11-16 — S4 B단계 2차: 교환 권한에 contents:read 추가 (#808, Draft·대표 Approve 전 병합 금지)
+- 원인 [직접 확인]: #846 병합(ef9100a) 뒤 run 43783470691 — 교환 401 "Custom permissions must include 'contents' (read or write) for workflow validation". 닫힌 실패 정상(성공 표시 0).
+- 변경: CHECKS_PERMISSIONS = { contents: 'read', checks: 'write' } (쓰기는 checks 하나). 공통 appToken() 기본 요청은 그대로.
+- 남은 문제: checks:write 허용 여부는 병합 뒤 실행으로만 확인. 거절 시 검사 전용 앱 대표 결정.
+
+## 2026-11-16 — S4 B단계: approval-checks만 Checks 쓰기 권한 요청 (#808, Draft·대표 Approve 전 병합 금지)
+- 요청: Lee 11-16 "approval-checks 작업에서만 Checks 쓰기 권한 요청, 공통 appToken 기본 권한·기존 게시 작업 토큰 변경 금지, 거절·실패 시 안전 중단".
+- 원인 [직접 확인]: run 43775353050 — check-runs 생성 403 Resource not accessible by integration. appToken()이 교환 요청 본문 없이 보내 기본 권한(contents·pull_requests·issues 쓰기)만 받음(anthropics/claude-code-action src/github/token.ts DEFAULT_PERMISSIONS·exchangeForAppToken 확인). master 커밋에 Claude 앱 check-suite 있음 → 설치본은 checks 권한 보유로 판단.
+- 변경: appToken(permissions) 선택 인자 — 없으면 예전과 같음(본문 없음), 있으면 {"permissions":{...}} JSON 본문(같은 형식). 응답에 권한 목록이 있고 요청 권한이 빠지면 예외. approval-checks 기본 토큰 함수만 { checks: 'write' } 요청.
+- 수정 파일: scripts/ci/claude-publish.mjs, scripts/ci/approval-checks.mjs, scripts/ci/approval-checks.main.test.mjs
+- 검증: approval-checks.main.test·approval-checks.test·claude-publish.test 로컬 통과. Anthropic이 checks:write를 내주는지는 병합 뒤 실제 실행으로만 확인 가능(교환은 master 워크플로만).
+- 남은 문제: 교환이 checks를 거절하면 검사 전용 GitHub 앱(Checks RW + Metadata R, master 전용 environment 비밀값)이 필요 — 대표 결정.
+
 ## 2026-11-14 — 직업분류 게이트(publication-gate)에서 비밀키 검증 분리 (#728 R4, Draft·승인 전 적용 금지)
 - 원인 [직접 확인]: occupation-publication-check.yml이 PR마다 ai-reader.test.mjs(ANTHROPIC_API_KEY 필요)를 돌림 → 포크 PR에는 Secrets가 없어 키 없음으로 실패(로컬 재현 rc=1). 코드 오류가 아니라 키 경로 설계 문제. publication-gate는 필수 검사 이름(required-checks-pass.jq)이라 포크 PR이 병합 못 함.
 - 변경: ① publication-gate는 비밀키 없는 회귀 시험만(Secret 참조 0). ② 키가 필요한 AI 판독 교정은 새 ai-reader-calibration.yml(push master·주 1회·workflow_dispatch만, pull_request 트리거 없음, 의존성 설치 없음). ③ scripts/ci/ai-reader-guard.mjs가 판독 입력(ai-reader·시험·ocr-compare·정답 포스터)을 바꾼 PR은 그 head 커밋의 workflow_dispatch 교정 성공 실행이 있어야 통과(같은 이름 PR 실행·다른 커밋·실패는 불인정). 입력이 안 바뀐 PR은 통과하되 master 교정 결과를 이 PR의 검증으로 세지 않음. ④ 가드 스크립트를 두 번째 검토 대상 파일 목록에 추가.
