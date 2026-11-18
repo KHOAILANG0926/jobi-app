@@ -667,7 +667,16 @@ _CONTACT_HINT_JS = """() => {
   try {
     const nd = JSON.parse(document.getElementById('__NEXT_DATA__')?.textContent || 'null')
     const d = nd?.props?.initialState?.api?.jobDetailHiddenContact?.data
-    const kind = (v) => v === null || v === undefined || v === '' ? 'empty' : (typeof v === 'object' ? 'obj' : (/\\d{6,}/.test(String(v).replace(/\\D/g, '')) ? 'digits' : typeof v))
+    const kind = (v, depth = 0) => {
+      if (v === null || v === undefined || v === '') return 'empty'
+      if (typeof v === 'object') return depth > 0 ? 'obj' : '{' + Object.entries(v).slice(0, 8).map(([k, x]) => k + ':' + kind(x, 1)).join(';') + '}'
+      const t = String(v)
+      // 값 종류만: 가림(* 또는 x) / 이메일 / 숫자 / 그 밖 — 값 자체는 남기지 않는다
+      if (/[*•]|x{3,}/i.test(t)) return 'masked'
+      if (/^[^\\s@]+@[^\\s@]+\\.[a-z]{2,}$/i.test(t.trim())) return 'email'
+      if (/\\d{6,}/.test(t.replace(/\\D/g, ''))) return 'digits'
+      return typeof v
+    }
     if (d && typeof d === 'object') {
       // 연락처로 보이는 칸만(한 단계 아래 객체 포함) — 전체 칸 목록은 400자에서 잘려 연락처 칸을 못 봤다(run 44225381066)
       const cre = /phone|mobile|tel|contact|email|zalo|hotline|sdt/i
