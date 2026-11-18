@@ -369,6 +369,8 @@ _REVEAL_CASES = {
     "no_button": ('<p>Ứng tuyển ngay</p>' + _FOOTER, "no_button_phone_in_page", ""),
     # 눌러도 번호가 안 나옴
     "nothing": ('<div class=contact><button>Xem số</button></div>' + _FOOTER, "click_no_number", ""),
+    # 버튼 글자가 로그인 유도 → 누르지 않고 로그인 필요
+    "login_button": ('<div class=contact><a>Đăng nhập để xem số</a></div>' + _FOOTER, "login_required", ""),
     # 누르면 연락처 칸이 아니라 다른 칸(광고·추천 공고)에 번호가 뜸 → 쓰지 않음
     "ad_box": ('<div class=contact><button onclick="document.getElementById(\'ad\').innerText=\'Gọi ngay 0912 345 678\'">Xem số</button></div>'
                '<aside id=ad>' + 'Việc làm gợi ý cho bạn. ' * 20 + '</aside>' + _FOOTER, "click_no_number", ""),
