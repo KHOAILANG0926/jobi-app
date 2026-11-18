@@ -5,6 +5,10 @@
 import { execFileSync } from 'node:child_process'
 
 export const REQUIRED_CHECKS = ['checks', 'guard', 'app-screen'] // 브랜치 보호 master 필수 검사(관리자 권한으로 확인한 값과 같아야 함 — PR #R3 본문 근거)
+// S6(#808, S2 설계 5절 43번): 병합 조건 검사(approval-checks.yml) 결과도 병합 시점 기준으로 대조한다 — 출처 앱이 검사 전용 앱일 때만 인정
+// (PR 브랜치 워크플로가 같은 이름으로 만든 검사는 세지 않는다, approval-checks.mjs 머리말).
+export const GATE_CHECKS = ['ai-review', 'approval-gate']
+export const GATE_APP = 'viecganban-checks'
 export const BOT_MERGERS = ['github-actions[bot]']
 export const UNKNOWN = '미확인'
 
@@ -28,8 +32,12 @@ export function aiClaims({ commits = [], prBody = '', branch = '' }) {
 // 회귀 게이트(R3): 이 시각 이후 병합 중 필수 검사 최신 결과가 초록이 아닌 건이 있으면 실패. 기준 = #747(같은 이름 검사 묶음 수정, 2026-11-12T15:32:34Z) 병합 직후 —
 // 그 이전의 4건(#643·#687·#688·#697)은 기록으로만 남기고(이름 묶음 결함 시기), 이후 새로 생기면 즉시 드러나게 한다. 환경변수 SINCE로 바꿀 수 있다.
 export const GATE_SINCE = '2026-11-12T15:33:00Z'
-export function regressions(rows, since = GATE_SINCE) {
-  return rows.filter((r) => !r.error && r.merged_at && Date.parse(r.merged_at) >= Date.parse(since) && r.merged_with_non_green_required.length)
+// 병합 조건 검사 대조는 검사 전용 앱 판정으로 바뀐 뒤(S4 B단계 3차, 2026-11-16)부터 회귀로 센다: 기준 = #855 병합(2026-11-16T12:17:21Z) 직후.
+// 그 이전 3건(#860·#861·#855, 검사 전용 앱 판정 없음)은 기록으로만 남긴다 [직접 확인 2026-11-18: 최근 25건 중 그 3건만]. 환경변수 GATE2_SINCE로 바꿀 수 있다.
+export const MERGE_GATE_SINCE = '2026-11-16T12:18:00Z'
+export function regressions(rows, since = GATE_SINCE, gateSince = MERGE_GATE_SINCE) {
+  return rows.filter((r) => !r.error && r.merged_at && Date.parse(r.merged_at) >= Date.parse(since) &&
+    (r.merged_with_non_green_required.length || (Date.parse(r.merged_at) >= Date.parse(gateSince) && (r.merged_with_non_green_gate ?? []).length)))
 }
 
 /**
@@ -60,6 +68,9 @@ export function provenance({ pr, commits, mergeCommit, checkRuns }) {
   const latest = latestByName(checkRuns, pr.merged_at)
   const required = REQUIRED_CHECKS.map((name) => ({ name, latest: latest.get(name)?.conclusion ?? 'missing' }))
   const notGreen = required.filter((r) => r.latest !== 'success')
+  const gateLatest = latestByName(checkRuns.filter((r) => r.app?.slug === GATE_APP), pr.merged_at)
+  const gate = GATE_CHECKS.map((name) => ({ name, latest: gateLatest.get(name)?.conclusion ?? 'missing' }))
+  const gateNotGreen = gate.filter((r) => r.latest !== 'success')
   const claims = aiClaims({ commits, prBody: pr.body, branch: pr.head?.ref })
   const authors = [...new Set(commits.map((c) => c.authorLogin).filter(Boolean))]
   return {
@@ -77,6 +88,8 @@ export function provenance({ pr, commits, mergeCommit, checkRuns }) {
     ai_corroboration: authors.filter((a) => /^(claude|codex|cursor)(\[bot\])?$/i.test(a)).map((a) => `commit-author-login=${a}`), // 계정 기록과 일치하는 것만
     required_checks_latest: required,
     merged_with_non_green_required: notGreen.length ? notGreen.map((r) => `${r.name}=${r.latest}`) : [],
+    merge_gate_latest: gate, // 검사 전용 앱(viecganban-checks)이 올린 것만
+    merged_with_non_green_gate: gateNotGreen.map((r) => `${r.name}=${r.latest}`),
   }
 }
 
@@ -111,7 +124,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`AI 작업자: 자기신고 ${count((r) => r.ai_worker !== '식별 불가')} · 식별 불가 ${count((r) => r.ai_worker === '식별 불가')} · 계정 기록으로 뒷받침 ${count((r) => r.ai_corroboration.length)}`)
   const bad = ok.filter((r) => r.merged_with_non_green_required.length)
   console.log(`필수 검사가 초록이 아닌데 병합된 건: ${bad.length}${bad.length ? '\n' + bad.map((r) => `- #${r.pr} ${r.title} — ${r.merged_with_non_green_required.join(', ')} (병합 ${r.merged_by}, ${r.merge_path})`).join('\n') : ''}`)
-  const reg = regressions(ok, process.env.SINCE || GATE_SINCE)
+  const badGate = ok.filter((r) => (r.merged_with_non_green_gate ?? []).length)
+  console.log(`병합 조건 검사(검사 전용 앱 ai-review·approval-gate)가 초록이 아닌데 병합된 건: ${badGate.length}${badGate.length ? '\n' + badGate.map((r) => `- #${r.pr} ${r.title} — ${r.merged_with_non_green_gate.join(', ')} (병합 ${r.merged_at})`).join('\n') : ''}`)
+  const reg = regressions(ok, process.env.SINCE || GATE_SINCE, process.env.GATE2_SINCE || MERGE_GATE_SINCE)
   console.log(`\n회귀 게이트(${process.env.SINCE || GATE_SINCE} 이후 병합): ${reg.length ? '실패 — ' + reg.map((r) => '#' + r.pr).join(', ') : '통과(필수 검사가 초록이 아닌 병합 없음)'}`)
   const failedRows = rows.filter((r) => r.error)
   if (failedRows.length) console.log(`수집 실패 ${failedRows.length}건(미확인): ${failedRows.map((r) => '#' + r.pr).join(', ')}`)

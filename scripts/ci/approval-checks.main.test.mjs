@@ -10,7 +10,7 @@ const claudeOk = { user: { login: 'claude[bot]' }, body: `<!-- claude-fallback-r
 const leeOk = { user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: sha, submitted_at: later }
 const pr = (number, extra = {}) => ({ number, draft: false, state: 'open', base: { ref: 'master', sha: 'b'.repeat(40) }, head: { sha, repo: { full_name: repo } }, user: { login: 'viecganban-bot' }, labels: [], body, ...extra })
 
-function world({ prs, reviews, comments, existing = {}, failFiles = false, gate = null }) {
+function world({ prs, reviews, comments, existing = {}, failFiles = false, gate = null, issues = [], files = null }) {
   const writes = [], runs = { ...existing }
   const res = (data, status = 200) => ({ ok: status < 400, status, json: async () => data, text: async () => (typeof data === 'string' ? data : JSON.stringify(data)) })
   globalThis.fetch = async (url, init = {}) => {
@@ -18,7 +18,8 @@ function world({ prs, reviews, comments, existing = {}, failFiles = false, gate 
     if (method === 'GET') {
       let m
       if (/^repos\/[^/]+\/[^/]+\/pulls\?/.test(path)) return res(path.includes('page=1') ? prs : [])
-      if ((m = path.match(/pulls\/(\d+)\/files/))) return failFiles ? res({ message: 'unavailable' }, 503) : res(path.includes('page=1') ? [{ filename: '.github/workflows/x.yml', status: 'modified', patch: '@@\n+x' }] : [])
+      if (/^repos\/[^/]+\/[^/]+\/issues\?state=open/.test(path)) return res(path.includes('page=1') ? issues : [])
+      if ((m = path.match(/pulls\/(\d+)\/files/))) return failFiles ? res({ message: 'unavailable' }, 503) : res(path.includes('page=1') ? (files ?? [{ filename: '.github/workflows/x.yml', status: 'modified', patch: '@@\n+x' }]) : [])
       if ((m = path.match(/pulls\/(\d+)\/reviews/))) return res(path.includes('page=1') ? (reviews[m[1]] ?? []) : [])
       if (/pulls\/\d+\/comments/.test(path)) return res([])
       if ((m = path.match(/issues\/(\d+)\/comments/))) {
@@ -140,3 +141,24 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
   assert.ok(!w.writes.some((x) => x.state === 'success'), '성공 표시가 하나도 올라가지 않음')
 }
 console.log('approval-checks main 재현 시험 통과(같은 SHA PR 오염 차단·수집 실패 시 옛 성공 무효)')
+
+// S6 운영 배포 잠금: deploy-verify가 연 '운영 배포 검증 실패' 이슈가 있으면 일반 PR도 Lee 승인 필요(자동 병합 잠금)
+{
+  const normal = [{ filename: 'src/a.ts', status: 'modified', patch: '@@\n+x' }]
+  const lockIssue = { number: 77, state: 'open', title: '운영 배포 검증 실패: abc1234', user: { login: 'github-actions[bot]' } }
+  const w0 = world({ prs: [pr(5, { body: '' })], reviews: { 5: [] }, comments: { 5: [claudeOk] }, files: normal })
+  await main(['--repo', repo, '--pr', '5'], opts)
+  assert.equal(last(w0.writes, 'approval-gate').state, 'success', '잠금 이슈 없으면 일반 PR 통과(기존 그대로)')
+  const w1 = world({ prs: [pr(5, { body: '' })], reviews: { 5: [] }, comments: { 5: [claudeOk] }, files: normal, issues: [lockIssue] })
+  await main(['--repo', repo, '--pr', '5'], opts)
+  assert.equal(last(w1.writes, 'approval-gate').state, 'action_required', '잠금 중 일반 PR은 자동 병합 안 됨')
+  assert.match(last(w1.writes, 'approval-gate').summary, /#77\(abc1234\).*잠금/)
+  const w2 = world({ prs: [pr(5, { body: '' })], reviews: { 5: [leeOk] }, comments: { 5: [claudeOk] }, files: normal, issues: [lockIssue] })
+  await main(['--repo', repo, '--pr', '5'], opts)
+  assert.equal(last(w2.writes, 'approval-gate').state, 'success', '잠금 중이어도 Lee 승인(최신 커밋)한 복구 PR은 통과')
+  const fakes = [{ ...lockIssue, user: { login: 'someone' } }, { ...lockIssue, state: 'closed' }, { ...lockIssue, pull_request: {} }, { ...lockIssue, title: '운영 배포 검증 실패 아님' }]
+  const w3 = world({ prs: [pr(5, { body: '' })], reviews: { 5: [] }, comments: { 5: [claudeOk] }, files: normal, issues: fakes })
+  await main(['--repo', repo, '--pr', '5'], opts)
+  assert.equal(last(w3.writes, 'approval-gate').state, 'success', '다른 사람이 연 같은 제목·닫힌 이슈·PR·다른 제목은 잠금 아님')
+}
+console.log('approval-checks main: 운영 배포 잠금 시험 통과')
