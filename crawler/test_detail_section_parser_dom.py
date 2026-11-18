@@ -445,7 +445,7 @@ def test_phone_button_drawn_after_scroll_is_clicked():
 
     html = ('<div style="height:3000px">Mô tả</div><div id="box"></div><footer>Hotline 0901234567</footer><script>'
             'window.addEventListener("scroll",()=>{const b=document.getElementById("box");if(b.dataset.on)return;b.dataset.on=1;'
-            'b.innerHTML=\'<span>Liên hệ: </span><button id="x">Xem số điện thoại</button>\';'
+            'const sp=document.createElement("span");sp.textContent="Liên hệ: ";const bt=document.createElement("button");bt.id="x";bt.textContent="Xem số điện thoại";b.append(sp,bt);'
             'document.getElementById("x").onclick=()=>{b.querySelector("span").textContent="Liên hệ: 0987 654 321"}})</script>')
 
     async def run():
