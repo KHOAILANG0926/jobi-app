@@ -188,6 +188,8 @@ class ScheduledCallerTests(unittest.TestCase):
         steps = save.split("\n      - ")
         self.assertEqual([st for st in steps if "secrets.SUPABASE_SERVICE_ROLE_KEY" in st and "--verify-write --confirm-write --verify-write-details" in st].__len__(), 1)
         self.assertEqual(sum("secrets." in st for st in steps), 1)  # 열쇠는 저장 단계 하나에만
+        # #872 publish_one: 같은 저장 단계 안에서만 1건 일반 등록(새 잡·새 열쇠 없음)
+        self.assertEqual([st for st in steps if "--publish-one --confirm-write --verify-write-details" in st and "secrets.SUPABASE_SERVICE_ROLE_KEY" in st].__len__(), 1)
         self.assertNotIn("playwright install", save)  # 사이트 접속 없음
         self.assertIn('verify-artifact-run.sh "$RUN_ID" .github/workflows/crawl.yml workflow_dispatch', save)
 

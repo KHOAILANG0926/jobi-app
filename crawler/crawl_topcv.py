@@ -2271,7 +2271,7 @@ def match_existing_row(job: dict, by_source_url: dict, by_key: dict) -> dict | N
     return by_key.get(canonical_job_key(job.get("title", ""), job.get("company", "")))
 
 
-def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_write: bool = False) -> dict:
+def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_write: bool = False, new_only: bool = False) -> dict:
     """이 크롤러가 local_jobs/job_work_locations에 쓰는 단 하나의 저장 경로.
     카테고리 전체 크롤이 새로 발견한 공고, 재크롤에서 다시 만난 이미 아는
     공고, --process-url/--reprocess-ids로 수동 지정된 단건 재처리 —
@@ -2299,7 +2299,7 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     _require_write_enabled()
     existing = match_existing_row(job, by_source_url, by_key)
 
-    if verify_write and existing is not None:
+    if (verify_write or new_only) and existing is not None:
         raise VerifyWriteExistingMatchError(
             f"--verify-write: source_url={job.get('source_url')!r} (또는 같은 canonical key)이 "
             f"이미 id={existing['id']}로 존재한다 — 검증 저장은 신규 공고만 허용하므로 저장하지 않고 중단한다."
@@ -2680,7 +2680,7 @@ def load_details_file(path: str) -> list[dict]:
     return items
 
 
-async def process_urls_verify_write(urls: list[str], details: list[dict] | None = None) -> dict:
+async def process_urls_verify_write(urls: list[str], details: list[dict] | None = None, publish: bool = False) -> dict:
     """--verify-write-urls: migration 0018 적용 전 검증용 3~5건 실제 저장
     전용(2026-09-04 사용자 지시, "운영 적용 준비"). 여러 URL을 순차로
     upsert_job_record(..., verify_write=True)로 저장하고, 성공/스킵/실패
@@ -2696,8 +2696,12 @@ async def process_urls_verify_write(urls: list[str], details: list[dict] | None 
     이 경우도 "failed"가 아니라 "skipped_existing"으로 명확히 구분해
     기록한다."""
     by_source_url, by_key = load_existing_lookup_maps()
+    # publish=True(--publish-one, Lee 2026-11-18 #872): 같은 파일·같은 처리로 공고 1건을 숨김 없이 일반 등록한다 —
+    # 등록 입구(ingest_job)의 위치 확인·회사 이름·직업분류·중복 판정과 DB 공개 판정을 그대로 탄다. 기존 공고는 건드리지 않는다(새 공고만).
+    if publish and len(urls) != 1:
+        raise SystemExit(f"--publish-one은 공고 1건만 — 받은 {len(urls)}건. 중단합니다.")
     manifest = {
-        "mode": "verify_write",
+        "mode": "publish_one" if publish else "verify_write",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "entries": [],
     }
@@ -2716,7 +2720,8 @@ async def process_urls_verify_write(urls: list[str], details: list[dict] | None 
                     entry["detail"] = job.get("_skip_reason")
                 else:
                     with enable_writes():
-                        result = upsert_job_record(job, by_source_url, by_key, verify_write=True)
+                        result = (upsert_job_record(job, by_source_url, by_key, verify_write=False, new_only=True) if publish
+                                  else upsert_job_record(job, by_source_url, by_key, verify_write=True))
                     if result.get("action") == "rule_rejected":
                         entry["status"] = "rule_rejected"
                         entry["detail"] = result.get("rule")
@@ -2811,6 +2816,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--verify-write-details", type=str, default="",
         help="--save-details-to 파일을 사이트 접속 없이 검증 저장한다(--verify-write·--confirm-write 필수, 1~10건, "
              "연락처 있는 공고는 저장 안 함).",
+    )
+    parser.add_argument(
+        "--publish-one", action="store_true",
+        help="--verify-write-details 파일의 공고 1건을 숨김 없이 일반 등록(등록 입구·DB 공개 판정 그대로, 새 공고만). "
+             "--confirm-write 필수, --verify-write와 함께 쓰지 않는다(Lee 승인 뒤 crawl.yml publish_one으로만, #872).",
     )
     parser.add_argument(
         "--confirm-write", action="store_true",
@@ -2948,7 +2958,9 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
         raise SystemExit(
             "--verify-write는 --confirm-write와 함께 지정해야 합니다(둘 다 있어야 검증 저장이 실행됩니다). 중단합니다."
         )
-    if args.verify_write_details and not (args.verify_write and args.confirm_write):
+    if args.publish_one and not (args.verify_write_details and args.confirm_write) or (args.publish_one and args.verify_write):
+        raise SystemExit("--publish-one은 --verify-write-details·--confirm-write와만(--verify-write 없이) 지정합니다. 중단합니다.")
+    if args.verify_write_details and not args.publish_one and not (args.verify_write and args.confirm_write):
         raise SystemExit("--verify-write-details는 --verify-write·--confirm-write와 함께 지정해야 합니다. 중단합니다.")
     if args.verify_write and not (args.process_url or args.verify_write_urls or args.verify_write_details):
         raise SystemExit(
@@ -2981,7 +2993,7 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
             )
         return "verify_write_urls"
     elif args.verify_write_details:
-        return "verify_write_details"
+        return "publish_one_details" if args.publish_one else "verify_write_details"
     elif args.dry_run_urls:
         return "dry_run_urls"
     else:
@@ -3012,9 +3024,9 @@ if __name__ == "__main__":
         urls = [u.strip() for u in args.verify_write_urls.split(",") if u.strip()]
         manifest = asyncio.run(process_urls_verify_write(urls))
         print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
-    elif mode == "verify_write_details":
+    elif mode in ("verify_write_details", "publish_one_details"):
         items = load_details_file(args.verify_write_details)
-        manifest = asyncio.run(process_urls_verify_write([i["url"] for i in items], details=items))
+        manifest = asyncio.run(process_urls_verify_write([i["url"] for i in items], details=items, publish=mode == "publish_one_details"))
         print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
     elif mode == "dry_run_urls":
         urls = [u.strip() for u in args.dry_run_urls.split(",") if u.strip()]
