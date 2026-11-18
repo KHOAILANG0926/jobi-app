@@ -66,6 +66,9 @@ assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "ocr_hold": True, "
 stale_ocr_fail = {"publishable": False, "items": [{"key": "ocr", "ok": False}, {"key": "public", "ok": False}]}   # OCR 복구 전에 적힌 옛 검사 기록
 assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "ocr_hold": True, "inspect": stale_ocr_fail}), PRIVATE_BEFORE) == ("held", "awaiting_inspect")   # Codex P1: 낡은 OCR 실패는 대기로
 assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "inspect": stale_ocr_fail}), PRIVATE_BEFORE) == ("held", "inspect_failed:ocr")   # 검토관: 낡은 OCR 실패 + 표지 없음 = 되살릴 곳 없음 → 예전처럼 보류(실패 아님)
+# Codex P1(#895): 표지는 없어도 검사표가 '검사 실패로 비공개 보류'로 내린 공고는 검사표가 되살린다(job-inspect.mjs hold 셋째 조건) → 대기
+stale_ocr_fail_held = {"publishable": False, "items": [{"key": "ocr", "ok": False}, {"key": "public", "ok": False, "detail": "검사 실패로 비공개 보류"}]}
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "inspect": stale_ocr_fail_held}), PRIVATE_BEFORE) == ("held", "awaiting_inspect")
 assert v(job(active=False, images=IMGS, ocr_check={"status": "mismatch", "inspect": stale_ocr_fail}), PRIVATE_BEFORE) == ("held", "r7_mismatch")         # OCR이 아직 불일치면 그대로 실패 사유
 assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "ocr_hold": True, "inspect": {"publishable": False, "items": [{"key": "ocr", "ok": False}, {"key": "pin", "ok": False}]}}), PRIVATE_BEFORE) == ("held", "inspect_failed:ocr,pin")
 # 6) 공개에서 비공개로 바뀜 — 사유가 있어도 재처리가 내린 것이면 실패

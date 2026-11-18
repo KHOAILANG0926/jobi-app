@@ -58,15 +58,24 @@ def blocking_reason(current, today=None):
         # 옛 검사표가 'OCR 항목'만 실패로 적었는데 지금 OCR은 정상(ok + 해시 일치)이면 그 기록은 낡은 것이다(Codex P1) —
         # 최종 실패로 확정하지 않고 아래 검사표 대기로 넘겨, 검사표가 다시 판정하게 한다.
         ocr_now_ok = oc.get("status") == "ok" and oc.get("images_hash") == images_hash(current.get("images"))
-        # 단, 검사표가 되살릴 표지(inspect_hold·ocr_hold)가 있을 때만 — 표지가 없으면 대기해도 되살릴 곳이 없으니 기존대로 inspect_failed 보류.
-        revivable = oc.get("inspect_hold") is True or oc.get("ocr_hold") is True
-        if not (failing == ["ocr"] and ocr_now_ok and revivable):
+        # 단, 검사표가 되살릴 공고일 때만(revivable) — 아니면 대기해도 되살릴 곳이 없으니 기존대로 inspect_failed 보류.
+        if not (failing == ["ocr"] and ocr_now_ok and revivable(oc)):
             return "inspect_failed:" + ",".join(str(k) for k in failing[:6])
     # 검사표 대기(#728 R4): OCR은 다시 공개하지 않고 검사표(job-ocr-check가 30분마다)만 공개한다. 이 workflow는 OCR 뒤 검사표를 돌리지 않으므로,
     # 검사표가 되살릴 공고(inspect_hold: DB가 공개 시작을 막아 건 표지 / ocr_hold: OCR이 공개 중이던 공고를 내린 표지)가 아직 비공개인 것은 실패가 아니라 대기다.
-    if oc.get("inspect_hold") is True or oc.get("ocr_hold") is True:
+    if revivable(oc):
         return AWAITING_INSPECT
     return None
+
+
+def revivable(oc):
+    """검사표(scripts/ops/job-inspect.mjs의 hold)가 다시 공개할 수 있는 비공개 공고인가 — 그 SQL의 세 조건을 그대로 읽는다:
+    inspect_hold(DB가 공개 시작을 막은 표지) / ocr_hold(OCR이 공개 중이던 공고를 내린 표지) / 검사 기록 'public' 항목이 '검사 실패로 비공개 보류'.
+    셋째가 빠지면 표지 없이 검사표가 되살리는 공고가 보류로 굳는다(#895 Codex P1)."""
+    if oc.get("inspect_hold") is True or oc.get("ocr_hold") is True:
+        return True
+    items = (oc.get("inspect") or {}).get("items") or []
+    return any(i.get("key") == "public" and i.get("detail") == "검사 실패로 비공개 보류" for i in items if isinstance(i, dict))
 
 
 def verdict(current, item_result, pin_problems, today=None):
