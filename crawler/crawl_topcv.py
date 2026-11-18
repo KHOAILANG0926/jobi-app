@@ -693,6 +693,82 @@ _CONTACT_HINT_JS = """() => {
 }"""
 
 
+# 사람이 누르는 "전화번호 보기" 버튼을 못 찾는 원인 확인용(Lee 2026-11-18 15:33) — 시험 수집에서만.
+# 누를 수 있는 요소(button·a·role=button·손 모양 커서) 중 연락·지원 낱말이 든 글자만(숫자는 #), vieclam24h 자체 Hotline 줄은 뺌.
+_PHONE_UI_SCAN_JS = """() => {
+  const re = /(liên hệ|điện thoại|sđt|số đt|xem số|hiện số|gọi|zalo|ứng tuyển|nộp hồ sơ|đăng nhập|nhà tuyển dụng|call|phone)/i
+  const out = []
+  let tel = 0
+  for (const el of document.querySelectorAll('button, a, [role=button], div, span')) {
+    const tag = el.tagName.toLowerCase()
+    if ((el.getAttribute('href') || '').startsWith('tel:')) tel++
+    const clickable = tag === 'button' || tag === 'a' || el.getAttribute('role') === 'button' || getComputedStyle(el).cursor === 'pointer'
+    if (!clickable) continue
+    const t = (el.innerText || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim().replace(/\\s+/g, ' ')
+    if (!t || t.length > 60 || !re.test(t) || /hotline/i.test(t)) continue
+    const r = el.getBoundingClientRect()
+    const m = tag + (r.width > 0 && r.height > 0 ? '' : '(숨김)') + ':' + t.replace(/\\d/g, '#')
+    if (!out.includes(m)) out.push(m)
+    if (out.length >= 15) break
+  }
+  return 'tel링크 ' + tel + ' | ' + out.join(' | ').slice(0, 700)
+}"""
+
+
+async def _phone_ui_scan(page) -> str:
+    try:
+        return str(await page.evaluate(_PHONE_UI_SCAN_JS))
+    except Exception as exc:  # noqa: BLE001
+        return f"scan_error:{type(exc).__name__}"
+
+
+async def _scroll_through(page) -> None:
+    """늦게 그려지는 칸(화면 아래 연락처 등)을 그리게 아래까지 천천히 내렸다가 위로."""
+    try:
+        for _ in range(8):
+            await page.mouse.wheel(0, 900)
+            await page.wait_for_timeout(300)
+        await page.wait_for_timeout(1500)
+        await page.evaluate("window.scrollTo(0, 0)")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+_MOBILE_PROBE_LIMIT = 2  # 시험 수집 1회에 모바일 화면 대조는 앞 2건만
+
+
+async def probe_phone_button_views(page, url: str) -> dict:
+    """PC에서 버튼을 못 찾았을 때: ① 아래까지 내린 뒤 PC 다시 ② 모바일 화면(390px) — 버튼 위치·글자 대조. 번호는 출력하지 않는다."""
+    global _MOBILE_PROBE_LIMIT
+    await _scroll_through(page)
+    again = await reveal_employer_phone(page)
+    print(f"    📞 [PC 아래까지 내린 뒤] 버튼: {again['phoneProbe']}" + (f" ('{again['phoneButtonText']}')" if again.get("phoneButtonText") else ""))
+    print(f"    📞 [PC] 누를 수 있는 연락 요소: {await _phone_ui_scan(page)}")
+    if _MOBILE_PROBE_LIMIT <= 0:
+        return again
+    _MOBILE_PROBE_LIMIT -= 1
+    ctx = None
+    try:
+        ctx = await page.context.browser.new_context(
+            viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True, locale="vi-VN",  # browser_page()와 같은 언어·stealth
+            user_agent="Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
+        mpage = await ctx.new_page()
+        await stealth_async(mpage)
+        await mpage.goto(url, wait_until="domcontentloaded", timeout=20000)
+        await mpage.wait_for_timeout(2000)
+        await _scroll_through(mpage)
+        m = await reveal_employer_phone(mpage)
+        print(f"    📞 [모바일] 버튼: {m['phoneProbe']}" + (f" ('{m['phoneButtonText']}')" if m.get("phoneButtonText") else ""))
+        print(f"    📞 [모바일] 누를 수 있는 연락 요소: {await _phone_ui_scan(mpage)}")
+        return m if m.get("detailPhone") else again
+    except Exception as exc:  # noqa: BLE001
+        print(f"    📞 [모바일] 확인 실패: {type(exc).__name__}")
+        return again
+    finally:
+        if ctx:
+            await ctx.close()
+
+
 async def _contact_hint(page) -> str:
     try:
         return str(await page.evaluate(_CONTACT_HINT_JS))
@@ -1130,9 +1206,12 @@ async def fetch_job_detail(page, url: str) -> dict:
         if supabase is None:
             result.update(await reveal_employer_phone(page))
             print(f"    📞 연락처 버튼: {result['phoneProbe']}" + (f" ('{result['phoneButtonText']}')" if result.get("phoneButtonText") else ""))
+            if result["phoneProbe"].startswith("no_button"):
+                later = await probe_phone_button_views(page, url)
+                if later and later.get("detailPhone"):
+                    result.update({k: later[k] for k in ("detailPhone", "phoneProbe", "phoneButtonText")})
             if result.get("phoneHint"):
                 print(f"    📞 연락처 단서(숫자 가림): {result['phoneHint']}")
-            # 화면에 번호가 없으면 같은 페이지 자료(jobDetailHiddenContact.contact_phone)의 번호 — 휴대폰 읽기는 같은 extract_phones
             if not result.get("detailPhone"):
                 # 고용주가 공고 본문(상세 칸)에 직접 적은 번호만 쓴다 — 공개된 글이라 Facebook 원문 번호와 같은 성격(Lee 2026-11-18 최종 지시).
                 # 페이지 자료(jobDetailHiddenContact)의 번호는 화면에서 숨긴 담당자 연락처라 쓰지 않고 있음/없음만 기록한다

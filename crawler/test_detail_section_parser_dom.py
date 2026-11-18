@@ -437,6 +437,33 @@ def test_fetch_job_detail_uses_only_phone_written_in_job_body():
     asyncio.run(run())
 
 
+def test_phone_button_drawn_after_scroll_is_clicked():
+    """Lee 2026-11-18 15:33: 버튼이 아래로 내려야 그려지는 화면 — 내린 뒤 다시 찾아 누르고, 눌러서 보인 번호만 읽는다."""
+    import asyncio
+    from playwright.async_api import async_playwright
+    import crawl_topcv as c
+
+    html = ('<div style="height:3000px">Mô tả</div><div id="box"></div><footer>Hotline 0901234567</footer><script>'
+            'window.addEventListener("scroll",()=>{const b=document.getElementById("box");if(b.dataset.on)return;b.dataset.on=1;'
+            'const sp=document.createElement("span");sp.textContent="Liên hệ: ";const bt=document.createElement("button");bt.id="x";bt.textContent="Xem số điện thoại";b.append(sp,bt);'
+            'document.getElementById("x").onclick=()=>{b.querySelector("span").textContent="Liên hệ: 0987 654 321"}})</script>')
+
+    async def run():
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            try:
+                page = await browser.new_page()
+                await page.set_content(html)
+                first = await c.reveal_employer_phone(page)
+                assert first["phoneProbe"].startswith("no_button"), first
+                c._MOBILE_PROBE_LIMIT = 0  # 모바일 대조는 실제 주소가 필요 — 여기선 PC 내린 뒤만
+                got = await c.probe_phone_button_views(page, "about:blank")
+                assert got["phoneProbe"] == "revealed" and got["detailPhone"] == "0987654321", got
+            finally:
+                await browser.close()
+    asyncio.run(run())
+
+
 def main() -> int:
     tests = [
         test_p_ul_p_mixed_preserves_all_sentences_in_dom_order,
@@ -461,6 +488,9 @@ def main() -> int:
     test_fetch_job_detail_uses_only_phone_written_in_job_body()
     print("✅ test_fetch_job_detail_uses_only_phone_written_in_job_body")
     tests.append(test_fetch_job_detail_uses_only_phone_written_in_job_body)
+    test_phone_button_drawn_after_scroll_is_clicked()
+    print("✅ test_phone_button_drawn_after_scroll_is_clicked")
+    tests.append(test_phone_button_drawn_after_scroll_is_clicked)
     print(f"\n결과: {len(tests)}/{len(tests)} real DOM section parser tests passed")
     return 0
 
