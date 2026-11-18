@@ -1,43 +1,17 @@
-name: Offline crawler CLI regression
+name: Crawler install check (real packages)
 
 on:
   pull_request:
     paths:
       - 'crawler/**'
-      - 'scripts/ocr/read-company-ai*.mjs'
-      - 'scripts/ocr/ai-ask.mjs'
       - '.github/workflows/crawl.yml'
       - '.github/workflows/crawler-cli-tests.yml'
-      - 'scripts/ops/vps-crawl-schedule-diag.py'
-      - 'scripts/ops/test_vps_crawl_schedule_diag.py'
-      - '.github/workflows/vps-diag.yml'
 
 permissions:
   contents: read
 
 jobs:
-  offline-cli:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      # 회사 이름 AI 확인 실행기(#872 R): 가짜 AI 답으로 3회 동의·오류 처리, 열쇠 없으면 종료 코드 1(네트워크·열쇠 없음)
-      - run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/read-company-ai.test.mjs
-      # Standard library only. Never import crawler runtime or provide secrets.
-      - run: python -I crawler/test_scheduled_cli.py
-      - run: python -I crawler/test_ingest_gateway.py
-      - run: python -I crawler/test_korea_fb_survey.py
-      - run: python -I crawler/test_finalize_reprocess_queue.py
-      # 공고 하나의 오류가 전체 수집을 멈추지 않는지(#872 ②). 브라우저·DB·네트워크 모듈은 시험 안에서 가짜로 바꿔 넣는다(열쇠 없음).
-      - run: python -I crawler/test_job_error_isolation.py
-      # VPS 수집 예약 진단(vps-diag ④)이 예약 명령 원문·비밀값을 출력하지 않고, 진단 실패와 정상 상태를 구분하는지(#877)
-      - run: python -I scripts/ops/test_vps_crawl_schedule_diag.py
+  # offline-cli 시험은 S7(#808)에서 필수 checks(pr-checks.yml '수집기·공고 정책·재처리 대기열 시험')로 옮김. 여기는 실제 패키지 설치 확인만.
 
   # 재개 전 설치 확인(#872·#876): crawl.yml과 같은 실행 환경(ubuntu-22.04·Python 3.12)·같은 설치 명령으로 실제 설치가 되는지 본다.
   # 2026-08-24~28 crawl.yml 실제 실행 5건이 모두 설치 단계에서 실패(ubuntu-latest + playwright 1.44 → libasound2 없음).

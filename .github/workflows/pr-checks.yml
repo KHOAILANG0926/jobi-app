@@ -122,6 +122,31 @@ jobs:
         run: npx tsc --noEmit
       - name: 테스트
         run: npm test
+      # S7 G21 통합(#808 S2 설계 5절 24·33·60·58): 경로가 맞을 때만 돌던 필수 아닌 시험 워크플로를 필수 checks로 옮긴다.
+      #   crawler-cli-tests(offline-cli)·job-policy-tests·reprocess-queue-ci 그대로. 열쇠·네트워크·DB 없음(표준 라이브러리 Python·순수 JS).
+      #   r7-source-aware-unit(ocr-compare.test)은 publication-gate(occupation-publication-check)가 모든 PR에서 이미 돌려 지움.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 수집기·공고 정책·재처리 대기열 시험 (S7 G21 통합)
+        run: |
+          node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/read-company-ai.test.mjs
+          python -I crawler/test_scheduled_cli.py
+          python -I crawler/test_ingest_gateway.py
+          python -I crawler/test_korea_fb_survey.py
+          python -I crawler/test_finalize_reprocess_queue.py
+          python -I crawler/test_job_error_isolation.py
+          python -I scripts/ops/test_vps_crawl_schedule_diag.py
+          python crawler/test_job_posting_policy.py
+          python crawler/test_job_quality.py
+          python -m py_compile crawler/job_posting_policy.py crawler/job_quality.py crawler/crawl_topcv.py crawler/crawl_facebook.py crawler/reclassify_db.py scripts/research/bn_apply_chotot_rest.py
+          python -m py_compile crawler/reprocess_queue.py crawler/finalize_reprocess_queue.py crawler/refresh_facebook_existing.py
+          node --check src/lib/jobPostingPolicy.mjs
+          node --check register_job.mjs
+          node --check crawler/reclassify_node.mjs
+          node --check scripts/crawl.mjs
+          node --check api/admin.js
+          node --check api/_lib/admin-reprocess.js
       - name: 관리자 지도 공유 링크 보안 단위 시험
         run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs --test scripts/ops/admin-location-review.test.mjs
       - name: Vercel Hobby 함수 수 상한 12개 검사
