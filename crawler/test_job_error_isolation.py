@@ -283,16 +283,19 @@ class TopcvRetryNextRun(unittest.TestCase):
             return ({r["source_url"]: r for r in rows},
                     {topcv.canonical_job_key(r["title"], r["company"]): r for r in rows})
 
-        def ingest(sb, payload, hold=True, job_id=None, update_fields=None):
+        def ingest(sb, payload, hold=True, job_id=None, update_fields=None, work_location_rows=None):
             if job_id is not None:
                 return job_id
             url = payload["source_url"]
             self.inserts.append(url)
             if url in self.fail_insert:
                 raise RuntimeError("500 Internal Server Error")
+            # 새 공고 근무지는 입구가 같은 트랜잭션에서 쓴다(#916) — 근무지 쓰기가 실패하면 공고도 안 들어간다(반쯤 저장 없음)
+            if work_location_rows and url in self.fail_locations:
+                raise RuntimeError("connection reset")
             row = {k: payload.get(k) for k in ("title", "company", "salary", "application_deadline", "description",
                                                  "location", "source_url", "active", "admin_hidden")}
-            row.update(id=len(self.rows) + 1, origin="crawler")
+            row.update(id=len(self.rows) + 1, origin="crawler", _has_locations=bool(work_location_rows))
             self.rows[url] = row
             return row["id"]
 
@@ -328,7 +331,8 @@ class TopcvRetryNextRun(unittest.TestCase):
             "title": f"Công nhân {i}", "company": f"CTY {i}", "location": "Bắc Ninh", "salary": "8 triệu",
             "description": "[source:vieclam24h] x", "application_deadline": "2026-12-31", "active": True,
             "admin_hidden": False, "origin": "crawler", "source_url": f"https://vieclam24h.vn/job-{i}.html",
-            "publish_gate_reason": "ok", "crawler_version": "t", "_resolved_locations": [{"raw_address": "Bắc Ninh"}],
+            "publish_gate_reason": "ok", "crawler_version": "t", "_resolved_locations": [{"raw_address": "Bắc Ninh", "normalized_address": "bac ninh", "lat": None, "lng": None,
+                                     "geocode_status": "failed", "geocode_source": None}],
             "_had_transient_geocode_failure": False,
         } for i in (1, 2, 3)]
 
@@ -347,18 +351,19 @@ class TopcvRetryNextRun(unittest.TestCase):
         self.assertEqual(source_fields.JOB_ERRORS.failed, [])
 
     def test_saved_but_location_write_failed_is_completed_next_run(self):
+        # #916: 새 공고 근무지는 입구와 같은 트랜잭션 — 근무지 쓰기가 실패하면 공고도 들어가지 않고(반쯤 저장 없음) 다음 수집에서 근무지와 함께 등록
         u2 = "https://vieclam24h.vn/job-2.html"
         self.fail_locations = {u2}
         topcv.save_to_supabase(self._jobs())
-        self.assertIn(u2, self.rows)                      # 공고는 들어갔지만
-        self.assertFalse(self.rows[u2].get("_has_locations"))  # 근무지는 못 씀
+        self.assertNotIn(u2, self.rows)
+        self.assertEqual(self.location_writes, [])        # 새 공고는 등록 뒤 근무지를 따로 다시 쓰지 않음
         self.assertEqual(source_fields.JOB_ERRORS.failed_keys(), {u2})
         source_fields.JOB_ERRORS.reset()
         self.fail_locations = set()
         self.inserts.clear()
         topcv.save_to_supabase(self._jobs())
-        self.assertEqual(self.inserts, [])                 # 중복 등록 없음
-        self.assertTrue(self.rows[u2].get("_has_locations"))  # 다음 수집에서 근무지 채움
+        self.assertEqual(self.inserts, [u2])               # 2번만 새로 등록(1·3은 기존 공고)
+        self.assertTrue(self.rows[u2].get("_has_locations"))  # 근무지와 함께
 
 
 class StateDirOverride(unittest.TestCase):

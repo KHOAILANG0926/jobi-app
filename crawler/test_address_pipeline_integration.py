@@ -1142,14 +1142,15 @@ def test_new_job_transient_geocode_failure_still_saves_work_locations() -> None:
             result = crawl_topcv.upsert_job_record(new_job, {}, {})
         assert_equal(result["action"], "inserted", "no existing match -> this must be a fresh insert")
 
+        # 2026-11-18 #916: 새 공고 근무지 줄은 등록 입구(ingest_job)가 같은 트랜잭션에서 쓴다 — 등록 뒤 따로 다시 쓰면
+        # 위치 확인 서버가 찾는 동안 근무지가 바뀌어 그 결과를 버린다(map_r1_complete snapshot 대조, #6255).
         rpc_calls = [c for c in fake.calls if c["kind"] == "rpc"]
+        assert_equal(len(rpc_calls), 0, "새 공고는 등록 뒤 replace_job_work_locations를 따로 부르지 않음(#916)")
         assert_equal(
-            len(rpc_calls), 1,
-            "브랜드 뉴 잡은 지킬 기존 job_work_locations 데이터가 없으므로, transient 오류가 있어도 "
-            "RPC가 반드시 실행돼 raw_address 행이 저장돼야 함(수정 전에는 0건 — 실측 job_id=4572)",
+            len(fake.ingest_calls), 1,
+            "브랜드 뉴 잡은 transient 오류가 있어도 raw_address 행이 저장돼야 함(수정 전에는 0건 — 실측 job_id=4572) — 입구 payload로",
         )
-        rpc_payload = rpc_calls[0]["payload"] or {}
-        rows = rpc_payload.get("p_rows") or []
+        rows = fake.ingest_calls[0].get("work_locations") or []
         assert_equal(len(rows), 1, "1건의 근무지 행이 RPC payload에 그대로 담겨야 함")
         assert_equal(
             rows[0]["raw_address"], "Số 471 Tam Trinh, phường Hoàng Mai (Trụ sở công ty), Hoàng Mai",
