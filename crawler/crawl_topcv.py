@@ -1133,7 +1133,8 @@ async def fetch_job_detail(page, url: str) -> dict:
                 print(f"    📞 연락처 단서(숫자 가림): {result['phoneHint']}")
             # 화면에 번호가 없으면 같은 페이지 자료(jobDetailHiddenContact.contact_phone)의 번호 — 휴대폰 읽기는 같은 extract_phones
             if not result.get("detailPhone"):
-                page_phone = next(iter(extract_phones(" ".join(result.get("detailPageDataPhones") or []))), "")
+                # 목록 칸마다 따로 읽는다(extract_phones는 공백을 지우고 읽어 두 번호를 이어 붙이면 한 덩어리가 됨)
+                page_phone = next((p for item in (result.get("detailPageDataPhones") or []) for p in extract_phones(item)), "")
                 if page_phone:
                     result["detailPhone"], result["phoneProbe"] = page_phone, "page_data"
                 email_ok = bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}", result.get("detailPageDataEmail") or ""))
