@@ -1,3 +1,8 @@
+## 2026-11-18 — vieclam24h 규칙 거부 로그에 이유 표시 (Lee 18:37 "그냥 공개해")
+- 실측 [직접 확인]: publish_one 실행 44296448509 — El Gaucho 공고 location_precheck_failed, 로그에 이유가 없어 원인 확인 불가.
+- 변경: crawl_topcv 규칙 거부 줄에 이유(회사 이름·판정) — Facebook 수집기와 같은 형식. 판정은 그대로.
+- 남은 문제: 이유 확인 → 위치 확인 → publish_one 다시 → 운영 상세 PC·모바일.
+
 ## 2026-11-18 — vieclam24h "전화번호 보기" 버튼 못 찾는 원인 확인(PC 내린 뒤·모바일 화면) (Lee 15:33)
 - 변경: 시험 수집(DB 없음)에서 버튼을 못 찾으면 ① 아래까지 천천히 내린 뒤 같은 버튼 찾기 다시(늦게 그려지는 칸) ② 모바일 화면(390px, 앞 2건) 같은 확인 ③ 누를 수 있는 연락·지원 요소 글자(숫자 가림, vieclam24h Hotline 제외)·tel 링크 수 기록. 누르는 방식은 기존 reveal_employer_phone 그대로(눌러서 새로 보인 번호만). 숨긴 페이지 자료는 쓰지 않음.
 - 검증 [직접 확인 로컬]: test_detail_section_parser_dom 11/11(내린 뒤 그려지는 버튼 클릭 사례 추가)·job_error_isolation·scheduled_cli·ingest_gateway·cli_safety.
