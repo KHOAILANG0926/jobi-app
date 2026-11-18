@@ -55,7 +55,11 @@ def blocking_reason(current, today=None):
     inspect = oc.get("inspect") or {}
     if inspect.get("publishable") is False:
         failing = [i.get("key") for i in inspect.get("items", []) if i.get("ok") is False and i.get("key") != "public"]
-        return "inspect_failed:" + ",".join(str(k) for k in failing[:6])
+        # 옛 검사표가 'OCR 항목'만 실패로 적었는데 지금 OCR은 정상(ok + 해시 일치)이면 그 기록은 낡은 것이다(Codex P1) —
+        # 최종 실패로 확정하지 않고 아래 검사표 대기로 넘겨, 검사표가 다시 판정하게 한다.
+        ocr_now_ok = oc.get("status") == "ok" and oc.get("images_hash") == images_hash(current.get("images"))
+        if not (failing == ["ocr"] and ocr_now_ok):
+            return "inspect_failed:" + ",".join(str(k) for k in failing[:6])
     # 검사표 대기(#728 R4): OCR은 다시 공개하지 않고 검사표(job-ocr-check가 30분마다)만 공개한다. 이 workflow는 OCR 뒤 검사표를 돌리지 않으므로,
     # 검사표가 되살릴 공고(inspect_hold: DB가 공개 시작을 막아 건 표지 / ocr_hold: OCR이 공개 중이던 공고를 내린 표지)가 아직 비공개인 것은 실패가 아니라 대기다.
     if oc.get("inspect_hold") is True or oc.get("ocr_hold") is True:
