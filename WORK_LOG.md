@@ -1,3 +1,8 @@
+## 2026-11-19 — S7 완료: 필수 아닌 시험 필수화·중복 워크플로 정리·71개 처리 기록 (#808, #920)
+- 변경(#920): pr-checks.yml checks에 crawler-cli-tests(offline)·job-policy-tests·reprocess-queue-ci 시험 그대로 옮김, 제거 3개(job-policy-tests·reprocess-queue-ci·r7-source-aware-unit, 참조 0), map-pin-fit-check 손으로만, SAFE_TEST_WORKFLOWS 정리, 라벨 regression.
+- 기록: docs/system-redesign/S7-workflow-results.md(71줄). RULES_CORE 자동 생성은 보류(요약본 문장 훼손 위험).
+- 검증: PR 실행에서 옮긴 시험 단계 success, 독립 검토 0, 병합 뒤 master 배포·운영 화면 검사 통과. 남은 일: S8.
+
 ## 2026-11-18 — 가짜 전화번호 0111111111 공개(#6255) 근본 수정
 - 최초 발생 [직접 확인]: vieclam24h 페이지 자료 jobDetailHiddenContact.contact_phone(로그인 전 자리 채움 값) → #904 detailPageDataPhones → 시험 수집 44246281411(#907 전)의 details.json detailPhone → publish_one 44307094201 build_job_record employer_phone → DB → 상세 "Gọi ngay".
 - 원인: ① 공통 번호 읽기 extract_phones가 0으로 시작하는 10자리 모두를 번호로 봄(01x 없는 번호도) ② 저장 단계가 detailPhone 출처(phoneProbe)를 보지 않아 #907 뒤에도 옛 결과가 숨긴 번호를 넘김.
