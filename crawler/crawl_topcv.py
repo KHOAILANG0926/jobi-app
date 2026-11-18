@@ -2410,6 +2410,7 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
 
     resolved = job.get("_resolved_locations") or []
     had_transient = job.get("_had_transient_geocode_failure", False)
+    rows_written_by_ingest = False
 
     if existing is None:
         insert_payload = {k: v for k, v in job.items() if not k.startswith("_")}
@@ -2426,7 +2427,9 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             # 등록은 DB 입구 하나만(Lee 2026-10-29). 입구는 판정 칸(origin·admin_hidden 등)을 받지 않는다.
             # hold=False: 근무지 여러 곳은 등록 뒤 _replace_job_work_locations로 따로 쓰므로 보류 재처리(그 단계 없음)에 넣지 않는다.
             # 확인 못 한 공고는 예전처럼 거부 → 저장 안 됨 → 다음 수집 때 다시 만남(Codex #619).
-            job_id = ingest_job(supabase, insert_payload, hold=False)
+            # 근무지 줄은 입구에 같이 넘긴다(같은 트랜잭션) — 등록 뒤 따로 다시 쓰지 않는다(#916).
+            job_id = ingest_job(supabase, insert_payload, hold=False, work_location_rows=_work_location_rpc_rows(resolved) if resolved else None)
+            rows_written_by_ingest = bool(resolved)
         except Exception as exc:  # noqa: BLE001 — 규칙 거부만 건너뛰고 나머지 오류는 그대로 올린다
             code = rule_code(exc)
             if not code:
@@ -2516,7 +2519,9 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     # INSERT든 기존 job 재처리든, job_work_locations가 이미 0건이면 지킬
     # 데이터가 없으므로 transient 오류와 무관하게 이번 판정을 저장한다.
     had_existing_work_locations = _has_existing_work_locations(job_id) if job_id else False
-    if job_id and (not had_transient or not had_existing_work_locations):
+    if existing is None and rows_written_by_ingest:
+        pass  # 새 공고: 근무지 줄은 등록 입구가 이미 썼다(#916) — 다시 쓰면 위치 확인 결과를 버린다
+    elif job_id and (not had_transient or not had_existing_work_locations):
         _replace_job_work_locations(job_id, resolved)
         if had_transient:
             print(f"    ⚠️  job_id={job_id}: geocode 일시 오류가 있었지만 기존 근무지 행이 0건(지킬 데이터 없음) — 이번 판정 그대로 저장")

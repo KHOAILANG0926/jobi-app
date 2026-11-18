@@ -426,8 +426,13 @@ def retry_held_once(client) -> dict | None:
     return retry_held(client)
 
 
-def _ingest_new(client, job: dict) -> int:
+def _ingest_new(client, job: dict, work_location_rows: list[dict] | None = None) -> int:
     require_location(job)
+    # 근무지 줄을 등록 입구가 같은 트랜잭션에서 쓰게 한다(입구의 replace_job_work_locations — 위치 쓰기 함수 한 곳).
+    # 등록 뒤에 따로 다시 쓰면 위치 확인 서버가 찾는 동안 근무지가 바뀌어 그 결과를 버린다(map_r1_complete의 snapshot 대조,
+    # #916 #6255 El Gaucho). 위치 확인이 매장 여러 곳 줄을 정했으면(stores) 그쪽이 먼저다.
+    if work_location_rows and not job.get("work_locations"):
+        job["work_locations"] = work_location_rows
     store_facebook_images(client, job)
     return _call_gateway(client, job)
 
@@ -439,7 +444,8 @@ def _call_gateway(client, job: dict, *, job_id: int | None = None, update_fields
     return result.data
 
 
-def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: list[str] | None = None, hold: bool = True) -> int:
+def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: list[str] | None = None, hold: bool = True,
+               work_location_rows: list[dict] | None = None) -> int:
     """입구를 불러 공고 번호를 돌려받는다(새 공고·같은 공고·다시 수집 모두 같은 함수).
     새 공고는 먼저 위치를 찾을 수 있는지 확인하고, 못 찾으면 등록하지 않는다(이미 있는 공고 다시 수집은 그대로).
     지금 확인 못 하면(Google 한도 초과 등) 버리지 않고 보류함에 넣고, 다음 수집 실행 때 먼저 다시 확인한다.
@@ -451,7 +457,7 @@ def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: l
     if job.get("admin_hidden") is not True:  # 검증 저장은 대기열을 건드리지 않는다
         retry_held_once(client)
     try:
-        return _ingest_new(client, job)
+        return _ingest_new(client, job, work_location_rows)
     except LocationDeferred as exc:
         if hold:
             hold_job(client, job, _reason_of(exc), "held")
