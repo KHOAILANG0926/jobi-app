@@ -3,7 +3,7 @@
 판정은 기존 기록을 읽기만 한다(새 게이트를 만들지 않는다): DB 공개 게이트 R7(images가 있으면 ocr_check.status ok + images_hash 일치, job_posting_rules),
 OCR 검사 기록, 검사표 기록(ocr_check.inspect), R8 직업코드, 핀 보호(pin_guard). 결과는 세 가지다.
  - success  : 공개 중이고 기존 게이트 조건을 지킴(이미지 없는 공고는 OCR 결과를 요구하지 않는다)
- - held     : 비공개이고 기존 게이트가 남긴 실제 차단 사유가 있음 — 대기열에는 blocked + 사유로 남기되 실행은 실패시키지 않는다
+ - held     : 비공개이고 기존 게이트가 남긴 실제 차단 사유(또는 검사표 대기 표지)가 있음 — 대기열에는 blocked + 사유로 남기되 실행은 실패시키지 않는다
  - failure  : 사유 불명 비공개, 공개→비공개 변경, 공개인데 OCR 불일치·해시 불일치, 핀 손실, 제목 이상 — 실행을 실패시킨다
 '비공개였다'는 사실만으로 보류로 보지 않는다. 재처리 전 상태(result.before)는 '재처리가 공개를 내렸는가'를 가리는 데만 쓴다.
 """
@@ -32,6 +32,10 @@ def image_count(images):
     return len(images) if isinstance(images, list) else 0
 
 
+# 검사표 대기는 끝난 상태가 아니라 대기다 — run()이 다음 실행에서 다시 판정해 공개되면 success로 바꾼다(대기열 상태 전이의 책임은 이 파일 한 곳).
+AWAITING_INSPECT = "awaiting_inspect"
+
+
 def blocking_reason(current, today=None):
     """비공개 공고가 막힌 실제 사유(기존 게이트·검사 기록에서 읽음). 없으면 None = 사유 불명."""
     today = today or date.today().isoformat()
@@ -51,8 +55,27 @@ def blocking_reason(current, today=None):
     inspect = oc.get("inspect") or {}
     if inspect.get("publishable") is False:
         failing = [i.get("key") for i in inspect.get("items", []) if i.get("ok") is False and i.get("key") != "public"]
-        return "inspect_failed:" + ",".join(str(k) for k in failing[:6])
+        # 옛 검사표가 'OCR 항목'만 실패로 적었는데 지금 OCR은 정상(ok + 해시 일치)이면 그 기록은 낡은 것이다(Codex P1) —
+        # 최종 실패로 확정하지 않고 아래 검사표 대기로 넘겨, 검사표가 다시 판정하게 한다.
+        ocr_now_ok = oc.get("status") == "ok" and oc.get("images_hash") == images_hash(current.get("images"))
+        # 단, 검사표가 되살릴 공고일 때만(revivable) — 아니면 대기해도 되살릴 곳이 없으니 기존대로 inspect_failed 보류.
+        if not (failing == ["ocr"] and ocr_now_ok and revivable(oc)):
+            return "inspect_failed:" + ",".join(str(k) for k in failing[:6])
+    # 검사표 대기(#728 R4): OCR은 다시 공개하지 않고 검사표(job-ocr-check가 30분마다)만 공개한다. 이 workflow는 OCR 뒤 검사표를 돌리지 않으므로,
+    # 검사표가 되살릴 공고(inspect_hold: DB가 공개 시작을 막아 건 표지 / ocr_hold: OCR이 공개 중이던 공고를 내린 표지)가 아직 비공개인 것은 실패가 아니라 대기다.
+    if revivable(oc):
+        return AWAITING_INSPECT
     return None
+
+
+def revivable(oc):
+    """검사표(scripts/ops/job-inspect.mjs의 hold)가 다시 공개할 수 있는 비공개 공고인가 — 그 SQL의 세 조건을 그대로 읽는다:
+    inspect_hold(DB가 공개 시작을 막은 표지) / ocr_hold(OCR이 공개 중이던 공고를 내린 표지) / 검사 기록 'public' 항목이 '검사 실패로 비공개 보류'.
+    셋째가 빠지면 표지 없이 검사표가 되살리는 공고가 보류로 굳는다(#895 Codex P1)."""
+    if oc.get("inspect_hold") is True or oc.get("ocr_hold") is True:
+        return True
+    items = (oc.get("inspect") or {}).get("items") or []
+    return any(i.get("key") == "public" and i.get("detail") == "검사 실패로 비공개 보류" for i in items if isinstance(i, dict))
 
 
 def verdict(current, item_result, pin_problems, today=None):
@@ -81,10 +104,28 @@ def verdict(current, item_result, pin_problems, today=None):
     return "failure", "unexplained_unpublished"
 
 
+PAGE = 50
+
+
+def awaiting_inspect_items(supabase):
+    """검사표 대기 항목 전부(페이지 단위). 대기 중인 행은 다시 써 주지 않으므로 앞 50건만 보면 계속 대기 중인 앞쪽이 뒤쪽 항목을 가린다(Codex P1) —
+    끝까지 모은 뒤에 처리한다(처리하면서 행이 대기에서 빠져 offset이 밀리는 일을 피함)."""
+    rows, start = [], 0
+    while True:
+        page = (supabase.table("job_reprocess_queue").select("id,job_id,result,status")
+                .eq("status", "blocked").eq("error", "held:" + AWAITING_INSPECT).order("started_at").order("id")
+                .range(start, start + PAGE - 1).execute().data or [])
+        rows += page
+        if len(page) < PAGE: return rows
+        start += PAGE
+
+
 def run():
     from crawl_facebook import supabase
-    queue = (supabase.table("job_reprocess_queue").select("id,job_id,result")
+    queue = (supabase.table("job_reprocess_queue").select("id,job_id,result,status")
              .eq("status", "running").order("started_at").limit(50).execute().data or [])
+    # 검사표 대기로 보류된 항목은 다시 본다: 검사표(job-ocr-check)가 공개했으면 success로, 진짜 실패 사유가 생겼으면 그 사유로 바꾼다. 아직 대기면 그대로 둔다.
+    queue += awaiting_inspect_items(supabase)
     failures = 0
     for item in queue:
         current = (supabase.table("local_jobs").select(
@@ -98,6 +139,8 @@ def run():
                 if not any(p.startswith("pin_lost") for p in pin_problems): break
                 time.sleep(15)
         outcome, reason = verdict(current, item.get("result"), pin_problems)
+        if item.get("status") == "blocked" and (outcome, reason) == ("held", AWAITING_INSPECT):
+            continue   # 아직 검사표 대기 — 기록을 바꾸지 않는다
         title = (current.get("title") or "").strip()
         published = current.get("active") is True and current.get("admin_hidden") is False
         result = {**(item.get("result") or {}), "title": title, "title_verified": reason != "title_unverified",
@@ -107,7 +150,7 @@ def run():
         update = {"status": "success" if outcome == "success" else "blocked", "result": result,
                   "finished_at": datetime.now(timezone.utc).isoformat(),
                   "error": None if outcome == "success" else (("held:" if outcome == "held" else "") + reason)}
-        supabase.table("job_reprocess_queue").update(update).eq("id", item["id"]).eq("status", "running").execute()
+        supabase.table("job_reprocess_queue").update(update).eq("id", item["id"]).eq("status", item["status"]).execute()
         print(json.dumps({"job_id": item["job_id"], **update}, ensure_ascii=False))
         if pin_problems: print(f"::error::job {item['job_id']} 다시 처리 뒤 지도 핀 문제: {';'.join(pin_problems)}")
         if outcome == "failure": failures += 1

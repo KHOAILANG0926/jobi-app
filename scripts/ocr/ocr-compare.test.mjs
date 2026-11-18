@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { compareWithOcr, moneyValues, posterSalaryEvidence, canRepublish } from './ocr-compare.mjs'
+import { compareWithOcr, moneyValues, posterSalaryEvidence } from './ocr-compare.mjs'
 
 const ocr = 'CÔNG TY KDA TUYỂN GẤP\nLiên hệ: NGOC ANH DUONG\nSĐT: 0877 880 756\nLương 8.000.000 - 12.000.000\nTuổi 14-50t'
 const base = { employer_phone: '0877880756', contact_zalo: null, salary: '8.000.000 - 12.000.000', contact_name: 'NGOC ANH DUONG', company: 'KDA', age_min: 14, age_max: 50 }
@@ -29,25 +29,9 @@ assert.equal(compareWithOcr({ ...base, origin: 'admin', source_text: typed }, ''
 assert.equal(compareWithOcr({ ...base, origin: 'employer', source_text: 'company: KDA' }, '').status, 'unreadable')   // 전화·급여가 사진에만 있으면 통과시키지 않는다
 // 글자가 있는 포스터는 고용주 공고도 기존 대조 그대로(어긋나면 보류)
 assert.equal(compareWithOcr({ ...base, origin: 'employer', source_text: 'company: KDA', employer_phone: '0877880757' }, ocr).status, 'mismatch')
-const j0 = { occupation_code: '82022', occupation_evidence: 'làm linh kiện tai nghe', source_text: 'CTY KDA tuyển làm linh kiện tai nghe', origin: 'crawler', publish_gate_reason: 'ok', admin_hidden: false, created_at: '2026-10-14T01:00:00Z', application_deadline: null }
-assert.equal(canRepublish(j0, '2026-10-15'), true)
-assert.equal(canRepublish({ ...j0, publish_gate_reason: 'no_verified_coordinate' }, '2026-10-15'), false)
-assert.equal(canRepublish({ ...j0, publish_gate_reason: null }, '2026-10-15'), false)
-assert.equal(canRepublish({ ...j0, admin_hidden: true }, '2026-10-15'), false)
-assert.equal(canRepublish({ ...j0, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)
-assert.equal(canRepublish({ ...j0, application_deadline: '2026-10-01' }, '2026-10-15'), false)
-// admin 공고: publish_gate_reason이 NULL이어도 재공개 가능, 나머지 조건은 동일
-const ja = { ...j0, origin: 'admin', publish_gate_reason: null }
-assert.equal(canRepublish(ja, '2026-10-15'), true)
-assert.equal(canRepublish({ ...ja, admin_hidden: true }, '2026-10-15'), false)
-assert.equal(canRepublish({ ...ja, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)
-assert.equal(canRepublish({ ...ja, application_deadline: '2026-10-01' }, '2026-10-15'), false)
-
-assert.equal(canRepublish({ ...ja, occupation_code: null }), false, 'unclassified admin must not republish');
-assert.equal(canRepublish({ ...ja, occupation_evidence: '' }), false, 'missing duty evidence must not republish');
-assert.equal(canRepublish({ ...ja, source_text: 'Làm trên ĐT + Máy tính' }), false, 'evidence absent from source must not republish');
-// 2026-10-18: 세부 코드 미확정(1단계 코드)만으로 재공개를 막지 않는다 — 실제 #4828 사례
-assert.equal(canRepublish({ ...ja, occupation_code: '8', occupation_evidence: 'Sản xuất dây truyền dữ liệu, dây mạng', source_text: 'CÔNG VIỆC\nSản xuất dây truyền dữ liệu, dây mạng.' }, '2026-10-18'), true, 'level-1 code with source evidence may republish');
+// 공고를 올리는 쓰기는 검사표(job-inspect.mjs) 한 곳 — OCR 단계는 내리기만 한다(#728 R4 4단계).
+import { readFileSync } from 'node:fs'
+for (const f of ['ocr-check.mjs', 'ocr-check-write.mjs']) assert.ok(!/active\s*=\s*true/.test(readFileSync(new URL(f, import.meta.url), 'utf8').replace(/\/\/.*$/gm, '')), `${f}: OCR 단계가 active=true를 쓰면 안 됨`)
 console.log('ocr-compare: all assertions passed')
 
 // Highlands: the post body has employer/contact; the poster may only show wages.
