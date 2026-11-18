@@ -212,6 +212,19 @@ def normalize_whitespace(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
+def extract_phones(text: str) -> list[str]:
+    """원문 글의 휴대폰 번호들(0으로 시작하는 10자리, 띄어쓰기·점·대시 무시), 나온 순서대로.
+    Facebook 수집기에서 옮김(2026-11-18 — vieclam24h 연락처 버튼도 같은 읽기를 쓴다)."""
+    cleaned = re.sub(r"[\s\.\-]", "", text or "")
+    return re.findall(r"(?<!\d)(0[0-9]{9})(?!\d)", cleaned)
+
+
+def extract_phone(text: str) -> str:
+    """첫 휴대폰 번호. 없으면 ""."""
+    phones = extract_phones(text)
+    return phones[0] if phones else ""
+
+
 def ascii_key(value: object) -> str:
     text = normalize_whitespace(value).lower().replace("đ", "d")
     text = unicodedata.normalize("NFD", text)

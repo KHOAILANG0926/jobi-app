@@ -1,6 +1,7 @@
 # HANDOFF — 2026-11-11 새벽 (Claude) · 화면 대조 비공개 공고 열기·확인한 기록 검사
 
 ## 1. 현재 상태
+- 11-18 vieclam24h 전화번호: 상세 공개 버튼 눌러 읽기 PR(로그인 필요하면 멈춤). 실제 화면 확인은 병합 뒤 VPS 시험 수집 1건. 저장·공개·정기 수집 없음.
 - 11-17 #872 R: 회사 이름 동의 확정(규칙 + AI 3회, Facebook 원문 회사만) PR — Lee 승인 전 병합·운영 적용 금지. #886(저장 시험 분리)은 Lee 승인 대기, 운영 DB 저장 시험은 별도 승인 전 실행 안 함. #887은 평가 전용(병합 안 함).
 - 11-16 S4 B단계: Claude 앱 교환은 checks:write 발급 불가(run 43797922253) → 검사 전용 GitHub 앱(viecganban-checks, 기존 ops-keys 환경)으로 바꾸는 Draft PR. 대표님 앱 설정·Approve 뒤 두 검사 생성 확인 → 필수 지정 → 봇 켜기 → 실증 4건.
 - 11-14 직업분류 게이트 비밀키 분리(#728 R4, Draft): publication-gate는 키 없는 시험만, AI 판독 교정은 신뢰된 ai-reader-calibration.yml, 판독 입력 변경 PR은 head 커밋 dispatch 성공 필요(ai-reader-guard). 승인 전 적용 금지.
