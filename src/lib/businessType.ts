@@ -8,7 +8,9 @@
  * 근거(occupation_evidence)는 원문에 있는 업체 이름 글자 그대로(DB 규칙 R8: 근거는 원문 안에 있어야 함). 검색 출처는 ocr_check.business_type에 남긴다.
  * 업무 칸에는 원문에 있는 가게 낱말로 "Nhân viên cửa hàng" 같은 한 줄을 보여 준다(지어낸 업무 없음).
  */
-import { bare } from './jobDetailSections.ts'
+import { bare, detailSections } from './jobDetailSections.ts'
+import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
+import { mentionsIndustrialPark } from './industrialPark.ts'
 
 export const SERVICE_CODE = '5'
 export const SERVICE_NAME = 'Nhân viên dịch vụ và bán hàng'
@@ -23,7 +25,7 @@ const KIND_WORDS: Array<{ kind: BusinessKind; re: RegExp }> = [
 export type BusinessKind = 'fnb' | 'retail' | 'service'
 const kindOf = (texts: string[]): BusinessKind | null => KIND_WORDS.find((k) => texts.some((t) => k.re.test(bare(t))))?.kind ?? null
 
-export interface BusinessJob { company?: string | null; title?: string | null; source_text?: string | null; location?: string | null }
+export interface BusinessJob { company?: string | null; title?: string | null; source_text?: string | null; location?: string | null; lineKinds?: Record<string, { section: '01' | '02' | '03' | '04' | '05' | '06' | '07'; by: 'ai' | 'lee' }> }
 export interface BusinessType { code: string; kind: BusinessKind; evidence: string; duty: string; method: 'name' | 'google' | 'web'; url?: string; quote?: string; place_id?: string; google_types?: string[] }
 
 const nfc = (s: string) => s.normalize('NFC')
@@ -35,6 +37,28 @@ export function companyInSource(job: BusinessJob): string | null {
   if (company.length < 3) return null
   const at = src.toLowerCase().indexOf(company.toLowerCase())
   return at >= 0 ? src.slice(at, at + company.length) : null
+}
+
+/**
+ * 원문에 실제 업무가 적혀 있나(#728 S7, 6043: 점검·수리 업무가 적힌 공고가 쇼핑몰 장소 종류로 서비스·판매가 됨).
+ * 이 규칙은 "업무 미기재"일 때만 쓴다(Lee 2026-11-01·머리말). 판정은 상세 화면이 업무 칸(01)을 정하는 기존 함수 그대로 — 새 낱말표 없음.
+ * 업무가 적혀 있으면 장소 종류·검색 결과로 업종을 추정하지 않는다(직업 분류는 원문 업무로, 못 정하면 미분류·보류).
+ */
+export function dutyStated(job: BusinessJob): boolean {
+  // 저장된 줄 판정(detail_line_kinds: AI·Lee가 정한 칸)을 화면과 같이 읽는다 — 라벨 없는 업무 줄(예: "Làm ngồi linh kiện tai nghe")은 단어 규칙이 못 정하고 AI가 정하므로(R2 #753).
+  const description = buildDescriptionFromSources([{ name: 'source_text', text: String(job.source_text ?? '') }], { lineKinds: job.lineKinds }).description
+  const lines = detailSections(description, {}).sections.find((s) => s.key === '01')?.lines ?? []
+  // 화면은 "Tuyển nhân viên"(모집 문구만 있는 줄)도 01칸에 두지만 그것은 업무가 아니다(Codex #737) — 문구를 뺀 나머지가 있어야 업무.
+  return lines.some((l) => bare(l).replace(/^tuyen (?:gap |dung )?nhan vien\b/, '').replace(/[^a-z0-9]/g, '').length > 0)
+}
+
+/**
+ * 장소 유형(Google)·검색 결과로 가게 업종을 확정해도 되는가(R2 #753): 업무가 적혀 있으면 안 되고(dutyStated), 공단 이름이 글에 있어도 안 된다
+ * (공장 맥락 — 업무 미기재 공장 공고가 쇼핑몰 유형으로 서비스·판매가 되던 구멍). 이때는 아무것도 정하지 않는다(미분류·보류 유지, Lee 2026-10-27).
+ * 업체 이름 낱말로 정하는 경로(businessFromName)는 이 제한을 받지 않는다 — 이름 자체가 가게 근거다.
+ */
+export function indirectBusinessAllowed(job: BusinessJob): boolean {
+  return !dutyStated(job) && !mentionsIndustrialPark(job.location, job.source_text)
 }
 
 /** 업무 칸 한 줄: 원문에 있는 가게 낱말만 쓴다. */
@@ -77,7 +101,7 @@ export function businessFromGoogle(job: BusinessJob, place: { id: string; types:
   if (!place) return null
   const evidence = companyInSource(job)
   const kind = kindFromGoogleTypes(place.primaryType, place.types)
-  if (!evidence || !kind) return null
+  if (!evidence || !kind || !indirectBusinessAllowed(job)) return null
   return { code: SERVICE_CODE, kind, evidence, duty: dutyLine(job.source_text), method: 'google', place_id: place.id,
     google_types: [place.primaryType, ...place.types].filter((x): x is string => !!x).slice(0, 8) }
 }
@@ -104,12 +128,24 @@ export function buildWebPrompt(job: BusinessJob): string {
  * 2) 검색 답 검사: 검색 결과 인용문(citations) 하나에 업체 이름 앞 낱말과 공고 번지·도로가 함께 있어야 같은 매장으로 인정한다.
  * AI의 말만으로는 정하지 않는다.
  */
+// 검색 AI 응답(Messages API, web_search 도구) 본문 → 답(JSON 한 덩어리)과 인용문. 응답이 비었거나 모양이 달라도 던지지 않고 빈 결과를 준다(그러면 guardWebAnswer가 null).
+export function parseWebResponse(body: unknown): { answer: unknown; citations: Array<{ url?: string; cited_text?: string }> } {
+  const content = (body && typeof body === 'object' && Array.isArray((body as { content?: unknown }).content) ? (body as { content: unknown[] }).content : []) as Array<{ type?: string; text?: unknown; citations?: unknown }>
+  const texts = content.filter((b) => b && b.type === 'text')
+  const citations = texts.flatMap((b) => (Array.isArray(b.citations) ? b.citations : []) as Array<{ url?: string; cited_text?: string }>).map((c) => ({ url: c?.url, cited_text: c?.cited_text }))
+  const joined = texts.map((b) => String(b.text ?? '')).join('')
+  const m = joined.match(/\{[^{}]*\}(?![\s\S]*\{)/)
+  let answer: unknown = null
+  try { answer = m ? JSON.parse(m[0]) : null } catch { answer = null }
+  return { answer, citations }
+}
+
 export function guardWebAnswer(job: BusinessJob, answer: unknown, citations: Array<{ url?: string; cited_text?: string }>): BusinessType | null {
   const a = (answer && typeof answer === 'object' ? answer : {}) as { type?: unknown }
   if (!['fnb', 'retail', 'service'].includes(String(a.type))) return null
   const evidence = companyInSource(job)
   const street = streetOf(job.location)
-  if (!evidence || !street) return null
+  if (!evidence || !street || !indirectBusinessAllowed(job)) return null
   const brand = bare(evidence).split(' ')[0]
   // "Số 216 Đường Nguyễn Trãi"도 "216 Nguyễn Trãi"와 같은 주소로 본다(số·đường·phố 낱말만 뺌).
   const addr = (t: string) => bare(t).replace(/\b(?:so|duong|pho)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()

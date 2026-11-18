@@ -10,7 +10,7 @@ import json
 import os
 import re
 import urllib.parse
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, nullcontext
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -34,6 +34,7 @@ from job_quality import (
     classify_work_location_candidate,
     compute_job_updates,
     detect_explicit_urgent_hiring,
+    extract_phones,
     extract_salary_from_text,
     gate_auto_publish,
     guess_province_from_text,
@@ -46,7 +47,7 @@ from job_quality import (
     validate_job_payload,
 )
 from job_posting_policy import crawler_policy_errors
-from source_fields import REJECTIONS, rule_code, source_fields
+from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 from ingest_gateway import ingest_job, retry_held_once
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -83,6 +84,23 @@ class VerifyWriteExistingMatchError(RuntimeError):
     호출됐는데 match_existing_row()가 이미 있는 행을 찾으면, UPDATE 경로로
     넘어가지 않고 즉시 이 예외로 중단한다 — 검증 저장이 실수로 기존(운영)
     공고를 건드릴 가능성 자체를 구조적으로 차단한다."""
+
+
+class VerifyWritePublishableError(RuntimeError):
+    """검증 저장 대상이 DB 공개 차단 규칙에 걸리지 않는 공고(전화·Zalo 숫자 8자리 이상)면 저장하지 않는다
+    — Lee 2026-11-17 #872·#884: 입구(ingest_job)는 admin_hidden을 받지 않아 저장 뒤 따로 숨기는데, 그 숨김이
+    실패하면 연락처 있는 공고는 OCR 재공개 등으로 공개될 수 있다(로컬 PostgreSQL로 확인). 연락처 없는 공고는
+    DB 트리거 trg_zz0_publish_gate가 모든 INSERT·UPDATE에서 비공개로 덮으므로 어떤 실패에도 공개되지 않는다."""
+
+
+class VerifyWriteIsolationError(RuntimeError):
+    """검증 저장 뒤 숨김 UPDATE 실패 또는 DB 다시 읽기에서 숨김·비공개·공개 차단이 아님 — 그 배치를 바로 멈추고 실행을 실패로 끝낸다(#886 검토)."""
+
+
+def db_gate_has_contact(job: dict) -> bool:
+    """DB 공개 차단 규칙(public.job_publish_gate_reason, migration 20261101190000)의 연락처 줄과 같은 기준:
+    전화 또는 Zalo 숫자가 8자리 이상이면 연락처 있음. 검증 저장 대상 고르기에만 쓴다(공개 판정은 DB가 한다)."""
+    return any(len(re.sub(r"\D", "", str(job.get(k) or ""))) >= 8 for k in ("employer_phone", "contact_zalo"))
 
 
 def _require_write_enabled() -> None:
@@ -531,14 +549,30 @@ def guess_category(title: str, company: str = "", description: str = "") -> str:
     return classify(title, company, description)
 
 
+# 차단·확인 화면 제목(Cloudflare 등). 예전에는 "Attention"만 봐서 "Just a moment..." 확인 화면이면 0건을 조용히 넘겼다(#872 시험 run 44026690666).
+_BLOCK_TITLES = ("attention required", "just a moment", "verify you are human", "access denied", "checking your browser")
+
+
+def is_blocked_title(title: str) -> bool:
+    t = (title or "").lower()
+    return any(b in t for b in _BLOCK_TITLES)
+
+
+def listing_failure(pages: int, empty: int) -> str | None:
+    """목록 페이지를 하나 이상 열었는데 전부 0건이면 차단이나 화면 구조 변경 — 조용히 '수집 0개 완료'로 끝내지 않는다."""
+    if pages and empty == pages:
+        return f"목록 페이지 {pages}곳 모두 0건 — 차단 화면 또는 사이트 구조 변경 의심(위 제목 확인)"
+    return None
+
+
 async def crawl_category(page, url: str) -> list[dict]:
     print(f"  📄 로딩: {url}")
     await page.goto(url, wait_until="domcontentloaded", timeout=30000)
     await page.wait_for_timeout(3000)
 
     title_text = await page.title()
-    if "Attention" in title_text:
-        print("  ⛔ Cloudflare 차단")
+    if is_blocked_title(title_text):
+        print(f"  ⛔ 차단 화면(제목: {title_text[:60]!r})")
         return []
 
     # 스크롤로 더 로드
@@ -584,7 +618,7 @@ async def crawl_category(page, url: str) -> list[dict]:
         return items
     }""")
 
-    print(f"    수집: {len(raw_jobs)}개")
+    print(f"    수집: {len(raw_jobs)}개" + ("" if raw_jobs else f" (화면 제목: {title_text[:60]!r})"))
     return raw_jobs
 
 
@@ -597,6 +631,182 @@ _EXPIRED_PAGE_PATTERNS = [
     "đang chờ duyệt", "tin đã đóng", "ngừng tuyển", "đã dừng tuyển",
     "tin tuyển dụng đã kết thúc",
 ]
+
+
+# vieclam24h 공개 연락처(Lee 2026-11-18): 상세 화면의 "xem số/hiện số" 같은 공개 버튼을 한 번 눌러 보이는 번호만 읽는다.
+# 로그인 창·로그인 안내가 뜨면 거기서 멈춘다(로그인·우회 없음). 번호는 기록에 남기지 않는다(결과 종류만).
+_PHONE_REVEAL_TEXT = re.compile(r"(?:xem|hiện|hiển thị|bấm để xem)\s*(?:số|sđt|số điện thoại|điện thoại|liên hệ)", re.IGNORECASE)
+_LOGIN_HINT = re.compile(r"đăng nhập|login", re.IGNORECASE)
+
+
+# 버튼 주변 연락처 칸: 버튼에서 위로 올라가며 글자가 짧은(300자 이하) 가장 큰 칸 — 광고·추천 공고 등 다른 칸의 번호를 읽지 않게.
+_MARK_CONTACT_BOX = """(btn) => {
+  let box = btn.parentElement, el = box
+  for (let i = 0; i < 5 && el; i++, el = el.parentElement) {
+    if ((el.innerText || '').length > 300) break
+    box = el
+  }
+  if (box) box.setAttribute('data-jobi-contact', '1')
+  return !!box
+}"""
+
+
+# 버튼을 못 찾았을 때 "연락처가 정말 없음"과 "버튼 글자가 달라 못 찾음"을 가르는 근거(Lee 2026-11-18). 시험 수집에서만 쓰인다.
+# 연락처 낱말이 든 짧은 글자(숫자는 #로 가림)와, 사이트 상태(__NEXT_DATA__ jobDetailHiddenContact.data)의 칸 이름·값 종류만 — 번호는 남기지 않는다.
+_CONTACT_HINT_JS = """() => {
+  const re = /(liên hệ|điện thoại|sđt|số đt|hotline|zalo|đăng nhập để|xem số|hiện số)/i
+  const texts = []
+  for (const el of document.querySelectorAll('button, a, span, div, p, li')) {
+    const t = (el.innerText || '').trim()
+    if (!t || t.length > 80 || !re.test(t) || el.children.length > 3) continue
+    const m = t.replace(/\\d/g, '#').replace(/\\s+/g, ' ')
+    if (!texts.includes(m)) texts.push(m)
+    if (texts.length >= 6) break
+  }
+  let keys = ''
+  try {
+    const nd = JSON.parse(document.getElementById('__NEXT_DATA__')?.textContent || 'null')
+    const d = nd?.props?.initialState?.api?.jobDetailHiddenContact?.data
+    const kind = (v, depth = 0) => {
+      if (v === null || v === undefined || v === '') return 'empty'
+      if (typeof v === 'object') return depth > 0 ? 'obj' : '{' + Object.entries(v).slice(0, 8).map(([k, x]) => k + ':' + kind(x, 1)).join(';') + '}'
+      const t = String(v)
+      // 값 종류만: 가림(* 또는 x) / 이메일 / 숫자 / 그 밖 — 값 자체는 남기지 않는다
+      if (/[*•]|x{3,}/i.test(t)) return 'masked'
+      if (/^[^\\s@]+@[^\\s@]+\\.[a-z]{2,}$/i.test(t.trim())) return 'email'
+      if (/\\d{6,}/.test(t.replace(/\\D/g, ''))) return 'digits'
+      return typeof v
+    }
+    if (d && typeof d === 'object') {
+      // 연락처로 보이는 칸만(한 단계 아래 객체 포함) — 전체 칸 목록은 400자에서 잘려 연락처 칸을 못 봤다(run 44225381066)
+      const cre = /phone|mobile|tel|contact|email|zalo|hotline|sdt/i
+      const out = []
+      for (const [k, v] of Object.entries(d)) {
+        if (cre.test(k)) out.push(k + ':' + kind(v))
+        if (v && typeof v === 'object' && !Array.isArray(v)) for (const [k2, v2] of Object.entries(v)) if (cre.test(k2)) out.push(k + '.' + k2 + ':' + kind(v2))
+      }
+      keys = out.length ? out.join(',') : 'no_contact_keys(' + Object.keys(d).length + ' keys)'
+    }
+    else keys = d === undefined ? 'no_hidden_contact' : 'hidden_contact_' + kind(d)
+  } catch (e) { keys = 'next_data_error' }
+  return texts.join(' | ').slice(0, 400) + ' || state ' + keys.slice(0, 400)
+}"""
+
+
+# 사람이 누르는 "전화번호 보기" 버튼을 못 찾는 원인 확인용(Lee 2026-11-18 15:33) — 시험 수집에서만.
+# 누를 수 있는 요소(button·a·role=button·손 모양 커서) 중 연락·지원 낱말이 든 글자만(숫자는 #), vieclam24h 자체 Hotline 줄은 뺌.
+_PHONE_UI_SCAN_JS = """() => {
+  const re = /(liên hệ|điện thoại|sđt|số đt|xem số|hiện số|gọi|zalo|ứng tuyển|nộp hồ sơ|đăng nhập|nhà tuyển dụng|call|phone)/i
+  const out = []
+  let tel = 0
+  for (const el of document.querySelectorAll('button, a, [role=button], div, span')) {
+    const tag = el.tagName.toLowerCase()
+    if ((el.getAttribute('href') || '').startsWith('tel:')) tel++
+    const clickable = tag === 'button' || tag === 'a' || el.getAttribute('role') === 'button' || getComputedStyle(el).cursor === 'pointer'
+    if (!clickable) continue
+    const t = (el.innerText || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim().replace(/\\s+/g, ' ')
+    if (!t || t.length > 60 || !re.test(t) || /hotline/i.test(t)) continue
+    const r = el.getBoundingClientRect()
+    const m = tag + (r.width > 0 && r.height > 0 ? '' : '(숨김)') + ':' + t.replace(/\\d/g, '#')
+    if (!out.includes(m)) out.push(m)
+    if (out.length >= 15) break
+  }
+  return 'tel링크 ' + tel + ' | ' + out.join(' | ').slice(0, 700)
+}"""
+
+
+async def _phone_ui_scan(page) -> str:
+    try:
+        return str(await page.evaluate(_PHONE_UI_SCAN_JS))
+    except Exception as exc:  # noqa: BLE001
+        return f"scan_error:{type(exc).__name__}"
+
+
+async def _scroll_through(page) -> None:
+    """늦게 그려지는 칸(화면 아래 연락처 등)을 그리게 아래까지 천천히 내렸다가 위로."""
+    try:
+        for _ in range(8):
+            await page.mouse.wheel(0, 900)
+            await page.wait_for_timeout(300)
+        await page.wait_for_timeout(1500)
+        await page.evaluate("window.scrollTo(0, 0)")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+_MOBILE_PROBE_LIMIT = 2  # 시험 수집 1회에 모바일 화면 대조는 앞 2건만
+
+
+async def probe_phone_button_views(page, url: str) -> dict:
+    """PC에서 버튼을 못 찾았을 때: ① 아래까지 내린 뒤 PC 다시 ② 모바일 화면(390px) — 버튼 위치·글자 대조. 번호는 출력하지 않는다."""
+    global _MOBILE_PROBE_LIMIT
+    await _scroll_through(page)
+    again = await reveal_employer_phone(page)
+    print(f"    📞 [PC 아래까지 내린 뒤] 버튼: {again['phoneProbe']}" + (f" ('{again['phoneButtonText']}')" if again.get("phoneButtonText") else ""))
+    print(f"    📞 [PC] 누를 수 있는 연락 요소: {await _phone_ui_scan(page)}")
+    if _MOBILE_PROBE_LIMIT <= 0:
+        return again
+    _MOBILE_PROBE_LIMIT -= 1
+    ctx = None
+    try:
+        ctx = await page.context.browser.new_context(
+            viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True, locale="vi-VN",  # browser_page()와 같은 언어·stealth
+            user_agent="Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
+        mpage = await ctx.new_page()
+        await stealth_async(mpage)
+        await mpage.goto(url, wait_until="domcontentloaded", timeout=20000)
+        await mpage.wait_for_timeout(2000)
+        await _scroll_through(mpage)
+        m = await reveal_employer_phone(mpage)
+        print(f"    📞 [모바일] 버튼: {m['phoneProbe']}" + (f" ('{m['phoneButtonText']}')" if m.get("phoneButtonText") else ""))
+        print(f"    📞 [모바일] 누를 수 있는 연락 요소: {await _phone_ui_scan(mpage)}")
+        return m if m.get("detailPhone") else again
+    except Exception as exc:  # noqa: BLE001
+        print(f"    📞 [모바일] 확인 실패: {type(exc).__name__}")
+        return again
+    finally:
+        if ctx:
+            await ctx.close()
+
+
+async def _contact_hint(page) -> str:
+    try:
+        return str(await page.evaluate(_CONTACT_HINT_JS))
+    except Exception as exc:  # noqa: BLE001
+        return f"hint_error:{type(exc).__name__}"
+
+
+async def reveal_employer_phone(page) -> dict:
+    """{"detailPhone": 번호 또는 "", "phoneProbe": 결과 종류, "phoneButtonText": 버튼 글자(40자)}.
+    결과 종류: revealed(눌러서 연락처 칸에 새로 보인 번호) / no_button(번호가 화면에 있어도 어느 칸인지 몰라 쓰지 않음: no_button_phone_in_page) /
+    login_required / click_no_number / error. 번호는 버튼이 있는 연락처 칸 안에서, 누른 뒤 새로 나타난 번호만 쓴다(대표번호·광고 칸 제외)."""
+    try:
+        body_before = await page.locator("body").inner_text(timeout=5000)
+        button = page.get_by_text(_PHONE_REVEAL_TEXT).first
+        if not await button.count() or not await button.is_visible():
+            return {"detailPhone": "", "phoneProbe": "no_button_phone_in_page" if extract_phones(body_before) else "no_button", "phoneButtonText": "",
+                    "phoneHint": await _contact_hint(page)}
+        label = normalize_whitespace(await button.inner_text(timeout=3000))[:40]
+        if _LOGIN_HINT.search(label):  # "Đăng nhập để xem số" 같은 로그인 유도 버튼은 누르지 않는다
+            return {"detailPhone": "", "phoneProbe": "login_required", "phoneButtonText": label}
+        await button.evaluate(_MARK_CONTACT_BOX)
+        box = page.locator("[data-jobi-contact]").first
+        box_before = await box.inner_text(timeout=3000)
+        login_before = bool(_LOGIN_HINT.search(body_before))
+        await button.click(timeout=5000)
+        await page.wait_for_timeout(1500)
+        body_after = await page.locator("body").inner_text(timeout=5000)
+        box_after = await box.inner_text(timeout=3000) if await box.count() else ""
+        seen = set(extract_phones(box_before)) | set(extract_phones(body_before))
+        new_phone = next((p for p in extract_phones(box_after) if p not in seen), "")
+        if new_phone:
+            return {"detailPhone": new_phone, "phoneProbe": "revealed", "phoneButtonText": label}
+        dialog_login = await page.locator("[role=dialog]:visible, .modal:visible").filter(has_text=_LOGIN_HINT).count()
+        to_login_page = bool(re.search(r"dang-nhap|login", page.url, re.IGNORECASE))
+        login_now = bool(dialog_login) or to_login_page or (bool(_LOGIN_HINT.search(body_after)) and not login_before)
+        return {"detailPhone": "", "phoneProbe": "login_required" if login_now else "click_no_number", "phoneButtonText": label}
+    except Exception as exc:  # noqa: BLE001 — 연락처는 보조 정보: 실패해도 상세 수집은 그대로
+        return {"detailPhone": "", "phoneProbe": f"error:{type(exc).__name__}", "phoneButtonText": ""}
 
 
 async def fetch_job_detail(page, url: str) -> dict:
@@ -984,6 +1194,27 @@ async def fetch_job_detail(page, url: str) -> dict:
             fallback = normalize_whitespace(body_text)[:1800]
             if fallback:
                 result["sections"] = {"Mô tả công việc": fallback}
+                result["sectionsFallback"] = True  # 화면 전체 글(고객센터 번호 포함) — 본문 연락처로 쓰지 않는다
+        # 버튼 누르기는 DB 연결이 없는 실행(crawl.yml 시험 수집 — 열쇠를 비움, 저장 불가)에서만(#896 독립 검토 1).
+        # 저장하는 수집·다시 처리는 지금과 같다(전화 빈칸) — 저장 반영은 Lee 승인 뒤 따로 켠다.
+        if supabase is None:
+            result.update(await reveal_employer_phone(page))
+            print(f"    📞 연락처 버튼: {result['phoneProbe']}" + (f" ('{result['phoneButtonText']}')" if result.get("phoneButtonText") else ""))
+            if result["phoneProbe"].startswith("no_button"):
+                later = await probe_phone_button_views(page, url)
+                if later and later.get("detailPhone"):
+                    result.update({k: later[k] for k in ("detailPhone", "phoneProbe", "phoneButtonText")})
+            if result.get("phoneHint"):
+                print(f"    📞 연락처 단서(숫자 가림): {result['phoneHint']}")
+            if not result.get("detailPhone"):
+                # 고용주가 공고 본문(상세 칸)에 직접 적은 번호만 쓴다 — 공개된 글이라 Facebook 원문 번호와 같은 성격(Lee 2026-11-18 최종 지시).
+                # 페이지 자료(jobDetailHiddenContact)의 번호는 화면에서 숨긴 담당자 연락처라 쓰지 않고 있음/없음만 기록한다
+                # (개인정보보호법 2025: 전화·이메일 = 기본 개인정보, 공개도 처리 — 재공개 허용 근거 없음).
+                body_text = "" if result.get("sectionsFallback") else "\n".join(str(v) for v in (result.get("sections") or {}).values())
+                body_phone = next(iter(extract_phones(body_text)), "")
+                if body_phone:
+                    result["detailPhone"], result["phoneProbe"] = body_phone, "description_text"
+                print(f"    📞 공고 본문 연락처: 전화 {'있음' if body_phone else '없음'}")
         result["httpStatus"] = http_status
         result["fetchOk"] = True
         result["fetchError"] = None
@@ -1059,6 +1290,15 @@ def _compute_job_recruitment_regions(work_locations: list[dict]) -> list[str]:
         if rp and rp not in regions:
             regions.append(rp)
     return regions
+
+
+# 공고 번호 칸은 화면에 보인 번호만: 버튼을 눌러 보인 번호(revealed) · 고용주가 공고 본문에 적은 번호(description_text).
+# 화면에서 숨긴 페이지 자료 번호(#904 page_data)로 만든 상세 결과가 저장돼 가짜 번호 0111111111이 공개된 일(#6255, Lee 2026-11-18) — 출처를 모르면 쓰지 않는다.
+SCREEN_PHONE_PROBES = ("revealed", "description_text")
+
+
+def screen_phone(detail: dict) -> str:
+    return (detail.get("detailPhone") or "") if detail.get("phoneProbe") in SCREEN_PHONE_PROBES else ""
 
 
 def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -> dict:
@@ -1173,7 +1413,8 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
     resolved_locations, had_transient_geocode_failure = resolve_work_locations(
         work_locations, employer_coordinate=employer_coordinate,
     )
-    employer_phone_value = ""
+    # 2026-08-09 첫 크롤러부터 빈칸 자리였다(전화 읽기를 만든 적 없음). 이제 화면에 보인 번호만(Lee 2026-11-18, screen_phone).
+    employer_phone_value = screen_phone(detail)
     has_app_path = has_application_path(
         employer_phone_value, "", url,
         source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
@@ -1315,6 +1556,12 @@ async def process_job_url(page, url: str, listing_hint: dict | None = None) -> d
     재크롤에서 다시 만난 이미 아는 URL, --process-url/--reprocess-ids로 수동
     지정된 URL 모두 이 함수 하나로 상세 수집 + build_job_record를 거친다."""
     detail = await fetch_job_detail(page, url)
+    return await job_from_detail(url, detail, listing_hint)
+
+
+async def job_from_detail(url: str, detail: dict, listing_hint: dict | None = None) -> dict:
+    """상세페이지 수집 결과(detail) → 공고 기록. 사이트 접속 없음 — VPS가 받은 detail을 GitHub 서버가
+    검증·저장할 때(Lee 2026-11-17 #884 B안)도 같은 처리(build_job_record)를 거친다."""
     job = build_job_record(url, detail, listing_hint)
     # Opt-in only until the parser output has a reviewed persistence mapping.
     # The parsed object is ephemeral/private and excluded from DB payloads by underscore prefix.
@@ -1404,6 +1651,7 @@ async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0, new
     async with browser_page() as page:
         all_raw = []
         seen_hrefs = set()
+        pages_opened = pages_empty = 0
 
         for cat_url in CATEGORY_URLS:
             if new_only:
@@ -1413,10 +1661,16 @@ async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0, new
             elif len(all_raw) >= fetch_ceiling:
                 break
             raw = await crawl_category(page, cat_url)
+            pages_opened += 1
+            pages_empty += 0 if raw else 1
             for j in raw:
                 if j["href"] not in seen_hrefs:
                     seen_hrefs.add(j["href"])
                     all_raw.append(j)
+
+        problem = listing_failure(pages_opened, pages_empty)
+        if problem:
+            raise SystemExit(problem)
 
         # 중복 제거
         seen_titles = set()
@@ -2101,7 +2355,7 @@ def match_existing_row(job: dict, by_source_url: dict, by_key: dict) -> dict | N
     return by_key.get(canonical_job_key(job.get("title", ""), job.get("company", "")))
 
 
-def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_write: bool = False) -> dict:
+def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_write: bool = False, new_only: bool = False) -> dict:
     """이 크롤러가 local_jobs/job_work_locations에 쓰는 단 하나의 저장 경로.
     카테고리 전체 크롤이 새로 발견한 공고, 재크롤에서 다시 만난 이미 아는
     공고, --process-url/--reprocess-ids로 수동 지정된 단건 재처리 —
@@ -2129,10 +2383,15 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     _require_write_enabled()
     existing = match_existing_row(job, by_source_url, by_key)
 
-    if verify_write and existing is not None:
+    if (verify_write or new_only) and existing is not None:
         raise VerifyWriteExistingMatchError(
             f"--verify-write: source_url={job.get('source_url')!r} (또는 같은 canonical key)이 "
             f"이미 id={existing['id']}로 존재한다 — 검증 저장은 신규 공고만 허용하므로 저장하지 않고 중단한다."
+        )
+    if verify_write and db_gate_has_contact(job):
+        raise VerifyWritePublishableError(
+            f"--verify-write: {job.get('source_url')!r}는 연락처가 있어 DB 공개 차단 규칙에 걸리지 않는다 — "
+            "저장 뒤 숨김이 실패하면 공개될 수 있으므로 검증 저장하지 않는다."
         )
 
     if job.get("_pipeline_failed"):
@@ -2149,6 +2408,7 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
 
     resolved = job.get("_resolved_locations") or []
     had_transient = job.get("_had_transient_geocode_failure", False)
+    rows_written_by_ingest = False
 
     if existing is None:
         insert_payload = {k: v for k, v in job.items() if not k.startswith("_")}
@@ -2165,17 +2425,27 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             # 등록은 DB 입구 하나만(Lee 2026-10-29). 입구는 판정 칸(origin·admin_hidden 등)을 받지 않는다.
             # hold=False: 근무지 여러 곳은 등록 뒤 _replace_job_work_locations로 따로 쓰므로 보류 재처리(그 단계 없음)에 넣지 않는다.
             # 확인 못 한 공고는 예전처럼 거부 → 저장 안 됨 → 다음 수집 때 다시 만남(Codex #619).
-            job_id = ingest_job(supabase, insert_payload, hold=False)
+            # 근무지 줄은 입구에 같이 넘긴다(같은 트랜잭션) — 등록 뒤 따로 다시 쓰지 않는다(#916).
+            job_id = ingest_job(supabase, insert_payload, hold=False, work_location_rows=_work_location_rpc_rows(resolved) if resolved else None)
+            rows_written_by_ingest = bool(resolved)
         except Exception as exc:  # noqa: BLE001 — 규칙 거부만 건너뛰고 나머지 오류는 그대로 올린다
             code = rule_code(exc)
             if not code:
                 raise
             REJECTIONS.add(code, job.get("title", ""))
-            print(f"    🚧 규칙 거부({code}): {job.get('title', '')[:60]!r} — 이 공고는 건너뜀")
+            # 이유(not_found·company_unconfirmed 등 + 회사 이름)를 Facebook 수집기처럼 함께 남긴다 — 위치 확인 실패 원인을 다시 실행 없이 보게(2026-11-18 run 44296448509)
+            print(f"    🚧 규칙 거부({code}): {job.get('title', '')[:60]!r} — 이 공고는 건너뜀 | 이유: {str(exc).split(':', 1)[-1].strip()[:160]}")
             return {"action": "rule_rejected", "id": None, "rule": code}
         if verify_write:
             # 검증 저장 격리: 입구는 admin_hidden을 받지 않으므로 저장 직후 서버 키로 숨김(입구에서 이미 active=False).
-            supabase.table("local_jobs").update({"admin_hidden": True}).eq("id", job_id).execute()
+            try:
+                supabase.table("local_jobs").update({"admin_hidden": True}).eq("id", job_id).execute()
+                # DB가 계산한 값으로 다시 확인(숨김 실패·공개 가능이면 바로 멈춘다 — 위 연락처 확인과 같은 기준을 DB가 직접 판정).
+                row = (supabase.table("local_jobs").select("active,admin_hidden,publish_gate_reason").eq("id", job_id).execute().data or [{}])[0]
+            except Exception as exc:  # noqa: BLE001 — 숨김·다시 읽기 실패는 모두 격리 실패로 멈춘다
+                raise VerifyWriteIsolationError(f"검증 저장 id={job_id} 숨김·확인 실패: {type(exc).__name__}: {exc}") from exc
+            if row.get("active") or not row.get("admin_hidden") or row.get("publish_gate_reason") == "ok":
+                raise VerifyWriteIsolationError(f"검증 저장 id={job_id} 격리 확인 실패: {row}")
         action = "inserted"
     else:
         field_updates = compute_job_updates(existing, job)
@@ -2247,7 +2517,9 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     # INSERT든 기존 job 재처리든, job_work_locations가 이미 0건이면 지킬
     # 데이터가 없으므로 transient 오류와 무관하게 이번 판정을 저장한다.
     had_existing_work_locations = _has_existing_work_locations(job_id) if job_id else False
-    if job_id and (not had_transient or not had_existing_work_locations):
+    if existing is None and rows_written_by_ingest:
+        pass  # 새 공고: 근무지 줄은 등록 입구가 이미 썼다(#916) — 다시 쓰면 위치 확인 결과를 버린다
+    elif job_id and (not had_transient or not had_existing_work_locations):
         _replace_job_work_locations(job_id, resolved)
         if had_transient:
             print(f"    ⚠️  job_id={job_id}: geocode 일시 오류가 있었지만 기존 근무지 행이 0건(지킬 데이터 없음) — 이번 판정 그대로 저장")
@@ -2286,7 +2558,13 @@ def save_to_supabase(jobs: list[dict], source: str = "vieclam24h"):
             was_active_crawler = bool(
                 existing and existing.get("origin") == "crawler" and existing.get("active")
             )
-            result = upsert_job_record(job, by_source_url, by_key)
+            try:
+                result = upsert_job_record(job, by_source_url, by_key)
+            except Exception as exc:  # noqa: BLE001 — 이 공고만 실패로 남기고 계속(연속 3건이면 멈춤, #872 ②)
+                JOB_ERRORS.add(job.get("title", ""), exc, key=job.get("source_url"))
+                counts["error"] = counts.get("error", 0) + 1
+                continue
+            JOB_ERRORS.ok()
             counts[result["action"]] = counts.get(result["action"], 0) + 1
             if was_active_crawler and job.get("active") is False:
                 demoted += 1
@@ -2296,8 +2574,10 @@ def save_to_supabase(jobs: list[dict], source: str = "vieclam24h"):
         f"  ➕ 신규: {counts['inserted']}개 / 🔄 업데이트: {counts['updated']}개 / ⏭️ 변경 없음: {counts['unchanged']}개"
         f" / 🔻 재크롤 후 보류 전환: {demoted}개"
         f" / ❌ 실패: {counts['failed_existing_untouched'] + counts['failed_new_skipped']}개"
+        f" / ❌ 오류: {counts.get('error', 0)}개"
     )
     REJECTIONS.report()
+    JOB_ERRORS.report()
     if work_location_rows_total:
         print(f"  📍 근무지 주소 저장: {work_location_rows_total}건 (job_work_locations)")
     if not jobs:
@@ -2458,22 +2738,39 @@ async def reprocess_jobs(job_ids: list[int], *, confirm_write: bool = False) -> 
     return reports
 
 
-async def process_urls_dry_run(urls: list[str]) -> list[dict]:
+async def process_urls_dry_run(urls: list[str], save_details_to: str = "") -> list[dict]:
     """--dry-run-urls: 지정된 URL들을 표준 파이프라인의 처리 단계(상세 수집 ->
     필수정보/주소 추출 -> 주소·좌표 판정 -> 지원 경로 판정 -> 공개 게이트)까지만
     실행하고 upsert_job_record()는 절대 호출하지 않는다 — local_jobs/
     job_work_locations에 아무것도 쓰지 않는다. 카테고리 목록 페이지도 방문하지
     않으므로 신규 공고 수집이 아니다. 여러 건을 같은 함수(process_job_url)로
     검증할 때 쓴다(10건 재현성 검증 등)."""
-    reports = []
+    reports, details = [], []
     async with browser_page() as page:
         for url in urls:
-            job = await process_job_url(page, url)
-            reports.append(job)
+            detail = await fetch_job_detail(page, url)
+            details.append({"url": url, "detail": detail})
+            reports.append(await job_from_detail(url, detail))
+    if save_details_to:
+        # B안(#884): 사이트 접속은 VPS에서만, 검증·저장은 GitHub 서버가 이 파일로 한다(DB 열쇠는 VPS로 안 감).
+        with open(save_details_to, "w", encoding="utf-8") as f:
+            json.dump(details, f, ensure_ascii=False, default=str)
+        print(f"  💾 상세 수집 결과 저장: {save_details_to} ({len(details)}건)")
     return reports
 
 
-async def process_urls_verify_write(urls: list[str]) -> dict:
+def load_details_file(path: str) -> list[dict]:
+    """--verify-write-details 입력. 형식이 다르거나 10건을 넘으면 저장 전에 멈춘다(--sample-limit 상한과 같음)."""
+    with open(path, encoding="utf-8") as f:
+        items = json.load(f)
+    if not isinstance(items, list) or not all(isinstance(i, dict) and isinstance(i.get("url"), str) and isinstance(i.get("detail"), dict) for i in items):
+        raise SystemExit(f"{path}: 상세 수집 결과 형식이 아님([{{url, detail}}]). 중단합니다.")
+    if not 1 <= len(items) <= 10:
+        raise SystemExit(f"{path}: 1~10건만 검증 저장할 수 있습니다(입력 {len(items)}건). 중단합니다.")
+    return items
+
+
+async def process_urls_verify_write(urls: list[str], details: list[dict] | None = None, publish: bool = False) -> dict:
     """--verify-write-urls: migration 0018 적용 전 검증용 3~5건 실제 저장
     전용(2026-09-04 사용자 지시, "운영 적용 준비"). 여러 URL을 순차로
     upsert_job_record(..., verify_write=True)로 저장하고, 성공/스킵/실패
@@ -2489,16 +2786,22 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
     이 경우도 "failed"가 아니라 "skipped_existing"으로 명확히 구분해
     기록한다."""
     by_source_url, by_key = load_existing_lookup_maps()
+    # publish=True(--publish-one, Lee 2026-11-18 #872): 같은 파일·같은 처리로 공고 1건을 숨김 없이 일반 등록한다 —
+    # 등록 입구(ingest_job)의 위치 확인·회사 이름·직업분류·중복 판정과 DB 공개 판정을 그대로 탄다. 기존 공고는 건드리지 않는다(새 공고만).
+    if publish and len(urls) != 1:
+        raise SystemExit(f"--publish-one은 공고 1건만 — 받은 {len(urls)}건. 중단합니다.")
     manifest = {
-        "mode": "verify_write",
+        "mode": "publish_one" if publish else "verify_write",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "entries": [],
     }
-    async with browser_page() as page:
+    # details가 있으면(VPS가 받은 상세, #884 B안) 사이트에 접속하지 않고 같은 처리·저장만 한다.
+    by_url = {d["url"]: d["detail"] for d in details or []}
+    async with (nullcontext() if details is not None else browser_page()) as page:
         for url in urls:
             entry: dict = {"url": url, "status": None, "id": None, "detail": None}
             try:
-                job = await process_job_url(page, url)
+                job = await (job_from_detail(url, by_url[url]) if details is not None else process_job_url(page, url))
                 if job.get("_pipeline_failed"):
                     entry["status"] = "failed"
                     entry["detail"] = f"{job.get('_failure_stage')}: {job.get('_failure_reason')}"
@@ -2507,7 +2810,8 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
                     entry["detail"] = job.get("_skip_reason")
                 else:
                     with enable_writes():
-                        result = upsert_job_record(job, by_source_url, by_key, verify_write=True)
+                        result = (upsert_job_record(job, by_source_url, by_key, verify_write=False, new_only=True) if publish
+                                  else upsert_job_record(job, by_source_url, by_key, verify_write=True))
                     if result.get("action") == "rule_rejected":
                         entry["status"] = "rule_rejected"
                         entry["detail"] = result.get("rule")
@@ -2526,6 +2830,16 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
             except VerifyWriteExistingMatchError as exc:
                 entry["status"] = "skipped_existing"
                 entry["detail"] = str(exc)
+            except VerifyWritePublishableError as exc:
+                entry["status"] = "skipped_has_contact"
+                entry["detail"] = str(exc)
+            except VerifyWriteIsolationError as exc:
+                # 숨김·격리 확인 실패: 다음 공고를 저장하지 않고 멈춘다. 그때까지 만든 번호는 manifest·로그에 남기고 실행은 실패로.
+                entry["status"] = "isolation_failed"
+                entry["detail"] = str(exc)
+                manifest["entries"].append(entry)
+                manifest["stopped"] = str(exc)
+                break
             except Exception as exc:  # noqa: BLE001 — 배치 하나의 실패로 전체를 중단하지 않기 위해 의도적으로 광범위 포착
                 entry["status"] = "failed"
                 entry["detail"] = f"{type(exc).__name__}: {exc}"
@@ -2538,6 +2852,9 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
         json.dump(manifest, f, ensure_ascii=False, indent=2, default=str)
     manifest["manifest_path"] = manifest_path
     print(f"    📄 manifest 저장: {manifest_path} (created_ids={manifest['created_ids']})")
+    if manifest.get("stopped"):
+        print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
+        raise SystemExit(f"검증 저장 중단(격리 확인 실패): {manifest['stopped']}")
     return manifest
 
 
@@ -2552,6 +2869,8 @@ async def main(sample_limit: int | None = None, sample_offset: int = 0, new_only
     print(f"\n📊 수집 완료: {len(jobs)}개")
     save_to_json(jobs, filename=f"jobs_output_{site}.json")
     save_to_supabase(jobs, source=site)
+    if JOB_ERRORS.failed:  # 오류 공고가 있으면 실행 기록을 실패로 남긴다(다른 공고는 이미 저장됨)
+        raise SystemExit(f"오류로 저장 못 한 공고 {len(JOB_ERRORS.failed)}건 — 다음 실행에서 다시 처리")
     print("\n✨ 완료!")
 
 
@@ -2577,6 +2896,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="쉼표구분 URL들을 --verify-write 모드로 실제 저장한다(신규만, active=False/"
              "admin_hidden=True 강제, manifest 파일 생성) — --confirm-write와 --verify-write를 "
              "모두 함께 지정해야 한다. migration 0018 적용 전 3~5건 검증 저장 전용.",
+    )
+    parser.add_argument(
+        "--save-details-to", type=str, default="",
+        help="--dry-run-urls와만: 받은 상세페이지 결과를 이 파일로 남긴다(DB 쓰기 없음). "
+             "GitHub 서버가 --verify-write-details로 검증 저장한다(Lee 2026-11-17 #884 B안, VPS에 DB 열쇠 없음).",
+    )
+    parser.add_argument(
+        "--verify-write-details", type=str, default="",
+        help="--save-details-to 파일을 사이트 접속 없이 검증 저장한다(--verify-write·--confirm-write 필수, 1~10건, "
+             "연락처 있는 공고는 저장 안 함).",
+    )
+    parser.add_argument(
+        "--publish-one", action="store_true",
+        help="--verify-write-details 파일의 공고 1건을 숨김 없이 일반 등록(등록 입구·DB 공개 판정 그대로, 새 공고만). "
+             "--confirm-write 필수, --verify-write와 함께 쓰지 않는다(Lee 승인 뒤 crawl.yml publish_one으로만, #872).",
     )
     parser.add_argument(
         "--confirm-write", action="store_true",
@@ -2692,8 +3026,10 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
     # 전체 수집 확인을 다른 실행 모드에 섞어도 승인으로 취급하지 않는다.
     # 여러 대상 모드를 지정했을 때 기존 우선순위로 하나가 조용히 실행되는 것도 차단한다.
     explicit_modes = [
-        args.process_url, args.reprocess_ids, args.verify_write_urls, args.dry_run_urls,
+        args.process_url, args.reprocess_ids, args.verify_write_urls, args.dry_run_urls, args.verify_write_details,
     ]
+    if args.save_details_to and not args.dry_run_urls:
+        raise SystemExit("--save-details-to는 --dry-run-urls와만 쓸 수 있습니다. 중단합니다.")
     if sum(bool(value) for value in explicit_modes) > 1:
         raise SystemExit("실행 모드는 하나만 지정하세요. 중단합니다.")
     if args.confirm_full_crawl and any(explicit_modes):
@@ -2712,7 +3048,11 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
         raise SystemExit(
             "--verify-write는 --confirm-write와 함께 지정해야 합니다(둘 다 있어야 검증 저장이 실행됩니다). 중단합니다."
         )
-    if args.verify_write and not (args.process_url or args.verify_write_urls):
+    if args.publish_one and not (args.verify_write_details and args.confirm_write) or (args.publish_one and args.verify_write):
+        raise SystemExit("--publish-one은 --verify-write-details·--confirm-write와만(--verify-write 없이) 지정합니다. 중단합니다.")
+    if args.verify_write_details and not args.publish_one and not (args.verify_write and args.confirm_write):
+        raise SystemExit("--verify-write-details는 --verify-write·--confirm-write와 함께 지정해야 합니다. 중단합니다.")
+    if args.verify_write and not (args.process_url or args.verify_write_urls or args.verify_write_details):
         raise SystemExit(
             "--verify-write는 --process-url 또는 --verify-write-urls와 함께 지정해야 합니다. 중단합니다."
         )
@@ -2742,6 +3082,8 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
                 "--verify-write-urls는 실제로 DB에 저장합니다. --confirm-write를 함께 지정하세요. 중단합니다."
             )
         return "verify_write_urls"
+    elif args.verify_write_details:
+        return "publish_one_details" if args.publish_one else "verify_write_details"
     elif args.dry_run_urls:
         return "dry_run_urls"
     else:
@@ -2772,9 +3114,13 @@ if __name__ == "__main__":
         urls = [u.strip() for u in args.verify_write_urls.split(",") if u.strip()]
         manifest = asyncio.run(process_urls_verify_write(urls))
         print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
+    elif mode in ("verify_write_details", "publish_one_details"):
+        items = load_details_file(args.verify_write_details)
+        manifest = asyncio.run(process_urls_verify_write([i["url"] for i in items], details=items, publish=mode == "publish_one_details"))
+        print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
     elif mode == "dry_run_urls":
         urls = [u.strip() for u in args.dry_run_urls.split(",") if u.strip()]
-        reports = asyncio.run(process_urls_dry_run(urls))
+        reports = asyncio.run(process_urls_dry_run(urls, save_details_to=args.save_details_to))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
     elif mode == "full_crawl":
         asyncio.run(main(sample_limit=args.sample_limit, sample_offset=args.sample_offset, new_only=args.new_only, site=args.site))

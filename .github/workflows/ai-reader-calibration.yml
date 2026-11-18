@@ -1,0 +1,40 @@
+name: AI reader calibration (trusted code only)
+# 실제 AI 판독 교정 시험(결정 0004): 정답을 아는 실제 포스터로 판독자 자체를 검증한다. ANTHROPIC_API_KEY가 필요하다.
+# 보안: pull_request(_target) 트리거를 두지 않는다 — PR이 바꾼 코드·스크립트·의존성에는 키를 주지 않는다.
+#   - push(master): 병합된(검토·승인된) 코드를 검증
+#   - schedule: 모델·API 변화로 판독이 달라졌는지 정기 확인
+#   - workflow_dispatch: 판독 입력(scripts/ocr/ai-reader*.mjs, ocr-compare.mjs, test-fixtures/ocr)이 바뀐 PR은 사람이 코드를 확인한 뒤 같은 저장소 브랜치에서 이 워크플로를 실행한다.
+#     PR 검사(publication-gate)의 scripts/ci/ai-reader-guard.mjs가 그 head 커밋의 workflow_dispatch 성공 실행을 확인한다.
+# 이 워크플로는 의존성을 설치하지 않는다(ai-reader.test.mjs는 Node 기본 모듈과 저장소 파일만 쓴다).
+on:
+  push:
+    branches: [master]
+    paths:
+      - scripts/ocr/ai-reader.mjs
+      - scripts/ocr/ai-reader.test.mjs
+      - scripts/ocr/ocr-compare.mjs
+      - test-fixtures/ocr/**
+      - .github/workflows/ai-reader-calibration.yml
+  schedule:
+    - cron: '23 18 * * 1'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: ai-reader-calibration-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  ai-reader-calibration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Independent AI reader calibration (real posters #4824, #4828)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node --experimental-strip-types scripts/ocr/ai-reader.test.mjs

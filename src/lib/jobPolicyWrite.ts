@@ -41,7 +41,13 @@ async function ingestJob(client: SupabaseClient, channel: IngestChannel, payload
   if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0)
     return { data: null, error: { message: 'Máy chủ chưa trả về mã tin đã lưu.' } }
   const { data, error: readError } = await client.from('local_jobs').select(options.select).eq('id', id).single()
-  return { data: (data ?? null) as Record<string, any> | null, error: readError }
+  const token = payload.guest_manage_token
+  if (data || typeof token !== 'string' || !token) return { data: (data ?? null) as Record<string, any> | null, error: readError }
+  // 비회원 빠른 등록(#799): 공개 전 검사(inspect_hold) 대기 중인 공고는 RLS(local_job_is_visible)로 가려져 위 읽기가 비어 온다.
+  // RLS는 그대로 두고, 이 공고의 관리 토큰을 아는 사람에게만 행을 돌려주는 기존 get_guest_job(SECURITY DEFINER)으로 다시 읽는다(없으면 오류).
+  const guest = await client.rpc('get_guest_job', { p_job_id: id, p_token: token })
+  const row = guest.data?.[0]
+  return row ? { data: { ...row, admin_hidden: false }, error: null } : { data: null, error: guest.error ?? readError }
 }
 export async function checkedAdminCreateJob(client: SupabaseClient, payload: Record<string, unknown>, pastedText?: string) {
   return ingestJob(client, 'admin', payload, { select: 'id,active,admin_hidden', pastedText })

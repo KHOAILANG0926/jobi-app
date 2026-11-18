@@ -4,13 +4,9 @@
  * 크롤링 시작 조건: 새 공고 연속 10개가 전부 통과.
  * 여기 항목은 "Lee가 화면에서 보고 문제라고 할 것"을 기계가 먼저 찾는 것이다. 새 문제를 찾으면 항목을 하나 더한다.
  */
-import { bare, detailSections, salaryAmounts, type ShownAbove } from './jobDetailSections.ts'
-import { cleanSourceText, contactDuplicate, isPromoLine, sameLine, timeRanges } from './jobDescriptionBuild.ts'
-import { headingOf } from './jobDetailSections.ts'
-import { isCovered } from './jobDetailFill.ts'
-import { sourceRecruitmentRoles } from './sourceRecruitmentRoles.ts'
-import { cardSalary } from './mainJobCards.ts'
-import { MEAL_HINT } from './mealBenefit.ts'
+// 화면이 실제로 보여 주는 것(detailSections)과 그 소제목 낱말(headingOf)만 만드는 쪽에서 읽는다 — 검사 대상 자체이기 때문. 나머지 읽기는 검사기 전용(inspectReading, R2 #753).
+import { bare, detailSections, headingOf, type ShownAbove } from './jobDetailSections.ts'
+import { sourceLines, covers, sameLine, timeRanges, promoLike, contactRepeat, hasPayAmount, MEAL_WORDS, cardReadableSalary } from './inspectReading.ts'
 
 export interface InspectInput extends ShownAbove {
   id: number
@@ -59,11 +55,13 @@ export interface InspectResult { ok: boolean; items: InspectItem[] }
 
 const SITE_JUNK = /^(?:hien so|thong tin co ban|ca nhan dang tuyen|nha tuyen dung)$/
 // 원문에 복리후생이 있는데 위쪽 표시(아이콘)가 꺼져 있는지 찾는 용도(표시 자체는 이 단어 목록을 쓰지 않는다).
+// 검사 쪽 낱말표는 일부러 만드는 쪽(benefitWords.ts)과 따로 둔다 — 같은 표를 쓰면 생산이 틀릴 때 검사도 같이 틀린다(#728, 결정 0004 독립).
+// 대신 같은 사례(예: 5421 "Bao ăn ở")를 양쪽 시험에 둔다(jobInspect.test.ts·aiClassifyGuard.test.ts).
 export const BENEFIT_HINTS: Array<{ key: 'shuttle_bus' | 'dormitory' | 'meal_provided'; label: string; re: RegExp }> = [
   { key: 'shuttle_bus', label: 'Xe đưa đón', re: /\b(?:xe dua don|xe dua ruoc|xe don|dua don)\b/ },
-  { key: 'dormitory', label: 'Ký túc xá', re: /\b(?:ky tuc xa|ktx|cho o mien phi|bo tri (?:cho )?an o|cho o)\b/ },
+  { key: 'dormitory', label: 'Ký túc xá', re: /\b(?:ky tuc xa|ktx|cho o mien phi|bo tri (?:cho )?an o|bao (?:an )?o|cho o)\b/ },
   // 2026-11-02 Lee: 식비 수당(phụ cấp ăn uống 등)도 식사 혜택 — 낱말 규칙 한 곳(lib/mealBenefit.ts).
-  { key: 'meal_provided', label: 'Ăn ca', re: MEAL_HINT },
+  { key: 'meal_provided', label: 'Ăn ca', re: MEAL_WORDS },
 ]
 const NEGATED = /\b(?:khong|ko|k co|tu tuc)\b/
 
@@ -111,7 +109,9 @@ export function inspectJob(j: InspectInput): InspectResult {
   add('junk', '사이트 글자·빈 이름표 없음', !junk.length, junk.length ? junk.slice(0, 3).join(' / ') : undefined)
   // 5. (폐지 2026-11-01 Lee "빠짐 0": 10-30 확정 ④ 원문 전체 — 위쪽 칸과 겹치는 줄도 보여 준다)
   // 6. 급여 칸: 원문에 급여가 있는데 위쪽 급여가 비어 있음
-  const srcSalary = cleanSourceText(j.source_text).text.split(/\r?\n/).some((l) => /\b(?:luong|thu nhap|muc luong)\b/.test(bare(l)) && salaryAmounts(l).length > 0)
+  const srcL = sourceLines(j.source_text)
+  // 사이트 정보 칸은 이름표 줄 다음 줄이 값이다("Lương tối thiểu:" / "9 triệu") — 이름표와 다음 줄을 이어서 본다(만드는 쪽의 이름표 묶기에 기대지 않음).
+  const srcSalary = srcL.some((l, i) => { const t = /[:：]\s*$/.test(l) && srcL[i + 1] ? l + ' ' + srcL[i + 1] : l; return /\b(?:luong|thu nhap|muc luong)\b/.test(bare(t)) && hasPayAmount(t) })
   add('salary', '급여 칸', !!String(j.salary ?? '').trim() || !srcSalary, !String(j.salary ?? '').trim() && srcSalary ? '원문엔 급여가 있는데 위쪽 급여 칸이 비어 있음' : undefined)
   // 7. 복리후생 표시: 원문에 있는데 위쪽 표시가 꺼짐
   const text = bare([j.source_text, j.description].filter(Boolean).join('\n'))
@@ -130,7 +130,7 @@ export function inspectJob(j: InspectInput): InspectResult {
   const classified = !!j.occupation_code && !!j.category && !['khac', 'other'].includes(String(j.category))
   add('occupation', '직업분류·업종 메뉴', classified, classified ? undefined : !j.occupation_code ? '직업 코드 없음' : '업종이 기타(khac)')
   // 9. 포스터 글자 대조
-  if ((j.image_count ?? 0) > 0) add('ocr', '포스터 글자 대조', j.ocr_status === 'ok', j.ocr_status ? `결과: ${j.ocr_status}` : '아직 안 읽음')
+  if ((j.image_count ?? 0) > 0) add('ocr', '포스터 글자 대조', j.ocr_status === 'ok' || j.ocr_status === 'no_text', j.ocr_status ? `결과: ${j.ocr_status}` : '아직 안 읽음')
   // 9-1. 대표 사진·로고(Lee 2026-11-07): 출처 표시만 — 공개·연속 통과에는 영향 없음(INFO_ONLY)
   if (j.photo) add('photo', '대표 사진·로고', j.photo !== 'pending', PHOTO_LABEL[j.photo])
   // 10. 칸을 못 정한 새 종류 줄
@@ -140,7 +140,7 @@ export function inspectJob(j: InspectInput): InspectResult {
   const miss = j.still_missing_lines ?? []
   if (miss.length) add('still_missing', '붙인 뒤에도 빠진 줄 없음', false, `${miss.length}줄 — 코드 수정 필요: ${miss.slice(0, 3).join(' / ')}`)
   // 12~14 (2026-11-01 Lee: 규정 R10·10-30 확정 구성이 실제로 지켜졌는지 원문과 대조)
-  const srcLines = cleanSourceText(j.source_text).text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const srcLines = sourceLines(j.source_text)
   // 12. 원문 직무 목록(Vị trí tuyển dụng 아래 줄)이 전부 업무 칸(01)에 있는가 — R10
   const roles: string[] = []
   let inRoles = false
@@ -150,9 +150,9 @@ export function inspectJob(j: InspectInput): InspectResult {
     if (headingOf(line) || /[:：]\s*$/.test(line)) { inRoles = false; continue }
     if (inRoles && b) roles.push(line)
   }
-  // 직무는 업무 칸(01) 또는 모집조건의 'Vị trí tuyển dụng' 행(sourceRecruitmentRoles)에 보이면 된다.
-  const duty = [...(view.sections.find((s) => s.key === '01')?.lines ?? []), ...sourceRecruitmentRoles(j.description).roles]
-  const lostRoles = roles.filter((r) => !duty.some((d) => sameLine(d, r) || isCovered(d, [r])))
+  // 직무는 상세요강 글(업무 칸 또는 모집조건의 'Vị trí tuyển dụng' 행) 어디에든 보이면 된다 — 칸 위치는 화면 대조·칸 배치 시험이 따로 본다.
+  const descLines = String(j.description ?? '').split('\n').map((l) => l.trim()).filter(Boolean)
+  const lostRoles = roles.filter((r) => !descLines.some((d) => sameLine(d, r) || covers(d, r)))
   add('roles', '원문 직무 전부 업무 칸에', !lostRoles.length, lostRoles.length ? '업무 칸에 없음: ' + lostRoles.slice(0, 3).join(' / ') : undefined)
   // 13. 같은 근무시간이 두 번 이상 보이는가(원문 글·포스터에서 같은 교대를 각각 옮긴 경우)
   const seen = new Map<string, string>()
@@ -166,13 +166,18 @@ export function inspectJob(j: InspectInput): InspectResult {
     }
   }
   add('hours_twice', '같은 근무시간 반복 없음', !twice.length, twice.length ? twice.slice(0, 3).join(' / ') : undefined)
-  // 14. 원문 줄이 공고에서 빠졌는가 — 2026-11-01 Lee "빠짐 0": 예외는 원문 소제목뿐(사이트 글자·가려진 번호는 cleanSourceText가 이미 뺌)
+  // 14. 원문 줄이 공고에서 빠졌는가 — 2026-11-01 Lee "빠짐 0": 예외는 원문 소제목뿐(사이트 글자·가려진 번호는 inspectReading.sourceLines가 뺌)
+  // 사이트 정보 칸(예: "Tên công ty:" 다음 줄 "Groupe SEB", "Học vấn tối thiểu:" 다음 줄 "Khác")의 값 줄은 위쪽 칸(회사·제목·값 칸·전화·주소)에 이미 보이는 값과 같으면 빠짐이 아니다
+  // — 같은 DB 값으로 판정하고 만드는 쪽 규칙(cleanSourceText)에 기대지 않는다(R2 #753).
+  const aboveTexts = [j.company, j.title, j.contact_name, j.salary, ...(j.values ?? []), ...(j.valueGroups ?? []).flat(), ...(j.phones ?? []), ...(j.addresses ?? [])]
+    .map((v) => String(v ?? '').trim()).filter(Boolean)
   const lost = srcLines.filter((line) => {
+    if (aboveTexts.some((a) => sameLine(a, line))) return false
     if (headingOf(line) || /[:：]\s*$/.test(line)) return false   // 소제목·값 없는 이름표(값 줄은 따로 검사)
-    if (isPromoLine(line) || contactDuplicate(line, shown)) return false   // 2026-11-04 Lee: 걸러낸 홍보 문구·반복 연락처는 빠짐이 아님(뺀 줄 목록은 detail_fill.dropped)
+    if (promoLike(line) || contactRepeat(line, shown)) return false   // 2026-11-04 Lee: 걸러낸 홍보 문구·반복 연락처는 빠짐이 아님(뺀 줄 목록은 detail_fill.dropped)
     const b = bare(line)
     if (!b) return false
-    return !shown.some((d) => sameLine(d, line) || isCovered(line, [d]))
+    return !shown.some((d) => sameLine(d, line) || covers(d, line))
   })
   add('source_lost', '원문 줄 빠짐 없음', !lost.length, lost.length ? lost.slice(0, 3).join(' / ') : undefined)
   // 15. R13: 권유 문구(Gia nhập đội ngũ…, Ứng tuyển sớm…)는 기타란(07)에 둔다
@@ -183,7 +188,7 @@ export function inspectJob(j: InspectInput): InspectResult {
   const companyLabel = /^(?:vi tri|dia diem|muc luong|thoi gian|yeu cau|lien he|quyen loi|bang tin)$/.test(bare(String(j.company ?? '')))
   add('company', '회사명 정상', !companyLabel, companyLabel ? `회사명이 항목 이름표: ${j.company}` : undefined)
   // 2026-11-01 #5231·#5247: 공개돼도 메인 화면 카드가 급여를 못 읽으면 목록에서 빠진다 → 검사에서 잡는다(공개는 막지 않고 알림만 — REVIEW_ONLY: 지도·검색에는 보이므로).
-  const card = !!cardSalary({ salary: j.salary ?? '', salaryPeriod: null, description: j.description ?? '' } as never)
+  const card = cardReadableSalary(j.salary, j.description)
   add('card', '메인 화면 카드에 보임', card, card ? undefined : `메인 카드가 급여를 못 읽음: ${j.salary}`)
   // 11. 공개 상태
   // 화면 대조(#646, Lee 2026-11-10 sb-5876): 운영 화면에 실제로 보이는 것이 원문·DB와 맞는지. 확정 오류·대조 전이면 공개하지 않는다.
@@ -202,7 +207,8 @@ export function inspectJob(j: InspectInput): InspectResult {
 /**
  * 검사 결과로 공개 여부를 정한다(2026-11-01 Lee: 규정 위반 공고가 화면에 나가지 않게).
  * - publishable: 'public'(공개 상태 자체)을 뺀 모든 항목 통과.
- * - 통과 못 하면 비공개. 통과하면 이미 공개 중인 공고는 유지하고, 검사 대기로 막혔던 공고(hold)만 되살린다.
+ * - 통과 못 하면 비공개(공개 중이던 공고도 내린다). 통과하면 이미 공개 중인 공고는 유지하고, 검사 대기로 막혔던 공고(hold)만 되살린다.
+ *   공고를 올리는 쓰기는 이 판정(검사표) 한 곳이다 — OCR 단계는 내리기만 한다(#728 R4).
  *   관리자가 숨긴 공고·마감 지난 공고는 되살리지 않는다. 다른 공개 규정(R4·R7·R8)은 DB 트리거가 따로 강제한다.
  */
 /** 검사표엔 실패로 남기되 공개는 막지 않는 항목(R11: 10h-10h 같은 근무시간은 관리자 확인 대상, 공개 차단과 구분). */
@@ -219,13 +225,8 @@ export function publishDecision(
 ): { publishable: boolean; active: boolean } {
   // Lee 2026-11-06 "비워두고 공개해야지": 원문에 없는 필수 항목(reviewOnly로 표시된 누락)은 경고만 — 공개를 막지 않는다.
   const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || INFO_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
-  if (!publishable) {
-    // Preserve an existing public posting during rollout, but do not issue a
-    // reusable publication proof: hiding it later must require a strict pass.
-    const keepExisting = j.active === true && !j.admin_hidden && r.items.every((i) =>
-      i.key === 'public' || REVIEW_ONLY.includes(i.key) || INFO_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
-    return { publishable, active: keepExisting }
-  }
+  // 검사 통과 못 하면 공개 중이어도 내린다(2026-11-01 Lee). 내려간 공고는 hold(검사 실패로 비공개 보류)로 남아 다시 통과하면 되살아난다.
+  if (!publishable) return { publishable, active: false }
   if (j.active) return { publishable, active: true }
   const deadline = j.application_deadline instanceof Date ? j.application_deadline.toISOString() : j.application_deadline
   const open = !deadline || String(deadline).slice(0, 10) >= today

@@ -1,5 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
+// Facebook 원문 공고인지: 상세요강은 등록 뒤 원문에서 다시 만들어져 "[source:facebook]" 표시가 사라지므로
+// 원문 주소(source_url, DB 전용)로도 본다. 수집기 crawl_facebook.is_facebook_row와 같은 기준(#633).
+export function isFacebookRow(j) {
+  return (j?.description||'').includes('[source:facebook]') || (j?.source_url||'').includes('facebook.com/')
+}
+
 /** Auth is verified in api/admin.js before this handler is called. */
 export function createAdminReprocessHandler() {
   return async (req,res) => {
@@ -25,10 +31,10 @@ export function createAdminReprocessHandler() {
       const unique=[...new Set(ids)]
       // Validate each requested job; no arbitrary DB ID or admin-hidden job replay.
       const {data:jobs,error:readError}=await client.from('local_jobs')
-        .select('id,origin,admin_hidden,description').in('id',unique)
+        .select('id,origin,admin_hidden,description,source_url').in('id',unique)
       if(readError)throw readError
       if(jobs?.length!==unique.length||jobs.some(j=>j.origin!=='crawler'||j.admin_hidden||
-        !(j.description||'').includes('[source:facebook]'))) return res.status(409).json({error:'Unsupported or protected job'})
+        !isFacebookRow(j))) return res.status(409).json({error:'Unsupported or protected job'})
       const ruleVersion='manual-'+Date.now().toString(36)
       const {data,error}=await client.from('job_reprocess_queue').insert(
         unique.map(id=>({job_id:id,rule_version:ruleVersion,reason:'admin_requested'}))

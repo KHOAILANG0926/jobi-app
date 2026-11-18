@@ -48,7 +48,7 @@ for (const role of ['anon', 'authenticated']) {
 }
 
 // 운영 점검 SQL도 같은 상태에서 통과해야 한다
-await db.exec(read('./occupation_master_check.sql'))
+await db.exec(read('./occupation_master_production_check.sql'))
 
 // 롤백 후 테이블 없음
 await db.exec(rollback)

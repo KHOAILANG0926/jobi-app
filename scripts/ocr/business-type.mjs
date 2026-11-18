@@ -2,18 +2,16 @@
 // 대상: 기준 시각 이후 수집 공고 중 직업 코드가 없는 공고, 또는 업종 종류(kind) 기록 없이 코드 5가 된 공고(관리자 숨김 제외). 같은 원문으로 이미 시도했으면 다시 하지 않는다.
 // 기록: 직업 코드·근거는 ingest_job 한 입구로, 판단 출처(이름/검색 URL·인용문)는 ocr_check.business_type에.
 // 순서(Lee 2026-11-08): ① 업체 이름 → ② 위치 확인이 저장해 둔 Google 결과의 장소 종류(새 Google 검색 없음) → ③ Google이 장소를 모를 때만 AI 인터넷 검색.
-// BUSINESS_ALL_JOBS=1이면 기준 시각 이전 공고도 한 번 다시 본다(Lee 2026-11-08 "공고 적은 지금 다시 판정", 워크플로 수동 실행 입력).
 // 필요 환경변수: SUPABASE_DB_URL (검색에는 ANTHROPIC_API_KEY — 없으면 이름·Google 단계만)
 import pg from 'pg'
 import { createHash } from 'node:crypto'
-import { businessFromName, businessFromGoogle, buildWebPrompt, guardWebAnswer, streetOf, WEB_PROMPT_VERSION } from '../../src/lib/businessType.ts'
+import { businessFromName, businessFromGoogle, buildWebPrompt, guardWebAnswer, parseWebResponse, streetOf, WEB_PROMPT_VERSION } from '../../src/lib/businessType.ts'
 import { cachedGooglePlace } from '../../src/lib/logoLookup.ts'
-import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
-import { afterCutoff } from '../ops/auto-cutoff.mjs'
+import { withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
+import { autoScope } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY } = process.env
 const MODEL = process.env.BUSINESS_AI_MODEL || 'claude-sonnet-5-5'  // 인터넷 검색 판정은 Haiku 비교 시험을 안 했으므로 그대로(PR #546은 칸·복리후생만 시험)
-const ALL_JOBS = process.env.BUSINESS_ALL_JOBS === '1'
 // Google 단계를 붙인 판(2026-11-08). 이미 시도한 공고도 이 단계로 한 번 다시 본다. 이 단계 규칙을 바꾸면 올린다.
 const GOOGLE_STEP_VERSION = 'google-types-v1'
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
@@ -26,18 +24,14 @@ async function webLookup(job) {
       messages: [{ role: 'user', content: buildWebPrompt(job) }] }),
   })
   if (!r.ok) throw new Error(`검색 AI ${r.status}: ${(await r.text()).slice(0, 200)}`)
-  const body = await r.json()
-  const texts = body.content.filter((b) => b.type === 'text')
-  const citations = texts.flatMap((b) => b.citations ?? []).map((c) => ({ url: c.url, cited_text: c.cited_text }))
-  const joined = texts.map((b) => b.text).join('')
-  const m = joined.match(/\{[^{}]*\}(?![\s\S]*\{)/)
-  let answer = null
-  try { answer = m ? JSON.parse(m[0]) : null } catch { answer = null }
-  return { answer, citations }
+  return parseWebResponse(await r.json())
 }
 
 const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
 await client.connect()
+// 저장된 줄 판정(detail_line_kinds: AI·Lee가 정한 칸) — 업무가 적혔는지(dutyStated)를 화면·상세 채우기와 같은 판정으로 본다(R2 #753). 못 읽으면 빈 판정으로 계속.
+const kindRows = await client.query('select line_key, section, decided_by from public.detail_line_kinds').then((r) => r.rows, () => [])
+const LINE_KINDS = Object.fromEntries(kindRows.map((r) => [r.line_key, { section: r.section, by: r.decided_by }]))
 
 /** 위치 확인이 저장한 Google 결과(research_artifacts map-r1-query, auto-location-runtime과 같은 열쇠)만 읽는다. Google을 새로 부르지 않는다. */
 async function googlePlaceFor(job) {
@@ -48,7 +42,7 @@ async function googlePlaceFor(job) {
     const name = createHash('sha256').update(key).digest('hex')
     return (await client.query("select payload from public.research_artifacts where kind = 'map-r1-query' and name = $1", [name])).rows[0]?.payload?.data ?? null
   }
-  const within = async (addresses, point) => { const area = administrativeAreaForTarget(addresses[0], addresses[1] || ''); return !!area && areaContains(area, point) }
+  const within = async (addresses, point) => withinOriginalProvince(addresses[0], addresses[1] || '', point) // 위치 확인 서버와 같은 '원래 성 안'
   return cachedGooglePlace(resolverJob, cached, within)
 }
 
@@ -59,11 +53,12 @@ try {
            ocr_check->'business_type'->>'src_hash' as tried
     from public.local_jobs
     where origin = 'crawler' and not admin_hidden and (occupation_code is null or (occupation_code = '5' and ocr_check->'business_type'->>'kind' is null)) and coalesce(source_text,'') <> ''
-      and ${ALL_JOBS ? 'true' : afterCutoff()}
+      and ${autoScope()}
     order by id`, [`${WEB_PROMPT_VERSION}|${GOOGLE_STEP_VERSION}`])
   console.log(`업종 확인 대상 ${rows.length}건`)
   for (const job of rows) {
     if (job.tried === job.src_hash) continue
+    job.lineKinds = LINE_KINDS
     let found = businessFromName(job)
     let note = found ? 'name' : 'name:none'
     let place = null

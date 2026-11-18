@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import {hasExcludedMoneyRole} from '../../src/lib/jobPostingPolicy.mjs'
-import {sourcePoints,assertPoints,pointsForJob} from './location-point-oracle.mjs'
+import {sourcePoints,assertPoints,pointsForJob,settleChange} from './location-point-oracle.mjs'
 const base=process.env.BASE_URL||'http://localhost:4173'
 const out=process.env.SCREENSHOT_DIR||'map-summary-proof'
 const config=await readFile(new URL('../../src/lib/supabase.ts',import.meta.url),'utf8')
@@ -29,6 +29,12 @@ const {error:schemaError}=await db.from('job_work_locations')
  .select('id,lat,lng,point_kind,point_precision,point_revision').limit(0)
 assert.ifError(schemaError)
 const snapshot=[]
+const changed=new Set()
+const readFresh=async id=>{
+ const [job]=await allRows('local_jobs','id,active,admin_hidden',q=>q.eq('id',id))
+ const points=sourcePoints(await allRows('job_work_locations','id,lat,lng,point_kind,point_precision,point_revision',q=>q.eq('job_id',id)))
+ return {public:Boolean(job?.active&&!job.admin_hidden),points}
+}
 for(const job of jobs) snapshot.push({...job,points:sourcePoints(await allRows('job_work_locations','id,lat,lng,point_kind,point_precision,point_revision',q=>q.eq('job_id',job.id)))})
 // Audit the public cache projection separately from the rendered map.
 for(let from=0;from<snapshot.length;from+=100) {
@@ -39,8 +45,10 @@ for(let from=0;from<snapshot.length;from+=100) {
  for(const job of batch) {
   const value=payload.points?.[`sb-${job.id}`]
   const actual=Array.isArray(value)?value:value?.points
-  assert.ok(Array.isArray(actual),'public cache full point set missing for '+job.id)
-  assertPoints(job.points,actual,'public cache/source mismatch job '+job.id)
+  try {
+   assert.ok(Array.isArray(actual),'public cache full point set missing for '+job.id)
+   assertPoints(job.points,actual,'public cache/source mismatch job '+job.id)
+  } catch(e) { if(await settleChange(e,job,readFresh)==='changed'){changed.add(job.id);console.log('AUDIT_JOB_CHANGED '+job.id)} }
  }
 }
 await mkdir(out,{recursive:true})
@@ -65,6 +73,8 @@ try {
  const observed=new Map()
  const known=new Set(snapshot.map(j=>String(j.id)))
  for(const job of snapshot) {
+  if(changed.has(job.id))continue
+  try {
   for(const target of job.points) {
    await page.evaluate(point=>localStorage.setItem('vgb:map-r1:viewport',JSON.stringify({center:{lat:Number(point.lat),lng:Number(point.lng)},zoom:16})),target)
    await page.goto(base,{waitUntil:'domcontentloaded'})
@@ -94,8 +104,9 @@ try {
   const evidence={jobId:job.id,source:fields(job.points),main:fields(mainPoints),detail:fields(detailPoints)}
   verifiedJobs.push(evidence)
   console.log('LOCATION_POINTSET_PASS '+JSON.stringify(evidence))
+  } catch(e) { if(await settleChange(e,job,readFresh)==='changed'){changed.add(job.id);console.log('AUDIT_JOB_CHANGED '+job.id)} }
  }
- for(const job of snapshot) assertPoints(job.points,pointsForJob([[...observed.values()]],job.id),'full observed main point set '+job.id)
+ for(const job of snapshot) if(!changed.has(job.id)) assertPoints(job.points,pointsForJob([[...observed.values()]],job.id),'full observed main point set '+job.id)
  await page.goto(base,{waitUntil:'domcontentloaded'})
  await page.locator('.hme__map').scrollIntoViewIfNeeded()
  const category=page.locator('[data-category]').filter({has:page.locator('strong')})

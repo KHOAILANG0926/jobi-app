@@ -1,3 +1,4 @@
+// 2026-11-13: JobDetail.tsx — Lee "A3 적용 승인"(#740, R2 #728): 급여 칸 나누기를 conditionLines.salaryParts 한 곳으로(소수점 쉼표 8,5가 두 줄로 끊기던 것만 고침). 틀·칸·CSS 변경 없음.
 // 2026-11-11: JobDetail.tsx — Lee "사진 안 맞는다"·"3개 사진이 안 맞는데"·"덧대기": ④ 그림을 카드 사진과 같은 종류(cardPhoto 한 곳: 공장=회사 이름·제목만, 가게·식당=원문까지)로 고르게 글만 넘김. 틀·칸·CSS 변경 없음.
 // 2026-11-11: index.css — 모바일(760px 이하)만: 상세 등록일 줄 한 줄+…·하단 연락 바 버튼 최소 폭 0(가로 넘침, 자동 캡처로 확인). PC 규칙 변경 없음.
 // 2026-11-10: JobDetail.tsx·index.css — Lee "처음으로 마음에 드는"·"가자": 상세 ④ 꾸민 본문(DetailRich: 큰 급여·알약·형광펜 소제목·아이콘 카드·절차 화살표·복리후생 타일·전화 버튼) + 업종별 색 13가지, 휴대폰 그림 머리 회사 이름 한 줄. ①②③·상단 카드·KDA 틀 변경 없음.
@@ -111,7 +112,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "d6951831262dddc9e789f02b0d51e4525fbc3048692f91fadac8124f37cdff98",
+    "sha256": "0053f4ae1d9ebbf4f2be6c4a3b1a522fb17367b487292f6eaff7c10c4de8ac84",
     "restore": []
   },
   {

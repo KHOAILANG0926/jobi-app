@@ -1,4 +1,4 @@
-name: Offline crawler CLI regression
+name: Crawler install check (real packages)
 
 on:
   pull_request:
@@ -11,14 +11,30 @@ permissions:
   contents: read
 
 jobs:
-  offline-cli:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+  # offline-cli 시험은 S7(#808)에서 필수 checks(pr-checks.yml '수집기·공고 정책·재처리 대기열 시험')로 옮김. 여기는 실제 패키지 설치 확인만.
+
+  # 재개 전 설치 확인(#872·#876): crawl.yml과 같은 실행 환경(ubuntu-22.04·Python 3.12)·같은 설치 명령으로 실제 설치가 되는지 본다.
+  # 2026-08-24~28 crawl.yml 실제 실행 5건이 모두 설치 단계에서 실패(ubuntu-latest + playwright 1.44 → libasound2 없음).
+  # 열쇠 없음·수집 실행 없음 — 설치 뒤 모듈 불러오기와 오류 격리 시험만 실제 패키지로 돌린다.
+  crawl-install:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      # Standard library only. Never import crawler runtime or provide secrets.
-      - run: python -I crawler/test_scheduled_cli.py
-      - run: python -I crawler/test_ingest_gateway.py
+          python-version: '3.12'
+      - name: 의존성 설치 (crawl.yml과 같은 명령)
+        run: |
+          python -m pip install -r crawler/requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: 수집기 모듈 불러오기 (실제 패키지, 열쇠 없음)
+        working-directory: crawler
+        run: python -c "import crawl_topcv, crawl_facebook, ingest_gateway; print('import ok')"
+      - name: 오류 격리 시험 (실제 패키지 위에서)
+        run: python crawler/test_job_error_isolation.py
+      # 상세 화면 읽기 시험(실제 크롬, 가짜 화면) — 섹션 읽기·vieclam24h 공개 연락처 버튼(#896). 열쇠·사이트 접속 없음.
+      - name: 상세 화면 읽기 시험 (실제 크롬, 가짜 화면)
+        run: python crawler/test_detail_section_parser_dom.py

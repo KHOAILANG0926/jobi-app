@@ -355,6 +355,126 @@ def test_hours_in_yeu_cau_cong_viec_section_is_found() -> None:
     )
 
 
+# ── 공개 연락처 버튼(reveal_employer_phone, Lee 2026-11-18 #896) — 실제 crawl_topcv 함수를 가짜 화면에서 실행 ──
+_FOOTER = '<footer>Hotline 0901234567</footer>'
+_REVEAL_CASES = {
+    # 버튼을 누르면 연락처 칸에 번호가 나타남 → 그 번호만(바닥 대표번호 제외)
+    "revealed": ('<div class=contact><b>Điện thoại</b> <span id=p>09** *** ***</span> '
+                 '<button onclick="document.getElementById(\'p\').innerText=\'0987 654 321\'">Xem số điện thoại</button></div>' + _FOOTER,
+                 "revealed", "0987654321"),
+    # 누르면 로그인 창 → 멈춤, 번호 없음
+    "login": ('<a>Đăng nhập</a><div class=contact><button onclick="document.body.insertAdjacentHTML(\'beforeend\','
+              '\'<div role=dialog>Vui lòng đăng nhập để xem</div>\')">Hiện số</button></div>' + _FOOTER, "login_required", ""),
+    # 버튼 없음 → 화면의 대표번호를 고용주 번호로 쓰지 않음
+    "no_button": ('<p>Ứng tuyển ngay</p>' + _FOOTER, "no_button_phone_in_page", ""),
+    # 눌러도 번호가 안 나옴
+    "nothing": ('<div class=contact><button>Xem số</button></div>' + _FOOTER, "click_no_number", ""),
+    # 버튼 글자가 로그인 유도 → 누르지 않고 로그인 필요
+    "login_button": ('<div class=contact><a>Đăng nhập để xem số</a></div>' + _FOOTER, "login_required", ""),
+    # 누르면 연락처 칸이 아니라 다른 칸(광고·추천 공고)에 번호가 뜸 → 쓰지 않음
+    "ad_box": ('<div class=contact><button onclick="document.getElementById(\'ad\').innerText=\'Gọi ngay 0912 345 678\'">Xem số</button></div>'
+               '<aside id=ad>' + 'Việc làm gợi ý cho bạn. ' * 20 + '</aside>' + _FOOTER, "click_no_number", ""),
+}
+
+
+def test_reveal_employer_phone_reads_only_new_number_in_contact_box():
+    import asyncio
+    from playwright.async_api import async_playwright
+    import crawl_topcv as c
+
+    async def run():
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            try:
+                for name, (html, probe, phone) in _REVEAL_CASES.items():
+                    page = await browser.new_page()
+                    await page.set_content(html)
+                    got = await c.reveal_employer_phone(page)
+                    await page.close()
+                    assert got["phoneProbe"] == probe and got["detailPhone"] == phone, (name, got)
+            finally:
+                await browser.close()
+    asyncio.run(run())
+
+
+
+def test_fetch_job_detail_uses_only_phone_written_in_job_body():
+    """Lee 2026-11-18 최종: 고용주가 공고 본문에 적은 번호만 쓴다. 페이지 자료(jobDetailHiddenContact)의 숨긴 번호·고객센터 번호는 쓰지 않는다."""
+    import asyncio, json, urllib.parse
+    from playwright.async_api import async_playwright
+    import crawl_topcv as c
+
+    nd = {"props": {"initialState": {"api": {"jobDetailHiddenContact": {"data": {
+        "contact_phone": ["0911111111"], "contact_email": "hr@abc.vn", "contact_name": "Ms Lan"}}}}}}
+    tail = '<footer>Hotline 0901234567</footer><script id="__NEXT_DATA__" type="application/json">' + json.dumps(nd) + '</script>'
+    def detail(desc_items):
+        # 실제 상세 칸 구조: h1과 같은 묶음 안에 Mô tả → Yêu cầu → Quyền lợi → Thông tin chung
+        lis = "".join(f"<li>{x}</li>" for x in desc_items)
+        return ('<div><h1>Nhân viên</h1><h2>Mô tả công việc</h2><ul>' + lis + '</ul>'
+                '<h2>Yêu cầu công việc</h2><ul><li>Chăm chỉ</li></ul>'
+                '<h2>Quyền lợi</h2><ul><li>Lương tốt</li></ul><h2>Thông tin chung</h2></div>' + tail)
+    cases = {
+        # 본문 칸(Mô tả công việc)에 고용주가 적은 번호 → 그 번호
+        "body": (detail(["Phục vụ khách", "Liên hệ: 0987 654 321 (Chị Hoa)"]),
+                 "description_text", "0987654321"),
+        # 본문에 번호 없음 → 숨긴 번호·고객센터 번호 모두 안 씀
+        "none": (detail(["Phục vụ khách"]), "no_button_phone_in_page", ""),
+        # 제목 칸을 못 찾아 화면 전체 글로 대신한 경우 → 그 안의 번호(고객센터 등)는 안 씀
+        "fallback": ('<div>Phục vụ khách</div>' + tail, "no_button_phone_in_page", ""),
+    }
+
+    async def run():
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            try:
+                for name, (html, probe, phone) in cases.items():
+                    page = await browser.new_page()
+                    d = await c.fetch_job_detail(page, "data:text/html;charset=utf-8," + urllib.parse.quote(html))
+                    await page.close()
+                    assert d["phoneProbe"] == probe and d["detailPhone"] == phone, (name, d.get("phoneProbe"), d.get("detailPhone"))
+            finally:
+                await browser.close()
+    asyncio.run(run())
+
+
+def test_phone_button_drawn_after_scroll_is_clicked():
+    """Lee 2026-11-18 15:33: 버튼이 아래로 내려야 그려지는 화면 — 내린 뒤 다시 찾아 누르고, 눌러서 보인 번호만 읽는다."""
+    import asyncio
+    from playwright.async_api import async_playwright
+    import crawl_topcv as c
+
+    html = ('<div style="height:3000px">Mô tả</div><div id="box"></div><footer>Hotline 0901234567</footer><script>'
+            'window.addEventListener("scroll",()=>{const b=document.getElementById("box");if(b.dataset.on)return;b.dataset.on=1;'
+            'const sp=document.createElement("span");sp.textContent="Liên hệ: ";const bt=document.createElement("button");bt.id="x";bt.textContent="Xem số điện thoại";b.append(sp,bt);'
+            'document.getElementById("x").onclick=()=>{b.querySelector("span").textContent="Liên hệ: 0987 654 321"}})</script>')
+
+    async def run():
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            try:
+                page = await browser.new_page()
+                await page.set_content(html)
+                first = await c.reveal_employer_phone(page)
+                assert first["phoneProbe"].startswith("no_button"), first
+                c._MOBILE_PROBE_LIMIT = 0  # 모바일 대조는 실제 주소가 필요 — 여기선 PC 내린 뒤만
+                got = await c.probe_phone_button_views(page, "about:blank")
+                assert got["phoneProbe"] == "revealed" and got["detailPhone"] == "0987654321", got
+            finally:
+                await browser.close()
+    asyncio.run(run())
+
+
+def test_record_phone_only_from_screen_visible_sources():
+    """Lee 2026-11-18 #6255: 화면에서 숨긴 자료의 번호(page_data, #904)로 만든 상세 결과가 저장 단계에서 그대로 전화번호가 됐다.
+    공고 번호 칸은 화면에 보인 번호(버튼을 눌러 보인 revealed, 공고 본문 description_text)만 받는다."""
+    import crawl_topcv as c
+    assert c.screen_phone({"detailPhone": "0111111111", "phoneProbe": "page_data"}) == ""
+    assert c.screen_phone({"detailPhone": "0987654321", "phoneProbe": "page_data"}) == ""
+    assert c.screen_phone({"detailPhone": "0987654321"}) == ""
+    assert c.screen_phone({"detailPhone": "0987654321", "phoneProbe": "revealed"}) == "0987654321"
+    assert c.screen_phone({"detailPhone": "0987654321", "phoneProbe": "description_text"}) == "0987654321"
+
+
 def main() -> int:
     tests = [
         test_p_ul_p_mixed_preserves_all_sentences_in_dom_order,
@@ -372,6 +492,19 @@ def main() -> int:
             print(f"✅ {test.__name__}")
     finally:
         _close_browser()
+    # 비동기 브라우저 시험은 위 동기 브라우저를 닫은 뒤에(같은 실행 안에서 두 방식을 겹쳐 쓰지 않게)
+    test_reveal_employer_phone_reads_only_new_number_in_contact_box()
+    print("✅ test_reveal_employer_phone_reads_only_new_number_in_contact_box")
+    tests.append(test_reveal_employer_phone_reads_only_new_number_in_contact_box)
+    test_fetch_job_detail_uses_only_phone_written_in_job_body()
+    print("✅ test_fetch_job_detail_uses_only_phone_written_in_job_body")
+    tests.append(test_fetch_job_detail_uses_only_phone_written_in_job_body)
+    test_phone_button_drawn_after_scroll_is_clicked()
+    print("✅ test_phone_button_drawn_after_scroll_is_clicked")
+    tests.append(test_phone_button_drawn_after_scroll_is_clicked)
+    test_record_phone_only_from_screen_visible_sources()
+    print("✅ test_record_phone_only_from_screen_visible_sources")
+    tests.append(test_record_phone_only_from_screen_visible_sources)
     print(f"\n결과: {len(tests)}/{len(tests)} real DOM section parser tests passed")
     return 0
 

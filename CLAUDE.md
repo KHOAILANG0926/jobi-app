@@ -13,6 +13,7 @@
 - 운영 DB 변경은 `supabase/migrations/` 파일과 `supabase/tests/*_production_check.sql`을 같은 PR로 제출하고 필수 검사→봇 병합→`migrations-apply.yml` 자동 적용으로만 진행한다.
 - 시험 DB 검사(2026-11-09 공통화): `<시각>_<이름>.sql`이면 `supabase/tests/<이름>.setup.sql`(준비)·`<이름>.local.sql`(확인)을 이름 규칙으로 둔다. `scripts/ci/check-postgres-migrations.sh`에 파일별 예외를 덧붙이지 않는다.
 - 파일 하나는 한 트랜잭션이며 충돌·근거 누락은 RAISE로 전체 취소한다. 운영 `migrations-apply` 실패 시 원문 오류 그대로 보고하고 멈춘다. 직접 SQL·별도 경로·자동 재시도로 우회하지 않는다.
+- 좁은 예외(Lee 2026-11-09 "좁히기", `.github/workflows/ops-run-sql.yml`·`scripts/ops/run-sql-plan.mjs`가 실제 구현): 사용자 승인 뒤 master에서 Lee 계정이 수동 실행하는 지정 SQL(`scripts/ops/jobs/<이름>.sql`)만 — 허용 문장 = 정식 입구(`ingest_job`)로 기존 공고 고치기 1줄(job_id+update_fields)과 조회 1줄. 입구 호출 뒤에는 읽기 전용을 걸어 DB가 쓰기를 거부하고 한 트랜잭션이다. 구조 변경(DDL)·삭제·새 공고 등록·`migrations-apply` 실패 우회는 이 경로로 못 하며(앞 줄의 '직접 SQL로 우회하지 않는다'는 그대로), 작업자의 직접 연결·임의 SQL 금지도 그대로다.
 - 실제 좌표 확인은 정상 운영 검사/읽기 전용 공개 화면·API의 실행 증거로 한다. 로컬 폐기용 DB 시험은 운영 접근과 구분한다.
 
 이 파일은 GitHub Actions 등 자동화 환경에서 실행되는 Claude Code를 포함해,
@@ -24,7 +25,7 @@ AI_DISCOVERY_STRATEGY.md는 참고용 배경 문서다. 이 문서를 근거로 
 목적: Lee가 자는 시간에도 개발·운영이 이어지게 한다. 방향을 일일이 지시하지 않아도 이 문서의 규칙이 "기본 선"이다.
 - 역할: **Claude = 개발**(수정·PR, Codex 지적 대응, 밤 근무) / **GPT Codex = 검사관**(PR 자동 리뷰, 이 저장소 AGENTS.md "Review guidelines") / **Gemini·GPT 그림 = 그림·영상**(필요할 때, 열쇠는 그때 금고에). Lee는 방향·승인만.
 - 소통은 GitHub에서: PR 리뷰·댓글·이슈. Lee가 AI 사이에서 글을 옮기지 않게 한다.
-- 흐름: Claude PR → Codex 자동 리뷰 → 지적이 있으면 Claude가 고쳐 올리거나 근거를 답함(`<!-- claude-codex-reply -->` 댓글) → 필수 검사 통과 → 봇 병합 → 운영 검사. 봇은 Codex 리뷰를 기다린다(지적이 있으면 Claude 답이 있어야 진행 — scripts/codex-review-gate.mjs). Codex가 한도 초과로 답하거나 12분 안에 안 오면 Claude 검토관(claude-auto.yml fallback-review, 다른 세션이 AGENTS.md 기준으로 읽기 전용 검토, 결과 `<!-- claude-fallback-review -->`)이 대신 보고, 그 지적도 Codex 지적처럼 답해야 진행. 검토관도 20분 안에 안 오면 일반 파일은 기존 검사만으로 진행, 운영·보안·DB 파일은 검토관을 다시 부름(3번 다 없으면 장치 고장 이슈 ai-team). **Codex는 승인자가 아니라 의견(검토·문제점 확인)이고 최종 판단은 Claude**다 — Codex가 없다고 멈추거나 Lee 확인으로 넘기지 않는다(Lee 2026-11-11). 단 Lee가 채팅에서 데모를 보고 "적용"한 PR은 Codex를 기다리지 않는다(Lee 2026-11-09): 작업자가 PR에 `LEE-DEMO-APPLY <head SHA 전체>` 댓글 → 필수 검사 통과 즉시 봇 병합. Lee가 "적용"이라고 한 PR에만 단다. 결정 문서 승인용 `LEE-APPROVE`는 작업자가 달지 않는다. Codex는 Lee 계정의 `@codex review` 댓글에만 반응한다('푸시할 때마다' 자동 리뷰 설정은 켜져 있지만 2026-11-09 #604 시험에서 커밋 때 오지 않음, claude[bot] 요청도 무시). 작업자는 로컬 검사를 마친 뒤 PR당 한 번(끝에) Lee 계정으로 `@codex review` 댓글을 단다 — Codex 사용량은 Lee 몫이라 커밋마다 요청하지 않는다(Lee 2026-11-11, 주간 한도 소진). 12분은 그래도 안 올 때의 안전장치일 뿐이다. Codex↔Claude 왕복 5번 넘으면 멈추고 needs-lee. 지적이 같은 종류 실패의 반복이면(2번째부터) 예외를 더하지 않고 방법 변경안을 보고한다(아래 우선 원칙 8). Codex 지적이 오면 claude-auto.yml codex-response(구독 열쇠 CLAUDE_CODE_OAUTH_TOKEN)가 자동으로 고쳐 push·답 댓글을 단다(2026-11-09 #600에서 확인). Claude가 고친 커밋을 올리면 같은 잡이 Lee 계정 열쇠(CODEX_TRIGGER_TOKEN: 이 저장소 PR 쓰기 전용, 2026-11-09 Lee 등록)로 `@codex review`를 달아 재검토를 받는다.
+- 흐름: Claude PR → Codex 자동 리뷰 → 지적이 있으면 Claude가 고쳐 올리거나 근거를 답함(`<!-- claude-codex-reply -->` 댓글) → 필수 검사 통과 → 봇 병합 → 운영 검사. 봇은 Codex 리뷰를 기다린다(지적이 있으면 Claude 답이 있어야 진행 — scripts/codex-review-gate.mjs). Codex가 한도 초과로 답하거나 12분 안에 안 오면 Claude 검토관(claude-auto.yml fallback-review, 다른 세션이 AGENTS.md 기준으로 읽기 전용 검토, 결과 `<!-- claude-fallback-review -->`)이 대신 보고, 그 지적도 Codex 지적처럼 답해야 진행. 검토관도 20분 안에 안 오면 다시 부르고, 3번 다 없으면 그 PR만 보류하고 장치 고장 이슈(ai-team)를 연다 — 검토 없는 병합은 없다(Lee 2026-11-14 결정 7①, 다른 PR·작업은 계속). **Codex는 승인자가 아니라 의견(검토·문제점 확인)이고 최종 판단은 Claude**다 — Codex가 없다고 멈추거나 Lee 확인으로 넘기지 않는다(Lee 2026-11-11). Lee 승인이 필요한 PR(결정 문서·승인된 화면 틀·needs-lee·검사/보호 장치 변경 — `scripts/decision-approval-gate.mjs`)은 Lee가 GitHub 앱에서 그 커밋에 승인(Approve) 리뷰를 해야 병합된다. 댓글 승인(`LEE-APPROVE`·`LEE-DEMO-APPLY`)은 폐지 — AI가 Lee 승인을 대신 기록하지 않는다(Lee 2026-11-14 결정 6①). 데모 "적용"도 같다: 채팅의 "적용"은 방향 결정이고, 병합 승인은 Lee의 GitHub 승인 리뷰다. 일반 작업은 독립 검토 뒤 자동 진행. Codex는 Lee 계정의 `@codex review`에만 반응한다(봇 계정 요청은 'Codex 계정 연결 필요'로 거절, 2026-11-14 #809). AI는 Lee 계정·열쇠로 요청하지 않는다(S3-1) — Codex 검토는 Lee가 원할 때 직접 다는 선택 사항이고, 기본 독립 검토자는 Claude 검토관이다. Codex↔Claude 왕복 5번 넘으면 멈추고 needs-lee. 지적이 같은 종류 실패의 반복이면(2번째부터) 예외를 더하지 않고 방법 변경안을 보고한다(아래 우선 원칙 8). Codex 지적이 오면 claude-auto.yml codex-response가 고치고, codex-publish가 검증 뒤 push·답 댓글을 단다(S4 3차 #822: Claude가 도는 잡에는 쓰기 토큰·id-token·DB 키를 두지 않는다 — Claude는 파일·초안만 만들고, 커밋·push·댓글·이슈·PR은 기준 사본만 실행하는 게시 잡이 `scripts/ci/claude-publish.mjs`로 검증(비밀값·@언급·표시 위조·금지 경로·링크·트리 대조) 뒤 claude[bot] 앱 토큰으로 한다. 검토관·`@claude` 답도 같은 구조. 직업분류 주간 자동 규칙 보강은 중단 — 규칙 변경은 별도 작업 지시로만, Lee 2026-11-15). Claude가 고친 커밋을 올리면 codex-followup 잡이 그 커밋의 PR 검사를 다시 돌리고 Claude 검토관 재검토를 부른다(Lee 계정 열쇠 `CODEX_TRIGGER_TOKEN` 사용 폐지, S3-1 #808).
 - **알아서 하는 것(Lee 확인 없음)**: 공고 수집·등록, 위치·업종·회사 이름·급여 판정 오류 고치기(사례를 시험에 추가하는 기존 방식), 검사표·운영 검사가 찾은 문제 고치기, 고장 난 검사 고치기, 비용·속도 개선, 이 문서 규칙을 지키게 하는 자동 장치.
 - **준비만 하고 Lee 한마디로 진행**: 화면 모양 변경(글 모형·데모까지 만들고 "적용" 대기), 새 기능 방향, DB 구조 변경(STRICT), 돈이 드는 것(새 열쇠·충전·유료 서비스). 이슈 라벨 needs-lee.
 - **절대 안 함**: 데이터 삭제, 보안·권한(RLS·인증·비밀값) 완화, 승인된 틀(KDA·상세 구성) 변경, 원본 채용사이트 링크.
@@ -78,7 +79,7 @@ AI_DISCOVERY_STRATEGY.md는 참고용 배경 문서다. 이 문서를 근거로 
 
 재발 방지 근거: 2026-11-01 하루에 급여 색(PC 카드만, 모바일 목록 누락), Wallace 업종 변경(메뉴 칸·운영 검사 누락), 브랜드 로고(메뉴만, 카드·상세 누락)를 Lee가 하나하나 지적해야 했다.
 
-1. 무엇을 바꾸든 시작 전에 그 데이터가 나오는 곳을 코드에서 전부 찾는다(grep): PC 카드·모바일 목록·상세·지도 창·메뉴·브랜드 화면·추천/저장/최근 본/급구 표·지원 창·알림·관리자·운영 검사(scripts/ops)·DB 검사.
+1. 무엇을 바꾸든 시작 전에 그 데이터가 나오는 곳을 코드에서 전부 찾는다(grep): PC 카드·모바일 목록·상세·지도 창·메뉴·브랜드 화면·추천/저장/최근 본/급구 표·지원 창·알림·관리자·운영 검사(scripts/ops)·DB 검사. 화면 밖 기능이면 그 기능을 쓰는 모든 수집 경로(crawler/·등록 입구)·DB 함수·시험·운영 자동화(.github/workflows)도 같은 방법으로 찾는다(우선 원칙 9, Lee 2026-11-17).
 2. 여러 화면에 나오는 것은 한 곳(공용 함수·부품)에서 만든다 — 급여 표시: src/components/SalaryText.tsx + lib/mainJobCards.cardSalary, 브랜드 로고: lib/brandLogo.ts.
 3. 완료 보고에 "바꾼 곳 N곳 / 해당 없는 곳과 이유"를 적는다. 목록 없이 완료라고 하지 않는다.
 
@@ -185,6 +186,12 @@ FAST/NORMAL의 "중복 승인 없이 Production까지"는 1·2순위를 침범�
    지적 대응도 같다(Lee 2026-11-11 "계속 덧대기를 하면 위험"): Codex·검토관 지적을 고치기 전에 같은 코드·방식에서 같은 종류의 실패가
    이미 고쳐진 적 있는지 git log·PR로 본다. 처음이면 고친다. 2번째부터는 예외를 더하지 않고 방법을 바꾸는 안(무엇을 지우고 바꿀지·잃는 것)을
    PR 댓글로 남기고 Lee에게 보고한다. 사례: 2026-11-11 공장 그림 낱말 목록 — xe máy·phố·vai trò 오판이 반복돼 '본문 안 봄'으로 바꿈(#683).
+9. **기존 시스템 재사용 우선 — JOBI 전체 공통 (Lee 2026-11-17 최우선)**: 모든 기능·모듈·AI 작업·크롤링·데이터 처리·위치 확인·보안·화면·배포·테스트·자동화에 적용한다.
+   시작 전 CLAUDE.md·AGENTS.md·`VIECGANBAN_STRUCTURE_BASELINE.md`(1번)와 관련 코드·이슈·PR·과거 수정 이력을 보고, 이미 있는 기능·검증 장치·공통 함수·프로세스를 찾아 재사용한다.
+   기존 기능이 정상이면 새 시스템을 만들지 않는다. 문제가 나면 ① 기존 프로세스의 어느 단계에서 났는지 ② 이미 해결했던 문제인지·기존 수정의 회귀인지·새 결함인지를 먼저 가린다.
+   기존 기능으로 못 푸는 결함이 실제로 확인됐을 때만 기존 구조 안에서 최소 수정한다 — 예외 규칙·임시 우회·중복 검증기·별도 처리 경로·불필요한 재설계 금지(8번).
+   영향 범위는 화면뿐 아니라 그 기능을 쓰는 모든 수집 경로·DB·테스트·운영 자동화까지 점검한다(「수평 전개 점검」). 기존 보호 장치·승인된 결정은 유지하고, 바꿔야 하면 근거·영향 범위를 먼저 보고해 승인을 받는다(「규칙 우선순위」).
+   완료 보고에 ① 재사용한 기존 기능 ② 실제로 고친 부분 ③ 회귀 테스트 결과를 적는다(PR 본문 「작업 범위」의 `- 재사용한 기존 기능:` 줄).
 
 ## 보고 형식 — MANDATORY (2026-09-28 사용자 지시, 2026-10-06 강화)
 

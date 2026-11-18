@@ -49,3 +49,7 @@ equal(formatDistanceLabel(1.234),'1.2 km đường chim bay','exact distance rem
 for (const [label, lat, lng] of [['Cao Bằng', 22.7595, 106.047], ['Điện Biên', 21.7487, 103.226], ['Lai Châu', 22.3502, 103.255], ['Sơn La', 21.3011, 104.159], ['Tuyên Quang', 22.131, 105.229], ['Hà Giang', 22.131, 105.229]] as const)
   equal(findRegionCenter(label), { lat, lng }, `${label} has a camera center`)
 equal(findRegionCenter('Lạng Sơn'), { lat: 21.8537, lng: 106.761 }, 'existing Lạng Sơn center unchanged')
+
+// #728 S8 조사(규칙-코드 불일치): 11-11 절대 원칙 — 좌표 없는/미확정 근무지는 원문 지역 글자가 있어도 점을 만들지 않는다.
+equal(resolveMapLocations({ rawLocation: 'KCN VSIP, Bắc Ninh', recruitmentRegions: ['Bắc Ninh'], workLocations: [{ id: 1, rawAddress: 'KCN VSIP, Bắc Ninh', pointKind: 'unresolved' } as never] }).points, [], 'unresolved work location with a region text draws no pin')
+equal(resolveMapLocations({ rawLocation: 'Bắc Ninh', workLocations: [{ id: 2, rawAddress: 'Bắc Ninh' } as never] }).source, 'pending', 'no point at all stays pending (nothing invented)')

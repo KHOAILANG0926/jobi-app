@@ -112,6 +112,10 @@ export function headingOf(line: string) {
   const plain = headingShape ? s.replace(/\s*\([^)]*\)$/, '').replace(HEADING_PRAISE, '') : s
   return HEADINGS.find(([re]) => re.test(s))?.[1] ?? (plain !== s ? HEADINGS.find(([re]) => re.test(plain))?.[1] : undefined)
 }
+// 업무가 아니라 근무 자세·환경 낱말로만 된 줄(예: "Làm ngồi, phòng thường", "Làm ngồi, thoải mái.")은 업무를 추정하지 않고 근무환경(05)이다
+// (Lee 2026-10-27 FUSHAN 결정). 전에는 그 문구 전체를 그대로 적은 예외 한 줄이었다 — R2(#753): 문구 전체 예외 금지, 이미 코드에 있던 근거 낱말(lam ngoi·phong thuong·thoai mai)만 쓰는 한 규칙으로.
+// 줄이 이 낱말과 구두점·'Công việc:' 라벨로만 되어 있을 때만 해당(다른 낱말이 하나라도 있으면 아님: "Làm ngồi linh kiện tai nghe"는 업무).
+const ENV_ONLY_LINE = /^(?:cong viec:\s*)?(?:(?:lam ngoi|phong thuong|thoai mai)[,.;\s]*)+$/
 // 줄 하나만 보고 칸을 정하는 규칙(소제목 안이라도 내용이 분명하면 옮긴다).
 export function lineBucket(line: string, current: DetailTextKey): DetailTextKey {
   const s = bare(line)
@@ -122,7 +126,7 @@ export function lineBucket(line: string, current: DetailTextKey): DetailTextKey 
   if (/^tuyen\s*:\s*(?:chinh thuc|thoi vu)\b/.test(s)) return '03'
   if (/^(?:ho tro ho so|tuyen qua nha thau)\b/.test(s)) return '06'
   if (/^cong viec cu the: chua ghi trong tin goc$/.test(s)) return '01'
-  if (/^(?:cong viec:\s*)?lam ngoi,\s*phong thuong$/.test(s)) return '05'
+  if (ENV_ONLY_LINE.test(s)) return '05'
   if (/^(?:dia chi|dia diem lam viec)\s*:/.test(s) && /\b(?:ktx|ky tuc xa|ho tro tim tro)\b/.test(s)) return '05'
   if (/^(?:ca ngay|ca dem|luong|thuong|chuyen can|phu cap|tro cap|muc luong|tham nien|thu nhap|hinh thuc tra luong)\b/.test(s) || /^\d[\d.,]*\s*(?:trieu|dong|vnd|k)(?:\b|\/)/.test(s)) return '04'
   if (/^(?:co xe dua don|xe dua don|duoc mang dien thoai|co ky tuc xa|ky tuc xa|co bua an|bua an|ho tro an|bao hiem|phuc loi)\b/.test(s)) return '05'

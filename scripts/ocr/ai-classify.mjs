@@ -7,28 +7,17 @@
 import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { buildPrompt, guardAiResult, lineKey, BENEFIT_CODES, ruleConfirmedFlags } from '../../src/lib/aiClassifyGuard.ts'
-import { afterCutoff } from '../ops/auto-cutoff.mjs'
+import { autoScope } from '../ops/auto-cutoff.mjs'
+import { askJSON } from './ai-ask.mjs'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY } = process.env
 // 2026-11-08 Lee "진행": Sonnet→Haiku(PR #546 비교 시험 10/10 같음, 1건 약 $0.009→$0.0015). 모델이 hash에 들어가므로 바꾸면 한 번 다시 판정한다.
 const MODEL = process.env.CLASSIFY_AI_MODEL || 'claude-haiku-5-5'
-// CLASSIFY_ALL_JOBS=1이면 기준 시각 이전 공고도 다시 판정(Lee 2026-11-08 "공고 적은 지금 다시 판정", 워크플로 수동 실행 입력).
-const ALL_JOBS = process.env.CLASSIFY_ALL_JOBS === '1'
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
 if (!ANTHROPIC_API_KEY) { console.log('::warning::ANTHROPIC_API_KEY 없음 — AI 판정 건너뜀'); process.exit(0) }
 
-async function ask(prompt) {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 3000, messages: [{ role: 'user', content: prompt }] }),
-  })
-  if (!r.ok) throw new Error(`AI HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`)
-  const j = await r.json()
-  const text = (j.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('')
-  const m = text.match(/\{[\s\S]*\}/)
-  return m ? JSON.parse(m[0]) : {}
-}
+// AI 부르기는 ai-ask.askJSON 한 곳(회사 이름 확인 read-company-ai와 같은 코드, 2026-11-17)
+const ask = (prompt) => askJSON(prompt, { model: MODEL, maxTokens: 3000, apiKey: ANTHROPIC_API_KEY })
 
 const FLAG = { shuttle_bus: 'shuttle_bus', dormitory: 'dormitory', meal_provided: 'meal_provided' }
 const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
@@ -44,7 +33,7 @@ try {
            ocr_check->'benefits_ai'->>'hash' as benefits_hash
     from public.local_jobs
     where origin in ('crawler','admin') and coalesce(source_text, '') <> ''
-      and ${ALL_JOBS ? 'true' : afterCutoff()}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다(2026-11-08 한 번 다시 판정만 예외)
+      and ${autoScope()}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다(2026-11-08 한 번 다시 판정만 예외)
     order by id`)
   for (const job of rows) {
     const source = [job.source_text, job.ocr_text].filter(Boolean).join('\n')
