@@ -29,6 +29,12 @@ on:
         description: 'Claude 검토관이 검토할 PR 번호 (봇 전용)'
         required: false
         type: string
+      # S5 이슈 지시(task-pickup)에서 온 작업은 Draft PR로 만든다(#808 S5 완료 조건). 수동 지시·crawl-guard는 기본값(일반 PR) 그대로.
+      draft:
+        description: 'PR을 Draft로 만들기 (S5 이슈 지시용)'
+        required: false
+        type: boolean
+        default: false
   pull_request_review:
     types: [submitted]
   # Codex가 줄 댓글 없이 요약 댓글로만 지적할 때도 켜지게(Codex #566 지적).
@@ -85,7 +91,7 @@ jobs:
 
           PR 설명 「사용자 요청 및 확정된 완료 조건」 첫 줄에 '이슈 #$n' 을 적는다. 지시가 CLAUDE.md 금지(운영 DB 직접 변경·삭제·보안 완화·.github 등)에 걸리면 고치지 말고 PR 설명에 이유만 남긴다."
           gh api -X POST "repos/$REPO/issues/$n/labels" -f 'labels[]=ai-task-running' >/dev/null
-          if ! gh workflow run claude-auto.yml --repo "$REPO" --ref master -f task="$task"; then
+          if ! gh workflow run claude-auto.yml --repo "$REPO" --ref master -f task="$task" -f draft=true; then
             # 시작 실패면 표시를 되돌려 다음 예약 때 다시 집히게(#891 검토)
             gh api -X DELETE "repos/$REPO/issues/$n/labels/ai-task-running" >/dev/null || true
             gh api -X POST "repos/$REPO/issues/$n/comments" -f body="Claude 작업 시작 실패 — 다음 예약 실행(3시간 안)에 다시 시도합니다." >/dev/null || true
@@ -192,11 +198,12 @@ jobs:
         if: steps.dl.outcome == 'success'
         env:
           BASE: ${{ needs.claude-task.outputs.base }}
+          DRAFT: ${{ inputs.draft }}
         run: |
           git fetch -q --depth 50 origin "$BASE" 2>/dev/null || git fetch -q origin
           git worktree add -q --detach pr "$BASE"
           node scripts/ci/claude-publish.mjs pr --repo "$GITHUB_REPOSITORY" --out "$RUNNER_TEMP/claude-result" \
-            --head-sha "$BASE" --head-ref "claude/task-$GITHUB_RUN_ID" --workdir pr
+            --head-sha "$BASE" --head-ref "claude/task-$GITHUB_RUN_ID" --workdir pr $([ "$DRAFT" = true ] && echo --draft)
 
   # S4(#808) 3차 방법 변경(Lee 승인 "Claude는 파일만, 토큰 쓰는 일은 신뢰된 별도 단계"):
   #   codex-guard(쓰기, Claude 없음) → codex-response(Claude, 쓰기 토큰·id-token·DB 키 없음, 읽기 전용 토큰만) → codex-publish(기준 사본만 실행, PR 코드 실행 없음,
