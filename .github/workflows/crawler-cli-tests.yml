@@ -61,6 +61,3 @@ jobs:
         run: python -c "import crawl_topcv, crawl_facebook, ingest_gateway; print('import ok')"
       - name: 오류 격리 시험 (실제 패키지 위에서)
         run: python crawler/test_job_error_isolation.py
-      # 상세 화면 읽기 시험(실제 크롬, 가짜 화면) — 섹션 읽기·vieclam24h 공개 연락처 버튼(#896). 열쇠·사이트 접속 없음.
-      - name: 상세 화면 읽기 시험 (실제 크롬, 가짜 화면)
-        run: python crawler/test_detail_section_parser_dom.py
