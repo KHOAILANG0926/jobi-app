@@ -1136,8 +1136,9 @@ async def fetch_job_detail(page, url: str) -> dict:
                 page_phone = next(iter(extract_phones(" ".join(result.get("detailPageDataPhones") or []))), "")
                 if page_phone:
                     result["detailPhone"], result["phoneProbe"] = page_phone, "page_data"
-                print(f"    📞 페이지 자료 연락처: 전화 {'있음' if page_phone else ('형식 다름' if result.get('detailPageDataPhones') else '없음')}, "
-                      f"이메일 {'있음' if re.fullmatch(r'[^\s@]+@[^\s@]+\.[A-Za-z]{2,}', result.get('detailPageDataEmail') or '') else '없음'}")
+                email_ok = bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}", result.get("detailPageDataEmail") or ""))
+                phone_state = "있음" if page_phone else ("형식 다름" if result.get("detailPageDataPhones") else "없음")
+                print(f"    📞 페이지 자료 연락처: 전화 {phone_state}, 이메일 {'있음' if email_ok else '없음'}")
         result["httpStatus"] = http_status
         result["fetchOk"] = True
         result["fetchError"] = None
