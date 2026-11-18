@@ -76,9 +76,14 @@ export function administrativeAreaForTarget(address:string,context:string):Admin
  *  docs/ops/2026-10-28-bomunttl-followup.md) 다른 좌표의 경계 검사에 쓰면 시 중심과 같은 점 말고는 전부 '밖'이 된다(2026-11-11 MediaMart 37 Lý Thái Tổ).
  *  (시 중심 핀 단계는 2026-11-11 지도 위치 절대 원칙으로 없앰.) */
 export function withinOriginalProvince(address:string, context:string, point:{lat:number;lng:number}):boolean {
- const area=administrativeAreaForTarget(address,context)
- const province=area?(area.parentKey?ORIGINAL_PROVINCES.find(p=>p.key===area.parentKey):area):(namedOriginalProvince(address)??namedOriginalProvince(context))
+ const province=originalProvinceFor(address,context)
  return !!province&&areaContains(province,point)
+}
+/** "원래 성 안" 검사의 성 고르기 한 곳 — 위치 확인 서버(withinOriginalProvince)와 운영 뒤 검사(location-administrative-oracle)가 같이 쓴다. */
+export function originalProvinceFor(address:string, context:string):(typeof ORIGINAL_PROVINCES)[number]|null {
+ const area=administrativeAreaForTarget(address,context)
+ if(area)return (area.parentKey?ORIGINAL_PROVINCES.find(p=>p.key===area.parentKey):area)??null
+ return namedOriginalProvince(address)??namedOriginalProvince(context)
 }
 /** 성 경계 검사용으로만: 글에 적힌 원래 성 1곳. 2025 통합 뒤 주소는 새 성과 "(…, X cũ)" 옛 성을 함께 적는다
  *  ("Hikari Bình Dương, Phường Bình Dương (Thành phố Thủ Dầu Một | …, Bình Dương cũ)" + TP.HCM, El Gaucho 2026-11-18) — 경계 자료가

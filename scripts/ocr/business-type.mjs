@@ -7,7 +7,7 @@ import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { businessFromName, businessFromGoogle, buildWebPrompt, guardWebAnswer, parseWebResponse, streetOf, WEB_PROMPT_VERSION } from '../../src/lib/businessType.ts'
 import { cachedGooglePlace } from '../../src/lib/logoLookup.ts'
-import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
+import { withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { autoScope } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY } = process.env
@@ -42,7 +42,7 @@ async function googlePlaceFor(job) {
     const name = createHash('sha256').update(key).digest('hex')
     return (await client.query("select payload from public.research_artifacts where kind = 'map-r1-query' and name = $1", [name])).rows[0]?.payload?.data ?? null
   }
-  const within = async (addresses, point) => { const area = administrativeAreaForTarget(addresses[0], addresses[1] || ''); return !!area && areaContains(area, point) }
+  const within = async (addresses, point) => withinOriginalProvince(addresses[0], addresses[1] || '', point) // 위치 확인 서버와 같은 '원래 성 안'
   return cachedGooglePlace(resolverJob, cached, within)
 }
 
