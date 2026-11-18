@@ -223,7 +223,12 @@ async function gh(token, method, path, body) {
   return r.status === 204 ? null : r.json()
 }
 
-function parseArgs(argv) {
+/** PR 만들기 요청 본문 — Draft 여부는 --draft 표시만으로 정한다(S5 이슈 지시만 Draft, #808). */
+export function prRequest(a, title, text) {
+  return { title: String(title ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: text, draft: a.draft === true }
+}
+
+export function parseArgs(argv) {
   const [mode, ...rest] = argv
   const a = { mode, dryRun: false }
   for (let i = 0; i < rest.length; i++) {
@@ -287,7 +292,7 @@ export async function main(argv) {
     let pushed = ''
     if (a.mode === 'pr') {
       pushed = commitAndPush(a, token, meta.message)
-      const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, { title: (readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: text, draft: a.draft === true })
+      const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, prRequest(a, readDraft(a.out, 'pr-title.txt'), text))
       console.log(`PR 만듦: #${pr.number}`)
       return { ok: true, problems: [], pushed, pr: pr.number }
     }
