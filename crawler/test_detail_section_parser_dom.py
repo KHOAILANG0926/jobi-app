@@ -397,6 +397,27 @@ def test_reveal_employer_phone_reads_only_new_number_in_contact_box():
     asyncio.run(run())
 
 
+
+def test_fetch_job_detail_reads_page_data_contact_when_screen_has_none():
+    """화면에 고용주 번호가 없고 페이지 자료(jobDetailHiddenContact.contact_phone)에만 있으면 그 번호(#901~#903 실측 구조)."""
+    import asyncio, json, urllib.parse
+    from playwright.async_api import async_playwright
+    import crawl_topcv as c
+    nd = {"props": {"initialState": {"api": {"jobDetailHiddenContact": {"data": {
+        "contact_phone": ["0987654321"], "contact_email": "hr@abc.vn", "contact_name": "Ms Lan"}}}}}}
+    html = '<h1>Nhân viên</h1><footer>Hotline 0901234567</footer><script id="__NEXT_DATA__" type="application/json">' + json.dumps(nd) + '</script>'
+
+    async def run():
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            try:
+                page = await browser.new_page()
+                d = await c.fetch_job_detail(page, "data:text/html;charset=utf-8," + urllib.parse.quote(html))
+                assert d["phoneProbe"] == "page_data" and d["detailPhone"] == "0987654321", d
+            finally:
+                await browser.close()
+    asyncio.run(run())
+
 def main() -> int:
     tests = [
         test_p_ul_p_mixed_preserves_all_sentences_in_dom_order,
@@ -418,6 +439,9 @@ def main() -> int:
     test_reveal_employer_phone_reads_only_new_number_in_contact_box()
     print("✅ test_reveal_employer_phone_reads_only_new_number_in_contact_box")
     tests.append(test_reveal_employer_phone_reads_only_new_number_in_contact_box)
+    test_fetch_job_detail_reads_page_data_contact_when_screen_has_none()
+    print("✅ test_fetch_job_detail_reads_page_data_contact_when_screen_has_none")
+    tests.append(test_fetch_job_detail_reads_page_data_contact_when_screen_has_none)
     print(f"\n결과: {len(tests)}/{len(tests)} real DOM section parser tests passed")
     return 0
 

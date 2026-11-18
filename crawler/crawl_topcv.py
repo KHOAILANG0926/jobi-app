@@ -1078,12 +1078,17 @@ async def fetch_job_detail(page, url: str) -> dict:
             // 주소 텍스트가 일치하는 경우에만 신뢰할 좌표로 채택해야 한다 —
             // 이 함수는 원문 그대로만 반환한다(일치 판정은 하지 않음).
             let detailEmployerLat = null, detailEmployerLng = null, detailEmployerContactAddress = ''
+            // 같은 자료의 고용주 연락처(Lee 2026-11-18, #901~#903 실측: contact_phone = 번호 목록, contact_email = 이메일, 화면에는 안 보임)
+            let detailPageDataPhones = [], detailPageDataEmail = ''
             try {
                 const nextDataEl = document.getElementById('__NEXT_DATA__')
                 if (nextDataEl) {
                     const nextData = JSON.parse(nextDataEl.textContent)
                     const jdhc = nextData?.props?.initialState?.api?.jobDetailHiddenContact?.data
                     const ei = jdhc?.employer_info
+                    const cp = jdhc?.contact_phone
+                    if (cp !== null && cp !== undefined && cp !== '') detailPageDataPhones = (typeof cp === 'object' ? Object.values(cp) : [cp]).map((v) => String(v)).slice(0, 5)
+                    if (typeof jdhc?.contact_email === 'string') detailPageDataEmail = jdhc.contact_email.trim().slice(0, 120)
                     if (ei && typeof ei.latitude === 'number' && typeof ei.longitude === 'number') {
                         detailEmployerLat = ei.latitude
                         detailEmployerLng = ei.longitude
@@ -1102,6 +1107,7 @@ async def fetch_job_detail(page, url: str) -> dict:
                 detailEducation, detailExperience, detailWorkType, detailHeadcount,
                 detailWorkHoursFreeText, detailWorkDaysFreeText,
                 detailEmployerLat, detailEmployerLng, detailEmployerContactAddress,
+                detailPageDataPhones, detailPageDataEmail,
             }
         }""", _EXPIRED_PAGE_PATTERNS)
         result = result or {
@@ -1125,6 +1131,13 @@ async def fetch_job_detail(page, url: str) -> dict:
             print(f"    📞 연락처 버튼: {result['phoneProbe']}" + (f" ('{result['phoneButtonText']}')" if result.get("phoneButtonText") else ""))
             if result.get("phoneHint"):
                 print(f"    📞 연락처 단서(숫자 가림): {result['phoneHint']}")
+            # 화면에 번호가 없으면 같은 페이지 자료(jobDetailHiddenContact.contact_phone)의 번호 — 휴대폰 읽기는 같은 extract_phones
+            if not result.get("detailPhone"):
+                page_phone = next(iter(extract_phones(" ".join(result.get("detailPageDataPhones") or []))), "")
+                if page_phone:
+                    result["detailPhone"], result["phoneProbe"] = page_phone, "page_data"
+                print(f"    📞 페이지 자료 연락처: 전화 {'있음' if page_phone else ('형식 다름' if result.get('detailPageDataPhones') else '없음')}, "
+                      f"이메일 {'있음' if re.fullmatch(r'[^\s@]+@[^\s@]+\.[A-Za-z]{2,}', result.get('detailPageDataEmail') or '') else '없음'}")
         result["httpStatus"] = http_status
         result["fetchOk"] = True
         result["fetchError"] = None
