@@ -355,6 +355,46 @@ def test_hours_in_yeu_cau_cong_viec_section_is_found() -> None:
     )
 
 
+# ── 공개 연락처 버튼(reveal_employer_phone, Lee 2026-11-18 #896) — 실제 crawl_topcv 함수를 가짜 화면에서 실행 ──
+_FOOTER = '<footer>Hotline 0901234567</footer>'
+_REVEAL_CASES = {
+    # 버튼을 누르면 연락처 칸에 번호가 나타남 → 그 번호만(바닥 대표번호 제외)
+    "revealed": ('<div class=contact><b>Điện thoại</b> <span id=p>09** *** ***</span> '
+                 '<button onclick="document.getElementById(\'p\').innerText=\'0987 654 321\'">Xem số điện thoại</button></div>' + _FOOTER,
+                 "revealed", "0987654321"),
+    # 누르면 로그인 창 → 멈춤, 번호 없음
+    "login": ('<a>Đăng nhập</a><div class=contact><button onclick="document.body.insertAdjacentHTML(\'beforeend\','
+              '\'<div role=dialog>Vui lòng đăng nhập để xem</div>\')">Hiện số</button></div>' + _FOOTER, "login_required", ""),
+    # 버튼 없음 → 화면의 대표번호를 고용주 번호로 쓰지 않음
+    "no_button": ('<p>Ứng tuyển ngay</p>' + _FOOTER, "no_button_phone_in_page", ""),
+    # 눌러도 번호가 안 나옴
+    "nothing": ('<div class=contact><button>Xem số</button></div>' + _FOOTER, "click_no_number", ""),
+    # 누르면 연락처 칸이 아니라 다른 칸(광고·추천 공고)에 번호가 뜸 → 쓰지 않음
+    "ad_box": ('<div class=contact><button onclick="document.getElementById(\'ad\').innerText=\'Gọi ngay 0912 345 678\'">Xem số</button></div>'
+               '<aside id=ad>' + 'Việc làm gợi ý cho bạn. ' * 20 + '</aside>' + _FOOTER, "click_no_number", ""),
+}
+
+
+def test_reveal_employer_phone_reads_only_new_number_in_contact_box():
+    import asyncio
+    from playwright.async_api import async_playwright
+    import crawl_topcv as c
+
+    async def run():
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            try:
+                for name, (html, probe, phone) in _REVEAL_CASES.items():
+                    page = await browser.new_page()
+                    await page.set_content(html)
+                    got = await c.reveal_employer_phone(page)
+                    await page.close()
+                    assert got["phoneProbe"] == probe and got["detailPhone"] == phone, (name, got)
+            finally:
+                await browser.close()
+    asyncio.run(run())
+
+
 def main() -> int:
     tests = [
         test_p_ul_p_mixed_preserves_all_sentences_in_dom_order,
@@ -372,6 +412,10 @@ def main() -> int:
             print(f"✅ {test.__name__}")
     finally:
         _close_browser()
+    # 비동기 브라우저 시험은 위 동기 브라우저를 닫은 뒤에(같은 실행 안에서 두 방식을 겹쳐 쓰지 않게)
+    test_reveal_employer_phone_reads_only_new_number_in_contact_box()
+    print("✅ test_reveal_employer_phone_reads_only_new_number_in_contact_box")
+    tests.append(test_reveal_employer_phone_reads_only_new_number_in_contact_box)
     print(f"\n결과: {len(tests)}/{len(tests)} real DOM section parser tests passed")
     return 0
 
