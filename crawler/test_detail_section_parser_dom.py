@@ -464,6 +464,17 @@ def test_phone_button_drawn_after_scroll_is_clicked():
     asyncio.run(run())
 
 
+def test_record_phone_only_from_screen_visible_sources():
+    """Lee 2026-11-18 #6255: 화면에서 숨긴 자료의 번호(page_data, #904)로 만든 상세 결과가 저장 단계에서 그대로 전화번호가 됐다.
+    공고 번호 칸은 화면에 보인 번호(버튼을 눌러 보인 revealed, 공고 본문 description_text)만 받는다."""
+    import crawl_topcv as c
+    assert c.screen_phone({"detailPhone": "0111111111", "phoneProbe": "page_data"}) == ""
+    assert c.screen_phone({"detailPhone": "0987654321", "phoneProbe": "page_data"}) == ""
+    assert c.screen_phone({"detailPhone": "0987654321"}) == ""
+    assert c.screen_phone({"detailPhone": "0987654321", "phoneProbe": "revealed"}) == "0987654321"
+    assert c.screen_phone({"detailPhone": "0987654321", "phoneProbe": "description_text"}) == "0987654321"
+
+
 def main() -> int:
     tests = [
         test_p_ul_p_mixed_preserves_all_sentences_in_dom_order,
@@ -491,6 +502,9 @@ def main() -> int:
     test_phone_button_drawn_after_scroll_is_clicked()
     print("✅ test_phone_button_drawn_after_scroll_is_clicked")
     tests.append(test_phone_button_drawn_after_scroll_is_clicked)
+    test_record_phone_only_from_screen_visible_sources()
+    print("✅ test_record_phone_only_from_screen_visible_sources")
+    tests.append(test_record_phone_only_from_screen_visible_sources)
     print(f"\n결과: {len(tests)}/{len(tests)} real DOM section parser tests passed")
     return 0
 
