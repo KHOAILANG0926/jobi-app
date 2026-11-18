@@ -1226,6 +1226,18 @@ def test_title_first_classification_company_not_used_for_cafe_cleaning() -> None
     assert_equal(classify("Nhân Viên", "Highlands Coffee", ""), "other", "제목에 신호가 없고 회사명만 카페면 카페로 단정하지 않음")
 
 
+def test_extract_phones_only_real_vietnam_mobile_numbers() -> None:
+    """Lee 2026-11-18 #6255: vieclam24h 숨긴 자료의 가짜 번호 0111111111이 전화번호로 읽혀 사이트에 "Gọi ngay"로 나갔다.
+    베트남 10자리 휴대폰은 03·05·07·08·09로 시작한다(2018 번호 전환 뒤 01x 없음) — 그 밖은 번호가 아니다."""
+    from job_quality import extract_phones, extract_phone
+    assert extract_phones("0111111111") == [], extract_phones("0111111111")
+    assert extract_phone("Liên hệ: 0111111111") == ""
+    for bad in ("0000000000", "0411111111", "0611111111", "0211111111"):
+        assert extract_phones(bad) == [], bad
+    for good in ("0987 654 321", "0901.234.567", "0388-123-456", "0566123456", "0777123456", "0812345678"):
+        assert extract_phones(good) == [good.replace(" ", "").replace(".", "").replace("-", "")], good
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
@@ -1243,6 +1255,7 @@ def main() -> int:
         test_detect_explicit_urgent_hiring,
         test_valid_categories_matches_new_taxonomy_and_classify_output_passes_validation,
         test_title_first_classification_company_not_used_for_cafe_cleaning,
+        test_extract_phones_only_real_vietnam_mobile_numbers,
     ]
     for test in tests:
         test()
