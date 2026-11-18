@@ -398,29 +398,44 @@ def test_reveal_employer_phone_reads_only_new_number_in_contact_box():
 
 
 
-def test_fetch_job_detail_reads_page_data_contact_when_screen_has_none():
-    """화면에 고용주 번호가 없고 페이지 자료(jobDetailHiddenContact.contact_phone)에만 있으면 그 번호(#901~#903 실측 구조). 번호가 여러 개인 목록도 첫 번호."""
+def test_fetch_job_detail_uses_only_phone_written_in_job_body():
+    """Lee 2026-11-18 최종: 고용주가 공고 본문에 적은 번호만 쓴다. 페이지 자료(jobDetailHiddenContact)의 숨긴 번호·고객센터 번호는 쓰지 않는다."""
     import asyncio, json, urllib.parse
     from playwright.async_api import async_playwright
     import crawl_topcv as c
 
-    def page_html(phones):
-        nd = {"props": {"initialState": {"api": {"jobDetailHiddenContact": {"data": {
-            "contact_phone": phones, "contact_email": "hr@abc.vn", "contact_name": "Ms Lan"}}}}}}
-        return '<h1>Nhân viên</h1><footer>Hotline 0901234567</footer><script id="__NEXT_DATA__" type="application/json">' + json.dumps(nd) + '</script>'
+    nd = {"props": {"initialState": {"api": {"jobDetailHiddenContact": {"data": {
+        "contact_phone": ["0911111111"], "contact_email": "hr@abc.vn", "contact_name": "Ms Lan"}}}}}}
+    tail = '<footer>Hotline 0901234567</footer><script id="__NEXT_DATA__" type="application/json">' + json.dumps(nd) + '</script>'
+    def detail(desc_items):
+        # 실제 상세 칸 구조: h1과 같은 묶음 안에 Mô tả → Yêu cầu → Quyền lợi → Thông tin chung
+        lis = "".join(f"<li>{x}</li>" for x in desc_items)
+        return ('<div><h1>Nhân viên</h1><h2>Mô tả công việc</h2><ul>' + lis + '</ul>'
+                '<h2>Yêu cầu công việc</h2><ul><li>Chăm chỉ</li></ul>'
+                '<h2>Quyền lợi</h2><ul><li>Lương tốt</li></ul><h2>Thông tin chung</h2></div>' + tail)
+    cases = {
+        # 본문 칸(Mô tả công việc)에 고용주가 적은 번호 → 그 번호
+        "body": (detail(["Phục vụ khách", "Liên hệ: 0987 654 321 (Chị Hoa)"]),
+                 "description_text", "0987654321"),
+        # 본문에 번호 없음 → 숨긴 번호·고객센터 번호 모두 안 씀
+        "none": (detail(["Phục vụ khách"]), "no_button_phone_in_page", ""),
+        # 제목 칸을 못 찾아 화면 전체 글로 대신한 경우 → 그 안의 번호(고객센터 등)는 안 씀
+        "fallback": ('<div>Phục vụ khách</div>' + tail, "no_button_phone_in_page", ""),
+    }
 
     async def run():
         async with async_playwright() as pw:
             browser = await pw.chromium.launch()
             try:
-                for phones in (["0987654321"], ["0987654321", "0912345678"], ["0987 654 321", "0912345678"]):
+                for name, (html, probe, phone) in cases.items():
                     page = await browser.new_page()
-                    d = await c.fetch_job_detail(page, "data:text/html;charset=utf-8," + urllib.parse.quote(page_html(phones)))
+                    d = await c.fetch_job_detail(page, "data:text/html;charset=utf-8," + urllib.parse.quote(html))
                     await page.close()
-                    assert d["phoneProbe"] == "page_data" and d["detailPhone"] == "0987654321", (phones, d)
+                    assert d["phoneProbe"] == probe and d["detailPhone"] == phone, (name, d.get("phoneProbe"), d.get("detailPhone"))
             finally:
                 await browser.close()
     asyncio.run(run())
+
 
 def main() -> int:
     tests = [
@@ -443,9 +458,9 @@ def main() -> int:
     test_reveal_employer_phone_reads_only_new_number_in_contact_box()
     print("✅ test_reveal_employer_phone_reads_only_new_number_in_contact_box")
     tests.append(test_reveal_employer_phone_reads_only_new_number_in_contact_box)
-    test_fetch_job_detail_reads_page_data_contact_when_screen_has_none()
-    print("✅ test_fetch_job_detail_reads_page_data_contact_when_screen_has_none")
-    tests.append(test_fetch_job_detail_reads_page_data_contact_when_screen_has_none)
+    test_fetch_job_detail_uses_only_phone_written_in_job_body()
+    print("✅ test_fetch_job_detail_uses_only_phone_written_in_job_body")
+    tests.append(test_fetch_job_detail_uses_only_phone_written_in_job_body)
     print(f"\n결과: {len(tests)}/{len(tests)} real DOM section parser tests passed")
     return 0
 

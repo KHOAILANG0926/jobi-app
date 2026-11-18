@@ -1,3 +1,9 @@
+## 2026-11-18 — vieclam24h 연락처: 공고 본문에 고용주가 적은 번호만 쓴다 (Lee 최종 지시 14:36)
+- 근거 [직접 확인]: 화면에서 숨긴 번호(jobDetailHiddenContact)는 담당자 개인 번호·이메일 — 개인정보보호법(91/2025/QH15, 2026-01-01 시행)상 공개(công khai)도 처리이며 목적 밖 공개 허용 근거를 확인 못 함 → 공개 안 함(있음/없음 기록만).
+- 변경: 시험 수집(DB 없음) detailPhone = 공고 본문 칸(Mô tả·Yêu cầu·Quyền lợi)에 적힌 번호(description_text)만. 칸을 못 찾아 화면 전체 글로 대신한 경우(sectionsFallback)는 고객센터 번호가 섞여 안 씀. 페이지 자료 번호는 진단 줄만.
+- 검증 [직접 확인 로컬]: test_detail_section_parser_dom(본문·없음·화면 전체 3사례)·job_error_isolation·scheduled_cli·ingest_gateway·cli_safety 통과.
+- 남은 문제: 본문에 번호가 적힌 실제 공고 1건 찾기 → keep_for_save → publish_one → 운영 상세 PC·모바일 확인.
+
 ## 2026-11-18 — vieclam24h 공고 1건 공개 등록 선택지(publish_one) — #886 B안 재사용, Lee 승인 필요
 - 실측 [직접 확인]: #904 뒤 VPS 시험 수집 44237323822 — 실제 3건 모두 페이지 자료 연락처 "전화 있음·이메일 있음", 공개 판정 ok(DB 없이 계산).
 - 변경: crawl_topcv --publish-one(--verify-write-details 파일 1건만, --verify-write 없이 일반 등록, 새 공고만 — upsert_job_record new_only), crawl.yml verify-save 잡에 publish_one 입력(같은 잡·같은 열쇠·같은 저장 단계). 등록 입구 ingest_job의 위치 확인·회사·직업분류·중복·DB 공개 판정 그대로.
