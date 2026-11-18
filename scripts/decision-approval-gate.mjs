@@ -209,7 +209,7 @@ export function leeApprovedAt(reviews = [], sha, author) {
 //    · 모든 워크플로: 실행 서버(GitHub 호스트 ubuntu)·Python/Node 판·시간 제한·주석 줄만(추가·삭제 모두)
 //    · 시험 전용 워크플로(SAFE_TEST_WORKFLOWS — 열쇠·환경·쓰기 권한·특수 실행 계기 없음, 시험이 확인): 시험 단계 '추가'도 안전(시험 명령·알려진 action·설치 줄).
 //      시험 단계를 '지우는' 줄은 검증 약화라 안전이 아니다. 검사·병합·승인을 하는 워크플로(pr-checks·bot-pr-automerge 등)는 이 목록에 없다.
-export const SAFE_TEST_WORKFLOWS = ['crawler-cli-tests.yml', 'job-policy-tests.yml', 'r7-source-aware-unit.yml', 'reprocess-queue-ci.yml', 'vn-admin-sync.yml', 'multi-role-presentation.yml']
+export const SAFE_TEST_WORKFLOWS = ['crawler-cli-tests.yml', 'vn-admin-sync.yml', 'multi-role-presentation.yml'] // S7(#808): job-policy-tests·r7-source-aware-unit·reprocess-queue-ci는 필수 checks로 합쳐 지움
   .map((f) => `.github/workflows/${f}`)
 const TAIL = String.raw`(?:\s+#.*)?$`
 const ENV_LINES = [String.raw`runs-on:\s*ubuntu-(?:latest|\d{2}\.04)`, String.raw`python-version:\s*'?\d+\.\d+'?`, String.raw`node-version:\s*'?\d+'?`, String.raw`timeout-minutes:\s*\d{1,3}`]

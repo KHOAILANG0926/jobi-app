@@ -1,14 +1,7 @@
 name: 지도 핀 화면 안 표시 회귀
+# S7(#808 S2 설계 5절 42): 예전에는 PR(#188 전용 브랜치 2개)·운영 배포 확인 뒤(커밋 메시지에 '(#188)'일 때만)에도 걸려
+# 매 배포마다 '건너뜀' 실행만 쌓였다(2026-11-16 확인: workflow_run 실행 5건 모두 skipped). 그 두 계기를 지우고 손으로 돌리는 검사로만 둔다.
 on:
-  pull_request:
-    paths:
-      - 'src/components/home/**'
-      - 'scripts/ops/map-pin-fit-check.mjs'
-      - '.github/workflows/map-pin-fit-check.yml'
-  workflow_run:
-    workflows: ['운영 배포 확인·실제 화면 검사']
-    types: [completed]
-    branches: [master]
   workflow_dispatch:
     inputs:
       base_url:
@@ -23,13 +16,8 @@ permissions:
   contents: read
 jobs:
   pin-fit:
-    # Current-data acceptance check is specific to PR #188; legitimate later job changes must not fail unrelated deploys.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (github.head_ref == 'fix/fit-after-pins' || github.head_ref == 'preview/map-cleanup-20261021')) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, '(#188)'))
     env:
-      MAP_CLEANUP_CHECK: ${{ (github.head_ref == 'preview/map-cleanup-20261021' || inputs.cleanup) && '1' || '0' }}
+      MAP_CLEANUP_CHECK: ${{ inputs.cleanup && '1' || '0' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -38,21 +26,10 @@ jobs:
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: PR 빌드
-        if: github.event_name == 'pull_request'
-        run: npm run build
       - name: 위치 먼저·핀 나중 실제 화면 검사
         env:
           CHECK_URL: ${{ inputs.base_url || 'https://www.viecganban.vn' }}
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            npx vite preview --port 4173 --strictPort > /tmp/pin-preview.log 2>&1 &
-            for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
-            export BASE_URL=http://localhost:4173
-          else
-            export BASE_URL="$CHECK_URL"
-          fi
-          node scripts/ops/map-pin-fit-check.mjs
+        run: BASE_URL="$CHECK_URL" node scripts/ops/map-pin-fit-check.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,3 +1,8 @@
+## 2026-11-18 — S7: 필수 아닌 시험 통합·안 쓰는 워크플로 정리·71개 처리 기록 (#808, Lee 승인 전 병합 금지)
+- 변경: pr-checks.yml(필수 checks)에 crawler-cli-tests offline 시험·job-policy-tests·reprocess-queue-ci 시험을 그대로 옮김 → job-policy-tests·reprocess-queue-ci·r7-source-aware-unit(publication-gate와 중복) 제거, crawler-cli-tests는 실제 패키지 설치 확인만 남김. map-pin-fit-check는 #188 전용 계기를 지워 손으로만. decision-approval-gate SAFE_TEST_WORKFLOWS에서 지운 3개 뺌. 라벨 regression 생성.
+- 기록: docs/system-redesign/S7-workflow-results.md(71개 각 줄 처리 결과, 제거 전 참조 확인).
+- 검증: 옮긴 시험 전부 로컬 통과, decision-approval-gate 시험·비밀값 분리(66개 문제 0)·필수 검사 이름 시험 통과.
+
 ## 2026-11-18 — vieclam24h 새 공고 근무지 줄을 등록 입구와 같은 트랜잭션으로 (#916, #6255 핀 안 생김)
 - 원인 [직접 확인 코드]: crawl_topcv가 ingest_job으로 등록한 직후 replace_job_work_locations로 근무지 줄을 다시 씀 → 저장 직후 위치 확인 서버(location-hook)가 찾는 동안 근무지가 바뀜 → map_r1_complete가 snapshot 불일치로 결과를 버리고 failed(20261111150000_map_r1_other_stores.sql). Facebook은 입구 한 번(등록 트랜잭션)이라 이 경쟁이 없음.
 - GEOAPIFY 없음은 직접 원인 아님: 크롤러 자체 좌표만 못 구함(unresolved 줄) — 핀은 위치 확인 서버(Google 재사용)가 정함.
