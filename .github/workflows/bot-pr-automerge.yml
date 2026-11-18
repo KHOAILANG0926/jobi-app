@@ -173,6 +173,17 @@ jobs:
             if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt; then
               echo "::warning::PR #$num 병합 직전 재확인에서 승인 상태가 바뀜(취소·변경 요청·승인 없음): 병합 중단"; continue
             fi
+            # 병합 조건 검사(approval-checks.yml이 검사 전용 앱으로 올리는 ai-review·approval-gate)도 저장소 규칙의 필수 검사다(S4).
+            # 위 4종만 보고 병합을 시도하면, 검토 답이나 Lee 승인이 판정에 반영되기 직전(수십 초)에 서버가 거절하고 다음 예약(15분, 자주 빠짐)까지 멈췄다
+            # (#920 2026-11-18T22:16:56Z·#925 2026-11-18T23:16:01Z, 같은 원인 2번째 — 원칙 8). 병합 직전에 두 판정을 다시 읽어 아직이면 시도하지 않고,
+            # 기존 다시 확인 장치(codex-wait.txt → codex-wait-timer)로 6분 뒤 다시 부른다(approval-checks는 5분마다 + 댓글마다 판정).
+            gate=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" --jq '[.check_runs[] | select(.app.slug=="viecganban-checks" and (.name=="ai-review" or .name=="approval-gate"))] | group_by(.name) | map(max_by(.started_at)) | if length==2 and all(.[]; .status=="completed" and .conclusion=="success") then "ok" elif any(.[]; .status!="completed") or length<2 then "pending" else "blocked" end' 2>/dev/null) || gate=pending
+            if [ "$gate" != ok ]; then
+              # 진행 중이면 6분 뒤 다시(곧 바뀜). Lee 승인 대기(action_required)·실패면 다시 부르지 않는다 — 판정이 바뀌는 이벤트(승인·댓글·예약)가 봇을 다시 부른다.
+              echo "::notice::PR #$num 병합 조건 검사(ai-review·approval-gate) $gate — 병합 시도 안 함"
+              [ "$gate" = pending ] && echo 6 >> codex-wait.txt
+              continue
+            fi
             if merge_out=$(gh api -X PUT "repos/$REPO/pulls/$num/merge" -f merge_method=squash -f sha="$sha" -f commit_title="$title (#$num)" 2>&1); then
               echo "::notice::PR #$num github-actions[bot] 병합 성공"
               if jq -e '.[] | select(.filename|startswith("supabase/migrations/"))' files.json >/dev/null; then
