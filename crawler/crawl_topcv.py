@@ -1124,6 +1124,7 @@ async def fetch_job_detail(page, url: str) -> dict:
             fallback = normalize_whitespace(body_text)[:1800]
             if fallback:
                 result["sections"] = {"Mô tả công việc": fallback}
+                result["sectionsFallback"] = True  # 화면 전체 글(고객센터 번호 포함) — 본문 연락처로 쓰지 않는다
         # 버튼 누르기는 DB 연결이 없는 실행(crawl.yml 시험 수집 — 열쇠를 비움, 저장 불가)에서만(#896 독립 검토 1).
         # 저장하는 수집·다시 처리는 지금과 같다(전화 빈칸) — 저장 반영은 Lee 승인 뒤 따로 켠다.
         if supabase is None:
@@ -1133,10 +1134,16 @@ async def fetch_job_detail(page, url: str) -> dict:
                 print(f"    📞 연락처 단서(숫자 가림): {result['phoneHint']}")
             # 화면에 번호가 없으면 같은 페이지 자료(jobDetailHiddenContact.contact_phone)의 번호 — 휴대폰 읽기는 같은 extract_phones
             if not result.get("detailPhone"):
-                # 목록 칸마다 따로 읽는다(extract_phones는 공백을 지우고 읽어 두 번호를 이어 붙이면 한 덩어리가 됨)
+                # 고용주가 공고 본문(상세 칸)에 직접 적은 번호만 쓴다 — 공개된 글이라 Facebook 원문 번호와 같은 성격(Lee 2026-11-18 최종 지시).
+                # 페이지 자료(jobDetailHiddenContact)의 번호는 화면에서 숨긴 담당자 연락처라 쓰지 않고 있음/없음만 기록한다
+                # (개인정보보호법 2025: 전화·이메일 = 기본 개인정보, 공개도 처리 — 재공개 허용 근거 없음).
+                body_text = "" if result.get("sectionsFallback") else "\n".join(str(v) for v in (result.get("sections") or {}).values())
+                body_phone = next(iter(extract_phones(body_text)), "")
+                if body_phone:
+                    result["detailPhone"], result["phoneProbe"] = body_phone, "description_text"
+                print(f"    📞 공고 본문 연락처: 전화 {'있음' if body_phone else '없음'}")
+                # 목록 칸마다 따로 읽는다(extract_phones는 공백을 지우고 읽어 두 번호를 이어 붙이면 한 덩어리가 됨) — 진단만
                 page_phone = next((p for item in (result.get("detailPageDataPhones") or []) for p in extract_phones(item)), "")
-                if page_phone:
-                    result["detailPhone"], result["phoneProbe"] = page_phone, "page_data"
                 email_ok = bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}", result.get("detailPageDataEmail") or ""))
                 phone_state = "있음" if page_phone else ("형식 다름" if result.get("detailPageDataPhones") else "없음")
                 print(f"    📞 페이지 자료 연락처: 전화 {phone_state}, 이메일 {'있음' if email_ok else '없음'}")
