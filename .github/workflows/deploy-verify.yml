@@ -4,8 +4,6 @@ name: 운영 배포 확인·실제 화면 검사
 #  1) Vercel이 이 커밋(github.sha)을 Production으로 배포해 READY(GitHub deployment 'success')가 됐는지 확인(최대 20분 대기)
 #  2) 운영 주소(viecganban.vn)를 실제 브라우저(PC·모바일)로 열어 메인·공고 상세 검사
 #  3) 실패하면 이 실행이 빨간색이 되고 '운영 배포 검증 실패' 이슈를 만든다(완료 보고 금지 근거).
-#     S6(#808): 그 이슈가 열려 있는 동안 approval-checks.mjs가 일반 PR의 approval-gate를 'Lee 승인 필요'로 올린다(자동 병합 잠금).
-#  4) 성공하면 이 커밋에 이미 들어 있는 커밋의 '운영 배포 검증 실패' 이슈를 닫는다(잠금 풀림 — 재실행 성공 포함).
 # Vercel은 빌드가 실패한 배포를 운영 주소에 연결하지 않으므로 빌드 실패 시 기존 정상 버전이 그대로 유지된다.
 # 화면 검사만 실패한 경우의 되돌리기(rollback)는 운영 변경이라 자동으로 하지 않고 사용자 승인 후 진행한다.
 on:
@@ -79,24 +77,9 @@ jobs:
             occupation-category-proof.json
             app-smoke-screens/
           retention-days: 14
-      - name: 잠금 풀기 (S6 — 이 커밋에 포함된 커밋의 배포 실패 이슈 닫기)
-        if: success() && github.ref == 'refs/heads/master'
-        run: |
-          set -euo pipefail
-          gh api "repos/${{ github.repository }}/issues?state=open&creator=github-actions%5Bbot%5D&per_page=100" \
-            --jq '.[] | select(.pull_request == null) | select(.title | test("^운영 배포 검증 실패: [0-9a-f]{7,40}\\b")) | "\(.number) \(.title | capture("실패: (?<s>[0-9a-f]{7,40})").s)"' |
-          while read -r n s; do
-            st=$(gh api "repos/${{ github.repository }}/compare/$s...$GITHUB_SHA" --jq .status 2>/dev/null || echo unknown)
-            if [ "$st" = ahead ] || [ "$st" = identical ]; then
-              gh issue comment "$n" --body "커밋 ${GITHUB_SHA::7}(이 실패 커밋 포함)에서 운영 배포 확인·실제 화면 검사가 통과해 닫습니다 — 일반 PR 자동 병합 잠금 풀림(S6). 실행: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-              gh issue close "$n"
-            else
-              echo "#$n($s): 이 커밋에 포함되지 않음($st) — 그대로 둠"
-            fi
-          done
       - name: 실패 기록 (이슈)
         if: failure()
         run: |
-          printf '커밋 %s 의 운영 배포 확인 또는 실제 화면 검사가 실패했습니다.\n실행 기록: %s\n이 커밋 작업은 완료로 보고하지 않습니다(배포 강제 규칙 DR6).\n이 이슈가 열려 있는 동안 일반 PR 자동 병합은 잠깁니다(S6). 이 커밋을 포함한 master에서 이 검사가 통과하면 자동으로 닫힙니다(재실행 포함). 복구 PR은 Lee 승인으로 병합할 수 있습니다.\n' \
+          printf '커밋 %s 의 운영 배포 확인 또는 실제 화면 검사가 실패했습니다.\n실행 기록: %s\n이 커밋 작업은 완료로 보고하지 않습니다(배포 강제 규칙 DR6).\n' \
             "$GITHUB_SHA" "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > body.md
           gh issue create --title "운영 배포 검증 실패: ${GITHUB_SHA::7}" --body-file body.md || true

@@ -26,6 +26,7 @@ permissions:
   contents: read
   pull-requests: read
   issues: read
+  actions: read   # S6: 운영 배포 잠금이 풀렸는지 — master의 최근 성공 deploy-verify 실행 커밋 조회(approval-checks.mjs activeLocks)
 
 # 모든 실행을 한 줄로 세운다(Codex P1): 예약 실행과 PR 이벤트 실행이 같은 커밋의 검사 결과를 동시에 갱신하면 늦게 끝난 옛 판정이 새 판정을 success로 덮을 수 있다.
 # 대기 중 실행이 뒤 실행으로 바뀌어도 안전하다 — 실행마다 열린 PR 전체를 그 시점 자료로 다시 판정한다(--all).

@@ -10,7 +10,7 @@ const claudeOk = { user: { login: 'claude[bot]' }, body: `<!-- claude-fallback-r
 const leeOk = { user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: sha, submitted_at: later }
 const pr = (number, extra = {}) => ({ number, draft: false, state: 'open', base: { ref: 'master', sha: 'b'.repeat(40) }, head: { sha, repo: { full_name: repo } }, user: { login: 'viecganban-bot' }, labels: [], body, ...extra })
 
-function world({ prs, reviews, comments, existing = {}, failFiles = false, gate = null, issues = [], files = null }) {
+function world({ prs, reviews, comments, existing = {}, failFiles = false, gate = null, issues = [], files = null, deployOk = null, compare = {} }) {
   const writes = [], runs = { ...existing }
   const res = (data, status = 200) => ({ ok: status < 400, status, json: async () => data, text: async () => (typeof data === 'string' ? data : JSON.stringify(data)) })
   globalThis.fetch = async (url, init = {}) => {
@@ -19,6 +19,8 @@ function world({ prs, reviews, comments, existing = {}, failFiles = false, gate 
       let m
       if (/^repos\/[^/]+\/[^/]+\/pulls\?/.test(path)) return res(path.includes('page=1') ? prs : [])
       if (/^repos\/[^/]+\/[^/]+\/issues\?state=open/.test(path)) return res(path.includes('page=1') ? issues : [])
+      if (/actions\/workflows\/deploy-verify\.yml\/runs\?branch=master&status=success/.test(path)) return res({ workflow_runs: deployOk ? [{ head_sha: deployOk }] : [] })
+      if ((m = path.match(/compare\/([0-9a-f]+)\.\.\.([0-9a-f]+)/))) return res({ status: compare[m[1]] ?? 'diverged' })
       if ((m = path.match(/pulls\/(\d+)\/files/))) return failFiles ? res({ message: 'unavailable' }, 503) : res(path.includes('page=1') ? (files ?? [{ filename: '.github/workflows/x.yml', status: 'modified', patch: '@@\n+x' }]) : [])
       if ((m = path.match(/pulls\/(\d+)\/reviews/))) return res(path.includes('page=1') ? (reviews[m[1]] ?? []) : [])
       if (/pulls\/\d+\/comments/.test(path)) return res([])
@@ -160,5 +162,12 @@ console.log('approval-checks main 재현 시험 통과(같은 SHA PR 오염 차�
   const w3 = world({ prs: [pr(5, { body: '' })], reviews: { 5: [] }, comments: { 5: [claudeOk] }, files: normal, issues: fakes })
   await main(['--repo', repo, '--pr', '5'], opts)
   assert.equal(last(w3.writes, 'approval-gate').state, 'success', '다른 사람이 연 같은 제목·닫힌 이슈·PR·다른 제목은 잠금 아님')
+  // 풀림: master에서 가장 최근 성공한 deploy-verify 커밋이 실패 커밋을 포함하면 잠금 아님(이슈가 열려 있어도), 포함 안 하면(갈라짐) 잠금 유지
+  const w4 = world({ prs: [pr(5, { body: '' })], reviews: { 5: [] }, comments: { 5: [claudeOk] }, files: normal, issues: [lockIssue], deployOk: 'd'.repeat(40), compare: { abc1234: 'ahead' } })
+  await main(['--repo', repo, '--pr', '5'], opts)
+  assert.equal(last(w4.writes, 'approval-gate').state, 'success', '실패 커밋을 포함한 master가 배포 확인 통과 → 잠금 풀림')
+  const w5 = world({ prs: [pr(5, { body: '' })], reviews: { 5: [] }, comments: { 5: [claudeOk] }, files: normal, issues: [lockIssue], deployOk: 'd'.repeat(40), compare: { abc1234: 'diverged' } })
+  await main(['--repo', repo, '--pr', '5'], opts)
+  assert.equal(last(w5.writes, 'approval-gate').state, 'action_required', '성공한 커밋이 실패 커밋을 포함하지 않으면 잠금 유지')
 }
 console.log('approval-checks main: 운영 배포 잠금 시험 통과')
