@@ -1,8 +1,12 @@
-## 2026-11-18 — S6: 운영 배포 실패 시 일반 PR 자동 병합 잠금 + 병합 기록 검사에 병합 조건 검사 대조 (#808, Lee 승인 전 병합 금지)
-- 요청: S2 설계(#810) 6절 S6 — ① 배포 실패 시 일반 병합 잠금 ② VPS 러너 상태 확인 ③ merge-provenance에 병합 조건 검사 대조.
-- 변경: approval-checks.mjs(deploy-verify가 연 '운영 배포 검증 실패' 이슈가 열려 있으면 일반 PR approval-gate=Lee 승인 필요), 풀림 판정도 approval-checks 한 곳(master 최근 성공 deploy-verify 커밋이 실패 커밋을 포함하면 풀림 — deploy-verify.yml은 STRICT 파일이라 안 고침, approval-checks.yml에 actions: read만), merge-provenance.mjs(검사 전용 앱 ai-review·approval-gate 병합 시점 대조, 2026-11-16T12:18Z 이후 회귀).
-- 검증: approval-checks 시험·main 흉내 시험(잠금·Lee 승인 복구·가짜 이슈 무시)·merge-provenance 시험·npm test 123/123·비밀값 분리 0. VPS 러너 'crawler' 오늘 작업 정상(run 44277027923).
-- 남은 일: 병합 뒤 데모 브랜치에서 deploy-verify 실패 모의 → 잠금 기록(실제 GitHub 실행). 열린 오래된 실패 이슈 7건(#692~#823)은 모두 최근 성공 커밋에 포함돼 잠금이 아님[직접 확인 compare ahead].
+## 2026-11-18 — 위치 "원래 성 안" 검사: 통합 뒤 "(…, X cũ)" 주소의 옛 성 인식 (El Gaucho, #872)
+- 실측 [직접 확인]: publish_one 44299906107 not_found → 업체 검색 비교 44300276494: Google "El Gaucho Hikari Bình Dương"(11.05904,106.68454) 찾음, 성 안=아니오. 원인: 주소에 시 이름(Thủ Dầu Một, 시 경계 자료 없음)과 새 성(TP.HCM)·옛 성(Bình Dương cũ)이 같이 있어 성을 못 정함.
+- 변경: withinOriginalProvince만 — 시 단계가 모름이면 글에 적힌 원래 성 1곳(여럿이면 "cũ" 표시 1곳)으로 성 경계 검사. 시 대표점·핀 규칙 그대로.
+- 검증 [직접 확인 로컬]: npm test 123/123(administrativeArea 사례 5개 추가), tsc.
+
+## 2026-11-18 — vieclam24h 규칙 거부 로그에 이유 표시 (Lee 18:37 "그냥 공개해")
+- 실측 [직접 확인]: publish_one 실행 44296448509 — El Gaucho 공고 location_precheck_failed, 로그에 이유가 없어 원인 확인 불가.
+- 변경: crawl_topcv 규칙 거부 줄에 이유(회사 이름·판정) — Facebook 수집기와 같은 형식. 판정은 그대로.
+- 남은 문제: 이유 확인 → 위치 확인 → publish_one 다시 → 운영 상세 PC·모바일.
 
 ## 2026-11-18 — vieclam24h "전화번호 보기" 버튼 못 찾는 원인 확인(PC 내린 뒤·모바일 화면) (Lee 15:33)
 - 변경: 시험 수집(DB 없음)에서 버튼을 못 찾으면 ① 아래까지 천천히 내린 뒤 같은 버튼 찾기 다시(늦게 그려지는 칸) ② 모바일 화면(390px, 앞 2건) 같은 확인 ③ 누를 수 있는 연락·지원 요소 글자(숫자 가림, vieclam24h Hotline 제외)·tel 링크 수 기록. 누르는 방식은 기존 reveal_employer_phone 그대로(눌러서 새로 보인 번호만). 숨긴 페이지 자료는 쓰지 않음.

@@ -36,3 +36,15 @@ assert(!areaContains(bacNinh, {lat:11.05,lng:106.70}),'Bình Dương stays outsi
   const city = administrativeAreaForTarget(addr, 'Bắc Ninh')
   assert(city?.key === 'city:bac ninh' && !areaContains(city, { lat: 21.1810, lng: 106.0705 }), 'city representative still proves only its own point')
 }
+
+// 2026-11-18 El Gaucho Hikari Bình Dương(vieclam24h): 통합 뒤 주소 "(…, Bình Dương cũ)" + 지역 TP.HCM, 시 이름(Thủ Dầu Một)은 시 경계 자료 없음 →
+// 성 경계는 "cũ"로 적힌 옛 성(Bình Dương)으로 본다. Google 장소 11.05904,106.68454.
+{
+  const { withinOriginalProvince } = await import('./administrativeArea.ts')
+  const addr = 'Hikari Bình Dương, Phường Bình Dương (Thành phố Thủ Dầu Một | Thị xã Tân Uyên, Bình Dương cũ)'
+  assert(withinOriginalProvince(addr, 'TP.HCM', { lat: 11.05904, lng: 106.68454 }), 'old province marked cũ: Bình Dương point passes')
+  assert(withinOriginalProvince(addr + ', TP.HCM', '', { lat: 11.05904, lng: 106.68454 }), 'new + old province in one line: cũ one decides')
+  assert(!withinOriginalProvince(addr, 'TP.HCM', { lat: 21.1810, lng: 106.0705 }), 'old province marked cũ: Bắc Ninh point fails')
+  assert(!withinOriginalProvince('Bắc Ninh, Hà Nội', '', { lat: 21.1810, lng: 106.0705 }), 'two provinces without cũ stay unknown')
+  assert(administrativeArea(addr) === null, 'city stage unchanged: unknown city boundary is still unknown')
+}

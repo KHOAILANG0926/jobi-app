@@ -2432,7 +2432,8 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             if not code:
                 raise
             REJECTIONS.add(code, job.get("title", ""))
-            print(f"    🚧 규칙 거부({code}): {job.get('title', '')[:60]!r} — 이 공고는 건너뜀")
+            # 이유(not_found·company_unconfirmed 등 + 회사 이름)를 Facebook 수집기처럼 함께 남긴다 — 위치 확인 실패 원인을 다시 실행 없이 보게(2026-11-18 run 44296448509)
+            print(f"    🚧 규칙 거부({code}): {job.get('title', '')[:60]!r} — 이 공고는 건너뜀 | 이유: {str(exc).split(':', 1)[-1].strip()[:160]}")
             return {"action": "rule_rejected", "id": None, "rule": code}
         if verify_write:
             # 검증 저장 격리: 입구는 admin_hidden을 받지 않으므로 저장 직후 서버 키로 숨김(입구에서 이미 active=False).

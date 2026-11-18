@@ -6,7 +6,7 @@
 // workflow inputs and is never written anywhere.
 import {supabaseServer as publicClient} from '../../src/lib/supabaseServer.ts'
 import {isExactCompanyName, normalizePlaceText} from '../../src/lib/locationCandidateMatch.ts'
-import {administrativeAreaForTarget, areaContains} from '../../src/lib/administrativeArea.ts'
+import {withinOriginalProvince} from '../../src/lib/administrativeArea.ts'
 import {findIndustrialPark} from '../../src/lib/industrialPark.ts'
 import {parkNameFromAddresses} from '../../src/lib/parkLocate.ts'
 import {pickCompanyPlace} from '../../src/lib/companyPlaceSearch.ts'
@@ -24,8 +24,7 @@ function originalStreet(address) {
 const areaText = (address) => String(address).split(/,|\s[-–]\s/).slice(-3).join(', ').trim()
 function judge(job, poi) {
   if (!poi) return {found: false, why: 'no_single_exact_name'}
-  const area = administrativeAreaForTarget(job.address, job.location)
-  const inside = !!area && areaContains({...area, proofType: undefined}, poi)
+  const inside = withinOriginalProvince(job.address, job.location, poi) // 위치 확인 서버와 같은 판정
   const street = originalStreet(job.address)
   const text = ` ${normalizePlaceText(poi.address || '')} `
   const streetOk = street ? text.includes(` ${street} `) : null
