@@ -623,5 +623,58 @@ class VerifyWriteFromDetails(unittest.TestCase):
         self.assertEqual(saved, [({"source_url": "u1", "title": "x", "company": "CTY A"}, True)])
 
 
+
+class PublishOneFromDetails(unittest.TestCase):
+    """#872(Lee 2026-11-18): 같은 보관 파일의 공고 1건을 숨김 없이 일반 등록 — 새 공고만, 1건만."""
+
+    def _args(self, argv):
+        return topcv.resolve_cli_mode(topcv.build_arg_parser().parse_args(argv))
+
+    def test_cli_modes(self):
+        self.assertEqual(self._args(["--verify-write-details", "d.json", "--publish-one", "--confirm-write"]), "publish_one_details")
+        for argv in (["--publish-one", "--confirm-write"], ["--verify-write-details", "d.json", "--publish-one"],
+                     ["--verify-write-details", "d.json", "--publish-one", "--confirm-write", "--verify-write"]):
+            with self.subTest(argv=argv), self.assertRaises(SystemExit):
+                self._args(argv)
+
+    def _run(self, details):
+        import asyncio, os, tempfile
+        saved = []
+
+        async def from_detail(url, detail, hint=None):
+            return {"source_url": url, "title": url, "company": "CTY A", "employer_phone": "0987654321"}
+
+        def upsert(job, a, b, verify_write=False, new_only=False):
+            saved.append((job["source_url"], verify_write, new_only))
+            return {"id": 9}
+
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(topcv, "job_from_detail", from_detail), \
+                mock.patch.object(topcv, "load_existing_lookup_maps", lambda: ({}, {})), mock.patch.object(topcv, "upsert_job_record", upsert):
+            os.chdir(d)
+            try:
+                m = asyncio.run(topcv.process_urls_verify_write([x["url"] for x in details], details=details, publish=True))
+            finally:
+                os.chdir(cwd)
+        return m, saved
+
+    def test_publishes_one_without_hiding_new_only(self):
+        m, saved = self._run([{"url": "u1", "detail": {}}])
+        self.assertEqual(m["mode"], "publish_one")
+        self.assertEqual(m["created_ids"], [9])
+        self.assertEqual(saved, [("u1", False, True)])
+
+    def test_refuses_more_than_one(self):
+        with self.assertRaises(SystemExit):
+            self._run([{"url": "u1", "detail": {}}, {"url": "u2", "detail": {}}])
+
+    def test_existing_job_is_not_touched(self):
+        existing = {"id": 3, "origin": "crawler"}
+        with mock.patch.object(topcv, "match_existing_row", lambda job, a, b: existing), \
+                mock.patch.object(topcv, "_require_write_enabled", lambda: None):
+            with self.assertRaises(topcv.VerifyWriteExistingMatchError):
+                topcv.upsert_job_record({"source_url": "u1"}, {}, {}, verify_write=False, new_only=True)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

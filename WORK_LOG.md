@@ -1,3 +1,9 @@
+## 2026-11-18 — vieclam24h 공고 1건 공개 등록 선택지(publish_one) — #886 B안 재사용, Lee 승인 필요
+- 실측 [직접 확인]: #904 뒤 VPS 시험 수집 44237323822 — 실제 3건 모두 페이지 자료 연락처 "전화 있음·이메일 있음", 공개 판정 ok(DB 없이 계산).
+- 변경: crawl_topcv --publish-one(--verify-write-details 파일 1건만, --verify-write 없이 일반 등록, 새 공고만 — upsert_job_record new_only), crawl.yml verify-save 잡에 publish_one 입력(같은 잡·같은 열쇠·같은 저장 단계). 등록 입구 ingest_job의 위치 확인·회사·직업분류·중복·DB 공개 판정 그대로.
+- 검증 [직접 확인 로컬]: test_job_error_isolation(PublishOneFromDetails 3개)·test_scheduled_cli·ingest_gateway·cli_safety·job_posting_policy·source_fields·detail_section_parser_dom 통과.
+- 남은 문제: Lee 승인 뒤 ① keep_for_save 시험 수집 1건 ② publish_one 저장 ③ 운영 상세 PC·모바일 확인.
+
 ## 2026-11-18 — vieclam24h 연락처: 화면엔 없고 페이지 자료에만 있음 → 시험 수집에서 페이지 자료 번호 읽기 (#872)
 - 실측 [직접 확인]: VPS 시험 수집 44220370315·44225381066·44227355977·44229632433(10건) — 화면 고용주 연락처·버튼 0, 페이지 자료 jobDetailHiddenContact.data에 contact_phone(번호 목록)·contact_email(이메일).
 - 약관 [직접 확인]: vieclam24h 이용약관·개인정보 처리방침에 자동 수집 금지 조항 없음, 약관 5.1조는 고용주 정보(이메일·전화)를 서비스 제공 위해 다른 이용자에게 보낼 수 있다고 함.
