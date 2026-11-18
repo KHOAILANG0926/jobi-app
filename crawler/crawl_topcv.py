@@ -651,6 +651,37 @@ _MARK_CONTACT_BOX = """(btn) => {
 }"""
 
 
+# 버튼을 못 찾았을 때 "연락처가 정말 없음"과 "버튼 글자가 달라 못 찾음"을 가르는 근거(Lee 2026-11-18). 시험 수집에서만 쓰인다.
+# 연락처 낱말이 든 짧은 글자(숫자는 #로 가림)와, 사이트 상태(__NEXT_DATA__ jobDetailHiddenContact.data)의 칸 이름·값 종류만 — 번호는 남기지 않는다.
+_CONTACT_HINT_JS = """() => {
+  const re = /(liên hệ|điện thoại|sđt|số đt|hotline|zalo|đăng nhập để|xem số|hiện số)/i
+  const texts = []
+  for (const el of document.querySelectorAll('button, a, span, div, p, li')) {
+    const t = (el.innerText || '').trim()
+    if (!t || t.length > 80 || !re.test(t) || el.children.length > 3) continue
+    const m = t.replace(/\\d/g, '#').replace(/\\s+/g, ' ')
+    if (!texts.includes(m)) texts.push(m)
+    if (texts.length >= 6) break
+  }
+  let keys = ''
+  try {
+    const nd = JSON.parse(document.getElementById('__NEXT_DATA__')?.textContent || 'null')
+    const d = nd?.props?.initialState?.api?.jobDetailHiddenContact?.data
+    const kind = (v) => v === null || v === undefined || v === '' ? 'empty' : (typeof v === 'object' ? 'obj' : (/\\d{6,}/.test(String(v).replace(/\\D/g, '')) ? 'digits' : typeof v))
+    if (d && typeof d === 'object') keys = Object.keys(d).slice(0, 20).map((k) => k + ':' + kind(d[k])).join(',')
+    else keys = d === undefined ? 'no_hidden_contact' : 'hidden_contact_' + kind(d)
+  } catch (e) { keys = 'next_data_error' }
+  return texts.join(' | ').slice(0, 400) + ' || state ' + keys.slice(0, 400)
+}"""
+
+
+async def _contact_hint(page) -> str:
+    try:
+        return str(await page.evaluate(_CONTACT_HINT_JS))
+    except Exception as exc:  # noqa: BLE001
+        return f"hint_error:{type(exc).__name__}"
+
+
 async def reveal_employer_phone(page) -> dict:
     """{"detailPhone": 번호 또는 "", "phoneProbe": 결과 종류, "phoneButtonText": 버튼 글자(40자)}.
     결과 종류: revealed(눌러서 연락처 칸에 새로 보인 번호) / no_button(번호가 화면에 있어도 어느 칸인지 몰라 쓰지 않음: no_button_phone_in_page) /
@@ -659,8 +690,11 @@ async def reveal_employer_phone(page) -> dict:
         body_before = await page.locator("body").inner_text(timeout=5000)
         button = page.get_by_text(_PHONE_REVEAL_TEXT).first
         if not await button.count() or not await button.is_visible():
-            return {"detailPhone": "", "phoneProbe": "no_button_phone_in_page" if extract_phones(body_before) else "no_button", "phoneButtonText": ""}
+            return {"detailPhone": "", "phoneProbe": "no_button_phone_in_page" if extract_phones(body_before) else "no_button", "phoneButtonText": "",
+                    "phoneHint": await _contact_hint(page)}
         label = normalize_whitespace(await button.inner_text(timeout=3000))[:40]
+        if _LOGIN_HINT.search(label):  # "Đăng nhập để xem số" 같은 로그인 유도 버튼은 누르지 않는다
+            return {"detailPhone": "", "phoneProbe": "login_required", "phoneButtonText": label}
         await button.evaluate(_MARK_CONTACT_BOX)
         box = page.locator("[data-jobi-contact]").first
         box_before = await box.inner_text(timeout=3000)
@@ -1071,6 +1105,8 @@ async def fetch_job_detail(page, url: str) -> dict:
         if supabase is None:
             result.update(await reveal_employer_phone(page))
             print(f"    📞 연락처 버튼: {result['phoneProbe']}" + (f" ('{result['phoneButtonText']}')" if result.get("phoneButtonText") else ""))
+            if result.get("phoneHint"):
+                print(f"    📞 연락처 단서(숫자 가림): {result['phoneHint']}")
         result["httpStatus"] = http_status
         result["fetchOk"] = True
         result["fetchError"] = None
