@@ -60,6 +60,21 @@ def run():
     c = Client()
     assert g.ingest_job(c, dict(krik_src)) == 77 and "work_locations" not in c.calls[0][1]["p"]
 
+    # 2026-11-18 #916(#6255 El Gaucho): 수집기가 따로 쓰던 근무지 줄은 입구와 같은 트랜잭션으로 — 위치 확인 입력(주소)은 그대로, 위치 글자는 서버가 읽은 것
+    v24 = {"title": "Phục vụ", "company": "[Nhà Hàng El Gaucho] - Công Ty TNHH Cao Bồi Nam Mỹ", "location": "TP.HCM"}
+    rows = [{"raw_address": "Hikari Bình Dương, Phường Bình Dương (Thành phố Thủ Dầu Một | Thị xã Tân Uyên, Bình Dương cũ)", "lat": None, "lng": None}]
+    seen.clear()
+    g.PRECHECK = lambda j: (seen.append(g.precheck_input(j)), {"findable": True, "location": "Hikari Bình Dương, TP.HCM"})[1]
+    c = Client()
+    assert g.ingest_job(c, dict(v24), hold=False, work_location_rows=rows) == 77
+    assert seen[0]["addresses"] == [], "위치 확인 입력은 예전과 같음(근무지 줄은 확인 뒤에 붙임)"
+    assert c.calls[0][1]["p"]["work_locations"] == rows and c.calls[0][1]["p"]["location"] == "Hikari Bình Dương, TP.HCM", c.calls
+    # 위치 확인이 매장 여러 곳을 정했으면 그쪽이 먼저
+    g.PRECHECK = lambda j: {"findable": True, "location": first, "stores": [first, second]}
+    c = Client()
+    assert g.ingest_job(c, dict(krik_src), work_location_rows=rows) == 77
+    assert c.calls[0][1]["p"]["work_locations"] == [{"raw_address": first}, {"raw_address": second}], c.calls
+
     g.PRECHECK = lambda j: {"findable": False, "reason": "approximate_only"}
     c = Client()
     try:

@@ -1,3 +1,9 @@
+## 2026-11-18 — vieclam24h 새 공고 근무지 줄을 등록 입구와 같은 트랜잭션으로 (#916, #6255 핀 안 생김)
+- 원인 [직접 확인 코드]: crawl_topcv가 ingest_job으로 등록한 직후 replace_job_work_locations로 근무지 줄을 다시 씀 → 저장 직후 위치 확인 서버(location-hook)가 찾는 동안 근무지가 바뀜 → map_r1_complete가 snapshot 불일치로 결과를 버리고 failed(20261111150000_map_r1_other_stores.sql). Facebook은 입구 한 번(등록 트랜잭션)이라 이 경쟁이 없음.
+- GEOAPIFY 없음은 직접 원인 아님: 크롤러 자체 좌표만 못 구함(unresolved 줄) — 핀은 위치 확인 서버(Google 재사용)가 정함.
+- 변경: ingest_gateway.ingest_job(work_location_rows=) — 위치 확인 뒤 입구 payload로(서버가 매장 여러 곳을 정하면 그쪽 먼저). crawl_topcv 새 공고는 등록 뒤 근무지를 따로 다시 쓰지 않음. 기존 공고 다시 수집은 그대로.
+- 검증 [직접 확인 로컬]: test_ingest_gateway(El Gaucho 사례)·test_address_pipeline_integration(#4572 사례: 새 공고 근무지 줄 보존 — 입구 payload로)·test_job_error_isolation(근무지 실패 시 반쯤 저장 없음)·scheduled_cli·cli_safety·work_location_protection·refresh_store_rows.
+
 ## 2026-11-18 — 위치 "원래 성 안" 검사: 통합 뒤 "(…, X cũ)" 주소의 옛 성 인식 (El Gaucho, #872)
 - 실측 [직접 확인]: publish_one 44299906107 not_found → 업체 검색 비교 44300276494: Google "El Gaucho Hikari Bình Dương"(11.05904,106.68454) 찾음, 성 안=아니오. 원인: 주소에 시 이름(Thủ Dầu Một, 시 경계 자료 없음)과 새 성(TP.HCM)·옛 성(Bình Dương cũ)이 같이 있어 성을 못 정함.
 - 변경: withinOriginalProvince만 — 시 단계가 모름이면 글에 적힌 원래 성 1곳(여럿이면 "cũ" 표시 1곳)으로 성 경계 검사. 시 대표점·핀 규칙 그대로.
