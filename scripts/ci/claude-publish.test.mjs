@@ -73,7 +73,10 @@ ok(!(await run(draft(edit('.gitattributes', '* filter=evil\n')))).ok, '.gitattri
 // pr 모드(지시 작업 새 PR): 정상 수정은 통과, 금지 경로는 거절
 { const pr = (change) => { const d = draft(change, { extra: { 'pr.md': '작업 설명', 'pr-title.txt': 'feat: 작업' } }); return ['pr', ...d.args.slice(1).filter((x, i, arr) => !(x === '--number' || arr[i - 1] === '--number'))] }
   ok((await main(pr(edit('src/a.ts', 'export const a = 2\n'))).catch(() => ({ ok: false }))).ok, 'pr 모드: 정상 수정 통과(시험 실행)')
-  ok(!(await main(pr(edit('.github/workflows/x.yml', 'on: pull_request_target\n'))).catch(() => ({ ok: false }))).ok, 'pr 모드: 워크플로 수정 거절') }
+  ok(!(await main(pr(edit('.github/workflows/x.yml', 'on: pull_request_target\n'))).catch(() => ({ ok: false }))).ok, 'pr 모드: 워크플로 수정 거절')
+  // S5 이슈 지시(--draft): 값 없는 표시라 뒤 인자(--dry-run 등)를 먹지 않고, 검사는 그대로
+  ok((await main([...pr(edit('src/a.ts', 'export const a = 2\n')).slice(0, -1), '--draft', '--dry-run']).catch(() => ({ ok: false }))).ok, 'pr 모드 --draft: 정상 수정 통과(시험 실행)')
+  ok(!(await main([...pr(edit('.github/workflows/x.yml', 'on: pull_request_target\n')).slice(0, -1), '--draft', '--dry-run']).catch(() => ({ ok: false }))).ok, 'pr 모드 --draft: 워크플로 수정은 그대로 거절') }
 // 검토 결과 형식
 { const out = mkdtempSync(join(tmpdir(), 'pr-')); writeFileSync(join(out, 'review.md'), '<!-- claude-fallback-review -->\nsha: ' + 'a'.repeat(40) + '\nfindings: 0\n지적 없음')
   ok((await main(['review', '--repo', 'o/r', '--number', '1', '--head-sha', 'a'.repeat(40), '--out', out, '--dry-run'])).ok, '검토 결과 정상')

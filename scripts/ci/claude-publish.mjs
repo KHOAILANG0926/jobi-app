@@ -8,7 +8,8 @@
 //   - 토큰: 검증을 모두 통과한 뒤에만 claude[bot] 앱 토큰을 받고(claude-code-action과 같은 OIDC 교환, master 워크플로에서만 발급됨), 끝나면 폐기한다.
 // 이 파일은 기준(master) 사본으로만 실행한다(claude-auto.yml 게시 잡은 PR 코드를 체크아웃·실행하지 않음).
 // 사용: node claude-publish.mjs <codex|issue|review> --repo o/r --number N --out <초안 폴더> [--head-sha S --head-ref B --workdir <PR 사본>] [--dry-run]
-//       node claude-publish.mjs pr --repo o/r --out <초안 폴더> --head-sha <기준 커밋> --head-ref <새 브랜치> --workdir <기준 사본> [--dry-run]
+//       node claude-publish.mjs pr --repo o/r --out <초안 폴더> --head-sha <기준 커밋> --head-ref <새 브랜치> --workdir <기준 사본> [--draft] [--dry-run]
+//       --draft: S5 이슈 지시(task-pickup)에서 온 작업은 처음부터 Draft PR로 만든다(#808 S5 완료 조건). 다른 경로는 그대로 일반 PR.
 //         (새 브랜치·PR 만들기 — 지시 작업. 금지 경로는 거절. 직업분류 주간 보강은 Lee 2026-11-15 결정으로 중단)
 import { BOT_PROOF_LABEL } from '../check-pr-ready.mjs'
 import { execFileSync } from 'node:child_process'
@@ -228,6 +229,7 @@ function parseArgs(argv) {
   for (let i = 0; i < rest.length; i++) {
     const k = rest[i]
     if (k === '--dry-run') a.dryRun = true
+    else if (k === '--draft') a.draft = true
     else a[k.replace(/^--/, '').replace(/-(.)/g, (_, c) => c.toUpperCase())] = rest[++i]
   }
   return a
@@ -285,7 +287,7 @@ export async function main(argv) {
     let pushed = ''
     if (a.mode === 'pr') {
       pushed = commitAndPush(a, token, meta.message)
-      const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, { title: (readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: text, draft: false })
+      const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, { title: (readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: text, draft: a.draft === true })
       console.log(`PR 만듦: #${pr.number}`)
       return { ok: true, problems: [], pushed, pr: pr.number }
     }
