@@ -1,3 +1,10 @@
+## 2026-11-18 — vieclam24h 공개 연락처 버튼 눌러 전화번호 읽기 (Lee 지시, 저장·공개·정기 수집 없음)
+- 원인 [직접 확인]: build_job_record의 employer_phone_value = "" 는 2026-08-09 TopCV 첫 크롤러(432a5c8)부터 이어진 빈칸 자리 — 전화 읽기를 만든 적 없고, 막기로 한 결정 기록도 없음.
+- Muaban 10-23~24 서버 추출 구현: GitHub에 없음(#202 본문에 ops/muaban-private-pilot.py 이름만, master 이력·브랜치 0건) → 재사용 불가, [기존 기록]만.
+- 변경: crawl_facebook.extract_phone → job_quality.extract_phones/extract_phone(한 곳, 동작 같음). crawl_topcv.reveal_employer_phone: 상세 화면 공개 버튼("xem/hiện số…")을 한 번 눌러 새로 나타난 번호만 employer_phone로(사이트 대표번호 등 원래 있던 번호 제외), 로그인 창·로그인 화면이면 멈춤(login_required), 로그에는 결과 종류만(번호 안 남김). VietnamWorks 경로·워크플로는 그대로.
+- 검증 [직접 확인 로컬]: test_detail_section_parser_dom에 가짜 화면 5종(번호 보임·로그인 창·버튼 없음·눌러도 없음·광고 칸 번호) 추가 — 9/9. CI 연결(crawler-cli-tests.yml 1줄)은 .github/ 코드 소유자 승인 대상이라 별도 PR. 독립 검토 반영: 버튼 누르기는 DB 연결 없는 실행(시험 수집)에서만, 번호는 버튼 연락처 칸 안에서만. 크롤러 시험 통과(address_pipeline 1건은 master에도 있는 #894).
+- 남은 문제: 실제 vieclam24h 화면 확인은 병합 뒤 crawl.yml 시험 수집(VPS, 저장 없음, 1건).
+
 ## 2026-11-14 — 공개 여부 쓰기 정리: OCR 재공개 삭제 + 마감 공고 공개 조회 제외 (#728 R4 4단계, Lee 확정 범위)
 - 요청: Lee 2026-11-14 4단계 수정 범위 확정 — ① OCR 중복 재공개 정리(불일치 보류는 유지) ② 재공개는 검사표만, DB 트리거 보호 유지 ③ keepExisting 죽은 코드·주석 정리 ④ 마감 공고를 공개 조회에서도 제외(관리자 숨김·크론은 그대로) ⑤ 검사 범위·화면 구성 불변.
 - 근거 [직접 확인, 폐기용 PGlite]: OCR의 active=true는 검사 기록이 없거나 옛 내용·미통과면 트리거가 되돌림(kept_hidden_by_trigger), 검사표가 통과시킨 뒤에만 성공 → 실제 공개 판정은 검사표. 내림→OCR ok→검사표 통과로 다시 공개되는 경로도 확인.

@@ -141,7 +141,7 @@ class CliEntrypointTests(unittest.TestCase):
         self.assertEqual(enter_cli([
             "--dry-run-urls", "https://example.invalid/a,https://example.invalid/b",
         ]), [("process_urls_dry_run",
-              (["https://example.invalid/a", "https://example.invalid/b"],), {})])
+              (["https://example.invalid/a", "https://example.invalid/b"],), {"save_details_to": ""})])
 
     def test_existing_cli_safety_suite_without_import_side_effects(self):
         module = types.ModuleType("crawl_topcv")
@@ -175,11 +175,21 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", source)
         self.assertNotIn("schedule:", source)
         self.assertNotIn("cron:", source)
-        self.assertNotIn("secrets.", source)
-        self.assertNotIn("environment: ops-keys", source)
+        # #884 B안: VPS 수집 잡(crawl)에는 열쇠·ops-keys가 없고, 열쇠는 GitHub 서버 검증 저장 잡(verify-save)의 저장 단계에만
+        crawl, save = source.split("\n  verify-save:\n", 1)
+        self.assertNotIn("secrets.", crawl)
+        self.assertNotIn("environment: ops-keys", crawl)
         job_if = [l.strip() for l in source.splitlines() if l.startswith("    if:")]
-        self.assertEqual(job_if, ["if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run"])
+        self.assertEqual(job_if, [
+            "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run && inputs.verify_save_run_id == ''",
+            "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.verify_save_run_id != ''"])
         self.assertIn("'^([1-9]|10)$'", source)
+        self.assertIn("    environment: ops-keys\n    runs-on: ubuntu-22.04\n", save)
+        steps = save.split("\n      - ")
+        self.assertEqual([st for st in steps if "secrets.SUPABASE_SERVICE_ROLE_KEY" in st and "--verify-write --confirm-write --verify-write-details" in st].__len__(), 1)
+        self.assertEqual(sum("secrets." in st for st in steps), 1)  # 열쇠는 저장 단계 하나에만
+        self.assertNotIn("playwright install", save)  # 사이트 접속 없음
+        self.assertIn('verify-artifact-run.sh "$RUN_ID" .github/workflows/crawl.yml workflow_dispatch', save)
 
     def test_facebook_account_users_share_one_state_dir(self):
         # #881: 같은 Facebook 계정을 쓰는 실행이 모두 같은 계정 잠금·본 글 기록 폴더를 본다 — 수집기 기본값과 run_daily가 같은 곳,
@@ -279,18 +289,20 @@ class ScheduledCallerTests(unittest.TestCase):
     def test_actions_environment_can_install_requirements(self):
         # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
         # vietnam-provinces(requirements.txt)는 Python 3.12 이상. 재개 전에 같은 실패가 나지 않게 고정한다.
-        source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
+        full = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
+        source = full.split("\n  verify-save:\n", 1)[0]  # VPS 수집 잡(검증 저장 잡은 GitHub 서버, #884 B안)
         reqs = (ROOT / "crawler/requirements.txt").read_text(encoding="utf-8")
-        runs_on = [l.split(":", 1)[1].strip() for l in source.splitlines() if l.strip().startswith("runs-on:")]
+        runs_on = [l.split(":", 1)[1].strip() for l in full.splitlines() if l.strip().startswith("runs-on:")]
         # Lee 2026-11-17 #872: GitHub 서버는 vieclam24h가 403으로 막음 → 기존 VPS 실행기에서 소량 시험(Facebook과 폴더 분리)
-        self.assertEqual(runs_on, ["[self-hosted, Linux, X64]"])
+        self.assertEqual(runs_on, ["[self-hosted, Linux, X64]", "ubuntu-22.04"])
         self.assertIn("path: vieclam24h-run", source)
         self.assertIn("working-directory: vieclam24h-run", source)
         self.assertNotIn("/tmp/", source)
         self.assertNotIn("CRAWLER_STATE_DIR", source)
         self.assertIn("SUPABASE_SERVICE_ROLE_KEY: ''", source)
-        versions = re.findall(r"python-version:\s*'(\d+)\.(\d+)'", source)
-        self.assertEqual(len(versions), 1)
+        versions = re.findall(r"python-version:\s*'(\d+)\.(\d+)'", full)
+        self.assertEqual(len(versions), 2)
+        self.assertEqual(len(set(versions)), 1)
         self.assertGreaterEqual(tuple(map(int, versions[0])), (3, 12))
         self.assertIn("playwright==1.44.0", reqs)  # 판을 올리면 24.04 지원 여부를 다시 확인하고 이 시험도 고친다
         self.assertIn("vietnam-provinces==2026.9.0", reqs)

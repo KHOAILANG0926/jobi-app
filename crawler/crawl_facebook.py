@@ -25,7 +25,7 @@ except ImportError:
 
 load_dotenv(Path(__file__).parent / ".env")
 
-from job_quality import ascii_key, has_excluded_money_terms
+from job_quality import ascii_key, extract_phone, has_excluded_money_terms
 from job_posting_policy import evaluate_job_posting_policy, crawler_policy_errors
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
 from occupation_classifier import occupation_fields
@@ -198,12 +198,6 @@ def is_local_priority(text: str) -> bool:
 def is_office_job(text: str) -> bool:
     """사무/전문직이면 True (우선순위 하향)"""
     return bool(OFFICE_JOB_PATTERNS.search(text))
-
-
-def extract_phone(text: str) -> str:
-    cleaned = re.sub(r"[\s\.\-]", "", text)
-    phones = re.findall(r"(?<!\d)(0[0-9]{9})(?!\d)", cleaned)
-    return phones[0] if phones else ""
 
 
 def extract_zalo(text: str) -> str:
