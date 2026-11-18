@@ -668,7 +668,16 @@ _CONTACT_HINT_JS = """() => {
     const nd = JSON.parse(document.getElementById('__NEXT_DATA__')?.textContent || 'null')
     const d = nd?.props?.initialState?.api?.jobDetailHiddenContact?.data
     const kind = (v) => v === null || v === undefined || v === '' ? 'empty' : (typeof v === 'object' ? 'obj' : (/\\d{6,}/.test(String(v).replace(/\\D/g, '')) ? 'digits' : typeof v))
-    if (d && typeof d === 'object') keys = Object.keys(d).slice(0, 20).map((k) => k + ':' + kind(d[k])).join(',')
+    if (d && typeof d === 'object') {
+      // 연락처로 보이는 칸만(한 단계 아래 객체 포함) — 전체 칸 목록은 400자에서 잘려 연락처 칸을 못 봤다(run 44225381066)
+      const cre = /phone|mobile|tel|contact|email|zalo|hotline|sdt/i
+      const out = []
+      for (const [k, v] of Object.entries(d)) {
+        if (cre.test(k)) out.push(k + ':' + kind(v))
+        if (v && typeof v === 'object' && !Array.isArray(v)) for (const [k2, v2] of Object.entries(v)) if (cre.test(k2)) out.push(k + '.' + k2 + ':' + kind(v2))
+      }
+      keys = out.length ? out.join(',') : 'no_contact_keys(' + Object.keys(d).length + ' keys)'
+    }
     else keys = d === undefined ? 'no_hidden_contact' : 'hidden_contact_' + kind(d)
   } catch (e) { keys = 'next_data_error' }
   return texts.join(' | ').slice(0, 400) + ' || state ' + keys.slice(0, 400)
