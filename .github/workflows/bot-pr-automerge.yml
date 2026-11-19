@@ -193,6 +193,22 @@ jobs:
                 gh workflow run migrations-apply.yml --repo "$REPO" --ref master
               fi
               gh workflow run vercel-deploy.yml --repo "$REPO" --ref master
+              # GITHUB_TOKEN 병합은 master push 기반 검사 워크플로를 시작하지 않는다 — 기존 paths 조건에 맞을 때만 명시 호출.
+              rules=0; r8=0; card=0
+              while IFS= read -r f; do
+                case "$f" in
+                  supabase/migrations/20261013100000_job_posting_rules.sql|scripts/ocr/*|.github/workflows/job-rules-apply.yml) rules=1 ;;
+                esac
+                case "$f" in
+                  supabase/tests/local_jobs_occupation_r8_check.sql|crawler/occupation_classifier.py|scripts/occupations/backfill_occupations.py|scripts/occupations/backfill_occupations_test.py|config/auto-processing-cutoff.json|.github/workflows/occupation-r8-apply.yml) r8=1 ;;
+                esac
+                case "$f" in
+                  .github/workflows/jobcard-integrity.yml|scripts/test-jobcard-integrity.mjs|scripts/test-job-location-detail.mjs|src/components/JobCard.tsx|src/components/JobLocationMap.tsx|src/context/JobsContext.tsx|src/pages/Home.tsx|src/pages/JobDetail.tsx|src/lib/jobCoords.ts|package.json|package-lock.json) card=1 ;;
+                esac
+              done < <(jq -r '.[].filename' files.json)
+              [ "$rules" = 1 ] && { gh workflow run job-rules-apply.yml --repo "$REPO" --ref master || echo "::warning::job-rules-apply 시작 실패"; }
+              [ "$r8" = 1 ] && { gh workflow run occupation-r8-apply.yml --repo "$REPO" --ref master || echo "::warning::occupation-r8-apply 시작 실패"; }
+              [ "$card" = 1 ] && { gh workflow run jobcard-integrity.yml --repo "$REPO" --ref master || echo "::warning::jobcard-integrity 시작 실패"; }
               # 관리자 E2E 두 개는 vercel-deploy가 migration 성공·운영 배포 뒤에 부른다(예전 봇 대기 반복문 뒤 순서 유지, #812 검토관 지적).
             else
               echo "::warning::PR #$num 병합 거절(서버): $(printf '%s' "$merge_out" | tr '\n' ' ' | cut -c1-300) — 다음 실행에서 다시 봄"
