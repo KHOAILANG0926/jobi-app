@@ -179,7 +179,7 @@ jobs:
             # 기존 다시 확인 장치(codex-wait.txt → codex-wait-timer)로 6분 뒤 다시 부른다(approval-checks는 5분마다 + 댓글마다 판정).
             gate=$(gh api --paginate --slurp "repos/$REPO/commits/$sha/check-runs?per_page=100" | jq -r -f scripts/ci/merge-gate-ready.jq) || gate=pending
             if [ "$gate" != ok ]; then
-              # 진행 중이면 6분 뒤 다시(곧 바뀜). Lee 승인 대기(action_required)·실패면 다시 부르지 않는다 — 판정이 바뀌는 이벤트(승인·댓글·예약)가 봇을 다시 부른다.
+              # 진행 중·승인 반영 전 옛 값이면 6분 뒤 다시(곧 바뀜, 판정은 merge-gate-ready.jq). 실패면 다시 부르지 않는다(새 커밋·댓글·예약이 봇을 부른다).
               echo "::notice::PR #$num 병합 조건 검사(ai-review·approval-gate) $gate — 병합 시도 안 함"
               [ "$gate" = pending ] && echo 6 >> codex-wait.txt
               continue
