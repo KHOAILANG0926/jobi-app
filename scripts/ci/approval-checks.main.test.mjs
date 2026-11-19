@@ -11,7 +11,7 @@ const leeOk = { user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: 
 const pr = (number, extra = {}) => ({ number, draft: false, state: 'open', base: { ref: 'master', sha: 'b'.repeat(40) }, head: { sha, repo: { full_name: repo } }, user: { login: 'viecganban-bot' }, labels: [], body, ...extra })
 
 function world({ prs, reviews, comments, existing = {}, failFiles = false, gate = null, issues = [], files = null, deployOk = null, compare = {} }) {
-  const writes = [], runs = { ...existing }
+  const writes = [], runs = { ...existing }, compareCalls = []
   const res = (data, status = 200) => ({ ok: status < 400, status, json: async () => data, text: async () => (typeof data === 'string' ? data : JSON.stringify(data)) })
   globalThis.fetch = async (url, init = {}) => {
     const path = String(url).replace('https://api.github.com/', ''), method = init.method ?? 'GET'
@@ -20,7 +20,7 @@ function world({ prs, reviews, comments, existing = {}, failFiles = false, gate 
       if (/^repos\/[^/]+\/[^/]+\/pulls\?/.test(path)) return res(path.includes('page=1') ? prs : [])
       if (/^repos\/[^/]+\/[^/]+\/issues\?state=open/.test(path)) return res(path.includes('page=1') ? issues : [])
       if (/actions\/workflows\/deploy-verify\.yml\/runs\?branch=master&status=success/.test(path)) return res({ workflow_runs: deployOk ? [{ head_sha: deployOk }] : [] })
-      if ((m = path.match(/compare\/([0-9a-f]+)\.\.\.([0-9a-f]+)/))) return res({ status: compare[m[1]] ?? 'diverged' })
+      if ((m = path.match(/compare\/([0-9a-f]+)\.\.\.([0-9a-f]+)/))) { compareCalls.push(path); return res({ status: compare[m[1]] ?? 'diverged' }) }
       if ((m = path.match(/pulls\/(\d+)\/files/))) return failFiles ? res({ message: 'unavailable' }, 503) : res(path.includes('page=1') ? (files ?? [{ filename: '.github/workflows/x.yml', status: 'modified', patch: '@@\n+x' }]) : [])
       if ((m = path.match(/pulls\/(\d+)\/reviews/))) return res(path.includes('page=1') ? (reviews[m[1]] ?? []) : [])
       if (/pulls\/\d+\/comments/.test(path)) return res([])
@@ -40,7 +40,7 @@ function world({ prs, reviews, comments, existing = {}, failFiles = false, gate 
     writes.push(rec); runs[name] = { id: runs[name]?.id ?? Object.keys(runs).length + 1, ...rec }
     return res({ id: runs[name].id })
   }
-  return { writes, runs }
+  return { writes, runs, compareCalls }
 }
 process.env.GITHUB_TOKEN = 'x'
 const opts = { getAppToken: async () => 'app', framePaths: [] }
@@ -169,5 +169,10 @@ console.log('approval-checks main 재현 시험 통과(같은 SHA PR 오염 차�
   const w5 = world({ prs: [pr(5, { body: '' })], reviews: { 5: [] }, comments: { 5: [claudeOk] }, files: normal, issues: [lockIssue], deployOk: 'd'.repeat(40), compare: { abc1234: 'diverged' } })
   await main(['--repo', repo, '--pr', '5'], opts)
   assert.equal(last(w5.writes, 'approval-gate').state, 'action_required', '성공한 커밋이 실패 커밋을 포함하지 않으면 잠금 유지')
+  // 한 실행에서 같은 비교는 한 번만(PR 2건 × 판정 2번이어도) — 403(시간당 한도) 재발 방지(2026-11-19)
+  const other = { sha: 'f'.repeat(40), repo: { full_name: repo } }
+  const w6 = world({ prs: [pr(301, { body: '' }), pr(302, { body: '', head: other })], reviews: { 301: [], 302: [] }, comments: { 301: [claudeOk], 302: [{ ...claudeOk, body: claudeOk.body.replace(sha, other.sha) }] }, files: normal, issues: [lockIssue, { ...lockIssue, number: 78, title: '운영 배포 검증 실패: def5678' }], deployOk: 'd'.repeat(40), compare: { abc1234: 'ahead', def5678: 'ahead' } })
+  await main(['--repo', repo, '--all'], opts)
+  assert.equal(w6.compareCalls.length, 2, `잠금 이슈 2건 → 비교 2번(PR·판정 수와 무관), 실제 ${w6.compareCalls.length}`)
 }
 console.log('approval-checks main: 운영 배포 잠금 시험 통과')

@@ -27,15 +27,20 @@ export function deployLocks(issues = []) {
     .map((i) => ({ number: i.number, sha: LOCK_TITLE.exec(i.title)[1] }))
 }
 
-/** 열린 잠금 이슈 중 아직 풀리지 않은 것(위 설명). 조회가 실패하면 예외 → 호출한 곳이 닫힌 실패로 올린다. */
-export async function activeLocks(token, repo) {
+/** 열린 잠금 이슈 중 아직 풀리지 않은 것(위 설명). 조회가 실패하면 예외 → 호출한 곳이 닫힌 실패로 올린다.
+ * compares: 한 실행 안에서 같은 (실패 커밋, 성공 커밋) 비교를 다시 묻지 않는 기억(두 커밋의 관계는 바뀌지 않음).
+ * 없이 PR마다·두 번씩 다시 물으면 열린 잠금 이슈 7건 × PR 10건 × 2 = 140번/5분 → 저장소 GITHUB_TOKEN 한도(시간당 1000번)를 넘겨
+ * 다른 PR 재판정·검토관이 403으로 실패했다(2026-11-19 00:19Z run 44427471670·44428216361). */
+export async function activeLocks(token, repo, compares = new Map()) {
   const locks = deployLocks(await pages(token, `repos/${repo}/issues?state=open&creator=${encodeURIComponent('github-actions[bot]')}`))
   if (!locks.length) return []
   const ok = (await ghFetch(token, `repos/${repo}/actions/workflows/deploy-verify.yml/runs?branch=master&status=success&per_page=1`)).workflow_runs?.[0]?.head_sha
   if (!ok) return locks
   const still = []
   for (const l of locks) {
-    const st = (await ghFetch(token, `repos/${repo}/compare/${l.sha}...${ok}`)).status
+    const key = `${l.sha}...${ok}`
+    if (!compares.has(key)) compares.set(key, (await ghFetch(token, `repos/${repo}/compare/${key}`)).status)
+    const st = compares.get(key)
     if (st !== 'ahead' && st !== 'identical') still.push(l)
   }
   return still
@@ -142,6 +147,7 @@ export async function main(argv, { getAppToken = checksAppToken, framePaths: fp 
   const targets = a.all ? [...new Map([...eligible, ...open.filter((p) => a.pr && p.number === Number(a.pr))].map((p) => [p.number, p])).values()] : open.filter((p) => p.number === Number(a.pr))
   if (a.pr && !targets.length) { console.log(`PR #${a.pr}: 열린 PR 아님(대상 아님)`); return }
   let appTok = null, errors = 0
+  const compares = new Map() // 잠금 풀림 비교 기억(이 실행 동안) — activeLocks 설명
   for (const sha of new Set(targets.map((p) => p.head.sha))) {
     const group = open.filter((p) => p.head.sha === sha)
     const nums = group.map((p) => p.number)
@@ -154,7 +160,7 @@ export async function main(argv, { getAppToken = checksAppToken, framePaths: fp 
       const evaluate = async () => {
         const list = []
         // 잠금 이슈는 판정마다 새로 읽는다(두 번 판정하는 사이 잠금이 생겨도 더 나쁜 쪽이 올라감). 못 읽으면 예외 → 닫힌 실패.
-        const locks = await activeLocks(readTok, repo)
+        const locks = await activeLocks(readTok, repo, compares)
         for (const p of group) { const { input } = await collect(readTok, repo, p.number, framePaths, locks); list.push({ num: p.number, v: verdicts(input) }) }
         return { review: combine(list.map((x) => ({ num: x.num, v: x.v.review }))), approval: combine(list.map((x) => ({ num: x.num, v: x.v.approval }))) }
       }
