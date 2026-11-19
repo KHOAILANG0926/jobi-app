@@ -88,6 +88,7 @@ console.log('bot-required-checks.test.mjs: 이름 충돌·100개 초과 가림 �
   // 봇은 이 판정 앞에서 decision-approval-gate(Lee 승인)를 이미 통과시켰다 → action_required는 아직 반영 안 된 옛 값(#920·#925)
   assert.equal(g({ check_runs: [okBoth[0], cr(2, 'approval-gate', 'completed', 'action_required', 't1')] }), 'pending', '승인 통과 뒤 옛 action_required → pending(6분 뒤 다시)')
   assert.equal(g({ check_runs: [okBoth[0], cr(2, 'approval-gate', 'completed', 'failure', 't1')] }), 'blocked', '실패 → blocked(다시 안 부름)')
+  assert.equal(g({ check_runs: [okBoth[0], { ...cr(2, 'approval-gate', 'completed', 'action_required', 't1'), output: { summary: '운영 배포 검증 실패 이슈 #918(47fc051) 열림 — 일반 PR 자동 병합 잠금(S6)' } }] }), 'blocked', 'S6 배포 잠금 → blocked(몇 시간 갈 수 있어 타이머 안 검)')
   assert.equal(g({ check_runs: [] }), 'pending', '아직 없음 → pending')
   assert.equal(g({ check_runs: [cr(1, 'ai-review', 'completed', 'success', 't1', 'github-actions'), cr(2, 'approval-gate', 'completed', 'success', 't1', 'github-actions')] }), 'pending', '다른 앱이 만든 같은 이름은 세지 않음')
   assert.equal(g({ check_runs: [cr(1, 'ai-review', 'completed', 'failure', 't1'), cr(3, 'ai-review', 'completed', 'success', 't2'), okBoth[1]] }), 'ok', '이름당 최신 1개')
