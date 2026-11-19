@@ -15,6 +15,7 @@ permissions:
   contents: read
   deployments: read
   issues: write
+  actions: write
 
 concurrency:
   group: deploy-verify-${{ github.sha }}
@@ -83,3 +84,6 @@ jobs:
           printf '커밋 %s 의 운영 배포 확인 또는 실제 화면 검사가 실패했습니다.\n실행 기록: %s\n이 커밋 작업은 완료로 보고하지 않습니다(배포 강제 규칙 DR6).\n' \
             "$GITHUB_SHA" "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > body.md
           gh issue create --title "운영 배포 검증 실패: ${GITHUB_SHA::7}" --body-file body.md || true
+      - name: 운영 검사 성공 후 행정구역 핀 검사 시작
+        if: success()
+        run: gh workflow run administrative-pin-check.yml --repo "$GITHUB_REPOSITORY" --ref master
