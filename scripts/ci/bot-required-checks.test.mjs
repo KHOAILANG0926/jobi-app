@@ -77,3 +77,23 @@ console.log('bot-required-checks.test.mjs: 이름 충돌·100개 초과 가림 �
   assert.equal(passed, false, 'gh가 빈 출력으로 성공해도(필수 검사가 하나도 없음) 판정은 병합 보류')
   console.log('bot-required-checks.test.mjs: 조회 스크립트 실패·잘림·다중 페이지 시험 통과')
 }
+
+// S8 봇 병합 직전 판정(merge-gate-ready.jq): 병합 조건 검사(검사 전용 앱 ai-review·approval-gate)
+{
+  const g = (resp) => jq(['-r', '-f', 'scripts/ci/merge-gate-ready.jq'], JSON.stringify(resp)).trim()
+  const cr = (id, name, status, conclusion, started, slug = 'viecganban-checks') => ({ id, name, status, conclusion, started_at: started, app: { slug } })
+  const okBoth = [cr(1, 'ai-review', 'completed', 'success', 't1'), cr(2, 'approval-gate', 'completed', 'success', 't1')]
+  assert.equal(g({ check_runs: okBoth }), 'ok', '둘 다 성공 → ok')
+  assert.equal(g({ check_runs: [cr(1, 'ai-review', 'in_progress', null, 't1'), okBoth[1]] }), 'pending', '검토 진행 중 → pending(6분 뒤 다시)')
+  // 봇은 이 판정 앞에서 decision-approval-gate(Lee 승인)를 이미 통과시켰다 → action_required는 아직 반영 안 된 옛 값(#920·#925)
+  assert.equal(g({ check_runs: [okBoth[0], cr(2, 'approval-gate', 'completed', 'action_required', 't1')] }), 'pending', '승인 통과 뒤 옛 action_required → pending(6분 뒤 다시)')
+  assert.equal(g({ check_runs: [okBoth[0], cr(2, 'approval-gate', 'completed', 'failure', 't1')] }), 'blocked', '실패 → blocked(다시 안 부름)')
+  assert.equal(g({ check_runs: [okBoth[0], { ...cr(2, 'approval-gate', 'completed', 'action_required', 't1'), output: { summary: '운영 배포 검증 실패 이슈 #918(47fc051) 열림 — 일반 PR 자동 병합 잠금(S6)' } }] }), 'blocked', 'S6 배포 잠금 → blocked(몇 시간 갈 수 있어 타이머 안 검)')
+  assert.equal(g({ check_runs: [] }), 'pending', '아직 없음 → pending')
+  assert.equal(g({ check_runs: [cr(1, 'ai-review', 'completed', 'success', 't1', 'github-actions'), cr(2, 'approval-gate', 'completed', 'success', 't1', 'github-actions')] }), 'pending', '다른 앱이 만든 같은 이름은 세지 않음')
+  assert.equal(g({ check_runs: [cr(1, 'ai-review', 'completed', 'failure', 't1'), cr(3, 'ai-review', 'completed', 'success', 't2'), okBoth[1]] }), 'ok', '이름당 최신 1개')
+  const filler = Array.from({ length: 99 }, (_, i) => cr(100 + i, `other-${i}`, 'completed', 'success', 't0', 'github-actions'))
+  assert.equal(g([{ total_count: 101, check_runs: [...filler, okBoth[0]] }, { total_count: 101, check_runs: [okBoth[1]] }]), 'ok', '여러 쪽: 뒤 쪽의 판정도 읽음')
+  assert.equal(g([{ total_count: 101, check_runs: [...filler, okBoth[0]] }]), 'pending', '조회 잘림 → pending')
+}
+console.log('merge-gate-ready.jq: ok·pending·blocked·다른 앱·최신 1개·여러 쪽 시험 통과')
