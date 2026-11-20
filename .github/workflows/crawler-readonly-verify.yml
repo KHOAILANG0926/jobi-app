@@ -1,0 +1,65 @@
+name: Crawler read-only browser verification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/crawler-readonly-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'playwright==1.44.0'
+      - run: python -m playwright install --with-deps chromium
+      - name: Probe public job sites without database access
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python - <<'PY'
+          import asyncio, json, re
+          from playwright.async_api import async_playwright
+          targets = {
+            "vieclam24h": "https://vieclam24h.vn/viec-lam-bac-ninh.html",
+            "vietnamworks": "https://www.vietnamworks.com/",
+            "facebook": "https://www.facebook.com/groups/timvieclamthembacninh",
+          }
+          async def main():
+            results = []
+            async with async_playwright() as p:
+              browser = await p.chromium.launch(headless=True)
+              context = await browser.new_context(locale="vi-VN")
+              for name, url in targets.items():
+                page = await context.new_page()
+                item = {"site":name, "url":url, "reachable":False, "detail_links":0, "contact_buttons":0, "visible_phone_candidates":0, "login_or_checkpoint":False}
+                try:
+                  response = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                  item["status"] = response.status if response else None
+                  item["reachable"] = bool(response and response.ok)
+                  item["detail_links"] = await page.locator('a[href*="viec-lam"],a[href*="job"],a[href*="tuyen-dung"]').count()
+                  item["contact_buttons"] = await page.get_by_text(re.compile(r"Hiện số|Xem số|Xem liên hệ|Show phone|Số điện thoại",re.I)).count()
+                  body = (await page.locator("body").inner_text(timeout=10000))[:100000]
+                  item["visible_phone_candidates"] = len(re.findall(r"(?<!\\d)0[35789]\\d{8}(?!\\d)",body))
+                  item["login_or_checkpoint"] = bool(re.search(r"Đăng nhập|Log in|checkpoint|xác minh danh tính",body,re.I))
+                  # No calls to registration, contact reveal, or login endpoints.
+                  # Public page structure can be checked without an authenticated session.
+                except Exception as exc:
+                  item["error"] = type(exc).__name__ + ": " + str(exc)[:200]
+                finally:
+                  results.append(item)
+                  await page.close()
+              await browser.close()
+            for item in results:
+              print(json.dumps(item,ensure_ascii=False))
+            if not any(item["reachable"] for item in results):
+              raise SystemExit("Public browser verification blocked on all sites")
+          asyncio.run(main())
+          PY
