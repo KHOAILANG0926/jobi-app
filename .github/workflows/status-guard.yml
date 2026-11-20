@@ -2,12 +2,14 @@ name: STATUS 위조 감시
 
 # 1) status 브랜치에 GitHub 봇이 아닌 계정(사람·AI)이 push하면 실패 → GitHub이 알림 메일을 보낸다.
 #    (봇의 push는 GITHUB_TOKEN이라 이 워크플로를 실행시키지 않는다. 즉 여기서 실행되면 곧 사람·AI가 손댄 것이다.)
-# 2) PR이 검증 장치(스크립트·워크플로)나 STATUS.md를 바꾸면 실패 → Lee가 직접 확인하기 전에는 빨간 표시가 남는다.
+# 2) PR이 STATUS.md나 scripts/status/를 바꾸면 예외 없이 실패(보고 위조 대상 — Lee 2026-11-20 S1: '검증장치-승인' 라벨 예외 제거).
+#    이름 바꾸기·복사로 빼돌린 것도 옛 이름·새 이름 모두 목록에 올려(--no-renames) 막는다.
+#    status-*.yml 워크플로(이 파일 포함) 변경의 대표 승인은 여기서 보지 않는다 — 기존 approval-gate 한 곳이 Lee의 최신 커밋 공식 Approve로 판단한다(check-repository-policy는 승인 대기만으로 실패시키지 않음).
 on:
   push:
     branches: [status]
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -27,33 +29,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: PR의 검증 장치 변경 감지
+      - name: PR의 STATUS 직접 수정 감지
         if: github.event_name == 'pull_request'
         shell: bash
         env:
-          LEE_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, '검증장치-승인') }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          base="${{ github.event.pull_request.base.sha }}"
-          changed=$(git diff --name-only "$base" HEAD)
-          echo "$changed"
-          if echo "$changed" | grep -qx 'STATUS.md'; then
-            echo "::error::PR이 STATUS.md를 만들거나 고칩니다. STATUS.md는 status 브랜치에서 봇만 씁니다."
+          list="${RUNNER_TEMP:-/tmp}/status-guard-changed.z"
+          # 목록을 못 만들면 여기서 실패한다(set -e) — 목록 없이 통과하지 않는다.
+          git diff --no-renames --name-only -z "$BASE_SHA" HEAD > "$list"
+          if grep -zqE '^(STATUS\.md$|scripts/status/)' "$list"; then
+            hit=$(grep -zE '^(STATUS\.md$|scripts/status/)' "$list" | tr '\0' '\n')
+            echo "::error::PR이 STATUS.md 또는 scripts/status/를 고칩니다(예외 없음, 이름 바꾸기·복사 포함): $hit — STATUS.md는 status 브랜치에서 봇만 씁니다."
             exit 1
+          else
+            rc=$?
+            [ "$rc" = 1 ] || { echo "::error::변경 파일 목록 검사 실패(grep 종료 $rc)"; exit "$rc"; }
           fi
-          # 검증 장치가 이미 설치된 뒤의 변경만 막는다(최초 설치 PR은 통과).
-          if git cat-file -e "$base:scripts/status/generate-status.mjs" 2>/dev/null; then
-            hit=$(echo "$changed" | grep -E '^(scripts/status/|\.github/workflows/status-)' || true)
-            if [ -n "$hit" ]; then
-              # Lee가 변경 내용을 보고 PR에 '검증장치-승인' 라벨을 직접 붙여야 통과한다.
-              # 한계: GitHub에서는 AI와 Lee가 같은 계정으로 보여 라벨을 누가 붙였는지 구분할 수 없다.
-              # 그래서 모든 변경은 STATUS.md 8번(검증 장치 변경 이력)에 7일간 경고로 남는다.
-              if [ "$LEE_APPROVED" = "true" ]; then
-                echo "검증 장치 변경: $hit — '검증장치-승인' 라벨 있음, 통과(STATUS.md 8번에 기록됨)"
-              else
-                echo "::error::이 PR은 검증 장치를 바꿉니다: $hit — Lee가 내용을 확인하고 PR에 '검증장치-승인' 라벨을 붙여야 병합할 수 있습니다."
-                exit 1
-              fi
-            fi
-          fi
-          echo "검증 장치 변경 없음"
+          echo "STATUS 직접 수정 없음"
