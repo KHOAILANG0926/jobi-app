@@ -87,3 +87,50 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '�
   assert.equal(run({ state: 'APPROVED', commit_id: head }, undefined).status, 1, '정책 검사: 작성자 정보가 없으면 → 실패')
 }
 console.log('decision-approval 실제 호출 경로 시험 통과(리뷰 150건·두 쪽, 작성자 인자)')
+
+// ── S1(Lee 2026-11-20): 병합 조건 M1~M7 — 테스트 데이터만 쓴다(실제 병합·GitHub 호출 없음). 병합 실행기(bot-pr-automerge.yml)의 실제 조각을 그대로 불러 모은다:
+//    Draft 확인 = 워크플로의 그 셸 단계를 가짜 gh로 실행 / 대표 승인 = decision-approval-gate.mjs CLI / 병합 조건 검사 = merge-gate-ready.jq / 필수 4종 = collapse-check-runs.jq + required-checks-pass.jq.
+{
+  const yml = readFileSync(join(ROOT, '.github/workflows/bot-pr-automerge.yml'), 'utf8')
+  const m = yml.match(/for try in 1 2 3 4 5; do[\s\S]*?HEAD 변경 또는 Draft: 병합 안 함"; continue;\n\s*\}/)
+  assert.ok(m, 'bot-pr-automerge.yml에서 Draft·head 확인 단계를 찾음')
+  const bin = join(dir, 'm-bin'); mkdirSync(bin)
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\nprintf "%s\\t%s\\t%s\\n" "$FAKE_HEAD" "$FAKE_DRAFT" clean\n'); chmodSync(join(bin, 'gh'), 0o755)
+  // 1) Draft·head 확인(병합 실행기 그대로): 끝까지 가면 MERGE_REACHED
+  const draftStep = ({ draft, current = head }) => spawnSync('bash', ['-c', `REPO=x/y; num=1; sha=${head}\nfor item in once; do\n${m[0]}\necho MERGE_REACHED\ndone`],
+    { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_HEAD: current, FAKE_DRAFT: String(draft) } }).stdout.includes('MERGE_REACHED')  // 단계가 state.txt를 쓰므로 임시 폴더에서 실행
+  const jq = (args, input) => spawnSync('jq', args, { input: JSON.stringify(input), encoding: 'utf8' })
+  const cr = (name, status, conclusion, slug = 'viecganban-checks', id = 1) => ({ id, name, status, conclusion, started_at: '2026-11-20T00:00:00Z', check_suite: { id }, app: { slug } })
+  const ok = (name, slug) => cr(name, 'completed', 'success', slug)
+  const required = (extra = []) => [ok('checks', 'github-actions'), ok('guard', 'github-actions'), ok('app-screen', 'github-actions'), ok('publication-gate', 'github-actions'), ...extra]
+  // 2) 병합 직전 판정 = 위 조각 전부 통과해야 병합 조건 충족
+  const mergeable = ({ draft = false, reviews, runs = [ok('ai-review'), ok('approval-gate')], req = required(), current = head }) => {
+    const why = []
+    if (!draftStep({ draft, current })) why.push('draft')
+    if (cli(reviews, 'viecganban-bot') !== 0) why.push('approval')
+    const all = [...req, ...runs]
+    const gate = jq(['-r', '-f', join(ROOT, 'scripts/ci/merge-gate-ready.jq')], { check_runs: all }).stdout.trim()
+    if (gate !== 'ok') why.push(`merge-gate:${gate}`)
+    const collapsed = jq(['-c', '-f', join(ROOT, 'scripts/ci/collapse-check-runs.jq')], { check_runs: all, total_count: all.length }).stdout
+    if (jq(['-e', '-f', join(ROOT, 'scripts/ci/required-checks-pass.jq')], JSON.parse(collapsed)).status !== 0) why.push('required-checks')
+    return { merge: why.length === 0, why }
+  }
+  const lee = (state, commit_id, at) => ({ user: { login: LEE }, state, commit_id, submitted_at: t(at) })
+  const approved = [lee('APPROVED', head, 10)]
+
+  const r1 = mergeable({ draft: true, reviews: approved }); assert.deepEqual([r1.merge, r1.why], [false, ['draft']], 'M1: Draft는 승인·검사가 모두 성공해도 병합 불가')
+  const r2 = mergeable({ reviews: [] }); assert.equal(r2.merge, false, 'M2: Ready지만 대표 Approve 없으면 병합 불가'); assert.ok(r2.why.includes('approval'), 'M2 사유=대표 승인')
+  assert.equal(mergeable({ reviews: [lee('COMMENTED', head, 10)] }).merge, false, 'M2: 대표 의견(COMMENTED)만으로는 승인 아님')
+  assert.equal(mergeable({ reviews: [{ user: { login: 'viecganban-bot' }, state: 'APPROVED', commit_id: head, submitted_at: t(10) }] }).merge, false, 'M2: 봇 승인은 대표 승인 아님')
+  const r3 = mergeable({ reviews: approved, runs: [ok('ai-review'), cr('approval-gate', 'completed', 'action_required')] }); assert.equal(r3.merge, false, 'M3: approval-gate action_required면 병합 불가'); assert.deepEqual(r3.why, ['merge-gate:pending'])
+  const r4 = mergeable({ reviews: approved, runs: [cr('ai-review', 'in_progress', null), ok('approval-gate')] }); assert.equal(r4.merge, false, 'M4: ai-review 진행 중이면 병합 불가'); assert.deepEqual(r4.why, ['merge-gate:pending'])
+  const r5 = mergeable({ reviews: [lee('APPROVED', old, 10)] }); assert.equal(r5.merge, false, 'M5: 이전 SHA 승인은 무효'); assert.deepEqual(r5.why, ['approval'])
+  const r6a = mergeable({ reviews: [lee('APPROVED', head, 10), lee('DISMISSED', head, 20)] }); assert.deepEqual([r6a.merge, r6a.why], [false, ['approval']], 'M6: 최신 SHA 승인 취소(DISMISSED)면 병합 불가')
+  const r6b = mergeable({ reviews: [lee('APPROVED', head, 10), lee('CHANGES_REQUESTED', head, 20)] }); assert.deepEqual([r6b.merge, r6b.why], [false, ['approval']], 'M6: 승인 뒤 변경 요청도 병합 불가')
+  const r7 = mergeable({ reviews: approved }); assert.deepEqual([r7.merge, r7.why], [true, []], 'M7: 최신 SHA 공식 Approve + 모든 필수 검사 성공 → 병합 조건 충족')
+  // M7은 '모두'가 조건이다: 하나라도 빠지면 충족 아님(대조)
+  assert.equal(mergeable({ reviews: approved, req: required().filter((c) => c.name !== 'guard') }).merge, false, 'M7 대조: 필수 검사 guard 없음 → 불충족')
+  assert.equal(mergeable({ reviews: approved, req: [...required().filter((c) => c.name !== 'checks'), cr('checks', 'completed', 'failure', 'github-actions')] }).merge, false, 'M7 대조: checks 실패 → 불충족')
+  assert.equal(mergeable({ reviews: approved, current: 'c'.repeat(40) }).merge, false, 'M7 대조: head가 그새 바뀌면(승인한 SHA와 다름) 불충족')
+  console.log('S1 병합 조건 M1~M7(+대조) 시험 통과 — 테스트 데이터만 사용, 실제 병합 없음')
+}

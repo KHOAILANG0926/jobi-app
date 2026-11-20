@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, mkdirSync, symlinkSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { main, checkText, secretFinding, forbiddenPath, checkIssues, outgoingComment, mentionFinding, checkPrText, cleanDraft, stripComments, BOT, PUBLISH_NOTE, prRequest, parseArgs } from './claude-publish.mjs'
+import { main, checkText, secretFinding, forbiddenPath, checkIssues, outgoingComment, mentionFinding, checkPrText, cleanDraft, stripComments, BOT, PUBLISH_NOTE, prRequest, parseArgs, checkPatchSummary, PROTECTED_PUBLISH_ALLOW } from './claude-publish.mjs'
 
 const FAKE = 'fake-oauth-S4TEST-0123456789abcdef'
 process.env.KNOWN_SECRETS = `${FAKE}\nghs_FAKEFAKEFAKEFAKEFAKEFAKE00`
@@ -18,6 +18,8 @@ function repo() {
   const d = mkdtempSync(join(tmpdir(), 'pub-'))
   g(d, 'init', '-q'); mkdirSync(join(d, 'src')); mkdirSync(join(d, '.github/workflows'), { recursive: true }); mkdirSync(join(d, '.claude'))
   writeFileSync(join(d, 'src/a.ts'), 'export const a = 1\n'); writeFileSync(join(d, '.github/workflows/x.yml'), 'on: push\n'); writeFileSync(join(d, '.claude/settings.json'), '{}\n')
+  // S1 보호 모드 시험용: 보호 게시 허용 목록에 있는 파일 두 개를 기준에 미리 둔다(수정·이름 바꿈 사례)
+  mkdirSync(join(d, 'scripts/ci'), { recursive: true }); writeFileSync(join(d, 'scripts/decision-approval-gate.mjs'), 'export const gate = 1\n'); writeFileSync(join(d, 'scripts/check-repository-policy.mjs'), 'export const policy = 1\n')
   g(d, 'add', '-A'); g(d, 'commit', '-qm', 'init')
   return d
 }
@@ -82,6 +84,65 @@ ok(!(await run(draft(edit('.gitattributes', '* filter=evil\n')))).ok, '.gitattri
   ok(prRequest(parseArgs([...base, '--draft', '--head-sha', 'a']), 'feat: 작업\n둘째 줄', 'b').draft === true, '--draft → draft:true')
   ok(prRequest(parseArgs(base), 'feat: 작업', 'b').draft === false, '표시 없음 → draft:false')
   ok(parseArgs([...base, '--draft', '--head-sha', 'a']).headSha === 'a' && prRequest(parseArgs(base), 'feat: 작업\n둘째 줄', 'b').title === 'feat: 작업', '--draft가 뒤 인자를 먹지 않음·제목 첫 줄') }
+// ── S1 보호 변경 게시(Lee 2026-11-20 확정): 보호 변경은 `pr --protected --draft`에서만, 허용 목록(8개) 밖 파일이 하나라도 섞이면 전체 거절 ──
+{
+  const put = (p, t) => (d) => { mkdirSync(join(d, p.split('/').slice(0, -1).join('/') || '.'), { recursive: true }); writeFileSync(join(d, p), t) }
+  const both = (...fs) => (d) => fs.forEach((f) => f(d))
+  const GATE = 'scripts/decision-approval-gate.mjs', PUB = 'scripts/ci/claude-publish.mjs', SG = '.github/workflows/status-guard.yml', CA = '.github/workflows/claude-auto.yml'
+  // pr 모드 인자: draft()가 만든 codex 인자에서 --number를 빼고 모드를 pr로, 표시(flags)를 --dry-run 앞에 붙인다
+  const prArgs = (d, flags) => ['pr', ...d.args.slice(1).filter((x, i, arr) => x !== '--number' && arr[i - 1] !== '--number' && x !== '--dry-run'), ...flags, '--dry-run']
+  const extra = { 'pr.md': '작업 설명', 'pr-title.txt': 'feat: 보호 변경 초안' }
+  const prRun = async (change, flags, opts = {}) => { const d = draft(change, { extra, ...opts }); return main(prArgs(d, flags)).catch(() => ({ ok: false })) }
+  const PROT = ['--protected', '--draft']
+  const edited = put(GATE, 'export const gate = 2\n')
+
+  // C1: codex 일반 모드에서 보호 파일 거절
+  for (const f of [GATE, PUB, '.github/workflows/status-guard.yml', 'scripts/ci/claude-publish.test.mjs']) ok(!(await run(draft(put(f, 'x = 1\n')))).ok, `C1: codex 일반 모드에서 보호 파일 거절: ${f}`)
+  // C2: codex에 --protected를 줘도 거절(issue·review도 마찬가지)
+  { const d = draft(edited); d.args.splice(d.args.length - 1, 0, '--protected'); ok(!(await run(d)).ok, 'C2: codex에 --protected를 줘도 거절') }
+  { const d = draft(() => {}); d.args.splice(d.args.length - 1, 0, '--protected'); ok(!(await run(d)).ok, 'C2: codex 답만 보내면서 --protected만 줘도 거절') }
+  { const out = mkdtempSync(join(tmpdir(), 'pi-')); writeFileSync(join(out, 'reply.md'), '<!-- claude-issue-reply -->\n답')
+    ok(!(await main(['issue', '--repo', 'o/r', '--number', '1', '--out', out, '--protected', '--dry-run'])).ok, 'C2: issue 모드에 --protected 거절')
+    ok((await main(['issue', '--repo', 'o/r', '--number', '1', '--out', out, '--dry-run'])).ok, 'C2 대조: issue 모드는 --protected 없으면 정상')
+    const rv = mkdtempSync(join(tmpdir(), 'pv-')); writeFileSync(join(rv, 'review.md'), '<!-- claude-fallback-review -->\nsha: ' + 'a'.repeat(40) + '\nfindings: 0\n지적 없음')
+    ok(!(await main(['review', '--repo', 'o/r', '--number', '1', '--head-sha', 'a'.repeat(40), '--out', rv, '--protected', '--dry-run'])).ok, 'C2: review 모드에 --protected 거절') }
+  // C3: 일반 PR(--protected 없음)에서 보호 파일 거절 — Draft여도 마찬가지
+  ok(!(await prRun(edited, [])).ok, 'C3: 일반 PR에서 보호 파일 거절')
+  ok(!(await prRun(edited, ['--draft'])).ok, 'C3: 일반 PR(--draft만)에서 보호 파일 거절')
+  // C4: 보호 PR + Draft + 허용 경로 → 검증 통과(허용 8개 각각, 여러 개 함께)
+  ok((await prRun(edited, PROT)).ok, 'C4: 보호 PR + Draft + 허용 경로(수정) 통과')
+  for (const f of PROTECTED_PUBLISH_ALLOW) ok((await prRun(put(f, '// 보호 변경 초안\nexport const k = 1\n'), PROT)).ok, `C4: 허용 경로 통과: ${f}`)
+  ok((await prRun(both(edited, put(PUB, 'export const p = 1\n'), put(SG, 'on: pull_request\n'), put(CA, 'on: push\n'), put('scripts/ci/claude-publish.test.mjs', '// t\n')), PROT)).ok, 'C4: 허용 파일 여러 개 함께 통과')
+  ok(!(await prRun(edited, ['--protected'])).ok, 'C4 대조: --protected만 있고 Draft 아님 → 거절(Draft 누락)')
+  ok(!(await prRun(put('src/a.ts', 'export const a = 9\n'), ['--protected'])).ok, 'C4 대조: Draft 누락이면 보호 파일이 없는 일반 수정이어도 --protected 자체를 거절')
+  // C5: 보호 모드에 허용 외 파일이 하나라도 섞이면 전체 거절
+  for (const bad of ['src/a.ts', 'CLAUDE.md', 'AGENTS.md', '.github/CODEOWNERS', 'STATUS.md', 'scripts/status/generate-status.mjs', '.github/workflows/status-report.yml', '.github/workflows/deploy.yml',
+    'supabase/migrations/1_x.sql', 'scripts/ops/jobs/x.sql', 'docs/decisions/ko/0010-x.md', 'scripts/ci/protected-paths.mjs', 'scripts/ci/merge-gate-ready.jq', '.claude/settings.json', '.husky/pre-commit'])
+    ok(!(await prRun(both(edited, put(bad, 'x\n')), PROT)).ok, `C5: 허용 파일 + 허용 밖 파일(${bad}) 섞이면 전체 거절`)
+  ok(!(await prRun(put('src/a.ts', 'export const a = 9\n'), PROT)).ok, 'C5: 허용 밖 파일 하나만 있어도 거절')
+  // 추가: SHA·트리 불일치, 이름 바꿈·복사·삭제, 링크, 바이너리, 비밀값
+  { const d = draft(edited, { extra }); const a = prArgs(d, PROT); a[a.indexOf('--head-sha') + 1] = 'f'.repeat(40); ok(!(await main(a).catch(() => ({ ok: false }))).ok, '추가: 보호 모드 — PR 사본이 검사한 커밋(SHA)이 아님 → 거절') }
+  ok(!(await prRun(edited, PROT, { meta: { tree: '0'.repeat(40) } })).ok, '추가: 보호 모드 — 검사한 트리와 다른 patch(트리 SHA 불일치) → 거절')
+  ok(!(await prRun((d) => { g(d, 'mv', GATE, 'scripts/ci/claude-publish.test.mjs') }, PROT)).ok, '추가: 보호 모드 — 허용 파일끼리 이름 바꿈도 거절')
+  ok(!(await prRun((d) => { g(d, 'mv', GATE, 'src/moved.ts') }, PROT)).ok, '추가: 보호 모드 — 허용 밖 경로로 이름 바꿈 거절')
+  ok(!(await prRun((d) => rmSync(join(d, 'scripts/check-repository-policy.mjs')), PROT)).ok, '추가: 보호 모드 — 허용 파일 삭제 거절')
+  { const sum = (line) => checkPatchSummary({ numstat: '1\t0\t' + GATE + '\0', summary: line, bytes: 10, patchText: '+x', protectedMode: true })
+    ok(sum(` copy ${GATE} => scripts/ci/claude-publish.test.mjs (100%)`) !== '', '추가: 보호 모드 — 복사(copy) 거절')
+    ok(sum(` rename ${GATE} => scripts/ci/claude-publish.test.mjs (100%)`) !== '', '추가: 보호 모드 — 이름 바꿈(rename) 요약 거절')
+    ok(sum(` delete mode 100644 ${GATE}`) !== '', '추가: 보호 모드 — 삭제 요약 거절')
+    ok(sum(` create mode 100644 ${GATE}`) === '', '추가 대조: 허용 경로 새 파일 요약은 통과')
+    ok(checkPatchSummary({ numstat: '1\t0\t\0' + GATE + '\0src/x.ts\0', summary: ` copy ${GATE} => src/x.ts (100%)`, bytes: 10, patchText: '+x', protectedMode: true }).includes('허용 목록 밖'), '추가: 보호 모드 — 복사 대상이 허용 밖이면 목록 밖으로 거절')
+    ok(checkPatchSummary({ numstat: '', summary: '', bytes: 10, patchText: '+x', protectedMode: true }) !== '', '추가: 보호 모드 — 파일 목록을 못 읽으면 닫힌 실패') }
+  ok(!(await prRun((d) => { mkdirSync(join(d, 'scripts/ci'), { recursive: true }); symlinkSync('/proc/self/environ', join(d, PUB)) }, PROT)).ok, '추가: 보호 모드 — 허용 경로 자리에 링크(symlink) 거절')
+  ok(!(await prRun((d) => { mkdirSync(join(d, 'scripts/ci'), { recursive: true }); writeFileSync(join(d, PUB), Buffer.from([0, 1, 2, 255, 0, 9])) }, PROT)).ok, '추가: 보호 모드 — 바이너리 거절')
+  ok(!(await prRun(put(GATE, `export const t = '${FAKE}'\n`), PROT)).ok, '추가: 보호 모드 — 비밀값 거절')
+  ok(!(await prRun(edited, PROT, { extra: { 'pr.md': `설명 ${FAKE}`, 'pr-title.txt': 'feat: x' } })).ok, '추가: 보호 모드 — PR 설명 비밀값 거절')
+  { const d = draft(edited, { extra }); const a = prArgs(d, PROT); a[a.indexOf('--head-ref') + 1] = 'master'; ok(!(await main(a).catch(() => ({ ok: false }))).ok, '추가: 보호 모드 — master로 push 시도 거절') }
+  // 허용 목록은 정확히 8개(CLAUDE.md·AGENTS.md·CODEOWNERS·STATUS.md·scripts/status/·migration·다른 워크플로 없음) — 늘리려면 이 시험을 보고 Lee 결정이 필요
+  ok(PROTECTED_PUBLISH_ALLOW.length === 8 && new Set(PROTECTED_PUBLISH_ALLOW).size === 8 && PROTECTED_PUBLISH_ALLOW.every((f) => !/CLAUDE|AGENTS|CODEOWNERS|STATUS|scripts\/status|migrations|^\.github\/workflows\/(?!claude-auto|status-guard)/.test(f)), '허용 목록은 정확히 8개이고 금지 대상이 없음')
+  // Draft 값: 보호 PR 요청은 draft:true
+  ok(prRequest(parseArgs(['pr', '--repo', 'o/r', '--out', '/x', '--head-ref', 'claude/task-1', ...PROT, '--head-sha', 'a']), 't', 'b').draft === true && parseArgs(['pr', ...PROT, '--head-sha', 'a']).headSha === 'a', '--protected가 뒤 인자를 먹지 않고 Draft 요청 유지')
+}
 // 검토 결과 형식
 { const out = mkdtempSync(join(tmpdir(), 'pr-')); writeFileSync(join(out, 'review.md'), '<!-- claude-fallback-review -->\nsha: ' + 'a'.repeat(40) + '\nfindings: 0\n지적 없음')
   ok((await main(['review', '--repo', 'o/r', '--number', '1', '--head-sha', 'a'.repeat(40), '--out', out, '--dry-run'])).ok, '검토 결과 정상')

@@ -177,8 +177,10 @@ export function contentRisks(files) {
 // ⑧ 고위험·판단 불가 PR 본문의 4대 보고: 무엇을 바꾸나 / 왜 필요한가 / 승인 시 남는 위험 / 미승인 시 영향 + 검증 링크(실행 기록·커밋·PR 주소).
 //    칸마다 실제 내용이 있어야 한다(빈 칸·'-'·TODO·'…' 제외). 보고가 없으면 Lee 승인이 있어도 이 판정은 통과하지 않고, 봇은 Lee 승인 요청 대신 보고 요청을 남긴다.
 export const REPORT_FIELDS = ['무엇을 바꾸나', '왜 필요한가', '승인 시 남는 위험', '미승인 시 영향']
+// Markdown 굵은 글씨(`**`)는 내용이 아니다(Lee 2026-11-20 S1): `- **무엇을 바꾸나**: …`·`## **고위험 4대 보고**`처럼 굵게 쓴 칸이름·제목을 '없음'으로 오판정하던 것만 고친다 —
+// 판정 기준(네 칸 모두 실제 내용 4자 이상·검증 링크 1개)은 그대로이고, 값이 `**`뿐이면 `**`를 지운 뒤 빈 칸이라 여전히 '없음'이다.
 export function highRiskReport(body, repo = '') {
-  const text = String(body ?? '').replace(/<!--[\s\S]*?-->/g, '')
+  const text = String(body ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/\*\*/g, '')
   const section = text.split(/^## 고위험 4대 보고[^\n]*\n/m)[1]?.split(/^## /m)[0] ?? ''
   const missing = []
   for (const k of REPORT_FIELDS) {

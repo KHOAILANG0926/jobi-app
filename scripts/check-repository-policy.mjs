@@ -13,6 +13,8 @@ const STATUS_WORKFLOW = /^\.github\/workflows\/status-.*\.ya?ml$/
 // 결정 0002(Lee 2026-10-18): 검사 통과한 migration은 자동 적용. 단 데이터 삭제·되돌리기 어려운 변경은 Lee 판단 →
 // migration은 아래 DESTRUCTIVE_SQL이 들어 있을 때만 막는다(새 표·함수·트리거 추가는 통과).
 const DESTRUCTIVE_SQL = /^\+(?!\s*--).*\b(?:drop\s+(?:table|column|schema|policy)|truncate\b|delete\s+from\b|alter\s+table\b[^;]*\bdrop\b)/im
+// S1(Lee 2026-11-20 확정): STRICT 경로라는 이유만으로 이 검사를 실패시키지 않는다 — 승인 여부는 approval-gate(decision-approval-gate.mjs: 경로·바뀐 줄 위험 판정 + 4대 보고 +
+// Lee의 최신 커밋 공식 Approve)가 판단한다. STRICT 목록은 '두 번째 독립 검토가 꼭 필요한 파일'(needsSecondReview) 판정에만 쓴다. 비밀값 파일·파괴적 DB·STATUS 보호·원문 URL 노출 검사는 그대로.
 const STRICT = [
   /^supabase\/functions\//,
   /^src\/.*(?:auth|Auth|rls|RLS)/, /^\.github\/workflows\/deploy/,
@@ -99,8 +101,6 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
         errors.push(path + ': STATUS 보호 규정 위반 — status 워크플로 변경은 지금 커밋에 대한 Lee의 GitHub 승인(Approve) 뒤에만 통과')
     } else if (PROTECTED.some(re => re.test(path)))
       errors.push(path + ': STATUS 보호 규정 위반')
-    if (STRICT.some(re => re.test(path)))
-      errors.push(path + ': 운영·보안·DB 변경은 별도 승인과 STRICT 검증 필요')
     if (/^supabase\/migrations\//.test(path) && DESTRUCTIVE_SQL.test(patches[path] ?? '') && !options.approvedMigrations?.has(path))
       errors.push(path + ': 데이터 삭제·되돌리기 어려운 DB 변경은 Lee 판단 필요(결정 0002 예외)')
     if (SECRETS.some(re => re.test(path)))

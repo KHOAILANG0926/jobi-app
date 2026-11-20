@@ -340,3 +340,119 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   }
   console.log(`⑨ 워크플로 실행 환경·시험 추가 시험 통과(정상 3·위험 ${risky.length}·판단 불가 6·섞임 1·목록 ${SAFE_TEST_WORKFLOWS.length})`)
 }
+
+// ── S1(Lee 2026-11-20): 고위험 4대 보고의 Markdown `**` 표기 — 굵게 쓴 칸이름·제목을 '없음'으로 오판정하던 것만 고친다(기준은 그대로) ──
+{
+  const { highRiskReport } = await import('./decision-approval-gate.mjs')
+  const repo = 'KHOAILANG0926/jobi-app', link = `https://github.com/${repo}/actions/runs/123`
+  const plain = ['## 고위험 4대 보고', '- 무엇을 바꾸나: 로그인 검사 줄을 추가', '- 왜 필요한가: 관리자 기능 보호', '- 승인 시 남는 위험: 검사 우회 시 노출', '- 미승인 시 영향: 관리자 기능 보호 지연', `- 검증: ${link}`].join('\n')
+  assert.equal(highRiskReport(plain, repo).ok, true, '대조: 굵은 글씨 없는 갖춘 보고')
+  for (const [label, body] of [
+    ['칸이름만 굵게 `- **칸**: 값`', plain.replace(/^- (무엇을 바꾸나|왜 필요한가|승인 시 남는 위험|미승인 시 영향):/gm, '- **$1**:')],
+    ['콜론까지 굵게 `- **칸:** 값`', plain.replace(/^- (무엇을 바꾸나|왜 필요한가|승인 시 남는 위험|미승인 시 영향):/gm, '- **$1:**')],
+    ['`* ` 글머리 + 굵게', plain.replace(/^- (무엇을 바꾸나|왜 필요한가|승인 시 남는 위험|미승인 시 영향):/gm, '* **$1**:')],
+    ['제목을 굵게 `## **고위험 4대 보고**`', plain.replace('## 고위험 4대 보고', '## **고위험 4대 보고**')],
+    ['값 일부를 굵게', plain.replace('로그인 검사 줄을 추가', '**로그인** 검사 줄을 **추가**')],
+    ['검증 링크 칸 이름을 굵게', plain.replace('- 검증:', '- **검증**:')],
+  ]) assert.equal(highRiskReport(body, repo).ok, true, `굵게 써도 갖춘 보고는 통과: ${label}`)
+  // 기준은 그대로: 굵은 글씨만 있고 내용이 없는 칸·링크 없음·TODO·주석 안 보고는 여전히 없음
+  assert.deepEqual(highRiskReport(plain.replace('로그인 검사 줄을 추가', '****'), repo).missing, ['무엇을 바꾸나'], '값이 `**`뿐이면 빈 칸')
+  assert.deepEqual(highRiskReport(plain.replace('관리자 기능 보호', '**TODO**'), repo).missing, ['왜 필요한가'], '굵은 TODO도 없음')
+  assert.deepEqual(highRiskReport(plain.replace(link, '**링크 없음**'), repo).missing, ['검증 링크(실행 기록·커밋·PR 주소)'], '검증 링크가 없으면 굵게 써도 없음')
+  assert.equal(highRiskReport(`<!--\n${plain.replace(/^- (.+?):/gm, '- **$1**:')}\n-->`, repo).ok, false, '주석 안에 숨긴 굵은 보고도 인정 안 함')
+  assert.equal(highRiskReport('## 다른 칸\n' + plain.replace('## 고위험 4대 보고', '### **고위험 4대 보고**'), repo).ok, false, '정해진 제목(##)이 아니면 굵게 써도 없음')
+  assert.equal(highRiskReport(plain.replace(/^- 미승인 시 영향:.*$/m, ''), repo).ok, false, '한 칸이 통째로 빠지면 없음')
+  // 승인 판정 연결: 굵은 보고 + 최신 커밋 Lee Approve → 통과, Approve 없으면 여전히 막힘
+  const h = 'e'.repeat(40), bold = plain.replace(/^- (무엇을 바꾸나|왜 필요한가|승인 시 남는 위험|미승인 시 영향):/gm, '- **$1**:')
+  const files = [{ filename: 'scripts/decision-approval-gate.mjs', status: 'modified', patch: '+x' }]
+  const approve = [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: h, submitted_at: '2026-11-20T01:00:00Z' }]
+  assert.equal(rawDecisionApproval({ files, reviews: approve, comments: [], sha: h, author: 'viecganban-bot', body: bold, repo }).approved, true, '굵은 보고 + 최신 커밋 Lee Approve → 통과')
+  assert.equal(rawDecisionApproval({ files, reviews: [], comments: [], sha: h, author: 'viecganban-bot', body: bold, repo }).approved, false, '굵은 보고라도 Approve 없으면 막힘')
+  assert.equal(rawDecisionApproval({ files, reviews: approve, comments: [], sha: 'f'.repeat(40), author: 'viecganban-bot', body: bold, repo }).approved, false, '굵은 보고라도 옛 커밋 Approve는 무효')
+  console.log('S1 4대 보고 Markdown ** 표기 시험 통과(굵게 6종 통과·기준 그대로 6종 차단·승인 연결 3)')
+}
+
+// ── S1(Lee 2026-11-20): STATUS 보호 S1~S5 — 워크플로 status-guard.yml의 실제 셸 단계 + check-repository-policy + 승인 판정을 임시 저장소·테스트 데이터로 실행 ──
+{
+  const { spawnSync, execFileSync } = await import('node:child_process')
+  const { mkdtempSync, writeFileSync, mkdirSync, copyFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { evaluateFiles, parseNameStatusZ } = await import('./check-repository-policy.mjs')
+  const { leeApprovedAt, OWNER: LEE } = await import('./decision-approval-gate.mjs')
+  const yml = readFileSync(new URL('../.github/workflows/status-guard.yml', import.meta.url), 'utf8')
+  // status-guard.yml의 'PR의 STATUS 직접 수정 감지' 단계의 run 블록을 그대로 꺼낸다(시험이 따로 만든 규칙이 아니라 실제 워크플로 글)
+  const step = yml.split('\n      - name: ').find((b) => b.startsWith('PR의 STATUS 직접 수정 감지'))
+  assert.ok(step, 'status-guard.yml에 STATUS 직접 수정 감지 단계가 있음')
+  const script = step.split(/^        run: \|\n/m)[1].split('\n').map((l) => l.replace(/^          /, '')).join('\n')
+  const code = yml.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n')  // 주석 줄은 제외하고 실제 설정만 본다
+  assert.doesNotMatch(code, /검증장치-승인|LEE_APPROVED|labels\.\*\.name/, 'S3: 라벨 승인 예외가 워크플로 설정에 남아 있지 않음')
+  assert.doesNotMatch(code.split('\njobs:')[0], /labeled|unlabeled/, '라벨 계기도 지움')
+  const g = (cwd, ...a) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { cwd, encoding: 'utf8' })
+  const guard = (change, env = {}) => {
+    const d = mkdtempSync(join(tmpdir(), 'sg-')); g(d, 'init', '-q'); g(d, 'checkout', '-qb', 'main')
+    for (const f of ['STATUS.md', 'scripts/status/generate-status.mjs', '.github/workflows/status-guard.yml', 'src/a.ts']) { mkdirSync(join(d, f.split('/').slice(0, -1).join('/') || '.'), { recursive: true }); writeFileSync(join(d, f), `${f}\n`) }
+    g(d, 'add', '-A'); g(d, 'commit', '-qm', 'base'); const base = g(d, 'rev-parse', 'HEAD').trim()
+    change(d, g); g(d, 'add', '-A'); g(d, 'commit', '-qm', 'pr')
+    const r = spawnSync('bash', ['-c', script], { cwd: d, encoding: 'utf8', env: { ...process.env, BASE_SHA: base, RUNNER_TEMP: d, ...env } })
+    return { code: r.status, out: r.stdout + r.stderr }
+  }
+  const edit = (f, t = 'x\n') => (d) => writeFileSync(join(d, f), t)
+  // S1: STATUS.md 직접 수정 차단 — 라벨·승인 환경 값이 있어도(예전 예외) 차단
+  assert.equal(guard(edit('STATUS.md')).code, 1, 'S1: STATUS.md 직접 수정 차단')
+  assert.equal(guard(edit('STATUS.md'), { LEE_APPROVED: 'true' }).code, 1, 'S1: 예전 라벨 승인 값(LEE_APPROVED=true)이 있어도 차단')
+  assert.equal(guard((d, git) => { git(d, 'rm', '-q', 'STATUS.md') }).code, 1, 'S1: STATUS.md 삭제도 차단')
+  assert.ok(evaluateFiles(['STATUS.md'], '', {}, { statusWorkflowApproved: true }).some((e) => e.startsWith('STATUS.md')), 'S1: 정책 검사도 승인과 상관없이 STATUS.md 차단')
+  // S2: scripts/status/ 직접 수정 차단(라벨 예외 없음)
+  assert.equal(guard(edit('scripts/status/generate-status.mjs')).code, 1, 'S2: scripts/status/ 수정 차단')
+  assert.equal(guard(edit('scripts/status/generate-status.mjs'), { LEE_APPROVED: 'true' }).code, 1, 'S2: 라벨 승인 값이 있어도 차단(라벨 예외 제거)')
+  assert.equal(guard(edit('scripts/status/new-file.mjs')).code, 1, 'S2: scripts/status/ 새 파일도 차단')
+  assert.ok(evaluateFiles(['scripts/status/generate-status.mjs'], '', {}, { statusWorkflowApproved: true }).length === 1, 'S2: 정책 검사도 승인과 상관없이 차단')
+  assert.equal(guard(edit('src/a.ts')).code, 0, '대조: 일반 파일만 바꾸면 통과')
+  // S3: status-guard.yml 변경 + 대표 승인 없음 → 차단. 이 단계는 STATUS 직접 수정만 본다 — 워크플로 변경의 승인은 정책 검사·approval-gate가 판단(승인 없으면 둘 다 막음)
+  const wf = '.github/workflows/status-guard.yml', head = 'a'.repeat(40), old = 'b'.repeat(40)
+  assert.equal(guard(edit(wf)).code, 0, 'S3: status-guard.yml 변경 자체는 이 단계가 판단하지 않음(라벨로 통과시키지도 않음)')
+  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: false }).length, 1, 'S3: 정책 검사 — 대표 승인 없음 → 차단')
+  const files = [{ filename: wf, status: 'modified', patch: '+x' }]
+  const gate = (reviews, o = {}) => decisionApproval({ files, reviews, comments: [], sha: head, author: 'viecganban-bot', labels: ['검증장치-승인'], ...o })
+  assert.equal(gate([]).approved, false, 'S3: approval-gate — 대표 승인 없음 → 차단(예전 라벨 `검증장치-승인`이 있어도)')
+  assert.equal(gate([{ user: { login: LEE }, state: 'APPROVED', commit_id: old, submitted_at: '2026-11-20T00:00:00Z' }]).approved, false, 'S3: 이전 SHA 승인 → 차단')
+  assert.equal(gate([{ user: { login: 'viecganban-bot' }, state: 'APPROVED', commit_id: head, submitted_at: '2026-11-20T00:00:00Z' }]).approved, false, 'S3: 대표 아닌 계정 승인 → 차단')
+  // S4: 유효한 승인(최신 SHA 공식 Approve) + 4대 보고 + 다른 필수 검사 성공 → 허용
+  const lee = [{ user: { login: LEE }, state: 'APPROVED', commit_id: head, submitted_at: '2026-11-20T00:00:00Z' }]
+  assert.equal(leeApprovedAt(lee, head, 'viecganban-bot'), true, 'S4: 최신 SHA 대표 공식 Approve 인정')
+  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: true }).length, 0, 'S4: 정책 검사 — 유효 승인이면 통과')
+  assert.equal(gate(lee).approved, true, 'S4: approval-gate — 유효 승인 + 4대 보고 → 통과')
+  assert.equal(guard(edit(wf)).code, 0, 'S4: status-guard 단계 — 워크플로만 바꾸면 통과(STATUS 직접 수정 아님)')
+  { const jq = (args, input) => spawnSync('jq', args, { input: JSON.stringify(input), encoding: 'utf8' })
+    const runs = (checks) => ({ check_runs: ['checks', 'guard', 'app-screen', 'publication-gate'].map((name, i) => ({ id: i + 1, name, status: 'completed', conclusion: name === checks ? 'failure' : 'success', started_at: 't', check_suite: { id: i + 1 } })) })
+    const pass = (r) => jq(['-e', '-f', new URL('./ci/required-checks-pass.jq', import.meta.url).pathname], JSON.parse(jq(['-c', '-f', new URL('./ci/collapse-check-runs.jq', import.meta.url).pathname], r).stdout)).status === 0
+    assert.equal(pass(runs(null)), true, 'S4: 다른 필수 검사 4종 성공 → 허용')
+    assert.equal(pass(runs('guard')), false, 'S4 대조: 다른 필수 검사 하나 실패 → 허용 안 됨') }
+  // S5: rename·copy로 STATUS 보호 우회 차단
+  assert.equal(guard((d, git) => { git(d, 'mv', 'scripts/status/generate-status.mjs', 'src/moved.mjs') }).code, 1, 'S5: scripts/status/ 파일을 밖으로 이름 바꿈 → 차단(예전 이름도 목록에 올림)')
+  assert.equal(guard((d, git) => { git(d, 'mv', 'STATUS.md', 'docs-status.md') }).code, 1, 'S5: STATUS.md를 다른 이름으로 → 차단')
+  assert.equal(guard((d, git) => { git(d, 'mv', 'src/a.ts', 'scripts/status/a.mjs') }).code, 1, 'S5: 일반 파일을 scripts/status/ 안으로 이름 바꿈 → 차단')
+  assert.equal(guard((d, git) => { git(d, 'mv', 'src/a.ts', 'src/b.ts') }).code, 0, 'S5 대조: 일반 파일끼리 이름 바꿈은 통과')
+  for (const st of ['R100', 'C100']) for (const from of ['scripts/status/generate-status.mjs', 'STATUS.md']) {
+    const parsed = parseNameStatusZ(`${st}\0${from}\0src/elsewhere.mjs\0`)
+    assert.deepEqual(parsed, [from, 'src/elsewhere.mjs'], `S5: ${st} 예전·새 이름 모두 목록에`)
+    assert.ok(evaluateFiles(parsed, '', {}, { statusWorkflowApproved: true }).some((e) => e.startsWith(from)), `S5: 정책 검사 — ${st}로 ${from}를 빼돌려도 차단(승인이 있어도)`)
+  }
+  assert.ok(evaluateFiles(parseNameStatusZ(`R100\0${wf}\0src/x.yml\0`), '', {}, { statusWorkflowApproved: false }).length >= 1, 'S5: status 워크플로를 이름 바꿔 승인 없이 빼내도 차단')
+  // 정책 검사에서 STRICT 경로라는 이유만의 실패는 없앴다(승인은 approval-gate가 판단) — 비밀값·파괴적 DB·STATUS 보호는 그대로
+  { const hv = 'd'.repeat(40), leeOk = [{ user: { login: LEE }, state: 'APPROVED', commit_id: hv, submitted_at: '2026-11-20T00:00:00Z' }]
+    for (const p of ['supabase/functions/x/index.ts', '.github/workflows/deploy-x.yml', 'src/lib/accountX.ts', 'src/lib/paymentX.ts', 'src/pages/AuthPage.tsx'])
+      assert.equal(evaluateFiles([p], '', {}).filter((e) => e.startsWith(p)).length, 0, `정책 검사: STRICT 경로라는 이유만으로는 실패하지 않음: ${p}`)
+    for (const p of ['supabase/functions/x/index.ts', '.github/workflows/deploy-x.yml']) {
+      const f = [{ filename: p, status: 'modified', patch: '+x' }]
+      assert.equal(decisionApproval({ files: f, reviews: [], comments: [], sha: hv, author: 'viecganban-bot' }).approved, false, `대신 approval-gate가 대표 승인 전 차단: ${p}`)
+      assert.equal(decisionApproval({ files: f, reviews: leeOk, comments: [], sha: hv, author: 'viecganban-bot' }).approved, true, `approval-gate: 최신 커밋 대표 Approve 뒤 통과: ${p}`) }
+    for (const p of ['.env', '.env.production', 'keys/server.pem', 'credentials.json']) assert.ok(evaluateFiles([p], '', {}).some((e) => e.startsWith(p)), `비밀값 파일은 그대로 차단: ${p}`)
+    assert.ok(evaluateFiles(['supabase/migrations/1_x.sql'], '', { 'supabase/migrations/1_x.sql': '+drop table public.x;\n' }).length > 0, '파괴적 DB 변경은 그대로 차단')
+    assert.ok(evaluateFiles(['supabase/migrations/1_x.sql'], '', { 'supabase/migrations/1_x.sql': '+truncate public.x;\n' }).length > 0, 'truncate도 그대로 차단')
+    assert.ok(evaluateFiles(['src/lib/a.ts'], '[정책 위반 허용]', {}).length > 0, 'PR 설명만으로 규정 우회 불가는 그대로')
+    const { needsSecondReview } = await import('./check-repository-policy.mjs')
+    assert.equal(needsSecondReview('supabase/functions/x/index.ts') && needsSecondReview('src/lib/paymentX.ts'), true, '두 번째 독립 검토 요구(needsSecondReview)에는 STRICT 목록이 그대로 쓰임') }
+  console.log('S1 STATUS 보호 S1~S5 시험 통과(실제 status-guard 셸 단계·정책 검사·승인 판정)')
+}
