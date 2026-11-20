@@ -74,7 +74,7 @@ jobs:
           python3 scripts/ci/check-secret-isolation.py
       # S8 트랙 A(#808): 병합 뒤 후속 검사 연결 — 운영 배포 확인(deploy-verify) 성공 뒤 행정구역 핀 검사가 최신 실행이 success인 같은 커밋에서만 한 번. 실패 = 병합 불가.
       # 위 단계가 PyYAML을 설치하므로 그 뒤에 둔다(이 시험이 실제 워크플로 YAML을 읽는다).
-      - name: 병합 뒤 후속 검사 연결 시험 (봇 병합·deploy-verify 성공 뒤 핀 검사 1회, 결함 주입 17개가 잡히는지)
+      - name: 병합 뒤 후속 검사 연결 시험 (봇 병합·deploy-verify 성공 뒤 핀 검사 1회, 결함 주입 31개가 잡히는지)
         run: node scripts/ci/post-merge-chain.test.mjs
       - name: artifact 출처 확인 시험 (가짜 실행·브랜치·포크·이력 밖 커밋 거절)
         run: bash scripts/ci/verify-artifact-run.test.sh

@@ -215,7 +215,8 @@ jobs:
         # 호출이 실패하면 이슈를 남기고 이 잡도 실패로 끝낸다(exit 1). 이 단계는 '실패 기록 (이슈)' 뒤에 둔다 — 앞에 두면 핀 검사 호출 실패가 '운영 배포 실패' 이슈로 잘못 기록된다.
         if: github.ref == 'refs/heads/master' && ((github.event_name == 'workflow_dispatch' && steps.need.outputs.same != '1') || (github.event_name == 'schedule' && steps.need.outputs.go == '1'))
         run: |
-          gh workflow run administrative-pin-check.yml --repo "${{ github.repository }}" --ref master -f sha="${{ github.sha }}" || {
+          # since = 이 vercel-deploy 실행의 시작 시각. 핀 검사는 이 시각 이후에 만들어진 deploy-verify 실행만(이전 성공 말고) 그 커밋의 확인 대상으로 인정한다. 못 읽으면 호출하지 않고 실패로 끝낸다.
+          since=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" --jq .run_started_at) && [ -n "$since" ] && gh workflow run administrative-pin-check.yml --repo "${{ github.repository }}" --ref master -f sha="${{ github.sha }}" -f since="$since" || {
             echo "::error::행정구역 핀 검사 시작 실패"
             printf '커밋 %s 의 배포는 끝났지만 행정구역 핀 검사(administrative-pin-check) 시작에 실패했습니다. 실행 기록: %s\n' \
               "${{ github.sha }}" "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > pin-body.md
