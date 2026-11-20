@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-19 11:34 (VN)**
-- 기준 커밋: `53c8a33` (fix(ci): 봇 병합 — 병합 조건 검사 진행 중이면 병합 시도 대신 6분 뒤 다시 확인 (S8 #808) (#926))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/44459131087
+- 생성 시각: **2026-11-20 11:23 (VN)**
+- 기준 커밋: `4e9c534` (S8 Track A v3.1 — post-merge workflow chain recovery (#939))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/44673862458
 - 검증 스크립트 지문(SHA-256): `ddef4c76562027fa`
 
 ## 한눈에 보기
@@ -49,7 +49,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `53c8a33` · 상태 **success** · 2026-11-19 09:36 (VN)
+- 마지막 Production 배포: `4e9c534` · 상태 **success** · 2026-11-20 11:11 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -57,6 +57,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #939 | 2026-11-20 11:11 (VN) | `4e9c534` | S8 Track A v3.1 — post-merge workflow chain recovery |
 | #926 | 2026-11-19 09:35 (VN) | `53c8a33` | fix(ci): 봇 병합 — 병합 조건 검사 진행 중이면 병합 시도 대신 6분 뒤 다시 확인 (S8 #808) |
 | #931 | 2026-11-19 09:35 (VN) | `9f4f944` | fix(approval-checks): 잠금 풀림 비교 중복 조회 제거 — GitHub 읽기 한도 403 원인 (#808) |
 | #925 | 2026-11-19 06:27 (VN) | `47ec961` | fix(korea): parseKoreaSavedId 빈·잘못된 id는 null + 시험 추가 (S8 #808) |
@@ -66,7 +67,6 @@
 | #919 | 2026-11-18 21:23 (VN) | `350be5a` | docs: S6 완료 기록 (#808, #913) |
 | #917 | 2026-11-18 21:02 (VN) | `da4bbc9` | crawler: vieclam24h 새 공고 근무지를 등록 입구와 같은 트랜잭션으로 (#916) |
 | #913 | 2026-11-18 20:17 (VN) | `6464ae7` | feat(ai-team): S6 운영 배포 실패 시 일반 PR 자동 병합 잠금 + 병합 기록에 병합 조건 검사 대조 (#808) |
-| #915 | 2026-11-18 19:42 (VN) | `36d019c` | location: 통합 뒤 주소 'X cũ' 옛 성으로 원래 성 안 검사 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -99,6 +99,8 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-11-20 11:12 (VN) | location_candidate.approve | job 6286 |
+| 2026-11-20 11:12 (VN) | location_candidate.add | job 6286 |
 | 2026-11-19 09:37 (VN) | location_candidate.approve | job 6282 |
 | 2026-11-19 09:37 (VN) | location_candidate.add | job 6282 |
 | 2026-11-19 09:36 (VN) | location_candidate.approve | job 6279 |
@@ -107,8 +109,6 @@
 | 2026-11-19 06:30 (VN) | location_candidate.add | job 6276 |
 | 2026-11-19 05:50 (VN) | location_candidate.approve | job 6273 |
 | 2026-11-19 05:50 (VN) | location_candidate.add | job 6273 |
-| 2026-11-19 05:28 (VN) | location_candidate.approve | job 6271 |
-| 2026-11-19 05:28 (VN) | location_candidate.add | job 6271 |
 
 ## 8. 검증 장치 변경 이력
 
