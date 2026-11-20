@@ -80,11 +80,20 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '�
     writeFileSync(join(dir, 'event.json'), JSON.stringify({ pull_request: { number: 1, base: { sha: base }, head: { sha }, user: { login: author }, body: '' } }))
     return spawnSync('node', ['scripts/check-repository-policy.mjs'], { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_EVENT_PATH: join(dir, 'event.json'), GITHUB_REPOSITORY: 'x/y' } })
   }
-  assert.equal(run({ state: 'APPROVED', commit_id: head }, 'viecganban-bot').status, 0, '정책 검사: 두 쪽 150건, 마지막 쪽 지금 커밋 승인 → 통과')
-  assert.equal(run({ state: 'CHANGES_REQUESTED', commit_id: head }, 'viecganban-bot').status, 1, '정책 검사: 마지막이 변경 요청 → 실패')
-  assert.equal(run({ state: 'APPROVED', commit_id: old }, 'viecganban-bot').status, 1, '정책 검사: 승인 뒤 코드 바뀜(옛 커밋) → 실패')
-  assert.equal(run({ state: 'APPROVED', commit_id: head }, LEE).status, 1, '정책 검사: Lee 계정이 쓴 PR → 실패')
-  assert.equal(run({ state: 'APPROVED', commit_id: head }, undefined).status, 1, '정책 검사: 작성자 정보가 없으면 → 실패')
+  // S1 후속(Lee 2026-11-20): status 워크플로의 대표 승인 판정은 approval-gate 한 곳(위 cli(...) 시험이 리뷰 150건·두 쪽·작성자 인자를 이미 본다).
+  // 정책 검사는 리뷰를 읽지 않고, 승인 대기만으로 실패하지 않는다 — 어떤 리뷰 상태여도 같은 결과(책임 이동).
+  for (const [label, last, author] of [['승인', { state: 'APPROVED', commit_id: head }, 'viecganban-bot'], ['변경 요청', { state: 'CHANGES_REQUESTED', commit_id: head }, 'viecganban-bot'],
+    ['옛 커밋 승인', { state: 'APPROVED', commit_id: old }, 'viecganban-bot'], ['Lee 작성 PR', { state: 'APPROVED', commit_id: head }, LEE], ['작성자 없음', { state: 'APPROVED', commit_id: head }, undefined]])
+    assert.equal(run(last, author).status, 0, `정책 검사: status 워크플로 변경은 리뷰 상태(${label})와 상관없이 승인 대기만으로 실패하지 않음 — 승인은 approval-gate`)
+  // 반대로 STATUS.md·scripts/status/는 대표 승인이 있어도 무조건 실패
+  mkdirSync(join(repo, 'scripts/status'), { recursive: true })
+  writeFileSync(join(repo, 'STATUS.md'), 'x\n'); writeFileSync(join(repo, 'scripts/status/a.mjs'), 'x\n'); g('add', '-A'); g('commit', '-qm', 'status direct edit')
+  const sha2 = g('rev-parse', 'HEAD').trim()
+  writeFileSync(join(dir, 'pages.json'), JSON.stringify([[{ user: { login: LEE }, state: 'APPROVED', commit_id: sha2, submitted_at: t(10) }], []]))
+  writeFileSync(join(dir, 'event.json'), JSON.stringify({ pull_request: { number: 1, base: { sha: base }, head: { sha: sha2 }, user: { login: 'viecganban-bot' }, body: '' } }))
+  const direct = spawnSync('node', ['scripts/check-repository-policy.mjs'], { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_EVENT_PATH: join(dir, 'event.json'), GITHUB_REPOSITORY: 'x/y' } })
+  assert.equal(direct.status, 1, '정책 검사: STATUS.md·scripts/status/ 직접 수정은 최신 SHA 대표 승인이 있어도 실패')
+  assert.match(direct.stderr, /STATUS\.md/); assert.match(direct.stderr, /scripts\/status\/a\.mjs/)
 }
 console.log('decision-approval 실제 호출 경로 시험 통과(리뷰 150건·두 쪽, 작성자 인자)')
 

@@ -125,22 +125,21 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.equal(leeApprovedAt(okReviews, '', 'viecganban-bot'), false, 'head를 모르면 무효(닫힌 실패)')
 
   const wf = '.github/workflows/status-report.yml'
-  assert.equal(evaluateFiles([wf], '').length, 1, 'status 워크플로: 승인 없으면 실패(라벨만으로는 안 됨 — 이 검사는 라벨을 보지 않음)')
-  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: false }).length, 1, '무효 승인이면 실패')
-  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: true }).length, 0, '유효한 Lee 승인이면 통과')
-  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: 'yes' }).length, 1, '참 값(true)만 인정')
+  // S1 후속(Lee 2026-11-20 승인 판정 한 곳): status 워크플로의 대표 승인 판정은 approval-gate(decisionApproval) 한 곳 — 정책 검사는 '승인 대기'만으로 실패시키지 않는다(책임 이동).
+  assert.equal(evaluateFiles([wf], '').length, 0, 'status 워크플로: 정책 검사는 승인 대기만으로 실패하지 않음(승인 판정은 approval-gate)')
+  assert.equal(decisionApproval({ files: [{ filename: wf, status: 'modified', patch: '+x' }], reviews: [], comments: [], author: 'viecganban-bot', sha: head }).approved, false, 'status 워크플로: approval-gate가 승인 없이는 차단(라벨만으로는 안 됨)')
   for (const other of ['STATUS.md', 'scripts/status/generate-status.mjs'])
-    assert.equal(evaluateFiles([wf, other], '', {}, { statusWorkflowApproved: true }).filter((e) => e.startsWith(other)).length, 1, `승인이 있어도 ${other}는 예전처럼 실패`)
+    assert.equal(evaluateFiles([wf, other], '').filter((e) => e.startsWith(other)).length, 1, `${other}는 승인과 상관없이 정책 검사가 실패`)
 
   // 독립 검토 지적(2회, 방법 변경): 바뀐 파일은 git의 NUL 구분 목록에서 — 이름 바꾸기 예전 이름·특수 글자·' b/' 경로도 정확히
   { const { parseNameStatusZ } = await import('./check-repository-policy.mjs')
     for (const from of ['scripts/status/status-lib.mjs', 'STATUS.md']) {
       const files = parseNameStatusZ(`R100\0${from}\0.github/workflows/status-x.yml\0`)
       assert.deepEqual(files, [from, '.github/workflows/status-x.yml'], `이름 바꾸기 예전·새 이름: ${from}`)
-      assert.ok(evaluateFiles(files, '', {}, { statusWorkflowApproved: true }).some((e) => e.startsWith(from)), `승인이 있어도 ${from} 옮기기는 실패`) }
+      assert.ok(evaluateFiles(files, '').some((e) => e.startsWith(from)), `${from} 옮기기는 승인과 상관없이 실패`) }
     const odd = parseNameStatusZ('M\0scripts/status/a b/c.mjs\0M\0.github/workflows/status-"q".yml\0D\0STATUS.md\0')
     assert.deepEqual(odd, ['scripts/status/a b/c.mjs', '.github/workflows/status-"q".yml', 'STATUS.md'], "' b/'·따옴표 경로도 그대로")
-    assert.equal(evaluateFiles(odd, '', {}, { statusWorkflowApproved: true }).length, 2, "scripts/status·STATUS.md는 승인이 있어도 실패")
+    assert.equal(evaluateFiles(odd, '').length, 2, "scripts/status·STATUS.md는 승인과 상관없이 실패(status 워크플로는 정책 검사 대상 아님)")
     assert.throws(() => parseNameStatusZ('M\0'), /끊김/, '끊긴 목록은 실패')
     assert.throws(() => parseNameStatusZ('??\0x\0'), /읽지 못함/, '모르는 상태는 실패') }
   // 병합 판정(decisionApproval)도 같은 함수: 승인 뒤 변경 요청·옛 커밋은 병합 불가
@@ -402,17 +401,17 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.equal(guard(edit('STATUS.md')).code, 1, 'S1: STATUS.md 직접 수정 차단')
   assert.equal(guard(edit('STATUS.md'), { LEE_APPROVED: 'true' }).code, 1, 'S1: 예전 라벨 승인 값(LEE_APPROVED=true)이 있어도 차단')
   assert.equal(guard((d, git) => { git(d, 'rm', '-q', 'STATUS.md') }).code, 1, 'S1: STATUS.md 삭제도 차단')
-  assert.ok(evaluateFiles(['STATUS.md'], '', {}, { statusWorkflowApproved: true }).some((e) => e.startsWith('STATUS.md')), 'S1: 정책 검사도 승인과 상관없이 STATUS.md 차단')
+  assert.ok(evaluateFiles(['STATUS.md'], '', {}).some((e) => e.startsWith('STATUS.md')), 'S1: 정책 검사도 승인과 상관없이 STATUS.md 차단')
   // S2: scripts/status/ 직접 수정 차단(라벨 예외 없음)
   assert.equal(guard(edit('scripts/status/generate-status.mjs')).code, 1, 'S2: scripts/status/ 수정 차단')
   assert.equal(guard(edit('scripts/status/generate-status.mjs'), { LEE_APPROVED: 'true' }).code, 1, 'S2: 라벨 승인 값이 있어도 차단(라벨 예외 제거)')
   assert.equal(guard(edit('scripts/status/new-file.mjs')).code, 1, 'S2: scripts/status/ 새 파일도 차단')
-  assert.ok(evaluateFiles(['scripts/status/generate-status.mjs'], '', {}, { statusWorkflowApproved: true }).length === 1, 'S2: 정책 검사도 승인과 상관없이 차단')
+  assert.ok(evaluateFiles(['scripts/status/generate-status.mjs'], '', {}).length === 1, 'S2: 정책 검사도 승인과 상관없이 차단')
   assert.equal(guard(edit('src/a.ts')).code, 0, '대조: 일반 파일만 바꾸면 통과')
   // S3: status-guard.yml 변경 + 대표 승인 없음 → 차단. 이 단계는 STATUS 직접 수정만 본다 — 워크플로 변경의 승인은 정책 검사·approval-gate가 판단(승인 없으면 둘 다 막음)
   const wf = '.github/workflows/status-guard.yml', head = 'a'.repeat(40), old = 'b'.repeat(40)
   assert.equal(guard(edit(wf)).code, 0, 'S3: status-guard.yml 변경 자체는 이 단계가 판단하지 않음(라벨로 통과시키지도 않음)')
-  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: false }).length, 1, 'S3: 정책 검사 — 대표 승인 없음 → 차단')
+  assert.equal(evaluateFiles([wf], '', {}).length, 0, 'S3: 정책 검사는 승인 대기만으로 실패시키지 않음 — 승인 판정은 아래 approval-gate 한 곳(책임 이동)')
   const files = [{ filename: wf, status: 'modified', patch: '+x' }]
   const gate = (reviews, o = {}) => decisionApproval({ files, reviews, comments: [], sha: head, author: 'viecganban-bot', labels: ['검증장치-승인'], ...o })
   assert.equal(gate([]).approved, false, 'S3: approval-gate — 대표 승인 없음 → 차단(예전 라벨 `검증장치-승인`이 있어도)')
@@ -421,7 +420,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   // S4: 유효한 승인(최신 SHA 공식 Approve) + 4대 보고 + 다른 필수 검사 성공 → 허용
   const lee = [{ user: { login: LEE }, state: 'APPROVED', commit_id: head, submitted_at: '2026-11-20T00:00:00Z' }]
   assert.equal(leeApprovedAt(lee, head, 'viecganban-bot'), true, 'S4: 최신 SHA 대표 공식 Approve 인정')
-  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: true }).length, 0, 'S4: 정책 검사 — 유효 승인이면 통과')
+  assert.equal(evaluateFiles([wf], '', {}).length, 0, 'S4: 정책 검사 — status 워크플로를 승인 대기 이유로 막지 않음')
   assert.equal(gate(lee).approved, true, 'S4: approval-gate — 유효 승인 + 4대 보고 → 통과')
   assert.equal(guard(edit(wf)).code, 0, 'S4: status-guard 단계 — 워크플로만 바꾸면 통과(STATUS 직접 수정 아님)')
   { const jq = (args, input) => spawnSync('jq', args, { input: JSON.stringify(input), encoding: 'utf8' })
@@ -437,14 +436,17 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   for (const st of ['R100', 'C100']) for (const from of ['scripts/status/generate-status.mjs', 'STATUS.md']) {
     const parsed = parseNameStatusZ(`${st}\0${from}\0src/elsewhere.mjs\0`)
     assert.deepEqual(parsed, [from, 'src/elsewhere.mjs'], `S5: ${st} 예전·새 이름 모두 목록에`)
-    assert.ok(evaluateFiles(parsed, '', {}, { statusWorkflowApproved: true }).some((e) => e.startsWith(from)), `S5: 정책 검사 — ${st}로 ${from}를 빼돌려도 차단(승인이 있어도)`)
+    assert.ok(evaluateFiles(parsed, '', {}).some((e) => e.startsWith(from)), `S5: 정책 검사 — ${st}로 ${from}를 빼돌려도 차단(승인과 상관없이)`)
   }
-  assert.ok(evaluateFiles(parseNameStatusZ(`R100\0${wf}\0src/x.yml\0`), '', {}, { statusWorkflowApproved: false }).length >= 1, 'S5: status 워크플로를 이름 바꿔 승인 없이 빼내도 차단')
+  { const moved = [{ filename: 'src/x.yml', previous_filename: wf, status: 'renamed', changes: 0 }, { filename: 'src/y.yml', previous_filename: wf, status: 'copied', changes: 0 }]
+    for (const f of moved) {
+      assert.equal(decisionApproval({ files: [f], reviews: [], comments: [], author: 'viecganban-bot', sha: head }).approved, false, `S5: status 워크플로를 ${f.status}로 승인 없이 빼내도 approval-gate가 옛 이름으로 차단`)
+      assert.equal(decisionApproval({ files: [f], reviews: lee, comments: [], author: 'viecganban-bot', sha: head }).approved, true, `S5: 최신 SHA 대표 승인이 있으면 approval-gate 통과(${f.status})`) } }
   // 정책 검사에서 STRICT 경로라는 이유만의 실패는 없앴다(승인은 approval-gate가 판단) — 비밀값·파괴적 DB·STATUS 보호는 그대로
   { const hv = 'd'.repeat(40), leeOk = [{ user: { login: LEE }, state: 'APPROVED', commit_id: hv, submitted_at: '2026-11-20T00:00:00Z' }]
     for (const p of ['supabase/functions/x/index.ts', '.github/workflows/deploy-x.yml', 'src/lib/accountX.ts', 'src/lib/paymentX.ts', 'src/pages/AuthPage.tsx'])
       assert.equal(evaluateFiles([p], '', {}).filter((e) => e.startsWith(p)).length, 0, `정책 검사: STRICT 경로라는 이유만으로는 실패하지 않음: ${p}`)
-    for (const p of ['supabase/functions/x/index.ts', '.github/workflows/deploy-x.yml']) {
+    for (const p of ['supabase/functions/x/index.ts', '.github/workflows/deploy-x.yml', 'src/lib/accountX.ts', 'src/lib/paymentX.ts', 'src/pages/AuthPage.tsx']) {
       const f = [{ filename: p, status: 'modified', patch: '+x' }]
       assert.equal(decisionApproval({ files: f, reviews: [], comments: [], sha: hv, author: 'viecganban-bot' }).approved, false, `대신 approval-gate가 대표 승인 전 차단: ${p}`)
       assert.equal(decisionApproval({ files: f, reviews: leeOk, comments: [], sha: hv, author: 'viecganban-bot' }).approved, true, `approval-gate: 최신 커밋 대표 Approve 뒤 통과: ${p}`) }
@@ -455,4 +457,61 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     const { needsSecondReview } = await import('./check-repository-policy.mjs')
     assert.equal(needsSecondReview('supabase/functions/x/index.ts') && needsSecondReview('src/lib/paymentX.ts'), true, '두 번째 독립 검토 요구(needsSecondReview)에는 STRICT 목록이 그대로 쓰임') }
   console.log('S1 STATUS 보호 S1~S5 시험 통과(실제 status-guard 셸 단계·정책 검사·승인 판정)')
+}
+
+// ── S1 후속(Lee 2026-11-20): STRICT 보안 분류 복구 — 정책 검사(checks)의 'STRICT 무조건 실패'를 없앤 뒤에도 인증·결제 같은 STRICT 경로는 approval-gate가 대표 공식 승인 대상으로 판정한다.
+//    경로는 일반(src/)이고 바뀐 줄에 신호어(service_role·grant 등)가 없어 내용 검사(⑦)만으로는 놓치는 사례를 포함한다. 목록은 STRICT_PATHS 한 곳(중복 목록 없음).
+{
+  const { STRICT_PATHS, contentRisks, OWNER: LEE, REPORT_FIELDS } = await import('./decision-approval-gate.mjs')
+  const { needsSecondReview, evaluateFiles } = await import('./check-repository-policy.mjs')
+  const hv = 'e'.repeat(40), stale = 'f'.repeat(40), bot = 'viecganban-bot'
+  const rv = (state, commit_id, at, login = LEE) => ({ user: { login }, state, commit_id, submitted_at: at })
+  const T = '2026-11-20T00:00:00Z'
+  const cases = [
+    ['인증 우회', 'src/lib/authGuard.ts', '+  if (user.isAdmin || true) return grant(user)'],
+    ['결제 권한 변경', 'src/lib/paymentPlan.ts', '+  const canPay = true // 모든 사용자 결제 허용'],
+    ['계정 권한 변경', 'src/lib/accountRoles.ts', "+  role = 'admin'"],
+    ['저장소 접근', 'src/lib/storageAccess.ts', '+  return true'],
+    ['화면 인증 우회', 'src/pages/AuthPage.tsx', '+  const loggedIn = true'],
+    ['Edge 함수', 'supabase/functions/pay/index.ts', '+  return new Response("ok")'],
+    ['배포 워크플로 환경 줄(안전 줄이어도 STRICT)', '.github/workflows/deploy-prod.yml', '+    runs-on: ubuntu-latest'],
+  ]
+  for (const [label, filename, patch] of cases) {
+    const f = [{ filename, status: 'modified', patch }]
+    assert.ok(STRICT_PATHS.some((re) => re.test(filename)), `${label}: STRICT_PATHS 한 곳의 정의에 걸림`)
+    assert.equal(needsSecondReview(filename), true, `${label}: 두 번째 독립 검토도 같은 목록`)
+    assert.equal(evaluateFiles([filename], '', { [filename]: patch }).filter((e) => e.startsWith(filename)).length, 0, `${label}: 정책 검사(checks)는 STRICT라는 이유만으로 실패하지 않음`)
+    const r = decisionApproval({ files: f, reviews: [], comments: [], author: bot, sha: hv })
+    assert.equal(r.required, true, `${label}: 대표 승인 대상`); assert.equal(r.risk, 'high', `${label}: 고위험`)
+    assert.ok(r.reasons.some((x) => x.includes('STRICT')), `${label}: 사유에 STRICT 표시`)
+    assert.equal(r.approved, false, `${label}: 대표 승인 없으면 차단`)
+    assert.equal(rawDecisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: bot, sha: hv, body: '' }).approved, false, `${label}: 승인이 있어도 4대 보고 없으면 차단`)
+    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', stale, T)], comments: [], author: bot, sha: hv }).approved, false, `${label}: 이전 SHA 승인 무효`)
+    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T), rv('DISMISSED', hv, '2026-11-20T01:00:00Z')], comments: [], author: bot, sha: hv }).approved, false, `${label}: 승인 취소 무효`)
+    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T), rv('CHANGES_REQUESTED', hv, '2026-11-20T01:00:00Z')], comments: [], author: bot, sha: hv }).approved, false, `${label}: 변경 요청 무효`)
+    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: LEE, sha: hv }).approved, false, `${label}: 대표 본인 작성 PR 자기 승인 무효`)
+    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T, bot)], comments: [], author: bot, sha: hv }).approved, false, `${label}: 대표 아닌 계정 승인 무효`)
+    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: bot, sha: hv }).approved, true, `${label}: 최신 SHA 대표 공식 Approve + 4대 보고 → 통과`)
+  }
+  // 위 사례 중 내용 검사(⑦)만으로 놓치는 것 — 경로 판정이 필요한 이유(신호어 없음)
+  for (const [label, filename, patch] of cases.filter((c) => !c[1].startsWith('.github/') && !c[1].startsWith('supabase/')))
+    assert.deepEqual(contentRisks([{ filename, status: 'modified', patch }]), [], `${label}: 바뀐 줄 내용 검사만으로는 위험 신호가 없음(경로 판정이 막아야 함)`)
+  // 이름 바꿈·복사로 STRICT 경로를 일반 경로로 빼내도 옛 경로로 판정
+  for (const status of ['renamed', 'copied']) {
+    const f = [{ filename: 'src/lib/helpers.ts', previous_filename: 'src/lib/paymentPlan.ts', status, changes: 0 }]
+    assert.equal(decisionApproval({ files: f, reviews: [], comments: [], author: bot, sha: hv }).approved, false, `STRICT 경로를 ${status}로 빼내도 차단`)
+  }
+  // 일반 파일 자동 처리·독립 검토 조건은 그대로: STRICT가 아닌 일반 파일은 대표 승인 대상이 아니다
+  for (const p of ['src/lib/jobFormat.ts', 'src/components/JobCard.tsx', 'src/pages/Home.tsx', 'docs/ops/note.md'])
+    assert.equal(decisionApproval({ files: [{ filename: p, status: 'modified', patch: '+const a = 1' }], reviews: [], comments: [], author: bot, sha: hv }).required, false, `일반 파일 자동 처리 유지: ${p}`)
+  assert.equal(needsSecondReview('src/lib/jobFormat.ts'), false, '일반 파일은 두 번째 독립 검토 대상 아님(기존)')
+  assert.equal(REPORT_FIELDS.length, 4, '4대 보고 필수 항목 4개 유지')
+  // 독립 검토 지적: status 워크플로는 주석·공백만 바꿔도(안전 줄) 대표 승인 필요 — 정책 검사가 승인을 안 보므로 여기가 유일한 판정
+  for (const filename of ['.github/workflows/status-report.yml', '.github/workflows/status-guard.yml']) {
+    const f = [{ filename, status: 'modified', patch: '@@ -1,3 +1,3 @@\n-# a\n+# b' }]
+    assert.equal(decisionApproval({ files: f, reviews: [], comments: [], author: bot, sha: hv }).approved, false, `${filename}: 주석만 바꿔도 대표 승인 없으면 차단`)
+    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: bot, sha: hv }).approved, true, `${filename}: 최신 SHA 대표 Approve + 4대 보고면 통과`)
+  }
+  assert.equal(decisionApproval({ files: [{ filename: '.github/workflows/crawl.yml', status: 'modified', patch: '@@ -1,3 +1,3 @@\n-# a\n+# b' }], reviews: [], comments: [], author: bot, sha: hv }).approved, true, '대조: status 외 워크플로의 안전 줄(주석)은 기존대로 자동')
+  console.log('S1 STRICT 보안 분류 복구 시험 통과 — 인증 우회·결제 권한 등 7경로 × 승인 조건 9종')
 }

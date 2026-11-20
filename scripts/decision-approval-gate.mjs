@@ -17,6 +17,15 @@ export const NEEDS_LEE_LABEL = 'needs-lee'
 // 예전 `LEE-APPROVE <sha>`·`LEE-DEMO-APPLY <sha>` 댓글은 AI가 Lee 계정 열쇠로 달 수 있어(S1 F11) 폐지 — AI가 Lee 승인을 대신 기록하지 않는다.
 // ④ 검사·보호 장치 변경(검사 약화 가능): 워크플로·검사/판정 스크립트·검토 기준을 바꾸는 PR도 Lee 승인 대상(#807 '검사 약화는 대표님 결정').
 // 검사 장치 파일 = Lee 승인 대상 경로 단일 목록(scripts/ci/protected-paths.mjs)에서 결정 문서 폴더(PROTECTED가 따로 봄)를 뺀 것 — 목록을 여기에 따로 적지 않는다(CODEOWNERS·승인 범위 검사와 항상 같음).
+// ⑩ STRICT 보안 경로(CLAUDE.md '작업 등급' STRICT: 인증·RLS·권한·결제·계정·저장소·Edge 함수·배포) — 이 목록이 단일 정의다(check-repository-policy의 needsSecondReview도 이걸 가져다 씀).
+//    바뀐 줄 내용 검사(⑦)는 `if (user.isAdmin || true)`·`canPay = true`처럼 신호어 없는 인증 우회·결제 권한 변경을 놓칠 수 있어, 이 경로는 내용과 상관없이 대표 승인 대상이다.
+//    정책 검사(checks)는 이 경로라는 이유만으로 실패시키지 않는다(S1, Lee 2026-11-20) — 승인 여부는 여기서만 판정한다.
+export const STRICT_PATHS = [
+  /^supabase\/functions\//,
+  /^src\/.*(?:auth|Auth|rls|RLS)/, /^\.github\/workflows\/deploy/,
+  /^src\/lib\/(?:account|storage|payment)/i,
+]
+const STATUS_WORKFLOW_PATH = /^\.github\/workflows\/status-[^/]*\.ya?ml$/
 export const GATE_CODE = (path) => matchesOwnerPath(path, OWNER_PATHS.filter((p) => p !== DECISION_DIR))
 // ⑤ 의존성·검증 약화(S4, Lee 2026-11-15 "package.json 전체를 고위험으로 지정하지 말 것"): package.json을 바꿨다고 다 승인 대상이 아니다.
 //    승인 대상 = 새 의존성 / 설치 스크립트(직접·의존성 lockfile hasInstallScript) / 패키지 출처 변경(registry 밖 주소·git·file·npm 별칭·.npmrc·overrides)
@@ -263,23 +272,25 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
   const names = [...new Set(files.flatMap((f) => [f.filename ?? f, f.previous_filename].filter(Boolean)))]
   const decision = names.filter(PROTECTED)
   const frame = names.filter((f) => !PROTECTED(f) && frameApproved(f, framePaths))
-  const safeWf = new Set(files.filter((f) => typeof f === 'object' && workflowSafeChange(f)).map((f) => f.filename))
+  // status-*.yml(STATUS 검증 장치)은 '안전 줄' 예외(⑨)를 적용하지 않는다 — 주석·공백만 바꿔도 대표 승인 대상(정책 검사가 승인 대기를 더는 보지 않으므로 여기가 유일한 승인 판정, S1 독립 검토 지적).
+  const safeWf = new Set(files.filter((f) => typeof f === 'object' && !STATUS_WORKFLOW_PATH.test(f.filename) && workflowSafeChange(f)).map((f) => f.filename))
   const gate = names.filter((f) => !PROTECTED(f) && GATE_CODE(f) && !safeWf.has(f))
+  const strict = names.filter((f) => !PROTECTED(f) && STRICT_PATHS.some((re) => re.test(f)))  // 새 경로·옛 경로(이름 바꿈) 모두. 워크플로 안전 줄(safeWf)이어도 deploy*는 STRICT
   const unknown = names.filter((f) => !PROTECTED(f) && !frameApproved(f, framePaths) && !GATE_CODE(f) && !NORMAL_PATH(f))
   const labeled = labels.includes(NEEDS_LEE_LABEL)
   const depRisk = dependencyRisks({ files, ...depFiles })
   // 경로만으로 이미 고위험인 파일(결정 문서·화면 틀·검사 장치)은 내용 검사를 겹치지 않는다
-  const content = contentRisks(files.filter((f) => { const n = f.filename ?? f; return !PROTECTED(n) && !frameApproved(n, framePaths) && (!GATE_CODE(n) || safeWf.has(n)) }))
+  const content = contentRisks(files.filter((f) => { const n = f.filename ?? f; return !PROTECTED(n) && !frameApproved(n, framePaths) && (!GATE_CODE(n) || safeWf.has(n)) && !STRICT_PATHS.some((re) => re.test(n)) }))
   const unreadable = content.filter((c) => c.endsWith('(판단 불가)')), realContent = content.filter((c) => !c.endsWith('(판단 불가)'))
   // 변경 파일 목록이 비어 있으면 분석이 실패한 것이다(PR은 항상 파일을 바꾼다) — 닫힌 실패
   const empty = files.length === 0
-  const touched = [...decision, ...frame, ...gate, ...depRisk, ...content, ...unknown, ...(empty ? ['(변경 파일 목록 비어 있음)'] : [])]
+  const touched = [...decision, ...frame, ...gate, ...strict, ...depRisk, ...content, ...unknown, ...(empty ? ['(변경 파일 목록 비어 있음)'] : [])]
   if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [], risk: 'normal' }
   const report = highRiskReport(body, repo)
   // 4대 보고가 없으면 Lee 승인이 있어도 통과하지 않는다(승인할 내용이 설명되지 않은 PR)
   const ok = leeApprovedAt(reviews, sha, author) && report.ok
-  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(realContent.length ? ['변경 내용 위험(DB 권한·인증·실행·외부 주소)'] : []), ...(unknown.length || empty || unreadable.length ? ['위험도 판단 불가'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
-  return { required: true, approved: ok, touched, reasons, changed: names, report, leeApproved: leeApprovedAt(reviews, sha, author), risk: decision.length || frame.length || gate.length || depRisk.length || realContent.length || labeled ? 'high' : 'unknown' }
+  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(strict.length ? ['STRICT 보안 경로(인증·권한·결제·계정·저장소·Edge 함수·배포)'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(realContent.length ? ['변경 내용 위험(DB 권한·인증·실행·외부 주소)'] : []), ...(unknown.length || empty || unreadable.length ? ['위험도 판단 불가'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
+  return { required: true, approved: ok, touched, reasons, changed: names, report, leeApproved: leeApprovedAt(reviews, sha, author), risk: decision.length || frame.length || gate.length || strict.length || depRisk.length || realContent.length || labeled ? 'high' : 'unknown' }
 }
 
 export const REQUEST_MARKER = '<!-- decision-approval-request -->'

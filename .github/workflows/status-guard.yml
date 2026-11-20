@@ -4,7 +4,7 @@ name: STATUS 위조 감시
 #    (봇의 push는 GITHUB_TOKEN이라 이 워크플로를 실행시키지 않는다. 즉 여기서 실행되면 곧 사람·AI가 손댄 것이다.)
 # 2) PR이 STATUS.md나 scripts/status/를 바꾸면 예외 없이 실패(보고 위조 대상 — Lee 2026-11-20 S1: '검증장치-승인' 라벨 예외 제거).
 #    이름 바꾸기·복사로 빼돌린 것도 옛 이름·새 이름 모두 목록에 올려(--no-renames) 막는다.
-#    status-*.yml 워크플로(이 파일 포함) 변경의 대표 승인은 여기서 보지 않는다 — check-repository-policy(checks)와 approval-gate가 Lee의 최신 커밋 공식 Approve로 판단한다.
+#    status-*.yml 워크플로(이 파일 포함) 변경의 대표 승인은 여기서 보지 않는다 — 기존 approval-gate 한 곳이 Lee의 최신 커밋 공식 Approve로 판단한다(check-repository-policy는 승인 대기만으로 실패시키지 않음).
 on:
   push:
     branches: [status]
