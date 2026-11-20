@@ -65,6 +65,7 @@ jobs:
           # S3-2(#808, Lee 2026-11-14 결정 6①·7①): 댓글 승인(LEE-APPROVE·LEE-DEMO-APPLY)과 데모 적용 시 검토 생략을 폐지했다.
           # Lee 승인은 GitHub 승인 리뷰만(decision-approval-gate.mjs), 모든 PR은 독립 검토(Codex 또는 Claude 검토관) 뒤에만 병합(codex-review-gate.mjs).
           : > codex-wait.txt
+          : > dispatch-fail.txt
           gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName,(.author.login // "")] | @tsv' |
           while IFS=$'\t' read -r num sha branch author; do
             [ -n "$num" ] || continue
@@ -193,6 +194,27 @@ jobs:
                 gh workflow run migrations-apply.yml --repo "$REPO" --ref master
               fi
               gh workflow run vercel-deploy.yml --repo "$REPO" --ref master
+              # GITHUB_TOKEN 병합은 master push 기반 검사 워크플로를 시작하지 않는다 — 각 검사 워크플로 자신의 on.push.paths(master 사본)에 맞을 때만 명시 호출한다(경로 목록을 복사하지 않는다).
+              # 대상 3개는 모두 `push: branches: [master] + paths: 블록 목록` 모양이다(pr-checks의 post-merge-chain 시험이 실제 YAML로 그 모양과 이 읽기 결과를 대조한다).
+              # paths는 GitHub 방식으로 읽는다(* = 한 칸, ** = 여러 칸). 목록이 없거나 해석할 수 없는 패턴(?·+·[]·\·!)이면 "해당 없음"으로 넘기지 않고 오류로 기록한다.
+              # 호출·읽기 실패는 타이머까지 마친 뒤 이 단계를 실패로 끝낸다(침묵 실패 방지).
+              jq -r '.[].filename' files.json > changed.txt
+              for wf in job-rules-apply occupation-r8-apply jobcard-integrity; do
+                hit=0; bad=""
+                pats=$(awk '/^on:/{o=1;next} o&&/^[^ #]/{o=0} o&&/^  push:/{p=1;next} o&&p&&/^  [a-z_]+:/{p=0} p&&/^    paths:/{q=1;next} p&&q&&/^      - /{sub(/^      - /,"");sub(/[ ]+#.*$/,"");gsub(/[\047"]/,"");if($0!="")print;next} p&&/^    [a-z]/{q=0}' ".github/workflows/$wf.yml" 2>/dev/null) || pats=""
+                [ -n "$pats" ] || bad="paths 목록 없음·읽기 실패"
+                while IFS= read -r pat; do
+                  case "$pat" in
+                    '!'*|*'?'*|*'+'*|*'['*|*']'*|*'\'*) bad="$pat" ;;
+                    *) re=$(printf '%s' "$pat" | sed -e 's/[.^$(){}|]/\\&/g' -e 's#\*\*#\x01#g' -e 's#\*#[^/]*#g' -e 's#\x01#.*#g')
+                       if grep -Eq "^$re\$" changed.txt; then hit=1; fi ;;
+                  esac
+                done <<< "$pats"
+                if [ -n "$bad" ]; then echo "::error::PR #$num $wf.yml 의 push 조건을 해석하지 못함($bad) — 호출 여부를 판단할 수 없다"; echo "$wf($bad)" >> dispatch-fail.txt; continue; fi
+                if [ "$hit" = 1 ]; then
+                  gh workflow run "$wf.yml" --repo "$REPO" --ref master || { echo "::error::PR #$num 병합 뒤 $wf.yml 시작 실패 — 해당 검사가 돌지 않았다"; echo "$wf(호출 실패)" >> dispatch-fail.txt; }
+                fi
+              done
               # 관리자 E2E 두 개는 vercel-deploy가 migration 성공·운영 배포 뒤에 부른다(예전 봇 대기 반복문 뒤 순서 유지, #812 검토관 지적).
             else
               echo "::warning::PR #$num 병합 거절(서버): $(printf '%s' "$merge_out" | tr '\n' ' ' | cut -c1-300) — 다음 실행에서 다시 봄"
@@ -204,3 +226,5 @@ jobs:
             gh workflow run codex-wait-timer.yml --repo "$REPO" --ref master -f minutes="$minutes" \
               && echo "::notice::Codex 대기 PR: ${minutes}분 뒤 다시 확인" || echo "::warning::다시 확인 예약 실패(예약 실행으로 대신)"
           fi
+          # 병합 루프는 파이프 오른쪽(하위 셸)이라 실패 기록은 파일로 넘긴다(codex-wait.txt와 같은 방식).
+          if [ -s dispatch-fail.txt ]; then echo "::error::병합 뒤 후속 검사 시작 실패: $(sort -u dispatch-fail.txt | tr '\n' ' ')(위 오류 확인)"; exit 1; fi
