@@ -1,25 +1,142 @@
 name: Public administrative pin verification
+# S8 트랙 A: 이 검사는 '운영 배포 확인(deploy-verify)의 가장 최근 실행이 success인 같은 커밋'에서만, 한 번만 돈다.
+#  · 사람 병합(push)·deploy-verify 직접 수동 실행: deploy-verify 완료의 workflow_run(예전 그대로).
+#  · 봇 병합·수동 배포(workflow_dispatch로 시작된 deploy-verify): 그 실행의 workflow_run이 시작되는지 확인되지 않아(vercel-deploy.yml 헤더 검사 주석: 11-04 이후 멈춤 사례)
+#    vercel-deploy가 deploy-verify를 부르는 자리에서 sha를 넘겨 이 워크플로를 부른다(그 커밋의 deploy-verify가 끝나기를 기다림).
+#  · 어떤 계기든 gate 단계가 ① 그 커밋의 deploy-verify '최신' 실행이 success인지(과거 성공은 보지 않음) ② 같은 커밋의 핀 검사가 이미 성공했거나 앞서 진행 중이 아닌지 확인한다.
+#    같은 커밋의 실행은 concurrency로 한 줄에 세운다(동시 실행 둘이 서로를 못 보고 둘 다 통과하는 경쟁 방지). concurrency는 job에 둔다 — 실패한 deploy-verify에서 파생돼 job if로 건너뛰는 실행이
+#    대기 자리를 차지해 정상 대기 실행을 밀어내지 않게 하려는 것이다(워크플로 수준이면 건너뛰는 실행도 자리를 차지한다). 이전 실행이 failure·cancelled·skipped면 다시 실행을 막지 않는다.
+#    '이미 끝난 검사'는 실행이 success로 끝난 것이 아니라 검사 단계가 실제로 success였던 것만 인정한다(중복으로 건너뛴 실행도 실행 전체는 success로 끝난다).
+#  · sha 없이 수동 실행해도 지금 master 커밋의 deploy-verify 최신 실행이 success여야 한다(기다리지 않고 한 번만 확인).
+#  · 확인하는 deploy-verify 실행은 '고유 Run ID'로 식별한다(P1): workflow_run은 이벤트의 실행 ID, vercel-deploy가 부른 경우는 그 실행이 시작된 뒤(since)에 만들어진 직접 실행(workflow_dispatch) 후보가 정확히 1개일 때 그 실행(0개면 기다리고, 2개 이상이면 임의로 고르지 않고 실패). 핀 검사 허용 직전에 후보를 다시 조회해 정확히 1개이고 고정한 Run ID와 같을 때만 통과한다.
+#    같은 커밋의 이전 성공은 인정하지 않고, 식별할 수 없으면(since 없음·실행이 아직 안 보임·조회 실패·커밋 불일치) 성공으로 처리하지 않고 실패로 끝낸다.
+#  · 검사 단계는 일시 실패에 대비해 같은 실행 안에서 최대 2번(60초 간격)만 시도하고, 2번 모두 실패하면 Run ID·커밋·오류 원인을 남기고 실패로 끝낸다(workflow_run이 오지 않는 경로에서도 연결이 끊기지 않게).
+run-name: 행정구역 핀 검사 ${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}
 on:
   workflow_run:
     workflows: [운영 배포 확인·실제 화면 검사]
     types: [completed]
     branches: [master]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: '검사할 커밋(봇 병합·수동 배포 경로에서 vercel-deploy가 넘김 — 그 커밋의 deploy-verify 성공을 기다림). 비우면 기다리지 않고 지금 master로 검사'
+        required: false
+        default: ''
+      since:
+        description: '호출한 vercel-deploy 실행의 시작 시각(ISO, sha와 함께 넘김) — 이 시각 이후에 만들어진 deploy-verify 실행만 그 커밋의 확인 대상으로 인정'
+        required: false
+        default: ''
 permissions:
   contents: read
+  actions: read   # gate 단계가 deploy-verify·이 워크플로의 실행 목록을 읽는다(읽기 전용)
 jobs:
   public-pins:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 70   # gate 단계가 deploy-verify(최대 40분)를 기다릴 수 있다 + 검사 20분
+    concurrency:
+      group: administrative-pin-check-${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}
+      cancel-in-progress: false
     steps:
+      - name: 검사할 커밋 확인 (deploy-verify 실행 식별·성공 확인·중복 방지)
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          INPUT_SHA: ${{ inputs.sha }}
+          INPUT_SINCE: ${{ inputs.since }}
+          EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # sha를 넘겨받은 수동 실행(봇 병합·수동 배포)은 deploy-verify가 끝나기를 기다린다(최대 약 40분). deploy-verify 완료 이벤트는 실행 목록 반영 지연만 잠깐(약 1.5분) 기다린다.
+          # sha 없는 수동 실행은 지금 상태를 한 번만 본다.
+          tries=1
+          if [ "$EVENT" = workflow_dispatch ] && [ -n "$INPUT_SHA" ]; then tries="${PIN_WAIT_TRIES:-80}"; fi
+          if [ "$EVENT" = workflow_run ]; then tries="${PIN_WAIT_TRIES:-4}"; fi
+          list="repos/$REPO/actions/workflows/deploy-verify.yml/runs?branch=master&head_sha=$SHA&per_page=50"
+          # 1) 확인할 deploy-verify 실행을 고유 Run ID로 식별한다. 이전 성공 기록으로 신규 실행의 대기·실패를 통과시키지 않는다. API 조회 실패는 그대로 오류로 끝난다(닫힌 실패).
+          # 후보 조회(직접 실행 + since 이후). 조회 실패는 그대로 오류(set -e·pipefail).
+          cands() { gh api "$list" | jq -r --arg since "$INPUT_SINCE" '[.workflow_runs[] | select(.event == "workflow_dispatch" and .created_at >= $since) | .id] | sort | join(" ")'; }
+          dvid=""
+          if [ "$EVENT" = workflow_run ]; then dvid="$EVENT_RUN_ID"; fi
+          if [ "$EVENT" = workflow_dispatch ] && [ -n "$INPUT_SHA" ] && [ -z "$INPUT_SINCE" ]; then echo "::error::호출한 vercel-deploy의 시작 시각(since)이 없어 deploy-verify 실행을 식별할 수 없음 — 핀 검사를 하지 않는다"; exit 1; fi
+          status=""; conclusion=""; headsha=""
+          for i in $(seq 1 "$tries"); do
+            if [ -z "$dvid" ]; then
+              if [ -n "$INPUT_SHA" ]; then
+                # 후보 = 이 커밋의 deploy-verify 중 '직접 실행(workflow_dispatch)'이고 vercel-deploy 시작 시각(since) 이후에 만들어진 것. 0개면 기다리고, 1개면 그 실행, 2개 이상이면 구분할 수 없으므로 아무거나(가장 이른 것 등) 고르지 않고 실패로 끝낸다.
+                cands=$(cands)
+                read -ra arr <<< "$cands"
+                if [ "${#arr[@]}" -gt 1 ]; then echo "::error::커밋 ${SHA:0:7}의 deploy-verify 후보 실행이 ${#arr[@]}개($cands)라 어느 것인지 구분할 수 없음 — 임의로 고르지 않고 핀 검사를 하지 않는다"; exit 1; fi
+                dvid="${arr[0]:-}"
+              else
+                dvid=$(gh api "$list" | jq -r '[.workflow_runs[]] | sort_by(.created_at, .id) | last | .id // empty')
+              fi
+            fi
+            if [ -n "$dvid" ]; then
+              runinfo=$(gh api "repos/$REPO/actions/runs/$dvid" | jq -r '[.status, (.conclusion // ""), .head_sha] | join("|")')
+              IFS='|' read -r status conclusion headsha <<< "$runinfo"
+              if [ "$headsha" != "$SHA" ]; then echo "::error::deploy-verify 실행 $dvid의 커밋(${headsha:0:7})이 검사 대상(${SHA:0:7})과 다름 — 핀 검사를 하지 않는다"; exit 1; fi
+              if [ "$status" = completed ]; then break; fi
+            fi
+            if [ "$i" -lt "$tries" ]; then sleep 30; fi
+          done
+          if [ -z "$dvid" ]; then echo "::error::커밋 ${SHA:0:7}의 deploy-verify 실행을 식별하지 못함(아직 시작 전이거나 조회 지연) — 성공으로 처리하지 않고 핀 검사를 하지 않는다"; exit 1; fi
+          if [ "$status" != completed ]; then echo "::error::deploy-verify 실행 $dvid가 아직 끝나지 않음($status) — 핀 검사를 하지 않는다"; exit 1; fi
+          if [ "$conclusion" != success ]; then echo "::error::deploy-verify 실행 $dvid가 success가 아님(${conclusion:-없음}) — 핀 검사를 하지 않는다"; exit 1; fi
+          # 허용 직전 재확인: 처음 1개로 고정한 뒤 두 번째 후보가 생겼을 수 있다. 후보가 정확히 1개이고 고정한 Run ID와 같을 때만 통과한다(다중 후보·ID 변경·조회 실패는 실패).
+          if [ "$EVENT" = workflow_dispatch ] && [ -n "$INPUT_SHA" ]; then
+            cands2=$(cands)
+            read -ra arr2 <<< "$cands2"
+            if [ "${#arr2[@]}" -ne 1 ] || [ "${arr2[0]}" != "$dvid" ]; then echo "::error::허용 직전 재확인 실패 — deploy-verify 후보가 ${#arr2[@]}개($cands2), 고정한 실행은 $dvid — 핀 검사를 하지 않는다"; exit 1; fi
+          fi
+          # workflow_run으로 시작된 경우: 그 실행보다 더 최근 deploy-verify 실행이 있으면 이 실행(과거 성공)은 인정하지 않고 최근 실행의 결과를 따른다.
+          if [ "$EVENT" = workflow_run ]; then
+            newest=$(gh api "$list" | jq -r '[.workflow_runs[]] | sort_by(.created_at, .id) | last | .id // empty')
+            if [ -n "$newest" ] && [ "$newest" != "$dvid" ]; then echo "::notice::더 최근 deploy-verify 실행($newest)이 있어 이 이벤트($dvid)는 건너뜀 — 최근 실행의 결과를 따른다"; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          fi
+          # 2) 같은 커밋 중복 방지: 먼저 시작된 같은 커밋의 실행이 아직 진행 중이거나, 그 실행에서 검사 단계가 실제로 success였으면 이 실행은 건너뛴다.
+          #    중복으로 건너뛴 실행·deploy-verify 실패로 끝난 실행도 run 전체는 success일 수 있으므로 run의 conclusion만 보지 않고 검사 단계(jobs)를 본다. failure·cancelled·skipped는 중복이 아니다(다시 실행 허용).
+          prev=$(gh api "repos/$REPO/actions/workflows/administrative-pin-check.yml/runs?per_page=100" | jq -c --arg sha "$SHA" --argjson me "$RUN_ID" '[.workflow_runs[] | select(.id < $me and ((.display_title // "") | contains($sha)))]')
+          skip=$(jq '[.[] | select(.status | IN("queued", "in_progress", "waiting", "pending", "requested"))] | length' <<< "$prev")
+          for id in $(jq -r '.[] | select(.conclusion == "success") | .id' <<< "$prev"); do
+            jobs=$(gh api "repos/$REPO/actions/runs/$id/jobs")
+            if jq -e '[.jobs[].steps[]? | select((.name | startswith("All public source points")) and .conclusion == "success")] | length > 0' <<< "$jobs" > /dev/null; then skip=$((skip + 1)); fi
+          done
+          if [ "$skip" != 0 ]; then echo "::notice::커밋 ${SHA:0:7}의 핀 검사가 이미 끝났거나 진행 중 — 이 실행은 건너뜀"; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "go=true" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.go == 'true'
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}
       - uses: actions/setup-node@v4
+        if: steps.gate.outputs.go == 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.gate.outputs.go == 'true'
+      # 단계 이름은 gate의 중복 판정(jobs API에서 이 이름의 단계가 success였는가)이 쓰므로 바꾸지 않는다.
       - name: All public source points are inside their original province (rendered main/detail pins are checked by deploy-verify map-summary-check)
-        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-administrative-public-check.mjs
+        if: steps.gate.outputs.go == 'true'
+        env:
+          PIN_SHA: ${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}
+        run: |
+          # 최대 2번(60초 간격)만 시도한다. 호출 성공(워크플로 시작)과 실제 검사 성공은 다르다 — 이 단계가 success여야 '검사 완료'다. 2번 모두 실패하면 Run ID·커밋·오류 원인을 남기고 실패로 끝낸다(숨기거나 무한 재시도하지 않음).
+          log="$(mktemp)"
+          for attempt in 1 2; do
+            if node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-administrative-public-check.mjs > "$log" 2>&1; then
+              cat "$log"; echo "핀 검사 성공(시도 $attempt/2) — Run ${{ github.run_id }}, 커밋 $PIN_SHA" >> "$GITHUB_STEP_SUMMARY"; exit 0
+            fi
+            cat "$log"; echo "::warning::핀 검사 시도 $attempt/2 실패 — Run ${{ github.run_id }}"
+            if [ "$attempt" = 1 ]; then sleep 60; fi
+          done
+          cause="$(tail -n 5 "$log" | tr '\n' ' ')"
+          echo "::error::핀 검사가 2번 모두 실패 — Run ${{ github.run_id }}, 커밋 ${PIN_SHA:0:7}, 원인: $cause"
+          echo "핀 검사 최종 실패(2/2) — Run ${{ github.run_id }}, 커밋 $PIN_SHA, 원인: $cause" >> "$GITHUB_STEP_SUMMARY"
+          exit 1

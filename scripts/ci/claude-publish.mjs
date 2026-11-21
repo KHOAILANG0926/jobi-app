@@ -11,6 +11,8 @@
 //       node claude-publish.mjs pr --repo o/r --out <초안 폴더> --head-sha <기준 커밋> --head-ref <새 브랜치> --workdir <기준 사본> [--draft] [--dry-run]
 //       --draft: S5 이슈 지시(task-pickup)에서 온 작업은 처음부터 Draft PR로 만든다(#808 S5 완료 조건). 다른 경로는 그대로 일반 PR.
 //         (새 브랜치·PR 만들기 — 지시 작업. 금지 경로는 거절. 직업분류 주간 보강은 Lee 2026-11-15 결정으로 중단)
+//       --protected: S1 보호 변경 초안. 오직 `pr --protected --draft`에서만 — 바뀐 파일이 전부 PROTECTED_PUBLISH_ALLOW(아래 8개) 안일 때만 통과하고,
+//         하나라도 밖이면 게시 전체를 거절한다. codex·issue·review 모드는 --protected를 줘도 거절(보호 경로 게시 우회 금지). 병합은 승인 판정(approval-gate)이 한다.
 import { BOT_PROOF_LABEL } from '../check-pr-ready.mjs'
 import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
@@ -33,6 +35,13 @@ export function forbiddenPath(path) {
     || /(^|\/)\.git(attributes|modules|ignore)?$/.test(path) || /^\.husky(\/|$)/.test(path) || /(^|\/)(\.ripgreprc|\.claude\.json|CLAUDE\.local\.md)$/.test(path) || /(^|\/)\.git\//.test(path) || path.startsWith('.claude-out')
     || path.startsWith('/') || path.split('/').includes('..')
 }
+
+// S1 보호 변경 게시 허용 목록(Lee 2026-11-20 확정): 승인·게시 보안 핵심 5개 파일 + 그 직접 회귀 시험 3개. 이 목록 밖 파일(CLAUDE.md·AGENTS.md·CODEOWNERS·STATUS.md·
+// scripts/status/·migration·다른 워크플로 등)은 보호 모드에서도 거절한다. 목록은 정확히 같은 경로만(패턴·폴더 없음), 새 항목은 Lee 결정 없이 더하지 않는다.
+export const PROTECTED_PUBLISH_ALLOW = [
+  '.github/workflows/claude-auto.yml', 'scripts/ci/claude-publish.mjs', 'scripts/check-repository-policy.mjs', '.github/workflows/status-guard.yml', 'scripts/decision-approval-gate.mjs',
+  'scripts/ci/claude-publish.test.mjs', 'scripts/decision-approval-gate.test.mjs', 'scripts/decision-approval-callpath.test.mjs',
+]
 
 // 비밀값 모양(토큰 접두어·JWT·DB 주소·개인 키) + 게시 단계가 아는 실제 값(KNOWN_SECRETS, 줄마다 하나 — 값 자체는 출력하지 않음)
 const SECRET_SHAPES = [
@@ -129,7 +138,9 @@ export function checkIssues(raw, known = []) {
 }
 
 // patch 요약(git apply --numstat --summary -z 출력이 아니라 사람이 읽는 --summary 줄 + --numstat 줄)을 검사
-export function checkPatchSummary({ numstat, summary, bytes, patchText, known = [] }) {
+// protectedMode(S1): 금지 경로 판정 대신 허용 목록(PROTECTED_PUBLISH_ALLOW)만 인정한다 — 목록 밖 파일이 하나라도 있으면 거절, 이름 바꿈·복사·삭제는 목록 안끼리도 거절
+// (보호 파일·시험을 옮기거나 지워 약화하는 길 차단). 링크·바이너리·비밀값·크기 검사는 그대로.
+export function checkPatchSummary({ numstat, summary, bytes, patchText, known = [], protectedMode = false }) {
   if (bytes > LIMITS.patchBytes) return `patch가 너무 큼(${bytes}바이트)`
   // -z 형식: "추가\t삭제\t경로\0", 이름 바꿈은 "추가\t삭제\t\0옛경로\0새경로\0"
   const parts = numstat.split('\0'), files = []
@@ -140,9 +151,13 @@ export function checkPatchSummary({ numstat, summary, bytes, patchText, known = 
     else { files.push(parts[i + 1] ?? '', parts[i + 2] ?? ''); i += 2 }
   }
   if (files.length > LIMITS.patchFiles) return `바꾼 파일이 너무 많음(${files.length}개)`
-  for (const f of files) if (forbiddenPath(f)) return `고치면 안 되는 경로: ${f}`
+  if (protectedMode) {
+    if (!files.length) return '보호 모드: 바뀐 파일 목록을 읽지 못함'
+    for (const f of files) if (!PROTECTED_PUBLISH_ALLOW.includes(f)) return `보호 모드 허용 목록 밖 파일: ${f}`
+  } else for (const f of files) if (forbiddenPath(f)) return `고치면 안 되는 경로: ${f}`
   for (const line of summary.split('\n')) {
     if (/mode 1(2|6)0000/.test(line)) return `링크·하위 저장소는 넣을 수 없음: ${line.trim()}`
+    if (protectedMode && /^\s*(rename|copy|delete mode)\b/.test(line)) return `보호 모드: 이름 바꿈·복사·삭제는 받지 않음: ${line.trim()}`
     if (/\brename\b|\bcopy\b/.test(line) && [...line.matchAll(/\S+/g)].some((m) => forbiddenPath(m[0].replace(/[{}]/g, '')))) return `금지 경로로/에서 이름 바꿈: ${line.trim()}`
   }
   if (/^GIT binary patch$/m.test(String(patchText))) return '바이너리 파일 변경은 받지 않음(내용 검사 불가)'
@@ -235,6 +250,7 @@ export function parseArgs(argv) {
     const k = rest[i]
     if (k === '--dry-run') a.dryRun = true
     else if (k === '--draft') a.draft = true
+    else if (k === '--protected') a.protected = true
     else a[k.replace(/^--/, '').replace(/-(.)/g, (_, c) => c.toUpperCase())] = rest[++i]
   }
   return a
@@ -249,6 +265,9 @@ export async function main(argv) {
   const textName = a.mode === 'review' ? 'review.md' : a.mode === 'pr' ? 'pr.md' : 'reply.md'
   const text = cleanDraft(a.mode, readDraft(a.out, textName))
   const problems = []
+  // S1: 보호 변경은 `pr --protected --draft`에서만. codex·issue·review는 --protected를 줘도 거절하고(보호 경로 게시 우회 금지), 보호 모드는 Draft가 아니면 거절한다.
+  if (a.protected && a.mode !== 'pr') problems.push(`--protected는 pr 모드에서만 가능(${a.mode} 모드 거절)`)
+  if (a.protected && a.mode === 'pr' && a.draft !== true) problems.push('--protected는 --draft(Draft PR)와 함께만 가능')
   if (text === null) problems.push(`${textName} 없음`)
   else if (a.mode === 'pr') { const e = checkPrText((readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0], text, known); if (e) problems.push(e) }
   else { const e = checkText(a.mode, text, { headSha: a.headSha, known }); if (e) problems.push(`${textName}: ${e}`) }
@@ -268,7 +287,7 @@ export async function main(argv) {
       const pf = join(mkdtempSync(join(tmpdir(), 'cp-')), 'p.diff'); writeFileSync(pf, patch)
       const numstat = git(a.workdir, ['apply', '--numstat', '-z', pf])
       const summary = git(a.workdir, ['apply', '--summary', pf])
-      const e2 = checkPatchSummary({ numstat, summary, bytes: Buffer.byteLength(patch), patchText: patch, known }); if (e2) problems.push(e2)
+      const e2 = checkPatchSummary({ numstat, summary, bytes: Buffer.byteLength(patch), patchText: patch, known, protectedMode: a.protected === true && a.mode === 'pr' && a.draft === true }); if (e2) problems.push(e2)
       if (!problems.length) {
         if (git(a.workdir, ['rev-parse', 'HEAD']).trim() !== a.headSha) problems.push('PR 사본이 검사한 커밋이 아님')
         else {

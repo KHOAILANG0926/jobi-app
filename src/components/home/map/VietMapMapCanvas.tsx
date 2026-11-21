@@ -9,7 +9,7 @@ import type { HomeMapMarker, HomeMapProviderProps, MapViewportSize } from './Hom
 import { calculateInitialZoom, createRadiusPolygon, radiusWithinLoadedTiles } from './homeMapGeometry'
 import { HOME_MAP_GESTURE_OPTIONS, POI_TAP_TOLERANCE_PX, applyTouchMapDefaults, isTouchDevice, withinPoiIcon } from './homeMapGestures'
 import { sanitizeVietMapError } from './vietMapError'
-import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from './vietMapStyle'
+import { createVietMapStyleUrl, fetchVietMapStyle, HOME_STYLE_ATTEMPTS_MS, type VietMapStyleKind } from './vietMapStyle'
 import { BUILDING_CLICK_LAYERS, applyLifeMapStyle, type StyleLike } from './lifeMapStyle'
 import { pointInPolygon, poisInsideBuilding, polygonCenter, type LngLat, type PickedPlace, type PolygonRings } from '../../../lib/mapPlace'
 import { clusterBounds, planHomeMapMarkers, type MarkerPlanItem } from './homeMapClusters'
@@ -321,7 +321,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     }
 
     // 공식 style JSON을 먼저 받아 생활지도 변환 후 지도를 만든다(빈 style → 교체 과정 없음).
-    fetchVietMapStyle<StyleSpecification>(styleUrl, { signal: controller.signal })
+    fetchVietMapStyle<StyleSpecification>(styleUrl, { signal: controller.signal, attemptTimeoutsMs: HOME_STYLE_ATTEMPTS_MS })
       .then((official) => {
         if (controller.signal.aborted) return
         const initial = propsRef.current

@@ -38,9 +38,11 @@ export function koreaSavedId(jobId: number): string {
   return `${KOREA_SAVED_ID_PREFIX}${jobId}`
 }
 
-/** "kr-123" -> 123, 접두사가 없으면(로컬 공고 id) null. */
+/** "kr-123" -> 123, 접두사가 없거나 뒤가 양의 정수가 아니면(로컬 공고 id 등) null. */
 export function parseKoreaSavedId(savedId: string): number | null {
   if (!savedId.startsWith(KOREA_SAVED_ID_PREFIX)) return null
-  const n = Number(savedId.slice(KOREA_SAVED_ID_PREFIX.length))
-  return Number.isFinite(n) ? n : null
+  const rest = savedId.slice(KOREA_SAVED_ID_PREFIX.length)
+  if (!/^\d+$/.test(rest)) return null
+  const n = Number(rest)
+  return Number.isSafeInteger(n) && n > 0 ? n : null
 }
