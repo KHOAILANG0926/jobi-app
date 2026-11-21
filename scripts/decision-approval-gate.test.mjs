@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { decisionApproval as rawDecisionApproval, requestText, approvedFramePaths, NEEDS_LEE_LABEL, GATE_CODE } from './decision-approval-gate.mjs'
 import { readFileSync } from 'node:fs'
-// 기존 시험은 승인 흐름만 본다 — 고위험 PR의 4대 보고(⑧)는 기본으로 갖춘 본문을 넣고, 보고 자체는 아래 ⑧ 시험이 따로 본다.
+// 기존 시험은 승인 흐름만 본다 — 고위험 4대 보고(⑧) 강제는 Lee 2026-11-21 폐지: 본문은 판정에 쓰이지 않는다(옛 본문을 넣어도 같은 결과).
 const GOOD_BODY = ['## 고위험 4대 보고', '- 무엇을 바꾸나: 시험용 변경 내용', '- 왜 필요한가: 시험용 이유 설명', '- 승인 시 남는 위험: 시험용 남는 위험', '- 미승인 시 영향: 시험용 영향 설명', '- 검증: https://github.com/KHOAILANG0926/jobi-app/actions/runs/1', ''].join('\n')
 const decisionApproval = (o) => rawDecisionApproval({ body: GOOD_BODY, ...o })
 const sha = 'a'.repeat(40), old = 'b'.repeat(40)
@@ -188,9 +188,9 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   console.log('S4 ⑥ 위험도 판단 불가 시험 통과(정상 13·고위험 5·판단 불가 10·섞임·승인 종류)')
 }
 
-// S4 ⑦⑧ 바뀐 줄 내용 위험 + 고위험 4대 보고(Lee 2026-11-15): 경로가 일반이어도 내용으로 올리고, 분석 실패는 고위험, 보고 없으면 승인해도 막힘
+// S4 ⑦ 바뀐 줄 내용 위험(Lee 2026-11-15): 경로가 일반이어도 내용으로 올리고, 분석 실패는 고위험. ⑧ 4대 보고 강제는 Lee 2026-11-21 폐지(승인만으로 통과)
 {
-  const { contentRisks, highRiskReport, reportRequestText, REPORT_REQUEST_MARKER } = await import('./decision-approval-gate.mjs')
+  const { contentRisks } = await import('./decision-approval-gate.mjs')
   const h = 'e'.repeat(40), repo = 'KHOAILANG0926/jobi-app'
   const leeOk = [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: h, submitted_at: '2026-11-15T10:00:00Z' }]
   const mk = (filename, patch, extra = {}) => ({ filename, status: 'modified', patch, ...extra })
@@ -201,7 +201,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     mk('src/a.ts', '@@\n+fetch("https://maps.vietmap.vn/api")'), mk('src/b.ts', undefined, { status: 'renamed', changes: 0 }), { filename: 'public/a.png', status: 'added' }]) {
     const r = run([f]); assert.equal(r.approved, true, `정상 통과: ${f.filename}`); assert.equal(r.risk, 'normal')
   }
-  // 고위험(내용): 보고·승인 모두 있어야 통과
+  // 고위험(내용): Lee 승인(최신 커밋)이 있어야 통과
   const high = [
     ['supabase/migrations/20261201000000_x.sql', '@@\n+create policy p on t for select using (true);', 'DB 권한'],
     ['supabase/migrations/20261201000001_x.sql', '@@\n+grant select on t to anon;', 'DB 권한'],
@@ -217,8 +217,9 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     const f = mk(filename, patch)
     assert.equal(run([f]).approved, false, `내용 고위험 승인 전 막힘: ${tag} ${filename}`)
     assert.equal(run([f]).risk, 'high', filename)
-    assert.equal(run([f], { reviews: leeOk }).approved, true, `승인+보고 뒤 통과: ${filename}`)
-    assert.equal(run([f], { reviews: leeOk, body: '' }).approved, false, `보고 없으면 승인해도 막힘: ${filename}`)
+    assert.equal(run([f], { reviews: leeOk }).approved, true, `승인 뒤 통과: ${filename}`)
+    assert.equal(run([f], { reviews: leeOk, body: '' }).approved, true, `4대 보고 없어도 Lee 승인이면 통과(11-21 폐지): ${filename}`)
+    assert.equal(run([f], { body: '' }).approved, false, `승인 없으면 계속 막힘: ${filename}`)
   }
   // 삭제된 줄도 본다(권한 검사를 지우는 변경)
   assert.ok(contentRisks([mk('supabase/migrations/20261201000003_x.sql', '@@\n-drop policy "p" on t;')]).length, '삭제된 policy 줄도 위험')
@@ -227,7 +228,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   // 분석 실패는 고위험(닫힌 실패): 코드 파일 patch 없음·변경 파일 목록 비어 있음
   { const r = run([{ filename: 'src/big.ts', status: 'modified' }]); assert.equal(r.approved, false, 'patch 없음 → 판단 불가 보류'); assert.equal(r.risk, 'unknown'); assert.ok(r.reasons.includes('위험도 판단 불가')) }
   { const r = run([]); assert.equal(r.approved, false, '변경 파일 목록이 비면 보류'); assert.ok(r.reasons.includes('위험도 판단 불가')) }
-  assert.equal(run([{ filename: 'src/big.ts', status: 'modified' }], { reviews: leeOk }).approved, true, '판단 불가도 보고+승인 뒤 통과')
+  assert.equal(run([{ filename: 'src/big.ts', status: 'modified' }], { reviews: leeOk }).approved, true, '판단 불가도 승인 뒤 통과')
   // 검토 지적 1: 운영 DB에서 실행되는 supabase/tests/*_production_check.sql은 내용 검사 대상, 로컬 전용만 제외
   assert.equal(run([mk('supabase/tests/x_production_check.sql', '@@\n+grant all on t to anon;')]).approved, false, 'production_check.sql 권한 변경은 승인 대상')
   assert.equal(run([mk('supabase/tests/x.local.sql', '@@\n+grant all on t to anon;')]).approved, true, '로컬 전용 시험 SQL은 제외')
@@ -249,7 +250,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     ['scripts/ci/claude-publish.mjs', 'crawler/p.py', 'scripts/ci'], ['AGENTS.md', 'docs/AGENTS.md', 'AGENTS.md']]) {
     const r = run([mv(from, to)])
     assert.equal(r.approved, false, `이름 변경 우회 차단(${why}): ${from} → ${to}`); assert.equal(r.risk, 'high', why)
-    assert.equal(run([mv(from, to)], { reviews: leeOk }).approved, true, `보고+승인 뒤 통과: ${why}`)
+    assert.equal(run([mv(from, to)], { reviews: leeOk }).approved, true, `승인 뒤 통과: ${why}`)
   }
   { const r = rawDecisionApproval({ files: [mv('src/pages/JobDetail.tsx', 'src/pages/JobDetailOld.tsx')], reviews: [], comments: [], sha: h, author: 'viecganban-bot', body: GOOD_BODY, repo, framePaths: ['src/pages/JobDetail.tsx'] })
     assert.equal(r.approved, false, '승인된 화면 틀 파일 이름 변경 차단'); assert.ok(r.reasons.includes('승인된 화면 틀')) }
@@ -259,24 +260,11 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.equal(run([mv('docs/x.md', '.github/workflows/x.yml')]).approved, false, '일반 → 워크플로 경로')
   // 이름 변경과 함께 내용도 바뀌면 새 파일 내용도 검사
   assert.equal(run([{ filename: 'src/b.ts', previous_filename: 'src/a.ts', status: 'renamed', changes: 2, patch: '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY' }]).approved, false, '이름 변경 + 위험 내용')
-  // 4대 보고 형식
-  const body = (o = {}) => ['## 고위험 4대 보고', `- 무엇을 바꾸나: ${o.what ?? '로그인 검사 줄을 추가'}`, `- 왜 필요한가: ${o.why ?? '관리자 기능 보호'}`, `- 승인 시 남는 위험: ${o.risk ?? '검사 우회 시 노출'}`, `- 미승인 시 영향: ${o.impact ?? '관리자 기능 보호 지연'}`, `- 검증: ${o.link ?? `https://github.com/${repo}/actions/runs/123`}`].join('\n')
-  assert.equal(highRiskReport(body(), repo).ok, true, '갖춘 보고')
-  assert.deepEqual(highRiskReport('', repo).missing.length, 5, '본문 없음 → 5개 모두 없음')
-  assert.deepEqual(highRiskReport(body({ why: '' }), repo).missing, ['왜 필요한가'])
-  assert.deepEqual(highRiskReport(body({ risk: 'TODO' }), repo).missing, ['승인 시 남는 위험'])
-  assert.deepEqual(highRiskReport(body({ impact: '-' }), repo).missing, ['미승인 시 영향'])
-  assert.deepEqual(highRiskReport(body({ link: 'https://example.com/x' }), repo).missing, ['검증 링크(실행 기록·커밋·PR 주소)'], '다른 저장소·외부 링크는 검증 링크가 아님')
-  assert.deepEqual(highRiskReport(body({ link: 'https://github.com/other/repo/actions/runs/1' }), repo).missing.length, 1, '다른 저장소 링크 무효')
-  assert.equal(highRiskReport('<!--\n' + body() + '\n-->', repo).ok, false, '주석 안에 숨긴 보고는 인정 안 함')
-  assert.equal(highRiskReport(body() + '\n## 다른 칸\n- 무엇을 바꾸나: 위조', repo).ok, true)
-  assert.equal(highRiskReport('## 다른 칸\n' + body().replace('## 고위험 4대 보고', '### 고위험 4대 보고'), repo).ok, false, '정해진 제목(##)이 있어야 함')
-  // 보고가 없으면 승인 요청 대신 보고 요청 문구
-  const r = run([mk('src/c.ts', '@@\n+fetch("https://api.new-vendor.io/v1")')], { body: '' })
-  assert.equal(r.report.ok, false)
-  assert.ok(reportRequestText(h, r.reasons, r.report.missing).startsWith(REPORT_REQUEST_MARKER))
+  // 4대 보고 폐지(11-21): 본문이 비어도 승인 요청 문구(보고 요청 아님) 대상이며, 승인 없으면 막힘·있으면 통과
+  { const r = run([mk('src/c.ts', '@@\n+fetch("https://api.new-vendor.io/v1")')], { body: '' }); assert.equal(r.approved, false); assert.equal('report' in r, false, '판정 결과에 보고 항목 없음') }
+  assert.equal(run([mk('src/c.ts', '@@\n+fetch("https://api.new-vendor.io/v1")')], { body: '', reviews: leeOk }).approved, true, '보고 없이 Lee 승인만으로 통과')
   assert.equal(run([mk('src/c.ts', '@@\n+x')], { body: '' }).approved, true, '일반 PR은 4대 보고 불필요')
-  console.log('S4 ⑦⑧ 바뀐 줄 내용 위험·4대 보고 시험 통과')
+  console.log('S4 ⑦ 바뀐 줄 내용 위험·4대 보고 폐지 시험 통과')
 }
 
 // ⑨ 워크플로 실행 환경·시험 추가(Lee 2026-11-17 도장 찍기 문제) — 실제 #876 변경으로 확인 + 우회·위험 누락 시험
@@ -340,35 +328,15 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   console.log(`⑨ 워크플로 실행 환경·시험 추가 시험 통과(정상 3·위험 ${risky.length}·판단 불가 6·섞임 1·목록 ${SAFE_TEST_WORKFLOWS.length})`)
 }
 
-// ── S1(Lee 2026-11-20): 고위험 4대 보고의 Markdown `**` 표기 — 굵게 쓴 칸이름·제목을 '없음'으로 오판정하던 것만 고친다(기준은 그대로) ──
+// ── 4대 보고 폐지(Lee 2026-11-21): 굵은 글씨 보고 시험(11-20)은 기능이 없어져 지움. 승인 판정 연결만 남긴다 ──
 {
-  const { highRiskReport } = await import('./decision-approval-gate.mjs')
-  const repo = 'KHOAILANG0926/jobi-app', link = `https://github.com/${repo}/actions/runs/123`
-  const plain = ['## 고위험 4대 보고', '- 무엇을 바꾸나: 로그인 검사 줄을 추가', '- 왜 필요한가: 관리자 기능 보호', '- 승인 시 남는 위험: 검사 우회 시 노출', '- 미승인 시 영향: 관리자 기능 보호 지연', `- 검증: ${link}`].join('\n')
-  assert.equal(highRiskReport(plain, repo).ok, true, '대조: 굵은 글씨 없는 갖춘 보고')
-  for (const [label, body] of [
-    ['칸이름만 굵게 `- **칸**: 값`', plain.replace(/^- (무엇을 바꾸나|왜 필요한가|승인 시 남는 위험|미승인 시 영향):/gm, '- **$1**:')],
-    ['콜론까지 굵게 `- **칸:** 값`', plain.replace(/^- (무엇을 바꾸나|왜 필요한가|승인 시 남는 위험|미승인 시 영향):/gm, '- **$1:**')],
-    ['`* ` 글머리 + 굵게', plain.replace(/^- (무엇을 바꾸나|왜 필요한가|승인 시 남는 위험|미승인 시 영향):/gm, '* **$1**:')],
-    ['제목을 굵게 `## **고위험 4대 보고**`', plain.replace('## 고위험 4대 보고', '## **고위험 4대 보고**')],
-    ['값 일부를 굵게', plain.replace('로그인 검사 줄을 추가', '**로그인** 검사 줄을 **추가**')],
-    ['검증 링크 칸 이름을 굵게', plain.replace('- 검증:', '- **검증**:')],
-  ]) assert.equal(highRiskReport(body, repo).ok, true, `굵게 써도 갖춘 보고는 통과: ${label}`)
-  // 기준은 그대로: 굵은 글씨만 있고 내용이 없는 칸·링크 없음·TODO·주석 안 보고는 여전히 없음
-  assert.deepEqual(highRiskReport(plain.replace('로그인 검사 줄을 추가', '****'), repo).missing, ['무엇을 바꾸나'], '값이 `**`뿐이면 빈 칸')
-  assert.deepEqual(highRiskReport(plain.replace('관리자 기능 보호', '**TODO**'), repo).missing, ['왜 필요한가'], '굵은 TODO도 없음')
-  assert.deepEqual(highRiskReport(plain.replace(link, '**링크 없음**'), repo).missing, ['검증 링크(실행 기록·커밋·PR 주소)'], '검증 링크가 없으면 굵게 써도 없음')
-  assert.equal(highRiskReport(`<!--\n${plain.replace(/^- (.+?):/gm, '- **$1**:')}\n-->`, repo).ok, false, '주석 안에 숨긴 굵은 보고도 인정 안 함')
-  assert.equal(highRiskReport('## 다른 칸\n' + plain.replace('## 고위험 4대 보고', '### **고위험 4대 보고**'), repo).ok, false, '정해진 제목(##)이 아니면 굵게 써도 없음')
-  assert.equal(highRiskReport(plain.replace(/^- 미승인 시 영향:.*$/m, ''), repo).ok, false, '한 칸이 통째로 빠지면 없음')
-  // 승인 판정 연결: 굵은 보고 + 최신 커밋 Lee Approve → 통과, Approve 없으면 여전히 막힘
-  const h = 'e'.repeat(40), bold = plain.replace(/^- (무엇을 바꾸나|왜 필요한가|승인 시 남는 위험|미승인 시 영향):/gm, '- **$1**:')
+  const h = 'e'.repeat(40)
   const files = [{ filename: 'scripts/decision-approval-gate.mjs', status: 'modified', patch: '+x' }]
   const approve = [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: h, submitted_at: '2026-11-20T01:00:00Z' }]
-  assert.equal(rawDecisionApproval({ files, reviews: approve, comments: [], sha: h, author: 'viecganban-bot', body: bold, repo }).approved, true, '굵은 보고 + 최신 커밋 Lee Approve → 통과')
-  assert.equal(rawDecisionApproval({ files, reviews: [], comments: [], sha: h, author: 'viecganban-bot', body: bold, repo }).approved, false, '굵은 보고라도 Approve 없으면 막힘')
-  assert.equal(rawDecisionApproval({ files, reviews: approve, comments: [], sha: 'f'.repeat(40), author: 'viecganban-bot', body: bold, repo }).approved, false, '굵은 보고라도 옛 커밋 Approve는 무효')
-  console.log('S1 4대 보고 Markdown ** 표기 시험 통과(굵게 6종 통과·기준 그대로 6종 차단·승인 연결 3)')
+  assert.equal(rawDecisionApproval({ files, reviews: approve, comments: [], sha: h, author: 'viecganban-bot', body: '' }).approved, true, '최신 커밋 Lee Approve → 통과(본문 무관)')
+  assert.equal(rawDecisionApproval({ files, reviews: [], comments: [], sha: h, author: 'viecganban-bot', body: '' }).approved, false, 'Approve 없으면 막힘')
+  assert.equal(rawDecisionApproval({ files, reviews: approve, comments: [], sha: 'f'.repeat(40), author: 'viecganban-bot', body: '' }).approved, false, '옛 커밋 Approve는 무효')
+  console.log('4대 보고 폐지 뒤 승인 연결 시험 통과(3)')
 }
 
 // ── S1(Lee 2026-11-20): STATUS 보호 S1~S5 — 워크플로 status-guard.yml의 실제 셸 단계 + check-repository-policy + 승인 판정을 임시 저장소·테스트 데이터로 실행 ──
@@ -417,11 +385,11 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.equal(gate([]).approved, false, 'S3: approval-gate — 대표 승인 없음 → 차단(예전 라벨 `검증장치-승인`이 있어도)')
   assert.equal(gate([{ user: { login: LEE }, state: 'APPROVED', commit_id: old, submitted_at: '2026-11-20T00:00:00Z' }]).approved, false, 'S3: 이전 SHA 승인 → 차단')
   assert.equal(gate([{ user: { login: 'viecganban-bot' }, state: 'APPROVED', commit_id: head, submitted_at: '2026-11-20T00:00:00Z' }]).approved, false, 'S3: 대표 아닌 계정 승인 → 차단')
-  // S4: 유효한 승인(최신 SHA 공식 Approve) + 4대 보고 + 다른 필수 검사 성공 → 허용
+  // S4: 유효한 승인(최신 SHA 공식 Approve) + 다른 필수 검사 성공 → 허용
   const lee = [{ user: { login: LEE }, state: 'APPROVED', commit_id: head, submitted_at: '2026-11-20T00:00:00Z' }]
   assert.equal(leeApprovedAt(lee, head, 'viecganban-bot'), true, 'S4: 최신 SHA 대표 공식 Approve 인정')
   assert.equal(evaluateFiles([wf], '', {}).length, 0, 'S4: 정책 검사 — status 워크플로를 승인 대기 이유로 막지 않음')
-  assert.equal(gate(lee).approved, true, 'S4: approval-gate — 유효 승인 + 4대 보고 → 통과')
+  assert.equal(gate(lee).approved, true, 'S4: approval-gate — 유효 승인 → 통과')
   assert.equal(guard(edit(wf)).code, 0, 'S4: status-guard 단계 — 워크플로만 바꾸면 통과(STATUS 직접 수정 아님)')
   { const jq = (args, input) => spawnSync('jq', args, { input: JSON.stringify(input), encoding: 'utf8' })
     const runs = (checks) => ({ check_runs: ['checks', 'guard', 'app-screen', 'publication-gate'].map((name, i) => ({ id: i + 1, name, status: 'completed', conclusion: name === checks ? 'failure' : 'success', started_at: 't', check_suite: { id: i + 1 } })) })
@@ -462,7 +430,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
 // ── S1 후속(Lee 2026-11-20): STRICT 보안 분류 복구 — 정책 검사(checks)의 'STRICT 무조건 실패'를 없앤 뒤에도 인증·결제 같은 STRICT 경로는 approval-gate가 대표 공식 승인 대상으로 판정한다.
 //    경로는 일반(src/)이고 바뀐 줄에 신호어(service_role·grant 등)가 없어 내용 검사(⑦)만으로는 놓치는 사례를 포함한다. 목록은 STRICT_PATHS 한 곳(중복 목록 없음).
 {
-  const { STRICT_PATHS, contentRisks, OWNER: LEE, REPORT_FIELDS } = await import('./decision-approval-gate.mjs')
+  const { STRICT_PATHS, contentRisks, OWNER: LEE } = await import('./decision-approval-gate.mjs')
   const { needsSecondReview, evaluateFiles } = await import('./check-repository-policy.mjs')
   const hv = 'e'.repeat(40), stale = 'f'.repeat(40), bot = 'viecganban-bot'
   const rv = (state, commit_id, at, login = LEE) => ({ user: { login }, state, commit_id, submitted_at: at })
@@ -485,13 +453,13 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     assert.equal(r.required, true, `${label}: 대표 승인 대상`); assert.equal(r.risk, 'high', `${label}: 고위험`)
     assert.ok(r.reasons.some((x) => x.includes('STRICT')), `${label}: 사유에 STRICT 표시`)
     assert.equal(r.approved, false, `${label}: 대표 승인 없으면 차단`)
-    assert.equal(rawDecisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: bot, sha: hv, body: '' }).approved, false, `${label}: 승인이 있어도 4대 보고 없으면 차단`)
+    assert.equal(rawDecisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: bot, sha: hv, body: '' }).approved, true, `${label}: 4대 보고 없어도 최신 SHA Lee Approve면 통과(11-21 폐지)`)
     assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', stale, T)], comments: [], author: bot, sha: hv }).approved, false, `${label}: 이전 SHA 승인 무효`)
     assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T), rv('DISMISSED', hv, '2026-11-20T01:00:00Z')], comments: [], author: bot, sha: hv }).approved, false, `${label}: 승인 취소 무효`)
     assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T), rv('CHANGES_REQUESTED', hv, '2026-11-20T01:00:00Z')], comments: [], author: bot, sha: hv }).approved, false, `${label}: 변경 요청 무효`)
     assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: LEE, sha: hv }).approved, false, `${label}: 대표 본인 작성 PR 자기 승인 무효`)
     assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T, bot)], comments: [], author: bot, sha: hv }).approved, false, `${label}: 대표 아닌 계정 승인 무효`)
-    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: bot, sha: hv }).approved, true, `${label}: 최신 SHA 대표 공식 Approve + 4대 보고 → 통과`)
+    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: bot, sha: hv }).approved, true, `${label}: 최신 SHA 대표 공식 Approve → 통과`)
   }
   // 위 사례 중 내용 검사(⑦)만으로 놓치는 것 — 경로 판정이 필요한 이유(신호어 없음)
   for (const [label, filename, patch] of cases.filter((c) => !c[1].startsWith('.github/') && !c[1].startsWith('supabase/')))
@@ -505,12 +473,11 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   for (const p of ['src/lib/jobFormat.ts', 'src/components/JobCard.tsx', 'src/pages/Home.tsx', 'docs/ops/note.md'])
     assert.equal(decisionApproval({ files: [{ filename: p, status: 'modified', patch: '+const a = 1' }], reviews: [], comments: [], author: bot, sha: hv }).required, false, `일반 파일 자동 처리 유지: ${p}`)
   assert.equal(needsSecondReview('src/lib/jobFormat.ts'), false, '일반 파일은 두 번째 독립 검토 대상 아님(기존)')
-  assert.equal(REPORT_FIELDS.length, 4, '4대 보고 필수 항목 4개 유지')
   // 독립 검토 지적: status 워크플로는 주석·공백만 바꿔도(안전 줄) 대표 승인 필요 — 정책 검사가 승인을 안 보므로 여기가 유일한 판정
   for (const filename of ['.github/workflows/status-report.yml', '.github/workflows/status-guard.yml']) {
     const f = [{ filename, status: 'modified', patch: '@@ -1,3 +1,3 @@\n-# a\n+# b' }]
     assert.equal(decisionApproval({ files: f, reviews: [], comments: [], author: bot, sha: hv }).approved, false, `${filename}: 주석만 바꿔도 대표 승인 없으면 차단`)
-    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: bot, sha: hv }).approved, true, `${filename}: 최신 SHA 대표 Approve + 4대 보고면 통과`)
+    assert.equal(decisionApproval({ files: f, reviews: [rv('APPROVED', hv, T)], comments: [], author: bot, sha: hv }).approved, true, `${filename}: 최신 SHA 대표 Approve면 통과`)
   }
   assert.equal(decisionApproval({ files: [{ filename: '.github/workflows/crawl.yml', status: 'modified', patch: '@@ -1,3 +1,3 @@\n-# a\n+# b' }], reviews: [], comments: [], author: bot, sha: hv }).approved, true, '대조: status 외 워크플로의 안전 줄(주석)은 기존대로 자동')
   console.log('S1 STRICT 보안 분류 복구 시험 통과 — 인증 우회·결제 권한 등 7경로 × 승인 조건 9종')
