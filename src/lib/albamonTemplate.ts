@@ -1,4 +1,4 @@
-import { photoKind, factoryPhotos } from './cardPhoto'
+import { photoKind, factoryPhoto } from './cardPhoto'
 // 알바몬 '간편! 템플릿' 그대로 따라 하기(Lee 2026-11-08 "새로 만들지 말고 알바몬 그대로"). 2026-11-08 알바몬 기업회원 화면 직접 확인값.
 // 78개 = 13개 업직종 × 6. 모든 템플릿 같은 틀(큰 사진 위 회사명·제목). 템플릿마다 기본 색·제목 글자색(검정/흰색)이 정해져 있다.
 // 사진: 알바몬 사진은 쓰지 않는다. 업종별 우리 그림(public/images/template, Lee 2026-11-08 AI 팀 그림 담당).
@@ -116,7 +116,7 @@ export const DETAIL_PALETTE: Record<string, { bg: string; hi: string; point: str
 }
 /** kindText·subcategory: 카드 사진과 같은 글(회사·제목·상세)로 가게·식당 종류를 고른다(cardPhoto.photoKind 한 곳, 2026-11-11 Lee "사진 안 맞는다").
  *  우리 그림이 있는 종류는 우리 그림, 아직 없는 종류(카페·고깃집·훠궈·가구·전화기·가전·옷·편의점)는 카드와 같은 업종 사진.
- *  공장은 지금처럼 만드는 것(factoryPhotos). 종류를 모르면 지금처럼 업종 그림 중 공고 번호로. */
+ *  공장은 만드는 것으로 고른 그림 한 장, 모르면 기본 그림 한 장(cardPhoto.factoryPhoto — 카드와 같음, #682). */
 // 쌀국수·국수·죽 낱말은 성조 그대로 본다(Codex #683: 주소 'Thành phố'·'Khu phố'의 phố가 성조 빼면 phở와 같아짐)
 const NOODLE_WORDS = /(?<!\p{L})(?:phở|bún|miến|cháo)(?!\p{L})/iu
 export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = '', kindText = '', subcategory?: string | null): { photo: string; bar: string; head: string; point: string; style: DetailStyle } {
@@ -128,9 +128,8 @@ export function detailLook(category: string | null | undefined, seed: number, st
   // 일반 식당은 우리 식당 그림(홀 2장 — 쌀국수 주방 그림은 쌀국수·phở 낱말이 있을 때만)
   const own = kind === 'nha_hang_chung' ? (NOODLE_WORDS.test(String(kindText || text).normalize('NFC')) ? ['02c-an-uong'] : ['02-an-uong', '02b-an-uong']) : null
   if (kind && !own) return { photo: `/images/industry/${kind}.jpg`, bar: c.hi, head: c.bg, point: c.point, style: pick }
-  // 공장: 카드 사진과 같은 공장 그림 한 장(cardPhoto.factoryPhotos 첫 장) — 종류를 모르면 지금처럼 기본 그림 중 공고 번호로
-  const factory = g === DETAIL_GROUP.san_xuat_xay_dung ? factoryPhotos(text) : null
-  const list = own ?? (factory ? [factory[0]] : g === DETAIL_GROUP.san_xuat_xay_dung ? CATEGORY_IMAGES[0] : CATEGORY_IMAGES[g])
+  // 공장: 카드 사진과 같은 그림 한 장(cardPhoto.factoryPhoto — 종류를 모르면 기본 그림 한 장, #682)
+  const list = own ?? (g === DETAIL_GROUP.san_xuat_xay_dung ? [factoryPhoto(text)] : CATEGORY_IMAGES[g])
   const photo = list[n % list.length]
   return { photo: `/images/template/${photo}.jpg`, bar: c.hi, head: c.bg, point: c.point, style: pick }
 }

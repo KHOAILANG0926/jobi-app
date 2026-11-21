@@ -48,11 +48,9 @@ export function photoKind(category: string | null | undefined, subcategory?: str
  *  공장 그림은 회사 이름·제목만 본다(Lee 2026-11-11 "덧대기": 본문 낱말 'xe máy'(통근)·'vai trò'(역할)·'ô tô'(통근차)에 끌려 예외를 계속 더해야 했다
  *  → 모르면 업종 기본 사진, 엉뚱한 공장 그림보다 낫다 — 11-10 원칙). 가게·식당 종류(photoKind)는 지금까지처럼 원문까지(카페 "pha chế cà phê" 등, Lee 11-02·11-03 순서 그대로). */
 export function industryPhotoUrl(category: string | null | undefined, subcategory?: string | null, head?: string | null, body?: string | null): string {
-  // 공장은 무엇을 만드는지로 고른 공장 그림 — 상세 ④ 그림과 같은 한 장(2026-11-11 Lee "3개 사진이 안 맞는데": 과자 공장에 봉제 공장 사진)
-  if (category === 'san_xuat_xay_dung') {
-    const f = factoryPhotos(head ?? '')
-    if (f) return `/images/template/${f[0]}.jpg`
-  }
+  // 공장은 무엇을 만드는지로 고른 공장 그림 — 상세 ④ 그림과 같은 한 장(2026-11-11 Lee "3개 사진이 안 맞는데": 과자 공장에 봉제 공장 사진).
+  // 모르면 카드·④ 모두 기본 그림 한 장(Lee 11-11 "덧대기" 1안 "모르면 기본 그림", #682 — 카드만 봉제 공장 사진이던 것).
+  if (category === 'san_xuat_xay_dung') return `/images/template/${factoryPhoto(head ?? '')}.jpg`
   const kind = photoKind(category, subcategory, body ? `${head ?? ''} ${body}` : head)
   return `/images/industry/${kind ?? (category && category in INDUSTRY ? category : 'khac')}.jpg`
 }
@@ -89,3 +87,6 @@ export function factoryPhotos(text: string): string[] | null {
   const raw = String(text ?? '').normalize('NFC').toLowerCase()
   return FACTORY_PHOTOS.find(([re, photos]) => re.test(t) && (NEEDS_TONE[photos[0]]?.test(raw) ?? true))?.[1] ?? null
 }
+/** 공장 공고 그림 한 장(카드·상세 ④ 공통): 만드는 것을 회사 이름·제목에서 읽으면 그 공장 그림 첫 장, 모르면 기본 그림(01-co-ban). */
+export const BASIC_PHOTO = '01-co-ban'
+export const factoryPhoto = (head: string): string => factoryPhotos(head)?.[0] ?? BASIC_PHOTO
