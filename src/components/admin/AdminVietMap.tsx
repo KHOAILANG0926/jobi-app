@@ -6,7 +6,7 @@ import type { Map as VietMap, Marker, StyleSpecification } from '@vietmap/vietma
 import '@vietmap/vietmap-gl-js/dist/vietmap-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { applyLifeMapStyle, type StyleLike } from '../home/map/lifeMapStyle'
-import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from '../home/map/vietMapStyle'
+import { loadVietMapStyle, type VietMapStyleKind } from '../home/map/vietMapStyle'
 
 export interface AdminMapMarker {
   id: string
@@ -54,7 +54,8 @@ export default function AdminVietMap({ center, zoom = 17, markers, onPick, heigh
     let map: VietMap | null = null
     // 공식 style을 받아 홈·상세와 같은 생활지도 변환(applyLifeMapStyle)을 적용해 만든다(2026-10-07).
     // 공식 style 그대로는 회사·ATM·상점 POI가 z18부터, 글씨도 옅어서 검토 지도 기본 배율(z17)에서 길 이름·POI 이름이 거의 안 보였다.
-    fetchVietMapStyle<StyleSpecification>(createVietMapStyleUrl(TILEMAP_KEY, 'street'), { signal: controller.signal })
+    // 우리 쪽 style 사본 먼저, 없거나 실패할 때만 VietMap 원본(vietMapStyle.loadVietMapStyle — 메인·상세 지도와 같은 함수).
+    loadVietMapStyle<StyleSpecification>(TILEMAP_KEY, 'street', { signal: controller.signal })
       .then((official) => {
         if (controller.signal.aborted) return
         map = new vietmapgl.Map({
@@ -102,13 +103,23 @@ export default function AdminVietMap({ center, zoom = 17, markers, onPick, heigh
 
   const shownMode = useRef<VietMapStyleKind>('street')
   useEffect(() => {
-    if (!mapRef.current || !TILEMAP_KEY || shownMode.current === mode) return
+    const map = mapRef.current
+    if (!map || !TILEMAP_KEY || shownMode.current === mode) return
+    const before = shownMode.current
     shownMode.current = mode
-    // diff:false — 일반↔위성은 source 구성이 달라 전체 교체가 안전하다(홈·상세 지도와 같은 방식).
-    mapRef.current.setStyle(createVietMapStyleUrl(TILEMAP_KEY, mode), {
-      diff: false,
-      transformStyle: (previous, next) => applyLifeMapStyle(next as unknown as StyleLike, mode, previous as unknown as StyleLike) as unknown as StyleSpecification,
-    })
+    const controller = new AbortController()
+    // 사본 먼저 받은 style 객체로 교체(상세 지도와 같은 방식). 실패하면 지금 지도 그대로, 다음 누름에서 다시.
+    loadVietMapStyle<StyleSpecification>(TILEMAP_KEY, mode, { signal: controller.signal })
+      .then((next) => {
+        if (controller.signal.aborted) return
+        // diff:false — 일반↔위성은 source 구성이 달라 전체 교체가 안전하다(홈·상세 지도와 같은 방식).
+        map.setStyle(next, {
+          diff: false,
+          transformStyle: (previous, nextStyle) => applyLifeMapStyle(nextStyle as unknown as StyleLike, mode, previous as unknown as StyleLike) as unknown as StyleSpecification,
+        })
+      })
+      .catch(() => { if (!controller.signal.aborted) shownMode.current = before })
+    return () => controller.abort()
   }, [mode, ready])
 
   useEffect(() => {

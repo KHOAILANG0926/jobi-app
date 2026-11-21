@@ -9,7 +9,7 @@ import type { HomeMapMarker, HomeMapProviderProps, MapViewportSize } from './Hom
 import { calculateInitialZoom, createRadiusPolygon, radiusWithinLoadedTiles } from './homeMapGeometry'
 import { HOME_MAP_GESTURE_OPTIONS, POI_TAP_TOLERANCE_PX, applyTouchMapDefaults, isTouchDevice, withinPoiIcon } from './homeMapGestures'
 import { sanitizeVietMapError } from './vietMapError'
-import { createVietMapStyleUrl, fetchVietMapStyle, HOME_STYLE_ATTEMPTS_MS, type VietMapStyleKind } from './vietMapStyle'
+import { HOME_STYLE_ATTEMPTS_MS, loadVietMapStyle, type VietMapStyleKind } from './vietMapStyle'
 import { BUILDING_CLICK_LAYERS, applyLifeMapStyle, type StyleLike } from './lifeMapStyle'
 import { pointInPolygon, poisInsideBuilding, polygonCenter, type LngLat, type PickedPlace, type PolygonRings } from '../../../lib/mapPlace'
 import { clusterBounds, planHomeMapMarkers, type MarkerPlanItem } from './homeMapClusters'
@@ -296,14 +296,35 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     ;(map.getSource(NEARBY_SOURCE) as GeoJSONSource | undefined)?.setData(points as GeoJSON.FeatureCollection)
   }
 
+  // 일반↔위성 교체: 우리 쪽 style 사본 먼저 받은 객체로 교체한다(loadVietMapStyle — 지도 라이브러리가 원본 주소를 직접 받다 멈추지 않게).
+  // 받기 실패는 예전 지도 오류(reportFailure)와 같게: 위성이면 일반지도로 되돌리고, 일반지도면 지도 실패로 넘긴다.
+  const styleRequestRef = useRef<AbortController | null>(null)
   const loadStyle = (kind: VietMapStyleKind) => {
     const map = mapRef.current
     if (!map) return
-    // diff:false — 일반↔위성은 source 구성이 달라 전체 교체가 안전하고 style.load가 확실히 발생한다.
-    map.setStyle(createVietMapStyleUrl(apiKey, kind), {
-      diff: false,
-      transformStyle: (previous, next) => applyLifeMapStyle(next as unknown as StyleLike, kind, previous as unknown as StyleLike) as unknown as StyleSpecification,
-    })
+    styleRequestRef.current?.abort()
+    const controller = new AbortController()
+    styleRequestRef.current = controller
+    loadVietMapStyle<StyleSpecification>(apiKey, kind, { signal: controller.signal, attemptTimeoutsMs: HOME_STYLE_ATTEMPTS_MS })
+      .then((next) => {
+        if (controller.signal.aborted || mapRef.current !== map) return
+        // diff:false — 일반↔위성은 source 구성이 달라 전체 교체가 안전하고 style.load가 확실히 발생한다.
+        map.setStyle(next, {
+          diff: false,
+          transformStyle: (previous, nextStyle) => applyLifeMapStyle(nextStyle as unknown as StyleLike, kind, previous as unknown as StyleLike) as unknown as StyleSpecification,
+        })
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || mapRef.current !== map || failedRef.current) return
+        console.warn(`[home-map] VIETMAP ${kind} style load error: ${sanitizeVietMapError(error instanceof Error ? error.message : 'unknown')}`)
+        if (kind === 'satellite') {
+          setMode('street')
+          propsRef.current.onMapModeChange?.('street')
+          return
+        }
+        failedRef.current = true
+        propsRef.current.onFailure('render-error')
+      })
   }
 
   useEffect(() => {
@@ -312,16 +333,14 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     let map: VietMap | null = null
     let teardown: (() => void) | null = null
     const controller = new AbortController()
-    let styleUrl: string
-    try {
-      styleUrl = createVietMapStyleUrl(apiKey, 'street')
-    } catch {
+    if (!apiKey.trim()) {
       propsRef.current.onFailure('initialization-error')
       return
     }
 
     // 공식 style JSON을 먼저 받아 생활지도 변환 후 지도를 만든다(빈 style → 교체 과정 없음).
-    fetchVietMapStyle<StyleSpecification>(styleUrl, { signal: controller.signal, attemptTimeoutsMs: HOME_STYLE_ATTEMPTS_MS })
+    // 우리 쪽 style 사본 먼저, 없거나 실패할 때만 VietMap 원본(5·6초 재시도 그대로 — 12초 예비 지도 제한).
+    loadVietMapStyle<StyleSpecification>(apiKey, 'street', { signal: controller.signal, attemptTimeoutsMs: HOME_STYLE_ATTEMPTS_MS })
       .then((official) => {
         if (controller.signal.aborted) return
         const initial = propsRef.current
@@ -353,6 +372,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
 
     return () => {
       controller.abort()
+      styleRequestRef.current?.abort()
       teardown?.()
       map = null
     }
