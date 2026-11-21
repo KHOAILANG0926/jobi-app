@@ -1,3 +1,10 @@
+## 2026-11-21 — VietMap 지도 스타일 사본 먼저(메인·상세·관리자), 배포 빌드 때 사본 갱신 (#950, #946 MAP-1)
+- 요청(Lee 11-21): style.json 멈춤은 실제 사용자 화면 문제 — 대기 시간을 더 늘리지 않고(같은 종류 두 번째), 약관 확인 뒤 사본을 우리 쪽에서 제공, 사본 없거나 실패할 때만 원본. 갱신은 기존 예약 작업에, 새 워크플로 없음. 검사 기준 그대로, deploy-verify 통과가 완료.
+- 약관 [직접 확인]: VietMap 개발 문서 map-api overview "You may implement caching or response filtering as appropriate."(베트남어판 같은 뜻). 금지 조항 못 찾음(사이트 '약관' 링크는 개인정보 정책뿐).
+- 변경: vietMapStyle.loadVietMapStyle(사본 4초 1번 → 실패·형식 오류면 원본, 기존 재시도 그대로)·stripStyleKey·withStyleKey 한 곳 — 메인·상세·관리자 처음 지도와 일반↔위성 교체 모두 사용. 사본 public/vietmap/styles/{tm,hm}.json(열쇠 값 비움 — 원본에서 열쇠는 타일 주소에만). scripts/ops/vietmap-style-copy.mjs를 vercel-deploy 빌드 직전에 실행(못 받으면 저장소 사본 그대로). map-summary-check는 사본 요청도 증거에 기록(판정 그대로).
+- 검증 [직접 확인]: 운영 deploy-verify 44886908964 실패 2번(상세 sb-5876 지도 실패 / 재실행은 메인 핀 화면 밖 — 여기서 재현하니 메인 style 5·6초 두 번 멈춤 → 예비 지도). 같은 순서 20번: 운영(옛 코드) 실패 7·원본 요청 멈춤 17 → 새 코드(로컬 빌드) 실패 0·사본 20·원본 0. tsc·npm test 124/124·build 통과.
+- 남은 것: PR 병합(Lee Approve) → 배포 → deploy-verify 통과로 #950 잠금 풀림 확인. 사본 갱신은 배포할 때만(배포가 없으면 갱신도 없음) — 타일 판 번호가 바뀌어도 옛 판이 계속 제공되는지는 미확인(hm은 2026-01 판 사용 중).
+
 ## 2026-11-21 — #808 S1~S8 마감: 독립 검토·4대 보고를 병합 조건에서 뺌, 병합 뒤 검사 2개 추가, PR 본문 형식 F12, MAP-1 지도 스타일 대기, ai-review 검사 삭제
 - 요청(Lee 11-21): 공고 자동 수집→검증→공개에 필요한 것만 끝내고 #808 닫기. 결정 1 대안 거절 뒤 "최신 상태 요구 안 씀", 결정 2 독립 검토 선택화(11-14 결정 7①·#807 게이트 (3) 변경), 3 MAP-1 원인만, 4 vieclam24h 1건, 5 기록.
 - 변경: approval-checks ai-review = neutral「필수 아님, 검토 안 함」·4대 보고 분기 삭제 / decision-approval-gate 4대 보고(highRiskReport 등) 삭제 / bot-pr-automerge 검토 대기·검토관 자동 호출 삭제, 병합 뒤 호출 목록에 ai-reader-calibration·job-ocr-check / merge-gate-ready.jq = approval-gate만 / check-pr-ready READY 줄 뒤 설명 허용·칸 경계 / vietMapStyle 상세·관리자 지도 스타일 대기 5·6초→15·20초(메인은 12초 예비지도 제한 안이라 5·6초 유지 — 검토관 지적 1, 시험으로 묶음) / map-summary-check 실패 증거 저장 / 안 쓰게 된 codexGate·needsSecondReview 삭제(검토관 지적 3) / BLOCKED·MERGED 줄도 같은 기준(지적 2) / CLAUDE.md·RULES_CORE.md·AGENTS.md·claude-auto 주석.
@@ -73,9 +80,3 @@
 - 변경: 시험 수집(DB 없음)에서 버튼을 못 찾으면 ① 아래까지 천천히 내린 뒤 같은 버튼 찾기 다시(늦게 그려지는 칸) ② 모바일 화면(390px, 앞 2건) 같은 확인 ③ 누를 수 있는 연락·지원 요소 글자(숫자 가림, vieclam24h Hotline 제외)·tel 링크 수 기록. 누르는 방식은 기존 reveal_employer_phone 그대로(눌러서 새로 보인 번호만). 숨긴 페이지 자료는 쓰지 않음.
 - 검증 [직접 확인 로컬]: test_detail_section_parser_dom 11/11(내린 뒤 그려지는 버튼 클릭 사례 추가)·job_error_isolation·scheduled_cli·ingest_gateway·cli_safety.
 - 남은 문제: VPS 시험 수집으로 실제 버튼 글자·위치·로그인 조건 확인.
-
-## 2026-11-18 — vieclam24h 연락처: 공고 본문에 고용주가 적은 번호만 쓴다 (Lee 최종 지시 14:36)
-- 근거 [직접 확인]: 화면에서 숨긴 번호(jobDetailHiddenContact)는 담당자 개인 번호·이메일 — 개인정보보호법(91/2025/QH15, 2026-01-01 시행)상 공개(công khai)도 처리이며 목적 밖 공개 허용 근거를 확인 못 함 → 공개 안 함(있음/없음 기록만).
-- 변경: 시험 수집(DB 없음) detailPhone = 공고 본문 칸(Mô tả·Yêu cầu·Quyền lợi)에 적힌 번호(description_text)만. 칸을 못 찾아 화면 전체 글로 대신한 경우(sectionsFallback)는 고객센터 번호가 섞여 안 씀. 페이지 자료 번호는 진단 줄만.
-- 검증 [직접 확인 로컬]: test_detail_section_parser_dom(본문·없음·화면 전체 3사례)·job_error_isolation·scheduled_cli·ingest_gateway·cli_safety 통과.
-- 남은 문제: 본문에 번호가 적힌 실제 공고 1건 찾기 → keep_for_save → publish_one → 운영 상세 PC·모바일 확인.

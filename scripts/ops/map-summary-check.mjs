@@ -59,7 +59,7 @@ const errors=[]
 page.on('pageerror',e=>errors.push(e.message))
 // MAP-1 증거(#946): 지도 스타일 파일 요청의 실제 응답(상태·걸린 시간·주소)을 남긴다. 판정 기준은 바꾸지 않는다. 열쇠(apikey)는 가린다.
 const styleRequests=[]
-const isStyle=u=>/maps\.vietmap\.vn\/.*style\.json/.test(u)
+const isStyle=u=>/maps\.vietmap\.vn\/.*style\.json|\/vietmap\/styles\/[a-z]+\.json/.test(u)  // 원본 + 우리 쪽 사본(11-21)
 const masked=u=>u.replace(/apikey=[^&]+/,'apikey=***')
 page.on('requestfinished',async r=>{ if(!isStyle(r.url()))return; const res=await r.response().catch(()=>null); const t=r.timing(); styleRequests.push({at:new Date().toISOString(),page:page.url(),url:masked(r.url()),status:res?.status()??null,ms:t.responseEnd>=0?Math.round(t.responseEnd):null}) })
 page.on('requestfailed',r=>{ if(isStyle(r.url()))styleRequests.push({at:new Date().toISOString(),page:page.url(),url:masked(r.url()),status:null,failure:r.failure()?.errorText??'failed'}) })

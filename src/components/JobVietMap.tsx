@@ -20,7 +20,7 @@ function pushPinElement(kind?: string): HTMLElement {
 import '@vietmap/vietmap-gl-js/dist/vietmap-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { applyLifeMapStyle, type StyleLike } from './home/map/lifeMapStyle'
-import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from './home/map/vietMapStyle'
+import { loadVietMapStyle, type VietMapStyleKind } from './home/map/vietMapStyle'
 import { HOME_MAP_GESTURE_OPTIONS, applyTouchMapDefaults, isTouchDevice } from './home/map/homeMapGestures'
 import { INDUSTRIAL_PARK_OUTLINES } from '../data/industrialParkOutlines'
 
@@ -116,7 +116,8 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkR
     const controller = new AbortController()
     let map: VietMap | null = null
     let resizeObserver: ResizeObserver | null = null
-    fetchVietMapStyle<StyleSpecification>(createVietMapStyleUrl(TILEMAP_KEY, 'street'), { signal: controller.signal })
+    // 우리 쪽 style 사본 먼저, 없거나 실패할 때만 VietMap 원본(vietMapStyle.loadVietMapStyle — 메인·관리자 지도와 같은 함수).
+    loadVietMapStyle<StyleSpecification>(TILEMAP_KEY, 'street', { signal: controller.signal })
       .then((official) => {
         if (controller.signal.aborted) return
         map = new vietmapgl.Map({
@@ -164,12 +165,21 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkR
   useEffect(() => {
     const map = mapRef.current
     if (!map || shownMode.current === mode) return
+    const before = shownMode.current
     shownMode.current = mode
-    // diff:false — 일반↔위성은 source 구성이 달라 전체 교체가 안전하다(홈 지도와 같은 방식).
-    map.setStyle(createVietMapStyleUrl(TILEMAP_KEY, mode), {
-      diff: false,
-      transformStyle: (previous, next) => applyLifeMapStyle(next as unknown as StyleLike, mode, previous as unknown as StyleLike) as unknown as StyleSpecification,
-    })
+    const controller = new AbortController()
+    // 사본 먼저 받은 style 객체로 교체(지도 라이브러리가 원본 주소를 직접 받다 멈추지 않게). 실패하면 지금 지도 그대로, 다음 누름에서 다시.
+    loadVietMapStyle<StyleSpecification>(TILEMAP_KEY, mode, { signal: controller.signal })
+      .then((next) => {
+        if (controller.signal.aborted) return
+        // diff:false — 일반↔위성은 source 구성이 달라 전체 교체가 안전하다(홈 지도와 같은 방식).
+        map.setStyle(next, {
+          diff: false,
+          transformStyle: (previous, nextStyle) => applyLifeMapStyle(nextStyle as unknown as StyleLike, mode, previous as unknown as StyleLike) as unknown as StyleSpecification,
+        })
+      })
+      .catch(() => { if (!controller.signal.aborted) shownMode.current = before })
+    return () => controller.abort()
   }, [mode])
 
   if (!TILEMAP_KEY || failed) {
