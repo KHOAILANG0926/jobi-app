@@ -23,6 +23,8 @@ concurrency:
 jobs:
   run:
     environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
+    # S4(#822 같은 방식): VPS(self-hosted) 실행기에서 도는 잡 — 다른 브랜치에서 수동 실행하면 그 브랜치 코드가 VPS에서 실행되므로 master 코드로만 돈다(ops-keys 환경 보호는 그대로).
+    if: github.ref == 'refs/heads/master'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 180
     env:

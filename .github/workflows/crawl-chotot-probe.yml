@@ -14,6 +14,8 @@ concurrency:
 
 jobs:
   probe:
+    # S4(#822 같은 방식): 이 작업은 VPS(self-hosted) 실행기에서 돈다 — 다른 브랜치에서 수동 실행하면 그 브랜치 코드가 VPS에서 실행되므로 master 코드로만 돈다.
+    if: github.ref == 'refs/heads/master'
     # 베트남 IP(AZDIGI VPS)에서 실제 수집과 같은 조건으로 확인.
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 10
