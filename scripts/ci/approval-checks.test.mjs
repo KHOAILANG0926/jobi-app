@@ -1,6 +1,6 @@
-// S4 8단계 시험: ai-review·approval-gate 판정(순수 함수) — 일반 통과 / 고위험·판단 불가 차단 / 4대 보고·Lee 승인 / 검토 미완료
+// S4 8단계 시험: ai-review·approval-gate 판정(순수 함수) — 일반 통과 / 고위험·판단 불가 차단 / Lee 승인. 독립 검토·4대 보고는 병합 조건 아님(Lee 2026-11-21)
 import assert from 'node:assert/strict'
-import { verdicts, CHECK_REVIEW, CHECK_APPROVAL } from './approval-checks.mjs'
+import { verdicts, CHECK_REVIEW, CHECK_APPROVAL, REVIEW_NOT_REQUIRED } from './approval-checks.mjs'
 import { readFileSync } from 'node:fs'
 const sha = 'a'.repeat(40), repo = 'KHOAILANG0926/jobi-app'
 const headDate = '2026-11-15T10:00:00Z', later = new Date('2026-11-15T10:30:00Z')
@@ -11,28 +11,22 @@ const leeOk = [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id:
 const framePaths = ['src/pages/JobDetail.tsx']
 const v = (o) => verdicts({ files: [f('src/a.ts')], reviews: [], reviewComments: [], comments: claudeOk, labels: [], deps: {}, sha, headDate, body: '', author: 'viecganban-bot', repo, framePaths, now: later, ...o })
 assert.equal(CHECK_REVIEW, 'ai-review'); assert.equal(CHECK_APPROVAL, 'approval-gate')
-// ① 일반 PR: 검토 통과 + 승인 불필요 → 둘 다 success(Lee 개입 없음)
-{ const r = v({}); assert.equal(r.review.state, 'success'); assert.equal(r.approval.state, 'success'); assert.match(r.approval.summary, /Lee 승인 불필요/) }
-// 독립 검토 미완료(검토관 결과 없음·요청 전) → pending(필수 검사가 통과하지 않음)
-assert.equal(v({ comments: [] }).review.state, 'pending', '검토 결과 없음 → 대기')
-// 검토관 지적에 답 없음 → pending
-{ const c = [{ user: { login: 'claude[bot]' }, body: `<!-- claude-fallback-review -->\nsha: ${sha}\nfindings: 2\n\nx`, created_at: '2026-11-15T10:05:00Z' }]; assert.equal(v({ comments: c }).review.state, 'pending', '지적에 답 없음 → 대기') }
-// 다른 커밋의 검토 결과는 인정 안 함
-assert.equal(v({ comments: [{ ...claudeOk[0], body: claudeOk[0].body.replace(sha, 'b'.repeat(40)) }] }).review.state, 'pending', '옛 커밋 검토는 무효')
-// AI가 아닌 계정이 단 검토 결과 흉내는 인정 안 함
-assert.equal(v({ comments: [{ ...claudeOk[0], user: { login: 'someone' } }] }).review.state, 'pending', '다른 계정의 표시 댓글 무효')
+// ① 일반 PR: 승인 불필요 → approval-gate success. ai-review는 검토 여부와 상관없이 항상 neutral "필수 아님, 검토 안 함"(가짜 성공 아님)
+{ const r = v({}); assert.equal(r.review.state, 'neutral'); assert.equal(r.review.summary, REVIEW_NOT_REQUIRED); assert.match(r.review.summary, /필수 아님, 검토 안 함/); assert.equal(r.approval.state, 'success'); assert.match(r.approval.summary, /Lee 승인 불필요/) }
+for (const comments of [[], [{ user: { login: 'claude[bot]' }, body: `<!-- claude-fallback-review -->\nsha: ${sha}\nfindings: 2\n\nx`, created_at: '2026-11-15T10:05:00Z' }]])
+  assert.equal(v({ comments }).review.state, 'neutral', '검토 결과가 없거나 지적이 있어도 ai-review는 병합을 막지 않음(neutral)')
 // ② 고위험(검사 장치 변경): 승인·보고 전 차단 → 보고만 있으면 Lee 대기 → Lee Approve 뒤 통과
 { const files = [f('.github/workflows/x.yml')]
-  assert.equal(v({ files }).approval.state, 'failure', '보고 없음 → 실패'); assert.match(v({ files }).approval.summary, /4대 보고/)
-  assert.equal(v({ files, body }).approval.state, 'blocked', '보고 있음·Lee 승인 없음 → 대기(action_required)')
-  assert.equal(v({ files, body, reviews: leeOk }).approval.state, 'success', '보고 + Lee Approve → 통과')
-  assert.equal(v({ files, body: '', reviews: leeOk }).approval.state, 'failure', 'Approve만 있고 보고 없음 → 실패')
+  assert.equal(v({ files }).approval.state, 'blocked', '본문 보고 없어도 Lee 승인 없음 → 대기(action_required) — 4대 보고 강제 폐지(11-21)'); assert.doesNotMatch(v({ files }).approval.summary, /4대 보고/)
+  assert.equal(v({ files, body }).approval.state, 'blocked', 'Lee 승인 없음 → 대기(action_required)')
+  assert.equal(v({ files, body, reviews: leeOk }).approval.state, 'success', 'Lee Approve → 통과')
+  assert.equal(v({ files, body: '', reviews: leeOk }).approval.state, 'success', '보고 없이 Approve만 있어도 통과(11-21)')
   assert.equal(v({ files, body, reviews: [{ ...leeOk[0], commit_id: 'c'.repeat(40) }] }).approval.state, 'blocked', '옛 커밋 Approve → 대기')
   assert.equal(v({ files, body, reviews: [{ ...leeOk[0], user: { login: 'claude[bot]' } }] }).approval.state, 'blocked', '봇 Approve → 대기') }
 // 판단 불가(새 최상위 폴더·patch 없음·파일 목록 비어 있음) = 고위험 취급
 assert.equal(v({ files: [f('newdir/x.js')], body }).approval.state, 'blocked', '모르는 경로 → 대기')
 assert.equal(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body }).approval.state, 'blocked', '코드 patch 없음 → 대기')
-assert.equal(v({ files: [] }).approval.state, 'failure', '파일 목록 비어 있음 → 보고 없음 실패')
+assert.equal(v({ files: [] }).approval.state, 'blocked', '파일 목록 비어 있음 → 판단 불가 → Lee 승인 대기(닫힌 실패)')
 // 분석 오류도 닫힌 실패: 입력이 깨져도 success가 되지 않는다
 assert.notEqual(verdicts({ files: null, reviews: [], reviewComments: [], comments: [], labels: [], sha, headDate, body, author: 'x', repo, framePaths }).approval?.state, 'success')
 // 워크플로가 PR 코드를 받거나 실행하지 않음, 필요한 권한만
@@ -45,7 +39,7 @@ assert.ok(!/head\.sha|head\.ref|pull\/\$\{\{/.test(yml.replace(/^#.*$/gm, '')), 
   const live = yml.replace(/^\s*#.*$/gm, '')
   assert.match(live, /^    environment: ops-keys$/m, '앱 열쇠는 기존 운영 열쇠 환경(ops-keys, master만)에서만')
   assert.deepEqual(live.match(/permission-[a-z-]+: \w+/g), ['permission-checks: write'], '검사 전용 앱 토큰은 Checks 쓰기 하나만 요청') }
-console.log('approval-checks 시험 통과(일반·고위험·판단 불가·검토 미완료·보고·Lee 승인)')
+console.log('approval-checks 시험 통과(일반·고위험·판단 불가·ai-review neutral·Lee 승인)')
 // 검토 지적: PR 브랜치 사본이 도는 pull_request_review 트리거는 두지 않는다(주석 제외한 실제 트리거만 본다). Lee 승인 직후 재검사는 review-signal.yml → workflow_run 한 경로(검토관 지적 62aa013: 봇의 중복 수동 실행 단계는 지움).
 { const live = yml.replace(/^\s*#.*$/gm, '')
   assert.ok(!/pull_request_review/.test(live), 'approval-checks.yml에 pull_request_review 트리거 없음')

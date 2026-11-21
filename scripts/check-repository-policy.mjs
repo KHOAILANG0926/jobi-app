@@ -12,16 +12,12 @@ const PROTECTED = [/^STATUS\.md$/, /^scripts\/status\//]
 // migration은 아래 DESTRUCTIVE_SQL이 들어 있을 때만 막는다(새 표·함수·트리거 추가는 통과).
 const DESTRUCTIVE_SQL = /^\+(?!\s*--).*\b(?:drop\s+(?:table|column|schema|policy)|truncate\b|delete\s+from\b|alter\s+table\b[^;]*\bdrop\b)/im
 // S1(Lee 2026-11-20 확정): STRICT 경로라는 이유만으로 이 검사를 실패시키지 않는다. STRICT 목록(STRICT_PATHS)은 decision-approval-gate.mjs 한 곳에 있고,
-// approval-gate가 그 경로를 대표 공식 Approve + 4대 보고 대상으로 판정한다. 여기서는 '두 번째 독립 검토가 꼭 필요한 파일'(needsSecondReview) 판정에만 쓴다.
+// approval-gate가 그 경로를 대표 공식 Approve 대상으로 판정한다(4대 보고 강제·두 번째 독립 검토 강제는 Lee 2026-11-21 폐지 — needsSecondReview 지움).
 // 비밀값 파일·파괴적 DB·STATUS 보호·원문 URL 노출 검사는 그대로.
 const SECRETS = [
   /(^|\/)\.env(?:\..+)?$/i, /\.(?:pem|p12|pfx|key)$/i,
   /(^|\/)(?:credentials|secrets)\.json$/i,
 ]
-// Codex 검사 없이 병합하면 안 되는 파일(Lee 2026-11-09, codex-review-gate.mjs): 위 보호·STRICT·비밀 목록 + DB migration·자동화·운영 SQL.
-export const needsSecondReview = (path) => [...PROTECTED, ...STRICT_PATHS, ...SECRETS,
-  /^supabase\/migrations\//, /^\.github\/workflows\//, /^scripts\/ops\/jobs\/.*\.sql$/,
-  /^scripts\/(?:codex-review-gate|check-repository-policy|decision-approval-gate|approved-migrations)\.mjs$/, /^scripts\/ci\/ai-reader-guard\.mjs$/].some((re) => re.test(path))
 // #728 S2 정답 보호: 정답 파일(사례 원문·기대값)의 기존 줄을 바꾸거나 지우려면 PR 설명에 `기대값 변경 근거:`(결정 번호·Lee 결정 날짜·원문 인용)가 있어야 한다.
 // 출처 없이 정답을 고치면 시험이 '맞는 값'이 아니라 '지금 코드가 내는 값'을 굳힌다. 줄 추가는 자유.
 // 보호 대상 = 원문→값·칸·업종·위치·사진을 판정하는 '의미 정답' 시험과 사례 자료(src/lib 시험 85개 중 이름 목록, 화면·저장소·지도 조작 같은 인프라 시험은 제외).

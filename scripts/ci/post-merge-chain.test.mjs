@@ -10,7 +10,7 @@ import { join, resolve } from 'node:path'
 
 const ROOT = resolve(new URL('../..', import.meta.url).pathname)
 const PIN = 'administrative-pin-check', DV = 'deploy-verify', HUB = 'vercel-deploy', BOT = 'bot-pr-automerge'
-const TARGETS = ['job-rules-apply', 'occupation-r8-apply', 'jobcard-integrity'] // 봇 병합기가 병합 뒤 경로를 보고 부르는 검사들
+const TARGETS = ['job-rules-apply', 'occupation-r8-apply', 'jobcard-integrity', 'ai-reader-calibration', 'job-ocr-check'] // 봇 병합기가 병합 뒤 경로를 보고 부르는 검사들(뒤 2개 Lee 2026-11-21 추가)
 const SHA = 'a'.repeat(40), TITLE = (s) => `행정구역 핀 검사 ${s}`
 const SINCE = '2026-11-19T01:00:00Z', OLD = (i) => `2026-11-19T00:0${i}:00Z`, NEW = '2026-11-19T02:00:00Z' // since 이전 = 이전 실행, 이후 = 이번 vercel-deploy가 부른 실행
 const NAMES = [HUB, DV, PIN, BOT, ...TARGETS]
@@ -32,7 +32,7 @@ const evalExpr = (src, ctx) => {
 }
 const interp = (s, ctx) => String(s ?? '').replace(/\$\{\{([\s\S]*?)\}\}/g, (_, e) => String(evalExpr(e, ctx)))
 
-// 봇 병합기가 읽는 대상 3개의 실제 YAML 구조: push는 branches에 master가 있고 paths는 지원하는 패턴만 담은 목록이어야 한다. 병합기의 awk 읽기 결과는 PyYAML 결과와 같아야 한다.
+// 봇 병합기가 읽는 대상 5개의 실제 YAML 구조: push는 branches에 master가 있고 paths는 지원하는 패턴만 담은 목록이어야 한다. 병합기의 awk 읽기 결과는 PyYAML 결과와 같아야 한다.
 export function checkTargets(W) {
   const prog = /pats=\$\(awk '([^']+)'/.exec(botRun(W))?.[1]; assert.ok(prog, '봇 병합기에서 paths 읽기(awk)를 찾지 못함')
   for (const n of TARGETS) {
@@ -245,7 +245,7 @@ export function runBotBlock(W, files, { yml = (t) => t, ghFail = '' } = {}) {
   assert.ok(/if \[ -s dispatch-fail\.txt \]; then[^\n]*exit 1; fi\s*$/.test(run.trim()), '봇 병합기 맨 끝에서 dispatch-fail.txt를 확인해 실패로 끝내야 함')
   const block = /^( *)jq -r '\.\[\]\.filename' files\.json > changed\.txt\n[\s\S]*?^\1done$/m.exec(run)?.[0]; assert.ok(block, '후속 검사 호출 블록을 찾지 못함')
   const dir = mkdtempSync(join(tmpdir(), 'bot-block-')); mkdirSync(join(dir, 'bin')); mkdirSync(join(dir, '.github/workflows'), { recursive: true })
-  for (const n of ['job-rules-apply', 'occupation-r8-apply', 'jobcard-integrity']) writeFileSync(join(dir, `.github/workflows/${n}.yml`), n === 'jobcard-integrity' ? yml(readFileSync(join(ROOT, `.github/workflows/${n}.yml`), 'utf8')) : readFileSync(join(ROOT, `.github/workflows/${n}.yml`), 'utf8'))
+  for (const n of TARGETS) writeFileSync(join(dir, `.github/workflows/${n}.yml`), n === 'jobcard-integrity' ? yml(readFileSync(join(ROOT, `.github/workflows/${n}.yml`), 'utf8')) : readFileSync(join(ROOT, `.github/workflows/${n}.yml`), 'utf8'))
   writeFileSync(join(dir, 'files.json'), JSON.stringify(files.map((filename) => ({ filename })))); writeFileSync(join(dir, 'calls.log'), '')
   writeFileSync(join(dir, 'bin/gh'), `#!/bin/bash\necho "$*" >> "${dir}/calls.log"\n${ghFail ? `[[ "$*" == *${ghFail}* ]] && exit 1\n` : ''}exit 0\n`); chmodSync(join(dir, 'bin/gh'), 0o755)
   const r = spawnSync('bash', ['-c', `set -euo pipefail\nREPO=r\nnum=7\n: > dispatch-fail.txt\nprintf "7\\n" | while read -r _; do\n if true; then\n${block}\n fi\ndone\nif [ -s dispatch-fail.txt ]; then echo "FAIL: $(sort -u dispatch-fail.txt | tr '\\n' ' ')"; exit 1; fi\necho OK\n`], { cwd: dir, env: { PATH: `${join(dir, 'bin')}:${process.env.PATH}`, HOME: dir }, encoding: 'utf8' })
@@ -255,7 +255,9 @@ const pushOf = (body) => () => `name: x\non:\n  push:\n${body}\n`
 const paths = (...p) => `    branches: [master]\n    paths:\n${p.map((x) => `      - ${x}`).join('\n')}`
 // [이름, 바뀐 파일, jobcard-integrity.yml 변형, 기대 exit, 기대 호출 또는 출력 정규식]
 export const BOT_CASES = [
-  ['정상: 맞는 두 검사만', ['scripts/ocr/a/b.mjs', 'src/pages/Home.tsx'], null, 0, ['job-rules-apply.yml', 'jobcard-integrity.yml']],
+  ['정상: 맞는 세 검사만(scripts/ocr/**는 job-ocr-check에도 맞음)', ['scripts/ocr/a/b.mjs', 'src/pages/Home.tsx'], null, 0, ['job-rules-apply.yml', 'jobcard-integrity.yml', 'job-ocr-check.yml']],
+  ['11-21 추가 대상: AI 판독기 파일 → ai-reader-calibration·job-ocr-check도 호출', ['scripts/ocr/ai-reader.mjs'], null, 0, ['job-rules-apply.yml', 'ai-reader-calibration.yml', 'job-ocr-check.yml']],
+  ['11-21 추가 대상: 상세 채우기 코드 → job-ocr-check만', ['src/lib/jobDetailFill.ts'], null, 0, ['job-ocr-check.yml']],
   ['무관 파일: 호출 없음', ['README.md'], null, 0, []],
   ['호출 실패: 오류 기록', ['crawler/occupation_classifier.py'], null, 1, /호출 실패/, { ghFail: 'occupation-r8-apply' }],
   ['push 없음', ['README.md'], () => 'name: x\non:\n  workflow_dispatch: {}\n', 1, /paths 목록 없음/],

@@ -48,10 +48,13 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '�
   assert.match(yml, /read -r num sha branch author; do/, '작성자를 변수로 읽음')
   assert.match(yml, /decision-approval-gate\.mjs files\.json reviews\.json comments\.json "\$sha" labels\.json deps\.json "\$author"/, '작성자를 승인 판정에 넘김')
   assert.match(yml, /pulls\/\$num\/reviews\?per_page=100" --paginate --slurp/, '리뷰는 전체 쪽 조회')
-  // S4 ①: 순서 = 필수 검사 → 독립 검토 → Lee 승인 판정·요청 → 병합(검증이 덜 된 PR에 승인을 요청하지 않음)
+  // S4 ①: 순서 = 필수 검사 → Lee 승인 판정·요청 → 병합(검증이 덜 된 PR에 승인을 요청하지 않음).
+  // 독립 검토는 병합 조건이 아니다(Lee 2026-11-21) — 봇은 검토를 기다리지도 검토관을 부르지도 않는다.
   const at = (re) => { const m = yml.search(re); assert.ok(m >= 0, String(re)); return m }
-  const checksAt = at(/required-checks-pass\.jq/), reviewAt = at(/node scripts\/codex-review-gate\.mjs /), approvalAt = at(/node scripts\/decision-approval-gate\.mjs /), mergeAt = at(/pulls\/\$num\/merge"/)
-  assert.ok(checksAt < reviewAt && reviewAt < approvalAt && approvalAt < mergeAt, '필수 검사 → 독립 검토 → Lee 승인 → 병합 순서')
+  const checksAt = at(/required-checks-pass\.jq/), approvalAt = at(/node scripts\/decision-approval-gate\.mjs /), mergeAt = at(/pulls\/\$num\/merge"/)
+  assert.ok(checksAt < approvalAt && approvalAt < mergeAt, '필수 검사 → Lee 승인 → 병합 순서')
+  assert.doesNotMatch(yml, /node scripts\/codex-review-gate\.mjs /, '봇이 독립 검토를 기다리지 않음(11-21)')
+  assert.doesNotMatch(yml, /-f fallback_pr=/, '봇이 검토관을 자동으로 부르지 않음(수동만, 11-21)')
   // S4 병합 직전 실시간 승인 재검증: 병합 API 호출 바로 앞에서 리뷰·댓글·라벨·본문을 다시 받아 같은 판정기를 한 번 더 부른다
   const gateCalls = [...yml.matchAll(/node scripts\/decision-approval-gate\.mjs files\.json reviews\.json comments\.json "\$sha" labels\.json deps\.json "\$author" pr-body\.txt "\$REPO"/g)].map((m) => m.index)
   assert.equal(gateCalls.length, 2, '승인 판정기 호출 2번(첫 판정 + 병합 직전)')
@@ -132,7 +135,10 @@ console.log('decision-approval 실제 호출 경로 시험 통과(리뷰 150건�
   assert.equal(mergeable({ reviews: [lee('COMMENTED', head, 10)] }).merge, false, 'M2: 대표 의견(COMMENTED)만으로는 승인 아님')
   assert.equal(mergeable({ reviews: [{ user: { login: 'viecganban-bot' }, state: 'APPROVED', commit_id: head, submitted_at: t(10) }] }).merge, false, 'M2: 봇 승인은 대표 승인 아님')
   const r3 = mergeable({ reviews: approved, runs: [ok('ai-review'), cr('approval-gate', 'completed', 'action_required')] }); assert.equal(r3.merge, false, 'M3: approval-gate action_required면 병합 불가'); assert.deepEqual(r3.why, ['merge-gate:pending'])
-  const r4 = mergeable({ reviews: approved, runs: [cr('ai-review', 'in_progress', null), ok('approval-gate')] }); assert.equal(r4.merge, false, 'M4: ai-review 진행 중이면 병합 불가'); assert.deepEqual(r4.why, ['merge-gate:pending'])
+  // M4(Lee 2026-11-21 변경): ai-review(독립 검토)는 병합 조건이 아니다 — 진행 중·neutral·없음이어도 approval-gate가 성공이면 병합 조건 충족
+  for (const rv of [cr('ai-review', 'in_progress', null), cr('ai-review', 'completed', 'neutral'), null]) {
+    const r4 = mergeable({ reviews: approved, runs: [...(rv ? [rv] : []), ok('approval-gate')] }); assert.deepEqual([r4.merge, r4.why], [true, []], `M4: ai-review ${rv ? rv.status + '/' + rv.conclusion : '없음'}이어도 병합 조건에 영향 없음`)
+  }
   const r5 = mergeable({ reviews: [lee('APPROVED', old, 10)] }); assert.equal(r5.merge, false, 'M5: 이전 SHA 승인은 무효'); assert.deepEqual(r5.why, ['approval'])
   const r6a = mergeable({ reviews: [lee('APPROVED', head, 10), lee('DISMISSED', head, 20)] }); assert.deepEqual([r6a.merge, r6a.why], [false, ['approval']], 'M6: 최신 SHA 승인 취소(DISMISSED)면 병합 불가')
   const r6b = mergeable({ reviews: [lee('APPROVED', head, 10), lee('CHANGES_REQUESTED', head, 20)] }); assert.deepEqual([r6b.merge, r6b.why], [false, ['approval']], 'M6: 승인 뒤 변경 요청도 병합 불가')

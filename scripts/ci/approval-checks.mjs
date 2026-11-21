@@ -1,6 +1,6 @@
 // S4 8단계(Lee 2026-11-15): 병합 조건을 '검사 전용 앱(viecganban-checks)이 만든 검사 결과 2개'로 GitHub에 남긴다.
-//   ai-review      = 독립 검토(Codex 또는 Claude 검토관)가 이 커밋에 대해 끝났고 지적에 답이 있음 (codex-review-gate.mjs와 같은 판정)
-//   approval-gate  = 위험도 판정(decision-approval-gate.mjs ①~⑧) — 일반 PR이면 통과, 고위험·판단 불가는 4대 보고 + Lee 공식 Approve(최신 커밋)가 있어야 통과
+//   ai-review      = 병합 조건 아님(Lee 2026-11-21) — 검토를 하지 않으므로 neutral("필수 아님, 검토 안 함")을 사실대로 올린다. Ruleset에서 빠지면 지운다.
+//   approval-gate  = 위험도 판정(decision-approval-gate.mjs ①~⑧) — 일반 PR이면 통과, 고위험·판단 불가는 Lee 공식 Approve(최신 커밋)가 있어야 통과(4대 보고 강제는 11-21 폐지)
 // 왜 별도 앱인가: GitHub Actions 앱이 만든 검사는 PR 브랜치 워크플로가 같은 이름으로 흉내 낼 수 있다(GITHUB_TOKEN 'checks: write').
 //   검사 전용 앱 열쇠는 운영 열쇠 환경 ops-keys(master만, secret-isolation R8)에만 있어 master 사본 작업만 토큰을 만든다(2026-11-16: Claude 앱 교환은 checks 발급 불가 — run 43797922253).
 //   그래서 master 보호 규칙에서 이 두 검사를 '출처 앱 = viecganban-checks'로 필수 지정하면 PR 쪽 코드는 통과를 만들 수 없다(대표님 GitHub 설정, 코드는 설정을 바꾸지 않는다).
@@ -8,10 +8,10 @@
 // 사용: node approval-checks.mjs --repo o/r (--pr N | --all) [--dry-run]
 //       node approval-checks.mjs --merge-lock-check --repo o/r --sha S --author A --reviews reviews.json [--cache 파일]  (S1 B3: 봇 병합 직전 잠금 재확인, 종료 코드 0·3·4)
 import { decisionApproval, approvedFramePaths, leeApprovedAt } from '../decision-approval-gate.mjs'
-import { codexGate } from '../codex-review-gate.mjs'
 import { readFileSync, writeFileSync } from 'node:fs'
 
 export const CHECK_REVIEW = 'ai-review'
+export const REVIEW_NOT_REQUIRED = '필수 아님, 검토 안 함 — 독립 검토는 병합 조건이 아니다(Lee 2026-11-21). 이 검사는 검토를 하지 않는다.'
 export const CHECK_APPROVAL = 'approval-gate'
 
 /**
@@ -80,12 +80,9 @@ export async function mergeLockCli(a, opts = {}) {
 
 /** 두 검사의 판정(순수 함수). state: success | pending(진행 중) | blocked(Lee 행동 필요) | failure */
 export function verdicts({ files, reviews, reviewComments, comments, labels, deps = {}, sha, headDate, body, author, repo, framePaths, locks = [], now = new Date() }) {
-  let review
-  try {
-    const names = files.map((f) => f.filename)
-    const g = codexGate({ reviews, reviewComments, comments, sha, headDate, files: names, now })
-    review = g.ok ? { state: 'success', summary: g.reason } : g.reviewerBroken ? { state: 'failure', summary: g.reason } : { state: 'pending', summary: g.reason }
-  } catch (e) { review = { state: 'failure', summary: `독립 검토 판정 오류(닫힌 실패): ${String(e.message).slice(0, 120)}` } }
+  // ai-review: 독립 검토는 병합 조건이 아니다(Lee 2026-11-21, 11-14 결정 7①·#807 게이트 (3) 변경). 이 검사는 검토를 하지 않으므로 성공이 아니라 neutral로 사실대로 올린다.
+  // (Ruleset에서 ai-review가 빠진 것을 확인한 뒤 이 검사 자체를 지운다 — Lee 지시 순서 ①→②→③.)
+  const review = { state: 'neutral', summary: REVIEW_NOT_REQUIRED }
   let approval
   try {
     const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps, author, body, repo })
@@ -94,8 +91,7 @@ export function verdicts({ files, reviews, reviewComments, comments, labels, dep
       ? { state: 'success', summary: `${lock} — 일반 PR 자동 병합 잠금 중, Lee 승인(최신 커밋)이 있어 통과(복구 PR)` }
       : { state: 'blocked', summary: `${lock} — 일반 PR 자동 병합 잠금(S6). 풀림: 그 커밋을 포함한 master에서 deploy-verify 성공(재실행 포함)·이슈 닫기, 또는 이 PR에 Lee Approve(이 커밋)` }
     else if (!r.required) approval = { state: 'success', summary: '일반 PR(위험도 normal): Lee 승인 불필요' }
-    else if (r.approved) approval = { state: 'success', summary: `${r.risk === 'unknown' ? '위험도 판단 불가' : '고위험'}(${r.reasons.join('·')}): 4대 보고 + Lee 승인(최신 커밋) 확인` }
-    else if (!r.report.ok) approval = { state: 'failure', summary: `${r.reasons.join('·')} 대상 — PR 본문 "## 고위험 4대 보고" 부족: ${r.report.missing.join(', ')}` }
+    else if (r.approved) approval = { state: 'success', summary: `${r.risk === 'unknown' ? '위험도 판단 불가' : '고위험'}(${r.reasons.join('·')}): Lee 승인(최신 커밋) 확인` }
     else approval = { state: 'blocked', summary: `${r.reasons.join('·')} 대상 — Lee의 공식 Approve(이 커밋) 대기` }
   } catch (e) { approval = { state: 'failure', summary: `위험도 판정 오류(닫힌 실패): ${String(e.message).slice(0, 120)}` } }
   return { review, approval }
@@ -140,6 +136,7 @@ export async function publish(appTok, repo, num, sha, name, v, readTok = appTok)
   if (live.head.sha !== sha) { console.log(`PR #${num}: 판정하는 사이 새 커밋 — ${name} 올리지 않음`); return 'stale' }
   const base = { name, head_sha: sha, output: { title: `${name}: ${v.state}`, summary: v.summary.slice(0, 1000) } }
   const payload = v.state === 'success' ? { ...base, status: 'completed', conclusion: 'success' }
+    : v.state === 'neutral' ? { ...base, status: 'completed', conclusion: 'neutral' }
     : v.state === 'pending' ? { ...base, status: 'in_progress' }
       : { ...base, status: 'completed', conclusion: v.state === 'blocked' ? 'action_required' : 'failure' }
   const found = await ghFetch(appTok, `repos/${repo}/commits/${sha}/check-runs?check_name=${name}&per_page=100`)
@@ -150,7 +147,7 @@ export async function publish(appTok, repo, num, sha, name, v, readTok = appTok)
 }
 
 // 같은 커밋을 쓰는 PR이 여럿이면 검사 결과(커밋당 이름당 하나)는 공유된다 → 가장 나쁜 판정을 올린다(Codex P1: 한 PR의 승인이 다른 PR의 미승인을 덮어쓰지 않게).
-const SEVERITY = { success: 0, pending: 1, blocked: 2, failure: 3 }
+const SEVERITY = { success: 0, neutral: 0, pending: 1, blocked: 2, failure: 3 }
 export function combine(list) {
   const w = list.reduce((a, b) => (SEVERITY[b.v.state] > SEVERITY[a.v.state] ? b : a))
   return list.length === 1 ? w.v : { state: w.v.state, summary: `같은 커밋을 쓰는 PR ${list.map((x) => `#${x.num}`).join('·')} 중 가장 나쁜 판정 — #${w.num}: ${w.v.summary}` }

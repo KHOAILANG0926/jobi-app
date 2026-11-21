@@ -53,18 +53,19 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
   assert.equal(last(w.writes, 'approval-gate').state, 'action_required', '같은 SHA의 미승인 PR(#2)이 있으면 승인 대기')
   assert.match(last(w.writes, 'approval-gate').summary, /#1·#2.*#2/, '어느 PR 때문인지 적음')
   assert.ok(!w.writes.some((x) => x.name === 'approval-gate' && x.state === 'success'), 'success를 한 번도 올리지 않음')
-  // 두 PR 모두 승인·보고가 있으면 통과
+  // 두 PR 모두 Lee 승인이 있으면 통과
   const w2 = world({ prs: [pr(1), pr(2)], reviews: { 1: [leeOk], 2: [leeOk] }, comments: { 1: [claudeOk], 2: [claudeOk] } })
   await main(['--repo', repo, '--pr', '1'], opts)
   assert.equal(last(w2.writes, 'approval-gate').state, 'success')
-  // 한쪽만 4대 보고가 없으면 failure(가장 나쁜 쪽)
+  // 4대 보고 강제 폐지(Lee 2026-11-21): 한쪽 본문이 비어도 둘 다 Lee 승인이면 통과
   const w3 = world({ prs: [pr(1), pr(2, { body: '' })], reviews: { 1: [leeOk], 2: [leeOk] }, comments: { 1: [claudeOk], 2: [claudeOk] } })
   await main(['--repo', repo, '--pr', '2'], opts)
-  assert.equal(last(w3.writes, 'approval-gate').state, 'failure', '보고 없는 PR이 섞이면 실패')
-  // 검토 결과가 한쪽 PR에만 있어도(다른 PR은 없음) ai-review는 success가 아님
+  assert.equal(last(w3.writes, 'approval-gate').state, 'success', '본문 보고 없어도 Lee 승인이면 통과(11-21)')
+  // ai-review는 검토 유무와 상관없이 neutral(필수 아님, 검토 안 함) — 가짜 success를 올리지 않는다
   const w4 = world({ prs: [pr(1), pr(2)], reviews: { 1: [leeOk], 2: [leeOk] }, comments: { 1: [claudeOk], 2: [] } })
   await main(['--repo', repo, '--pr', '1'], opts)
-  assert.notEqual(last(w4.writes, 'ai-review').state, 'success', '독립 검토가 없는 PR이 섞이면 success 아님')
+  assert.equal(last(w4.writes, 'ai-review').state, 'neutral', 'ai-review는 neutral(병합 조건 아님)')
+  assert.match(last(w4.writes, 'ai-review').summary, /필수 아님, 검토 안 함/)
 }
 
 // ② 수집 실패: 이미 success였던 두 검사가 pending으로 내려가고 마지막은 failure — success로 남지 않는다
@@ -81,21 +82,22 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
   // 정상이면 pending → success 로 돌아온다
   const ok = world({ prs: [pr(1, { body: 'x' })], reviews: { 1: [] }, comments: { 1: [claudeOk] } })
   await main(['--repo', repo, '--pr', '1'], opts)
-  assert.equal(ok.writes.filter((x) => x.name === 'ai-review')[0].state, 'in_progress'); assert.equal(last(ok.writes, 'ai-review').state, 'success')
+  assert.equal(ok.writes.filter((x) => x.name === 'ai-review')[0].state, 'in_progress'); assert.equal(last(ok.writes, 'ai-review').state, 'neutral')
 }
-// ③ 동시 실행 순서 뒤바뀜(Codex P1): 오래된 실행 A가 자료를 모은 뒤 멈춰 있는 동안, 새 지적을 본 실행 B가 먼저 끝난다. A가 나중에 끝나도 최신 판정(대기)을 success로 덮으면 안 된다.
+// ③ 동시 실행 순서 뒤바뀜(Codex P1): 오래된 실행 A가 자료를 모은 뒤 멈춰 있는 동안, 새 상태를 본 실행 B가 먼저 끝난다. A가 나중에 끝나도 최신 판정(대기)을 success로 덮으면 안 된다.
+//    (11-21: ai-review는 항상 neutral이라 approval-gate로 본다 — A는 Lee 승인이 있던 옛 자료, B는 승인 뒤 변경 요청을 본다)
 {
   let startedA, releaseA; const started = new Promise((r) => (startedA = r)), release = new Promise((r) => (releaseA = r))
-  const comments = { 1: [claudeOk] }
-  const w = world({ prs: [pr(1, { body: 'x' })], reviews: { 1: [] }, comments, gate: { used: false, started: startedA, release } })
-  const runA = main(['--repo', repo, '--pr', '1'], opts)          // A: 지적 없는 옛 자료를 쥐고 멈춤
+  const reviews = { 1: [leeOk] }
+  const w = world({ prs: [pr(1, { body: 'x' })], reviews, comments: { 1: [] }, gate: { used: false, started: startedA, release } })
+  const runA = main(['--repo', repo, '--pr', '1'], opts)          // A: 승인이 있던 옛 자료를 쥐고 멈춤
   await started
-  comments[1] = [claudeOk, { user: { login: 'claude[bot]' }, body: `<!-- claude-fallback-review -->\nsha: ${sha}\nfindings: 2\n\n지적`, created_at: '2026-11-15T10:30:00Z' }]
-  await main(['--repo', repo, '--pr', '1'], opts)                 // B: 새 지적을 보고 끝까지 실행
-  assert.equal(last(w.writes, 'ai-review').state, 'in_progress', 'B 뒤: 지적에 답이 없어 대기')
+  reviews[1] = [leeOk, { ...leeOk, state: 'CHANGES_REQUESTED', submitted_at: '2026-11-15T10:40:00Z' }]
+  await main(['--repo', repo, '--pr', '1'], opts)                 // B: 변경 요청을 보고 끝까지 실행
+  assert.equal(last(w.writes, 'approval-gate').state, 'action_required', 'B 뒤: 승인 뒤 변경 요청 → 대기')
   releaseA(); await runA                                          // A가 뒤늦게 끝남
-  assert.notEqual(last(w.writes, 'ai-review').state, 'success', '오래된 실행이 늦게 끝나도 최신 판정을 success로 덮지 못함')
-  assert.equal(last(w.writes, 'ai-review').state, 'in_progress', '마지막 판정은 대기(실패 판정 유지)')
+  assert.notEqual(last(w.writes, 'approval-gate').state, 'success', '오래된 실행이 늦게 끝나도 최신 판정을 success로 덮지 못함')
+  assert.equal(last(w.writes, 'approval-gate').state, 'action_required', '마지막 판정은 대기 유지')
 }
 // 워크플로: 모든 실행이 한 동시성 그룹에서 직렬로 돌고 매 실행이 열린 PR 전체를 다시 판정
 { const { readFileSync } = await import('node:fs'); const yml = readFileSync(new URL('../../.github/workflows/approval-checks.yml', import.meta.url), 'utf8').replace(/^\s*#.*$/gm, '')
@@ -131,7 +133,7 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
   }
   await main(['--repo', repo, '--pr', '1'], opts)
   assert.deepEqual(outside, [], '앱 토큰으로 check-runs 밖 API 호출 없음')
-  assert.equal(last(w.writes, 'ai-review').state, 'success', '권한 밖 403 가짜에서도 검사 게시 완료')
+  assert.equal(last(w.writes, 'ai-review').state, 'neutral', '권한 밖 403 가짜에서도 검사 게시 완료')
 }
 // 검사 생성이 거절되면(403) 실행이 실패로 끝난다(닫힌 실패, 성공 표시 없음)
 {

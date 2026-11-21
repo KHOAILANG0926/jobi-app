@@ -52,8 +52,9 @@ export function checkCompletion(body, headSha, botOnlySince = () => false) {
     if (stale && !(botProofAtHead && botOnlySince(sha))) errors.push(cells[1] + ': 표의 SHA가 현재 HEAD가 아님(옛 근거)')
     if (/^(?:failure|failed|실패)$/i.test(cells[2] ?? '')) errors.push(cells[1] + ': 실패로 적힌 검사가 있으면 READY 불가')
   }
-  if (!/^- \[x\] READY FOR APPROVAL\s*$/mi.test(body) ||
-      /^- \[x\] (?:BLOCKED|MERGED)\s*$/mi.test(body))
+  // 형식만 다른 경우는 막지 않는다(Lee 2026-11-21, F12): READY 줄 뒤에 설명이 붙어도 READY 선택으로 본다. BLOCKED·MERGED도 같은 기준(뒤 설명 포함)으로 보고 함께 고르면 막는다.
+  if (!/^- \[x\] READY FOR APPROVAL\b/mi.test(body) ||
+      /^- \[x\] (?:BLOCKED|MERGED)\b/mi.test(body))
     errors.push('READY FOR APPROVAL만 선택해야 함')
   return errors
 }
@@ -148,6 +149,8 @@ export function fieldOf(body, name) {
   const out = [lines[i].replace(new RegExp(`^-\\s*${name}\\s*:\\s*`), '')]
   for (let k = i + 1; k < lines.length; k++) {
     if (/^-\s*(?:범위|변경 파일|지운 것\/합친 것|사진 처리|예외 근거|방법 변경)[^:\n]*:/.test(lines[k])) break
+    // 위 목록에 없는 다른 칸 이름 줄(예: '- 재사용한 기존 기능:')도 다음 칸이다 — 경로가 아닌 이름(/·.·백틱 없음) 뒤 쌍점(F12, Lee 2026-11-21)
+    if (/^-\s*[^\s`/.][^:/.`\n]{0,40}:(?:\s|$)/.test(lines[k])) break
     out.push(lines[k])
   }
   return out.join('\n').trim()
