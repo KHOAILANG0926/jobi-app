@@ -6,9 +6,10 @@
 //   그래서 master 보호 규칙에서 이 두 검사를 '출처 앱 = viecganban-checks'로 필수 지정하면 PR 쪽 코드는 통과를 만들 수 없다(대표님 GitHub 설정, 코드는 설정을 바꾸지 않는다).
 // 이 스크립트는 PR 코드를 받지도 실행하지도 않는다: GitHub API 데이터만 읽고 master 코드로 판정한다.
 // 사용: node approval-checks.mjs --repo o/r (--pr N | --all) [--dry-run]
+//       node approval-checks.mjs --merge-lock-check --repo o/r --sha S --author A --reviews reviews.json [--cache 파일]  (S1 B3: 봇 병합 직전 잠금 재확인, 종료 코드 0·3·4)
 import { decisionApproval, approvedFramePaths, leeApprovedAt } from '../decision-approval-gate.mjs'
 import { codexGate } from '../codex-review-gate.mjs'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 export const CHECK_REVIEW = 'ai-review'
 export const CHECK_APPROVAL = 'approval-gate'
@@ -44,6 +45,37 @@ export async function activeLocks(token, repo, compares = new Map()) {
     if (st !== 'ahead' && st !== 'identical') still.push(l)
   }
   return still
+}
+
+/** S1 B3(#808): 봇 병합 직전 운영 배포 잠금 재확인 — approval-gate 판정과 병합 사이 공백(실제 2시간 4분, #943 10:49 → 첫 반영 12:53) 보완.
+ * 새 판정이 아니라 위 activeLocks를 그대로 다시 부른다. 잠금 이슈·최신 deploy-verify 성공 기록은 부를 때마다 새로 읽고,
+ * 기억(cache)하는 것은 compare 결과(두 커밋의 포함 관계 — 바뀌지 않음)뿐이며 한 번의 봇 실행 안에서만 쓴다 → 오래된 기억으로 '잠금 없음'이 되지 않는다.
+ * 조회 실패(403·네트워크 등)는 최대 retries회만 다시 시도하고, 끝내 실패하면 'error'(병합 보류)로 돌려준다 — 실패를 '잠금 없음'으로 보지 않는다(닫힌 실패).
+ * 잠금 중 예외는 approval-gate와 같은 기준: 이 커밋에 대한 Lee의 유효한 Approve(leeApprovedAt)가 있으면 통과(복구 PR). */
+export async function mergeLockDecision({ token, repo, sha, author, reviews = [], compares = new Map(), retries = 2, waitMs = 10000, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
+  let locks, lastError, attempts = 0
+  for (let i = 0; i <= retries; i++) {
+    attempts++
+    try { locks = await activeLocks(token, repo, compares); break } catch (e) { lastError = e; if (i < retries) await sleep(waitMs) }
+  }
+  if (!locks) return { ok: false, state: 'error', attempts, summary: `운영 배포 잠금 조회 실패(${attempts}회 시도): ${String(lastError?.message ?? lastError).replace(/\s+/g, ' ').slice(0, 160)} — 병합 보류(닫힌 실패)` }  // 한 줄로(봇이 이 글을 로그 명령 줄에 넣음)
+  if (!locks.length) return { ok: true, state: 'none', attempts, summary: '운영 배포 잠금 없음' }
+  const list = locks.map((l) => `#${l.number}(${l.sha.slice(0, 7)})`).join('·')
+  if (leeApprovedAt(reviews, sha, author)) return { ok: true, state: 'lee-approved', attempts, locks, summary: `운영 배포 검증 실패 이슈 ${list} 열림 — Lee 승인(최신 커밋)이 있어 통과(복구 PR)` }
+  return { ok: false, state: 'locked', attempts, locks, summary: `운영 배포 검증 실패 이슈 ${list} 열림 — 일반 PR 자동 병합 잠금(S6): 병합 생략` }
+}
+const readCache = (file) => { try { const t = file && readFileSync(file, 'utf8').trim(); return new Map(t ? JSON.parse(t) : []) } catch { return new Map() } }
+/** CLI: --merge-lock-check --repo o/r --sha S --author A --reviews reviews.json [--cache 파일]. 종료 코드 0 통과 · 3 잠금 · 4 조회 실패(병합 보류). */
+export async function mergeLockCli(a, opts = {}) {
+  const token = process.env.GITHUB_TOKEN
+  if (!a.repo || !token || !a.sha || !a.reviews) { console.log('잠금 재확인 인자·토큰 없음 — 병합 보류(닫힌 실패)'); return 4 }
+  let reviews
+  try { reviews = JSON.parse(readFileSync(a.reviews, 'utf8')) } catch { console.log('리뷰 목록을 읽지 못함 — 병합 보류(닫힌 실패)'); return 4 }
+  const compares = readCache(a.cache)
+  const d = await mergeLockDecision({ token, repo: a.repo, sha: a.sha, author: a.author ?? '', reviews, compares, ...opts })
+  if (a.cache) { try { writeFileSync(a.cache, JSON.stringify([...compares])) } catch { /* 기억 저장 실패는 판정에 영향 없음(다음 호출이 다시 compare) */ } }
+  console.log(d.summary)
+  return d.ok ? 0 : d.state === 'locked' ? 3 : 4
 }
 
 /** 두 검사의 판정(순수 함수). state: success | pending(진행 중) | blocked(Lee 행동 필요) | failure */
@@ -137,7 +169,8 @@ export function checksAppToken() {
 
 export async function main(argv, { getAppToken = checksAppToken, framePaths: fp } = {}) {
   const a = {}
-  for (let i = 0; i < argv.length; i++) { const k = argv[i]; if (k === '--dry-run' || k === '--all') a[k.slice(2)] = true; else a[k.slice(2)] = argv[++i] }
+  for (let i = 0; i < argv.length; i++) { const k = argv[i]; if (k === '--dry-run' || k === '--all' || k === '--merge-lock-check') a[k.slice(2)] = true; else a[k.slice(2)] = argv[++i] }
+  if (a['merge-lock-check']) return mergeLockCli(a)
   const repo = a.repo, readTok = process.env.GITHUB_TOKEN
   if (!repo || !readTok || (!a.pr && !a.all)) throw new Error('사용: --repo o/r (--pr N | --all), 환경변수 GITHUB_TOKEN(읽기)')
   const framePaths = fp ?? approvedFramePaths(readFileSync(new URL('../test-desktop-baseline.mjs', import.meta.url), 'utf8'))
@@ -180,4 +213,4 @@ export async function main(argv, { getAppToken = checksAppToken, framePaths: fp 
   if (errors) throw new Error(`${errors}개 커밋 재판정 실패`)
 }
 
-if (process.argv[1]?.endsWith('approval-checks.mjs')) main(process.argv.slice(2)).catch((e) => { console.error(`::error::${e.message}`); process.exit(1) })
+if (process.argv[1]?.endsWith('approval-checks.mjs')) main(process.argv.slice(2)).then((c) => { if (typeof c === 'number' && c) process.exit(c) }).catch((e) => { console.error(`::error::${e.message}`); process.exit(1) })

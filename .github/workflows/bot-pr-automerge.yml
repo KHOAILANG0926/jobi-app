@@ -65,6 +65,7 @@ jobs:
           # S3-2(#808, Lee 2026-11-14 결정 6①·7①): 댓글 승인(LEE-APPROVE·LEE-DEMO-APPLY)과 데모 적용 시 검토 생략을 폐지했다.
           # Lee 승인은 GitHub 승인 리뷰만(decision-approval-gate.mjs), 모든 PR은 독립 검토(Codex 또는 Claude 검토관) 뒤에만 병합(codex-review-gate.mjs).
           : > codex-wait.txt
+          rm -f lock-cache.json  # S1 B3: 잠금 compare 기억은 이 실행 안에서만
           : > dispatch-fail.txt
           gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName,(.author.login // "")] | @tsv' |
           while IFS=$'\t' read -r num sha branch author; do
@@ -183,6 +184,19 @@ jobs:
               # 진행 중·승인 반영 전 옛 값이면 6분 뒤 다시(곧 바뀜, 판정은 merge-gate-ready.jq). 실패면 다시 부르지 않는다(새 커밋·댓글·예약이 봇을 부른다).
               echo "::notice::PR #$num 병합 조건 검사(ai-review·approval-gate) $gate — 병합 시도 안 함"
               [ "$gate" = pending ] && echo 6 >> codex-wait.txt
+              continue
+            fi
+            # S1 B3(#808): 병합 직전 운영 배포 잠금 재확인. approval-gate는 approval-checks가 다시 판정할 때만 잠금을 반영해
+            # 실패 이슈가 생긴 뒤에도 옛 판정이 남는 공백이 있었다(#943 10:49 → 첫 반영 12:53). 병합 API 바로 앞에서 본다(틈 최소). 같은 activeLocks를 그대로 다시 부르고(새 판정 없음),
+            # 잠금이 있으면 이 커밋에 Lee 승인이 없는 PR은 병합하지 않는다. 조회 실패는 2회까지 다시 시도한 뒤 병합 보류(닫힌 실패)·오류 기록.
+            # compare 기억(lock-cache.json)은 이 실행 안에서만 함께 쓴다 — 잠금 이슈·deploy-verify 성공 기록은 부를 때마다 새로 읽는다.
+            lock_rc=0
+            GITHUB_TOKEN="$GH_TOKEN" node scripts/ci/approval-checks.mjs --merge-lock-check --repo "$REPO" --sha "$sha" --author "$author" --reviews reviews.json --cache lock-cache.json > lock.txt || lock_rc=$?
+            if [ "$lock_rc" = 3 ]; then
+              echo "::notice::PR #$num $(cat lock.txt)"; continue
+            elif [ "$lock_rc" != 0 ]; then
+              echo "::error::PR #$num 병합 직전 운영 배포 잠금 재확인 실패(코드 $lock_rc): $(cat lock.txt)"
+              echo "- PR #$num 운영 배포 잠금 재확인 실패 — 병합 보류: $(cat lock.txt)" >> "$GITHUB_STEP_SUMMARY"
               continue
             fi
             if merge_out=$(gh api -X PUT "repos/$REPO/pulls/$num/merge" -f merge_method=squash -f sha="$sha" -f commit_title="$title (#$num)" 2>&1); then
