@@ -176,3 +176,79 @@ console.log('approval-checks main 재현 시험 통과(같은 SHA PR 오염 차�
   assert.equal(w6.compareCalls.length, 2, `잠금 이슈 2건 → 비교 2번(PR·판정 수와 무관), 실제 ${w6.compareCalls.length}`)
 }
 console.log('approval-checks main: 운영 배포 잠금 시험 통과')
+
+// S1 B3(#808): 봇 병합 직전 운영 배포 잠금 재확인 — 기존 activeLocks 재사용, 잠금 있음·Lee 승인 예외·조회 실패·잠금 없음·기억 범위
+{
+  const { mergeLockDecision, mergeLockCli } = await import('./approval-checks.mjs')
+  const { mkdtempSync, writeFileSync: wf, readFileSync: rf } = await import('node:fs')
+  const { tmpdir } = await import('node:os'), { join } = await import('node:path')
+  const lockIssue = { number: 77, state: 'open', title: '운영 배포 검증 실패: abc1234', user: { login: 'github-actions[bot]' } }
+  const base = { token: 't', repo, sha, author: 'viecganban-bot', waitMs: 0, sleep: async () => {} }
+  // 잠금 없음 → 통과
+  world({ prs: [], reviews: {}, comments: {} })
+  let d = await mergeLockDecision({ ...base, reviews: [] })
+  assert.deepEqual([d.ok, d.state], [true, 'none'], 'B3: 잠금 이슈 없으면 병합 진행')
+  // 잠금 있음 → 병합 생략
+  world({ prs: [], reviews: {}, comments: {}, issues: [lockIssue] })
+  d = await mergeLockDecision({ ...base, reviews: [] })
+  assert.deepEqual([d.ok, d.state], [false, 'locked'], 'B3: 잠금 중 Lee 승인 없는 PR은 병합 생략'); assert.match(d.summary, /#77\(abc1234\)/)
+  // 잠금 있음 + 이 커밋 Lee 승인 → 통과(복구 PR, approval-gate와 같은 기준)
+  d = await mergeLockDecision({ ...base, reviews: [leeOk] })
+  assert.deepEqual([d.ok, d.state], [true, 'lee-approved'], 'B3: 잠금 중이어도 최신 커밋 Lee 승인은 통과')
+  // 예외는 최신 커밋 승인만: 옛 커밋 승인·작성자가 Lee(자기 승인)·승인 뒤 변경 요청은 무효
+  d = await mergeLockDecision({ ...base, reviews: [{ ...leeOk, commit_id: 'c'.repeat(40) }] }); assert.equal(d.state, 'locked', 'B3: 옛 커밋 Lee 승인은 예외 아님')
+  d = await mergeLockDecision({ ...base, author: 'KHOAILANG0926', reviews: [leeOk] }); assert.equal(d.state, 'locked', 'B3: Lee 본인 작성 PR 자기 승인은 예외 아님')
+  d = await mergeLockDecision({ ...base, reviews: [leeOk, { ...leeOk, state: 'CHANGES_REQUESTED', submitted_at: '2026-11-15T10:30:00Z' }] }); assert.equal(d.state, 'locked', 'B3: 승인 뒤 변경 요청이면 예외 아님')
+  // 해제 규칙은 activeLocks 그대로: 실패 커밋을 포함한 master 성공 → 잠금 아님 / 갈라짐 → 잠금 유지
+  world({ prs: [], reviews: {}, comments: {}, issues: [lockIssue], deployOk: 'd'.repeat(40), compare: { abc1234: 'ahead' } })
+  d = await mergeLockDecision({ ...base, reviews: [] }); assert.equal(d.state, 'none', 'B3: 해제된 잠금 이슈(실패 커밋 포함 성공)는 막지 않음')
+  world({ prs: [], reviews: {}, comments: {}, issues: [lockIssue], deployOk: 'd'.repeat(40), compare: { abc1234: 'diverged' } })
+  d = await mergeLockDecision({ ...base, reviews: [] }); assert.equal(d.state, 'locked', 'B3: 포함하지 않는 성공은 해제 아님')
+  // 조회 실패(403) → 최대 2회 재시도(총 3회) 뒤 병합 보류. 실패를 '잠금 없음'으로 보지 않는다
+  let calls = 0, waits = 0
+  const inner = globalThis.fetch
+  globalThis.fetch = async (url, init) => (/issues\?state=open/.test(String(url)) ? (calls++, { ok: false, status: 403, json: async () => ({}), text: async () => '' }) : inner(url, init))
+  d = await mergeLockDecision({ ...base, reviews: [leeOk], sleep: async () => { waits++ } })
+  assert.deepEqual([d.ok, d.state, d.attempts, calls, waits], [false, 'error', 3, 3, 2], 'B3: 403이면 2회만 다시 시도하고 병합 보류(Lee 승인이 있어도 조회 실패는 보류)')
+  assert.match(d.summary, /403.*병합 보류/)
+  // 네트워크 오류 1회 뒤 성공 → 그 결과로 판정(재시도가 실제로 결과를 씀)
+  world({ prs: [], reviews: {}, comments: {}, issues: [lockIssue] })
+  const inner2 = globalThis.fetch; let first = true
+  globalThis.fetch = async (url, init) => { if (first && /issues\?state=open/.test(String(url))) { first = false; throw new Error('network down') } return inner2(url, init) }
+  d = await mergeLockDecision({ ...base, reviews: [] })
+  assert.deepEqual([d.state, d.attempts], ['locked', 2], 'B3: 네트워크 오류 뒤 재시도 성공이면 실제 잠금 상태로 판정')
+  // 기억 범위: compare만 같은 실행 안에서 공유, 잠금 이슈·deploy-verify 성공 기록은 부를 때마다 새로 읽음 → 이슈가 새로 생기면 바로 잠금
+  const w = world({ prs: [], reviews: {}, comments: {}, issues: [lockIssue], deployOk: 'd'.repeat(40), compare: { abc1234: 'ahead' } })
+  const compares = new Map()
+  assert.equal((await mergeLockDecision({ ...base, compares })).state, 'none')
+  assert.equal((await mergeLockDecision({ ...base, compares })).state, 'none')
+  assert.equal(w.compareCalls.length, 1, 'B3: 같은 실행 안 같은 비교는 한 번만(403 한도 재발 방지)')
+  const w2 = world({ prs: [], reviews: {}, comments: {}, issues: [lockIssue, { ...lockIssue, number: 78, title: '운영 배포 검증 실패: def5678' }], deployOk: 'd'.repeat(40), compare: { abc1234: 'ahead' } })
+  d = await mergeLockDecision({ ...base, compares })
+  assert.deepEqual([d.state, w2.compareCalls.length], ['locked', 1], 'B3: 기억이 있어도 새로 열린 잠금 이슈는 새로 읽어 잠금(오래된 기억으로 잠금 없음 판정 금지)')
+  // CLI: 종료 코드 0 통과 · 3 잠금 · 4 조회 실패/인자 없음, 실행 사이 기억 파일 공유
+  const dir = mkdtempSync(join(tmpdir(), 'b3-')), rv = join(dir, 'reviews.json'), cache = join(dir, 'lock-cache.json')
+  wf(rv, '[]'); process.env.GITHUB_TOKEN = 't'
+  const quiet = async (fn) => { const log = console.log; console.log = () => {}; try { return await fn() } finally { console.log = log } }
+  world({ prs: [], reviews: {}, comments: {}, issues: [lockIssue] })
+  assert.equal(await quiet(() => mergeLockCli({ repo, sha, author: 'viecganban-bot', reviews: rv, cache })), 3, 'B3 CLI: 잠금 → 3')
+  world({ prs: [], reviews: {}, comments: {} })
+  assert.equal(await quiet(() => mergeLockCli({ repo, sha, author: 'viecganban-bot', reviews: rv, cache })), 0, 'B3 CLI: 잠금 없음 → 0')
+  assert.equal(await quiet(() => mergeLockCli({ repo, sha, author: 'viecganban-bot', reviews: join(dir, 'none.json'), cache })), 4, 'B3 CLI: 리뷰 파일 못 읽음 → 4(보류)')
+  assert.equal(await quiet(() => mergeLockCli({ repo, sha })), 4, 'B3 CLI: 인자 부족 → 4(보류)')
+  const wc = world({ prs: [], reviews: {}, comments: {}, issues: [lockIssue], deployOk: 'd'.repeat(40), compare: { abc1234: 'ahead' } })
+  wf(cache, '')
+  assert.equal(await quiet(() => mergeLockCli({ repo, sha, author: 'viecganban-bot', reviews: rv, cache })), 0)
+  assert.equal(await quiet(() => mergeLockCli({ repo, sha, author: 'viecganban-bot', reviews: rv, cache })), 0)
+  assert.equal(wc.compareCalls.length, 1, 'B3 CLI: 같은 봇 실행의 두 PR은 compare 기억 파일을 공유')
+  assert.ok(JSON.parse(rf(cache, 'utf8')).length === 1)
+  // 봇 병합기 연결: 병합 직전 재확인 뒤·병합 API 앞에서 부르고, 3은 생략·그 밖 실패는 오류 기록 후 보류, 실행 시작 때 기억 초기화
+  const yml = rf(new URL('../../.github/workflows/bot-pr-automerge.yml', import.meta.url), 'utf8')
+  const at = (s) => { const i = yml.indexOf(s); assert.ok(i >= 0, `봇 워크플로에 ${s.slice(0, 40)} 없음`); return i }
+  const recheck = at('병합 직전 재확인에서 승인 상태가 바뀜'), call = at('approval-checks.mjs --merge-lock-check'), merge = at('merge_out=$(gh api -X PUT')
+  assert.ok(recheck < call && call < merge, 'B3: 잠금 재확인은 승인 재확인 뒤, 병합 API 앞')
+  assert.match(yml.slice(call, merge), /--reviews reviews\.json --cache lock-cache\.json/)
+  assert.match(yml.slice(call, merge), /lock_rc" = 3[\s\S]*?continue[\s\S]*?lock_rc" != 0[\s\S]*?::error::[\s\S]*?GITHUB_STEP_SUMMARY[\s\S]*?continue/, 'B3: 잠금은 생략, 조회 실패는 오류 기록 후 보류')
+  assert.ok(at('rm -f lock-cache.json') < recheck, 'B3: 실행 시작 때 기억 파일 초기화')
+}
+console.log('approval-checks main: S1 B3 병합 직전 잠금 재확인 시험 통과')

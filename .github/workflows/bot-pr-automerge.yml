@@ -65,6 +65,7 @@ jobs:
           # S3-2(#808, Lee 2026-11-14 결정 6①·7①): 댓글 승인(LEE-APPROVE·LEE-DEMO-APPLY)과 데모 적용 시 검토 생략을 폐지했다.
           # Lee 승인은 GitHub 승인 리뷰만(decision-approval-gate.mjs), 모든 PR은 독립 검토(Codex 또는 Claude 검토관) 뒤에만 병합(codex-review-gate.mjs).
           : > codex-wait.txt
+          rm -f lock-cache.json  # S1 B3: 잠금 compare 기억은 이 실행 안에서만
           : > dispatch-fail.txt
           gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName,(.author.login // "")] | @tsv' |
           while IFS=$'\t' read -r num sha branch author; do
@@ -173,6 +174,19 @@ jobs:
             { gh api "repos/$REPO/pulls/$num/reviews?per_page=100" --paginate --slurp | jq 'add // []' > reviews.json               && gh api "repos/$REPO/issues/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > comments.json               && gh api "repos/$REPO/issues/$num" --jq '[.labels[].name]' > labels.json               && gh api "repos/$REPO/pulls/$num" --jq '.body // ""' > pr-body.txt; } || { echo "::warning::PR #$num 병합 직전 승인 재조회 실패: 병합 안 함"; continue; }
             if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt; then
               echo "::warning::PR #$num 병합 직전 재확인에서 승인 상태가 바뀜(취소·변경 요청·승인 없음): 병합 중단"; continue
+            fi
+            # S1 B3(#808): 병합 직전 운영 배포 잠금 재확인. approval-gate는 approval-checks가 다시 판정할 때만 잠금을 반영해
+            # 실패 이슈가 생긴 뒤에도 옛 판정이 남는 공백이 있었다(#943 10:49 → 첫 반영 12:53). 같은 activeLocks를 그대로 다시 부르고(새 판정 없음),
+            # 잠금이 있으면 이 커밋에 Lee 승인이 없는 PR은 병합하지 않는다. 조회 실패는 2회까지 다시 시도한 뒤 병합 보류(닫힌 실패)·오류 기록.
+            # compare 기억(lock-cache.json)은 이 실행 안에서만 함께 쓴다 — 잠금 이슈·deploy-verify 성공 기록은 부를 때마다 새로 읽는다.
+            lock_rc=0
+            GITHUB_TOKEN="$GH_TOKEN" node scripts/ci/approval-checks.mjs --merge-lock-check --repo "$REPO" --sha "$sha" --author "$author" --reviews reviews.json --cache lock-cache.json > lock.txt || lock_rc=$?
+            if [ "$lock_rc" = 3 ]; then
+              echo "::notice::PR #$num $(cat lock.txt)"; continue
+            elif [ "$lock_rc" != 0 ]; then
+              echo "::error::PR #$num 병합 직전 운영 배포 잠금 재확인 실패(코드 $lock_rc): $(cat lock.txt)"
+              echo "- PR #$num 운영 배포 잠금 재확인 실패 — 병합 보류: $(cat lock.txt)" >> "$GITHUB_STEP_SUMMARY"
+              continue
             fi
             # 병합 조건 검사(approval-checks.yml이 검사 전용 앱으로 올리는 ai-review·approval-gate)도 저장소 규칙의 필수 검사다(S4).
             # 위 4종만 보고 병합을 시도하면, 검토 답이나 Lee 승인이 판정에 반영되기 직전(수십 초)에 서버가 거절하고 다음 예약(15분, 자주 빠짐)까지 멈췄다
