@@ -46,6 +46,7 @@ assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [ ] READY
 // F12(Lee 2026-11-21): READY 줄 뒤 설명은 형식 차이라 막지 않음. BLOCKED를 함께 고르면 여전히 막음
 assert.ok(!checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [x] READY FOR APPROVAL (Draft 유지 — Lee 승인 대기)'), '1234567890123456789012345678901234567890').includes('READY FOR APPROVAL만 선택해야 함'), 'READY 뒤 설명 허용')
 assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [x] READY FOR APPROVAL\n- [x] BLOCKED'), '1234567890123456789012345678901234567890').includes('READY FOR APPROVAL만 선택해야 함'), 'BLOCKED 함께 선택은 차단')
+for (const extra of ['- [x] BLOCKED: 사유 있음', '- [x] MERGED (병합됨)']) assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [x] READY FOR APPROVAL\n' + extra), '1234567890123456789012345678901234567890').includes('READY FOR APPROVAL만 선택해야 함'), `뒤 설명이 붙은 BLOCKED·MERGED도 함께 선택하면 차단: ${extra}`)
 assert.deepEqual(checkCompletion(valid.replaceAll('| success | 1234567890123456789012345678901234567890 |', '| pending | (검사 후 자동 확인) |'), '1234567890123456789012345678901234567890'), [], 'pending before checks allowed')
 console.log('PR completion guard: 7/7 passed')
 

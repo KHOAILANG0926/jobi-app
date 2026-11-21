@@ -422,8 +422,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     assert.ok(evaluateFiles(['supabase/migrations/1_x.sql'], '', { 'supabase/migrations/1_x.sql': '+drop table public.x;\n' }).length > 0, '파괴적 DB 변경은 그대로 차단')
     assert.ok(evaluateFiles(['supabase/migrations/1_x.sql'], '', { 'supabase/migrations/1_x.sql': '+truncate public.x;\n' }).length > 0, 'truncate도 그대로 차단')
     assert.ok(evaluateFiles(['src/lib/a.ts'], '[정책 위반 허용]', {}).length > 0, 'PR 설명만으로 규정 우회 불가는 그대로')
-    const { needsSecondReview } = await import('./check-repository-policy.mjs')
-    assert.equal(needsSecondReview('supabase/functions/x/index.ts') && needsSecondReview('src/lib/paymentX.ts'), true, '두 번째 독립 검토 요구(needsSecondReview)에는 STRICT 목록이 그대로 쓰임') }
+  }
   console.log('S1 STATUS 보호 S1~S5 시험 통과(실제 status-guard 셸 단계·정책 검사·승인 판정)')
 }
 
@@ -431,7 +430,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
 //    경로는 일반(src/)이고 바뀐 줄에 신호어(service_role·grant 등)가 없어 내용 검사(⑦)만으로는 놓치는 사례를 포함한다. 목록은 STRICT_PATHS 한 곳(중복 목록 없음).
 {
   const { STRICT_PATHS, contentRisks, OWNER: LEE } = await import('./decision-approval-gate.mjs')
-  const { needsSecondReview, evaluateFiles } = await import('./check-repository-policy.mjs')
+  const { evaluateFiles } = await import('./check-repository-policy.mjs')
   const hv = 'e'.repeat(40), stale = 'f'.repeat(40), bot = 'viecganban-bot'
   const rv = (state, commit_id, at, login = LEE) => ({ user: { login }, state, commit_id, submitted_at: at })
   const T = '2026-11-20T00:00:00Z'
@@ -447,7 +446,6 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   for (const [label, filename, patch] of cases) {
     const f = [{ filename, status: 'modified', patch }]
     assert.ok(STRICT_PATHS.some((re) => re.test(filename)), `${label}: STRICT_PATHS 한 곳의 정의에 걸림`)
-    assert.equal(needsSecondReview(filename), true, `${label}: 두 번째 독립 검토도 같은 목록`)
     assert.equal(evaluateFiles([filename], '', { [filename]: patch }).filter((e) => e.startsWith(filename)).length, 0, `${label}: 정책 검사(checks)는 STRICT라는 이유만으로 실패하지 않음`)
     const r = decisionApproval({ files: f, reviews: [], comments: [], author: bot, sha: hv })
     assert.equal(r.required, true, `${label}: 대표 승인 대상`); assert.equal(r.risk, 'high', `${label}: 고위험`)
@@ -472,7 +470,6 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   // 일반 파일 자동 처리·독립 검토 조건은 그대로: STRICT가 아닌 일반 파일은 대표 승인 대상이 아니다
   for (const p of ['src/lib/jobFormat.ts', 'src/components/JobCard.tsx', 'src/pages/Home.tsx', 'docs/ops/note.md'])
     assert.equal(decisionApproval({ files: [{ filename: p, status: 'modified', patch: '+const a = 1' }], reviews: [], comments: [], author: bot, sha: hv }).required, false, `일반 파일 자동 처리 유지: ${p}`)
-  assert.equal(needsSecondReview('src/lib/jobFormat.ts'), false, '일반 파일은 두 번째 독립 검토 대상 아님(기존)')
   // 독립 검토 지적: status 워크플로는 주석·공백만 바꿔도(안전 줄) 대표 승인 필요 — 정책 검사가 승인을 안 보므로 여기가 유일한 판정
   for (const filename of ['.github/workflows/status-report.yml', '.github/workflows/status-guard.yml']) {
     const f = [{ filename, status: 'modified', patch: '@@ -1,3 +1,3 @@\n-# a\n+# b' }]

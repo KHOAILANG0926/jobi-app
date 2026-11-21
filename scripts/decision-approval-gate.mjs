@@ -17,7 +17,7 @@ export const NEEDS_LEE_LABEL = 'needs-lee'
 // 예전 `LEE-APPROVE <sha>`·`LEE-DEMO-APPLY <sha>` 댓글은 AI가 Lee 계정 열쇠로 달 수 있어(S1 F11) 폐지 — AI가 Lee 승인을 대신 기록하지 않는다.
 // ④ 검사·보호 장치 변경(검사 약화 가능): 워크플로·검사/판정 스크립트·검토 기준을 바꾸는 PR도 Lee 승인 대상(#807 '검사 약화는 대표님 결정').
 // 검사 장치 파일 = Lee 승인 대상 경로 단일 목록(scripts/ci/protected-paths.mjs)에서 결정 문서 폴더(PROTECTED가 따로 봄)를 뺀 것 — 목록을 여기에 따로 적지 않는다(CODEOWNERS·승인 범위 검사와 항상 같음).
-// ⑩ STRICT 보안 경로(CLAUDE.md '작업 등급' STRICT: 인증·RLS·권한·결제·계정·저장소·Edge 함수·배포) — 이 목록이 단일 정의다(check-repository-policy의 needsSecondReview도 이걸 가져다 씀).
+// ⑩ STRICT 보안 경로(CLAUDE.md '작업 등급' STRICT: 인증·RLS·권한·결제·계정·저장소·Edge 함수·배포) — 이 목록이 단일 정의다(check-repository-policy가 이걸 가져다 씀).
 //    바뀐 줄 내용 검사(⑦)는 `if (user.isAdmin || true)`·`canPay = true`처럼 신호어 없는 인증 우회·결제 권한 변경을 놓칠 수 있어, 이 경로는 내용과 상관없이 대표 승인 대상이다.
 //    정책 검사(checks)는 이 경로라는 이유만으로 실패시키지 않는다(S1, Lee 2026-11-20) — 승인 여부는 여기서만 판정한다.
 export const STRICT_PATHS = [

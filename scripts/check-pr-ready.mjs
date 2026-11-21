@@ -52,9 +52,9 @@ export function checkCompletion(body, headSha, botOnlySince = () => false) {
     if (stale && !(botProofAtHead && botOnlySince(sha))) errors.push(cells[1] + ': 표의 SHA가 현재 HEAD가 아님(옛 근거)')
     if (/^(?:failure|failed|실패)$/i.test(cells[2] ?? '')) errors.push(cells[1] + ': 실패로 적힌 검사가 있으면 READY 불가')
   }
-  // 형식만 다른 경우는 막지 않는다(Lee 2026-11-21, F12): READY 줄 뒤에 설명이 붙어도 READY 선택으로 본다. BLOCKED·MERGED를 함께 고르면 여전히 막는다.
+  // 형식만 다른 경우는 막지 않는다(Lee 2026-11-21, F12): READY 줄 뒤에 설명이 붙어도 READY 선택으로 본다. BLOCKED·MERGED도 같은 기준(뒤 설명 포함)으로 보고 함께 고르면 막는다.
   if (!/^- \[x\] READY FOR APPROVAL\b/mi.test(body) ||
-      /^- \[x\] (?:BLOCKED|MERGED)\s*$/mi.test(body))
+      /^- \[x\] (?:BLOCKED|MERGED)\b/mi.test(body))
     errors.push('READY FOR APPROVAL만 선택해야 함')
   return errors
 }
