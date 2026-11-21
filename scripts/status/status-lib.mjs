@@ -235,14 +235,38 @@ export function renderStatus(d) {
   L.push('## 9. 공고 규칙 시험 결과 (DB 규칙 표 직접 조회)')
   L.push('')
   L.push('규칙 표의 마지막시험 칸은 Actions의 자동 시험(supabase/tests/job_posting_rules_test.sql)만 채운다. 말로 하는 "완료" 보고는 인정하지 않는다.')
+  // Lee 2026-11-16(#858·#861): 운영 DB 시험(시험 공고 넣고 지우기)은 폐지하고 같은 시험 SQL을 시험용 DB(PGlite)에서 돌린다.
+  // 운영 규칙 표에 남은 과거 결과는 지우거나 바꾸지 않고 그대로 보인다. 「현재 시험」은 occupation-publication-check의
+  // 「공고 규칙 R1~R7·U2 시험」 단계 결과(워크플로 전체 결과로 대신하지 않음)이고, 시험한 규칙은 시험 SQL이 결과를 쓰는 규칙 이름에서 읽는다.
+  L.push('')
+  L.push('- 「과거 운영 시험」= 운영 규칙 표에 남은 마지막 운영 DB 시험 결과(원본 그대로). 「현재 시험」= 같은 시험 SQL의 시험용 DB 단계 결과(master 최근 실행).')
+  L.push('- 11-12~11-15 운영 시험 \'실패\'의 원인 조사·재현 기록: [#861](https://github.com/' + (d.repo ?? 'KHOAILANG0926/jobi-app') + '/pull/861) — 규칙이 아니라 시험 방식(직접 insert가 10-29 입구 트리거에 막힘).')
+  const ci = d.ruleTestCi
+  const tested = new Set(ci?.testedKeys ?? [])
+  const ciLabel = !ci ? '— 조회 결과 없음' : !ci.conclusion ? `⏳ 진행 중 ([실행](${ci.url}))` : ci.conclusion === 'success' ? `✅ 통과 ${fmtVN(ci.at)} ([실행](${ci.url}))` : `❌ ${esc(ci.conclusion)} ${fmtVN(ci.at)} ([실행](${ci.url}))`
+  if (ci?.conclusion && ci.conclusion !== 'success') bad.push(`규칙 시험(시험용 DB) ${ci.conclusion}`)
   L.push('')
   if (d.rules?.length) {
-    L.push('| 규칙 | 차단방식 | 마지막시험 | 결과 |')
-    L.push('|---|---|---|---|')
+    L.push('| 규칙 | 차단방식 | 과거 운영 시험 | 결과 | 현재 시험(시험용 DB) |')
+    L.push('|---|---|---|---|---|')
+    const laterPassed = []
     for (const r of d.rules) {
       const res = r.last_test_result === '통과' ? '✅ 통과' : r.last_test_result === '실패' ? '❌ 실패' : '— 시험 없음'
-      L.push(`| \`${esc(r.rule_key)}\` | ${esc(r.block_mode)} | ${r.last_tested_at ? fmtVN(r.last_tested_at) : '—'} | ${res} |`)
-      if (r.last_test_result === '실패') bad.push(`규칙 시험 실패: ${r.rule_key}`)
+      const current = tested.has(r.rule_key) ? ciLabel : '— 이 시험에 없음'
+      L.push(`| \`${esc(r.rule_key)}\` | ${esc(r.block_mode)} | ${r.last_tested_at ? fmtVN(r.last_tested_at) : '—'} | ${res} | ${current} |`)
+      if (r.last_test_result === '실패') {
+        // 과거 실패를 「확인 필요」에서 내리는 조건: 같은 규칙을 시험한 시험용 DB 단계가 그 운영 시험보다 나중에 통과했을 때만.
+        // 시각은 문자열이 아니라 실제 시각으로 비교한다(GitHub ...Z / Supabase +00:00·소수초 형식 차이, 검토관 지적 8a79c7a).
+        const ciAt = Date.parse(ci?.at ?? ''), pastAt = Date.parse(r.last_tested_at ?? '')
+        const passedLater = tested.has(r.rule_key) && ci?.conclusion === 'success' && Number.isFinite(ciAt) && Number.isFinite(pastAt) && ciAt > pastAt
+        if (passedLater) laterPassed.push(r.rule_key)
+        else bad.push(`규칙 시험 실패: ${r.rule_key}`)
+      }
+    }
+    if (laterPassed.length) {
+      L.push('')
+      L.push(`- 과거 운영 시험 실패 ${laterPassed.length}건(기록 그대로 유지): 그 뒤 시험용 DB 시험에서 같은 규칙 통과 — ${laterPassed.map((k) => '`' + esc(k) + '`').join(' ')}`)
+      d.pastRuleFailuresFixed = laterPassed.length
     }
   } else L.push('- 조회 결과 없음')
   if (d.ocr) {
@@ -258,6 +282,7 @@ export function renderStatus(d) {
     summary.push('')
     for (const b of bad) summary.push(`- ${b}`)
   } else summary.push('✅ 확인 필요 항목 없음')
+  if (d.pastRuleFailuresFixed) summary.push(`- 참고: 과거 운영 규칙 시험 실패 ${d.pastRuleFailuresFixed}건은 기록 그대로 유지 — 그 뒤 시험용 DB 시험에서 같은 규칙 통과, 9절 참고`)
   summary.push('')
   const at = L.findIndex((l) => l.startsWith('## 1.'))
   L.splice(at, 0, ...summary)

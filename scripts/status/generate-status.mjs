@@ -135,6 +135,22 @@ const vietmap = await attempt('VietMap 호출 수', () => sb(`vietmap_usage_dail
 const audit = await attempt('관리자 기록', () => sb('admin_audit_logs?select=action,target_type,target_id,created_at&order=created_at.desc&limit=10'))
 
 const rules = await attempt('공고 규칙 표', () => sb('job_posting_rules?select=rule_key,block_mode,last_tested_at,last_test_result&order=id'))
+// 같은 규칙 시험 SQL의 시험용 DB 실행 — 9절 「현재 시험」 칸(#861). occupation-publication-check master 최근 끝난 실행에서
+// 「공고 규칙 R1~R7·U2 시험」 단계 결과만 쓴다(단계가 없으면 시험 안 된 것으로 null). 시험한 규칙 = 시험 SQL이 결과를 쓰는 규칙 이름.
+const RULE_TEST_STEP = '공고 규칙 R1~R7·U2 시험'
+const ruleTestCi = await attempt('규칙 시험(시험용 DB)', async () => {
+  const runs = (await gh('/actions/workflows/occupation-publication-check.yml/runs?branch=master&status=completed&per_page=5')).workflow_runs ?? []
+  for (const run of runs) {
+    const jobs = (await gh(`/actions/runs/${run.id}/jobs`)).jobs ?? []
+    const step = jobs.flatMap((j) => j.steps ?? []).find((st) => String(st.name).startsWith(RULE_TEST_STEP))
+    // 단계가 없거나 실제로 돌지 않은 실행(skipped·cancelled·결과 없음)은 시험 결과가 아니다 → 다음 실행을 본다(검토관 지적 8a79c7a).
+    if (!step || !['success', 'failure', 'timed_out'].includes(step.conclusion)) continue
+    const sqlText = readFileSync(join(root, 'supabase/tests/job_posting_rules_test.sql'), 'utf8')
+    const testedKeys = [...new Set([...sqlText.matchAll(/res \|\| jsonb_build_object\('([A-Za-z0-9_]+)'/g)].map((m) => m[1]))]
+    return { conclusion: step.conclusion, at: step.completed_at ?? run.updated_at, url: run.html_url, sha: run.head_sha, testedKeys }
+  }
+  return null
+})
 
 const ocr = await attempt('OCR 상태 건수', async () => {
   const [u, m] = await Promise.all([
@@ -154,7 +170,7 @@ const { markdown, problems } = renderStatus({
   runUrl: env.RUN_URL,
   selfHash,
   checks: { tsc: env.TSC_OUTCOME, build: env.BUILD_OUTCOME, testsOutcome: env.TEST_OUTCOME, tests },
-  production, siteStatus, mergedPrs, jobs, approvals, vietmap, audit, systemChanges, recheckCalls, rules, ocr,
+  production, siteStatus, mergedPrs, jobs, approvals, vietmap, audit, systemChanges, recheckCalls, rules, ruleTestCi, repo: REPO, ocr,
 })
 
 const errBlock = errors.length

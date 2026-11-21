@@ -49,3 +49,27 @@ assert.ok(!judgeRecheck({ state: 'no_key' }).ok && !judgeRecheck({ state: 'no_re
 const rp = renderStatus({ generatedAt: '2026-10-11T03:00:00Z', approvals: [{ ...cases[2], visible: true, recheck: { state: 'ok', stored: P, fetched: { lat: 21.1758, lng: 106.0619 } } }] })
 assert.ok(rp.problems.some((p) => p.includes('VietMap 재확인')), 'recheck mismatch is surfaced in 한눈에 보기')
 console.log('status-lib recheck: all assertions passed')
+// 9절 규칙 시험(Lee 2026-11-16, #861): 과거 운영 시험 실패는 원본 그대로 보이고 통과로 바뀌지 않는다. 현재 = 시험용 DB 규칙 시험 단계 결과.
+{
+  const rules = [{ rule_key: 'R1_phone_digits_only', block_mode: '저장거부', last_tested_at: '2026-11-15T06:54:41Z', last_test_result: '실패' },
+    { rule_key: 'R4_policy_exclusion_trigger', block_mode: '저장거부', last_tested_at: '2026-11-15T06:54:41Z', last_test_result: '실패' }]
+  const ci = (conclusion, at = '2026-11-16T09:00:00Z', testedKeys = ['R1_phone_digits_only']) => ({ conclusion, at, url: 'https://github.com/a/b/actions/runs/9', sha: 'abc', testedKeys })
+  const md = (r) => r.markdown
+  const ok = renderStatus({ generatedAt: '2026-11-16T09:10:00Z', rules, ruleTestCi: ci('success') })
+  assert.match(md(ok), /`R1_phone_digits_only` \| 저장거부 \| [^|]+ \| ❌ 실패 \| ✅ 통과/, '과거 실패 원본 그대로 + 현재 통과 따로')
+  assert.ok(!ok.problems.includes('규칙 시험 실패: R1_phone_digits_only'), '나중 시험용 DB 단계가 같은 규칙 통과 → 확인 필요 대신 참고 줄')
+  assert.match(md(ok), /과거 운영 규칙 시험 실패 1건은 기록 그대로 유지/, '요약에도 과거 실패가 보임')
+  assert.ok(ok.problems.includes('규칙 시험 실패: R4_policy_exclusion_trigger'), '시험에 없는 규칙의 과거 실패는 확인 필요에 남음')
+  assert.match(md(ok), /`R4_policy_exclusion_trigger` [^\n]*— 이 시험에 없음/, '시험에 없는 규칙은 현재 칸 비움')
+  const fail = renderStatus({ generatedAt: '2026-11-16T09:10:00Z', rules, ruleTestCi: ci('failure') })
+  assert.ok(fail.problems.includes('규칙 시험(시험용 DB) failure') && fail.problems.includes('규칙 시험 실패: R1_phone_digits_only'), '현재 실패 → 둘 다 확인 필요')
+  const none = renderStatus({ generatedAt: '2026-11-16T09:10:00Z', rules })
+  assert.ok(none.problems.includes('규칙 시험 실패: R1_phone_digits_only'), '현재 단계 결과를 못 읽으면 과거 실패는 확인 필요에 남음')
+  const older = renderStatus({ generatedAt: '2026-11-16T09:10:00Z', rules, ruleTestCi: ci('success', '2026-11-14T00:00:00Z') })
+  assert.ok(older.problems.includes('규칙 시험 실패: R1_phone_digits_only'), '운영 실패보다 앞선 시험용 DB 통과로는 내리지 않음')
+  // 형식이 다른 시각(Supabase +00:00·소수초 vs GitHub Z): 실제로 나중이면 내리고, 실제로 앞서면 안 내림
+  const mixed = [{ ...rules[0], last_tested_at: '2026-11-16 08:59:59.900+00:00' }]
+  assert.ok(!renderStatus({ generatedAt: 'x', rules: mixed, ruleTestCi: ci('success', '2026-11-16T09:00:00Z') }).problems.includes('규칙 시험 실패: R1_phone_digits_only'), '실제 시각으로 비교 — 나중 통과')
+  assert.ok(renderStatus({ generatedAt: 'x', rules: [{ ...rules[0], last_tested_at: '2026-11-16 09:00:00.500+00:00' }], ruleTestCi: ci('success', '2026-11-16T09:00:00Z') }).problems.includes('규칙 시험 실패: R1_phone_digits_only'), '실제 시각으로 비교 — 운영 실패가 0.5초 뒤면 안 내림')
+  console.log('status-lib rules past/current: all assertions passed')
+}
