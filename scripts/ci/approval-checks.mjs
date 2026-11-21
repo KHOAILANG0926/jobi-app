@@ -6,6 +6,7 @@
 //   그래서 master 보호 규칙에서 이 두 검사를 '출처 앱 = viecganban-checks'로 필수 지정하면 PR 쪽 코드는 통과를 만들 수 없다(대표님 GitHub 설정, 코드는 설정을 바꾸지 않는다).
 // 이 스크립트는 PR 코드를 받지도 실행하지도 않는다: GitHub API 데이터만 읽고 master 코드로 판정한다.
 // 사용: node approval-checks.mjs --repo o/r (--pr N | --all) [--dry-run]
+//       node approval-checks.mjs --merge-lock-check --repo o/r --sha S --author A --reviews reviews.json [--cache 파일]  (S1 B3: 봇 병합 직전 잠금 재확인, 종료 코드 0·3·4)
 import { decisionApproval, approvedFramePaths, leeApprovedAt } from '../decision-approval-gate.mjs'
 import { codexGate } from '../codex-review-gate.mjs'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -57,7 +58,7 @@ export async function mergeLockDecision({ token, repo, sha, author, reviews = []
     attempts++
     try { locks = await activeLocks(token, repo, compares); break } catch (e) { lastError = e; if (i < retries) await sleep(waitMs) }
   }
-  if (!locks) return { ok: false, state: 'error', attempts, summary: `운영 배포 잠금 조회 실패(${attempts}회 시도): ${String(lastError?.message ?? lastError).slice(0, 160)} — 병합 보류(닫힌 실패)` }
+  if (!locks) return { ok: false, state: 'error', attempts, summary: `운영 배포 잠금 조회 실패(${attempts}회 시도): ${String(lastError?.message ?? lastError).replace(/\s+/g, ' ').slice(0, 160)} — 병합 보류(닫힌 실패)` }  // 한 줄로(봇이 이 글을 로그 명령 줄에 넣음)
   if (!locks.length) return { ok: true, state: 'none', attempts, summary: '운영 배포 잠금 없음' }
   const list = locks.map((l) => `#${l.number}(${l.sha.slice(0, 7)})`).join('·')
   if (leeApprovedAt(reviews, sha, author)) return { ok: true, state: 'lee-approved', attempts, locks, summary: `운영 배포 검증 실패 이슈 ${list} 열림 — Lee 승인(최신 커밋)이 있어 통과(복구 PR)` }

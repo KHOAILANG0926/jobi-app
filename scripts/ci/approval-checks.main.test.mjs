@@ -246,9 +246,40 @@ console.log('approval-checks main: 운영 배포 잠금 시험 통과')
   const yml = rf(new URL('../../.github/workflows/bot-pr-automerge.yml', import.meta.url), 'utf8')
   const at = (s) => { const i = yml.indexOf(s); assert.ok(i >= 0, `봇 워크플로에 ${s.slice(0, 40)} 없음`); return i }
   const recheck = at('병합 직전 재확인에서 승인 상태가 바뀜'), call = at('approval-checks.mjs --merge-lock-check'), merge = at('merge_out=$(gh api -X PUT')
-  assert.ok(recheck < call && call < merge, 'B3: 잠금 재확인은 승인 재확인 뒤, 병합 API 앞')
+  const gateRead = at('merge-gate-ready.jq')
+  assert.ok(recheck < call && gateRead < call && call < merge, 'B3: 잠금 재확인은 승인 재확인·병합 조건 검사 뒤, 병합 API 바로 앞')
   assert.match(yml.slice(call, merge), /--reviews reviews\.json --cache lock-cache\.json/)
   assert.match(yml.slice(call, merge), /lock_rc" = 3[\s\S]*?continue[\s\S]*?lock_rc" != 0[\s\S]*?::error::[\s\S]*?GITHUB_STEP_SUMMARY[\s\S]*?continue/, 'B3: 잠금은 생략, 조회 실패는 오류 기록 후 보류')
   assert.ok(at('rm -f lock-cache.json') < recheck, 'B3: 실행 시작 때 기억 파일 초기화')
+  // (독립 검토 지적 1) 실제 프로세스 종료 코드: 반환값이 아니라 CLI가 0·3·4로 끝나는지 — fetch를 흉내 내는 --import 모듈로 네트워크 없이
+  const { spawnSync } = await import('node:child_process')
+  const script = new URL('./approval-checks.mjs', import.meta.url).pathname
+  const mock = join(dir, 'mock.mjs')
+  wf(mock, `const mode = process.env.B3_MOCK
+globalThis.fetch = async (url) => { const u = String(url)
+  const res = (d, s = 200) => ({ ok: s < 400, status: s, json: async () => d, text: async () => JSON.stringify(d) })
+  if (/issues\\?state=open/.test(u)) return mode === 'fail' ? res({}, 403) : res(mode === 'lock' && u.includes('page=1') ? [{ number: 77, state: 'open', title: '운영 배포 검증 실패: abc1234', user: { login: 'github-actions[bot]' } }] : [])
+  if (/deploy-verify\\.yml\\/runs/.test(u)) return res({ workflow_runs: [] })
+  return res({}, 404) }
+`)
+  const run = (mode, extra = {}) => spawnSync(process.execPath, ['--import', mock, script, '--merge-lock-check', '--repo', repo, '--sha', sha, '--author', 'viecganban-bot', '--reviews', rv], { encoding: 'utf8', env: { ...process.env, B3_MOCK: mode, GITHUB_TOKEN: 't', ...extra } })
+  assert.equal(run('none').status, 0, 'B3 프로세스: 잠금 없음 → 종료 0')
+  assert.equal(run('lock').status, 3, 'B3 프로세스: 잠금 → 종료 3(0이면 봇이 잠금 중 병합 — 열린 실패)')
+  assert.equal(run('none', { GITHUB_TOKEN: '' }).status, 4, 'B3 프로세스: 토큰 없음 → 종료 4(보류)')
+  // 조회 실패(403) 재시도·보류는 대기(10초×2)를 피하려고 위 함수 시험(재시도 횟수·대기 횟수까지)에서 본다
+  // (독립 검토 지적 2) 봇 워크플로의 셸 조각을 그대로 꺼내 bash로 실제 실행: set -euo pipefail 아래 종료 코드 처리·continue·실행 요약 기록
+  const mergeLine = yml.lastIndexOf('\n', merge)  // 병합 API 줄('if merge_out=…') 바로 앞까지
+  const seg = yml.slice(yml.lastIndexOf('lock_rc=0', merge), mergeLine).replace(/^ {12}/gm, '')
+  const bin = join(dir, 'b3bin'); (await import('node:fs')).mkdirSync(bin)
+  wf(join(bin, 'node'), '#!/bin/sh\necho "가짜 판정 $FAKE_RC"\nexit "$FAKE_RC"\n'); (await import('node:fs')).chmodSync(join(bin, 'node'), 0o755)
+  const sh = (rc) => { const summary = join(dir, `summary-${rc}.md`); wf(summary, '')
+    const r = spawnSync('bash', ['-c', `set -euo pipefail\nREPO=o/r; GH_TOKEN=t; author=a; sha=${sha}\nfor num in 1 2; do\n${seg}\necho "MERGE_REACHED $num"\ndone\necho LOOP_DONE`], { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_RC: String(rc), GITHUB_STEP_SUMMARY: summary } })
+    return { code: r.status, out: r.stdout, summary: rf(summary, 'utf8') } }
+  let o = sh(0); assert.deepEqual([o.code, /MERGE_REACHED 1/.test(o.out), /MERGE_REACHED 2/.test(o.out)], [0, true, true], 'B3 셸: 종료 0 → 병합 단계로 진행')
+  o = sh(3); assert.deepEqual([o.code, /MERGE_REACHED/.test(o.out), /LOOP_DONE/.test(o.out)], [0, false, true], 'B3 셸: 종료 3 → 이 PR 병합 생략, 다음 PR로 계속(단계 전체가 멈추지 않음)')
+  assert.match(o.out, /::notice::PR #1 가짜 판정 3/)
+  o = sh(4); assert.deepEqual([o.code, /MERGE_REACHED/.test(o.out), /LOOP_DONE/.test(o.out)], [0, false, true], 'B3 셸: 종료 4 → 보류, 다음 PR로 계속')
+  assert.match(o.out, /::error::PR #1 병합 직전 운영 배포 잠금 재확인 실패\(코드 4\)/); assert.match(o.summary, /PR #1 운영 배포 잠금 재확인 실패 — 병합 보류/)
+  o = sh(1); assert.equal(/MERGE_REACHED/.test(o.out), false, 'B3 셸: 예상 밖 종료 코드(1)도 보류 — 실패를 통과로 보지 않음')
 }
 console.log('approval-checks main: S1 B3 병합 직전 잠금 재확인 시험 통과')
