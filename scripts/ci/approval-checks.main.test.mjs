@@ -61,18 +61,18 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
   const w3 = world({ prs: [pr(1), pr(2, { body: '' })], reviews: { 1: [leeOk], 2: [leeOk] }, comments: { 1: [claudeOk], 2: [claudeOk] } })
   await main(['--repo', repo, '--pr', '2'], opts)
   assert.equal(last(w3.writes, 'approval-gate').state, 'success', '본문 보고 없어도 Lee 승인이면 통과(11-21)')
-  // ai-review는 검토 유무와 상관없이 neutral(필수 아님, 검토 안 함) — 가짜 success를 올리지 않는다
+  // ai-review 검사는 11-21 Ruleset에서 빠진 뒤 지움 — 더 올리지 않는다
   const w4 = world({ prs: [pr(1), pr(2)], reviews: { 1: [leeOk], 2: [leeOk] }, comments: { 1: [claudeOk], 2: [] } })
   await main(['--repo', repo, '--pr', '1'], opts)
-  assert.equal(last(w4.writes, 'ai-review').state, 'neutral', 'ai-review는 neutral(병합 조건 아님)')
-  assert.match(last(w4.writes, 'ai-review').summary, /필수 아님, 검토 안 함/)
+  assert.ok(!w4.writes.some((x) => x.name === 'ai-review'), 'ai-review 검사를 올리지 않음')
+  assert.equal(last(w4.writes, 'approval-gate').state, 'success')
 }
 
 // ② 수집 실패: 이미 success였던 두 검사가 pending으로 내려가고 마지막은 failure — success로 남지 않는다
 {
-  const w = world({ prs: [pr(1)], reviews: { 1: [leeOk] }, comments: { 1: [claudeOk] }, existing: { 'ai-review': { id: 101, state: 'success' }, 'approval-gate': { id: 102, state: 'success' } }, failFiles: true })
+  const w = world({ prs: [pr(1)], reviews: { 1: [leeOk] }, comments: { 1: [claudeOk] }, existing: { 'approval-gate': { id: 102, state: 'success' } }, failFiles: true })
   await assert.rejects(() => main(['--repo', repo, '--pr', '1'], opts), /재판정 실패/, '실행은 실패로 끝남')
-  for (const n of ['ai-review', 'approval-gate']) {
+  for (const n of ['approval-gate']) {
     const mine = w.writes.filter((x) => x.name === n)
     assert.equal(mine[0].state, 'in_progress', `${n}: 수집 전에 대기로 내림`)
     assert.equal(mine.at(-1).state, 'failure', `${n}: 마지막은 실패`)
@@ -82,10 +82,11 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
   // 정상이면 pending → success 로 돌아온다
   const ok = world({ prs: [pr(1, { body: 'x' })], reviews: { 1: [] }, comments: { 1: [claudeOk] } })
   await main(['--repo', repo, '--pr', '1'], opts)
-  assert.equal(ok.writes.filter((x) => x.name === 'ai-review')[0].state, 'in_progress'); assert.equal(last(ok.writes, 'ai-review').state, 'neutral')
+  assert.equal(ok.writes.filter((x) => x.name === 'approval-gate')[0].state, 'in_progress'); assert.equal(last(ok.writes, 'approval-gate').state, 'action_required')
+  assert.ok(!ok.writes.some((x) => x.name === 'ai-review'), 'ai-review 없음')
 }
 // ③ 동시 실행 순서 뒤바뀜(Codex P1): 오래된 실행 A가 자료를 모은 뒤 멈춰 있는 동안, 새 상태를 본 실행 B가 먼저 끝난다. A가 나중에 끝나도 최신 판정(대기)을 success로 덮으면 안 된다.
-//    (11-21: ai-review는 항상 neutral이라 approval-gate로 본다 — A는 Lee 승인이 있던 옛 자료, B는 승인 뒤 변경 요청을 본다)
+//    (approval-gate로 본다 — A는 Lee 승인이 있던 옛 자료, B는 승인 뒤 변경 요청을 본다)
 {
   let startedA, releaseA; const started = new Promise((r) => (startedA = r)), release = new Promise((r) => (releaseA = r))
   const reviews = { 1: [leeOk] }
@@ -115,7 +116,7 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
     process.env.CHECKS_APP_SLUG = 'viecganban-checks'; assert.equal(checksAppToken(), 'app')
   } finally { process.env.CHECKS_APP_TOKEN = saved.t; process.env.CHECKS_APP_SLUG = saved.s }
   // 다른 앱(예: 예전 Claude 앱)이 만든 같은 이름 검사는 고치지 않고 이 앱 이름으로 새로 만든다
-  const w = world({ prs: [pr(1, { body: 'x' })], reviews: { 1: [] }, comments: { 1: [claudeOk] }, existing: { 'ai-review': { id: 7 } } })
+  const w = world({ prs: [pr(1, { body: 'x' })], reviews: { 1: [] }, comments: { 1: [claudeOk] }, existing: { 'approval-gate': { id: 7 } } })
   const inner = globalThis.fetch, patched = []
   globalThis.fetch = async (url, init = {}) => { if (init.method === 'PATCH') patched.push(String(url)); return inner(url, init) }
   process.env.CHECKS_APP_SLUG = 'other-app'
@@ -133,7 +134,7 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
   }
   await main(['--repo', repo, '--pr', '1'], opts)
   assert.deepEqual(outside, [], '앱 토큰으로 check-runs 밖 API 호출 없음')
-  assert.equal(last(w.writes, 'ai-review').state, 'neutral', '권한 밖 403 가짜에서도 검사 게시 완료')
+  assert.ok(last(w.writes, 'approval-gate'), '권한 밖 403 가짜에서도 검사 게시 완료')
 }
 // 검사 생성이 거절되면(403) 실행이 실패로 끝난다(닫힌 실패, 성공 표시 없음)
 {

@@ -1,17 +1,15 @@
-// S4 8단계(Lee 2026-11-15): 병합 조건을 '검사 전용 앱(viecganban-checks)이 만든 검사 결과 2개'로 GitHub에 남긴다.
-//   ai-review      = 병합 조건 아님(Lee 2026-11-21) — 검토를 하지 않으므로 neutral("필수 아님, 검토 안 함")을 사실대로 올린다. Ruleset에서 빠지면 지운다.
+// S4 8단계(Lee 2026-11-15): 병합 조건을 '검사 전용 앱(viecganban-checks)이 만든 검사 결과'로 GitHub에 남긴다(11-21부터 approval-gate 하나).
+//   (ai-review 검사는 Lee 2026-11-21 독립 검토를 병합 조건에서 빼고 Ruleset에서도 뺀 뒤 지웠다 — 지금은 approval-gate 하나만 올린다.)
 //   approval-gate  = 위험도 판정(decision-approval-gate.mjs ①~⑧) — 일반 PR이면 통과, 고위험·판단 불가는 Lee 공식 Approve(최신 커밋)가 있어야 통과(4대 보고 강제는 11-21 폐지)
 // 왜 별도 앱인가: GitHub Actions 앱이 만든 검사는 PR 브랜치 워크플로가 같은 이름으로 흉내 낼 수 있다(GITHUB_TOKEN 'checks: write').
 //   검사 전용 앱 열쇠는 운영 열쇠 환경 ops-keys(master만, secret-isolation R8)에만 있어 master 사본 작업만 토큰을 만든다(2026-11-16: Claude 앱 교환은 checks 발급 불가 — run 43797922253).
-//   그래서 master 보호 규칙에서 이 두 검사를 '출처 앱 = viecganban-checks'로 필수 지정하면 PR 쪽 코드는 통과를 만들 수 없다(대표님 GitHub 설정, 코드는 설정을 바꾸지 않는다).
+//   그래서 master 보호 규칙에서 이 검사를 '출처 앱 = viecganban-checks'로 필수 지정하면 PR 쪽 코드는 통과를 만들 수 없다(대표님 GitHub 설정, 코드는 설정을 바꾸지 않는다).
 // 이 스크립트는 PR 코드를 받지도 실행하지도 않는다: GitHub API 데이터만 읽고 master 코드로 판정한다.
 // 사용: node approval-checks.mjs --repo o/r (--pr N | --all) [--dry-run]
 //       node approval-checks.mjs --merge-lock-check --repo o/r --sha S --author A --reviews reviews.json [--cache 파일]  (S1 B3: 봇 병합 직전 잠금 재확인, 종료 코드 0·3·4)
 import { decisionApproval, approvedFramePaths, leeApprovedAt } from '../decision-approval-gate.mjs'
 import { readFileSync, writeFileSync } from 'node:fs'
 
-export const CHECK_REVIEW = 'ai-review'
-export const REVIEW_NOT_REQUIRED = '필수 아님, 검토 안 함 — 독립 검토는 병합 조건이 아니다(Lee 2026-11-21). 이 검사는 검토를 하지 않는다.'
 export const CHECK_APPROVAL = 'approval-gate'
 
 /**
@@ -78,11 +76,8 @@ export async function mergeLockCli(a, opts = {}) {
   return d.ok ? 0 : d.state === 'locked' ? 3 : 4
 }
 
-/** 두 검사의 판정(순수 함수). state: success | pending(진행 중) | blocked(Lee 행동 필요) | failure */
+/** approval-gate 판정(순수 함수). state: success | pending(진행 중) | blocked(Lee 행동 필요) | failure */
 export function verdicts({ files, reviews, reviewComments, comments, labels, deps = {}, sha, headDate, body, author, repo, framePaths, locks = [], now = new Date() }) {
-  // ai-review: 독립 검토는 병합 조건이 아니다(Lee 2026-11-21, 11-14 결정 7①·#807 게이트 (3) 변경). 이 검사는 검토를 하지 않으므로 성공이 아니라 neutral로 사실대로 올린다.
-  // (Ruleset에서 ai-review가 빠진 것을 확인한 뒤 이 검사 자체를 지운다 — Lee 지시 순서 ①→②→③.)
-  const review = { state: 'neutral', summary: REVIEW_NOT_REQUIRED }
   let approval
   try {
     const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps, author, body, repo })
@@ -94,7 +89,7 @@ export function verdicts({ files, reviews, reviewComments, comments, labels, dep
     else if (r.approved) approval = { state: 'success', summary: `${r.risk === 'unknown' ? '위험도 판단 불가' : '고위험'}(${r.reasons.join('·')}): Lee 승인(최신 커밋) 확인` }
     else approval = { state: 'blocked', summary: `${r.reasons.join('·')} 대상 — Lee의 공식 Approve(이 커밋) 대기` }
   } catch (e) { approval = { state: 'failure', summary: `위험도 판정 오류(닫힌 실패): ${String(e.message).slice(0, 120)}` } }
-  return { review, approval }
+  return { approval }
 }
 
 const ghFetch = async (token, path, accept = 'application/vnd.github+json') => {
@@ -184,7 +179,7 @@ export async function main(argv, { getAppToken = checksAppToken, framePaths: fp 
     const post = async (name, v) => { appTok ??= await getAppToken(); return publish(appTok, repo, nums[0], sha, name, v, readTok) }
     try {
       // 재판정을 시작하기 전에 이 커밋의 기존 판정을 '대기'로 내린다 — 아래 수집이 중간에 끊겨도 옛 성공이 남지 않는다(Codex P1).
-      if (!a['dry-run']) for (const name of [CHECK_REVIEW, CHECK_APPROVAL]) await post(name, { state: 'pending', summary: '재판정 중(이전 판정은 무효)' })
+      if (!a['dry-run']) await post(CHECK_APPROVAL, { state: 'pending', summary: '재판정 중(이전 판정은 무효)' })
       // 판정은 두 번 한다: 게시 직전에 자료를 다시 모아 다시 판정하고 더 나쁜 쪽을 올린다(Codex P1: 오래된 실행이 늦게 끝나 최신 판정을 success로 덮지 못하게).
       // 워크플로의 직렬 실행(concurrency 한 줄)이 1차 방어, 이 재판정이 2차 방어 — 둘 다 기존 승인 검사 안에서만.
       const evaluate = async () => {
@@ -192,19 +187,19 @@ export async function main(argv, { getAppToken = checksAppToken, framePaths: fp 
         // 잠금 이슈는 판정마다 새로 읽는다(두 번 판정하는 사이 잠금이 생겨도 더 나쁜 쪽이 올라감). 못 읽으면 예외 → 닫힌 실패.
         const locks = await activeLocks(readTok, repo, compares)
         for (const p of group) { const { input } = await collect(readTok, repo, p.number, framePaths, locks); list.push({ num: p.number, v: verdicts(input) }) }
-        return { review: combine(list.map((x) => ({ num: x.num, v: x.v.review }))), approval: combine(list.map((x) => ({ num: x.num, v: x.v.approval }))) }
+        return { approval: combine(list.map((x) => ({ num: x.num, v: x.v.approval }))) }
       }
       const first = await evaluate(), second = await evaluate()
       const worse = (x, y) => (SEVERITY[y.state] > SEVERITY[x.state] ? y : x)
-      const review = worse(first.review, second.review), approval = worse(first.approval, second.approval)
-      console.log(`PR ${nums.map((n) => `#${n}`).join('·')} ${sha.slice(0, 7)}: ${CHECK_REVIEW}=${review.state}(${review.summary}) ${CHECK_APPROVAL}=${approval.state}(${approval.summary})`)
+      const approval = worse(first.approval, second.approval)
+      console.log(`PR ${nums.map((n) => `#${n}`).join('·')} ${sha.slice(0, 7)}: ${CHECK_APPROVAL}=${approval.state}(${approval.summary})`)
       if (a['dry-run']) continue
-      await post(CHECK_REVIEW, review); await post(CHECK_APPROVAL, approval)
+      await post(CHECK_APPROVAL, approval)
     } catch (e) {
-      // 수집·판정이 실패하면 두 검사를 실패로 올린다(닫힌 실패) — 못 올리면 이 실행이 실패로 끝나 다음 실행이 다시 시도한다.
+      // 수집·판정이 실패하면 approval-gate를 실패로 올린다(닫힌 실패) — 못 올리면 이 실행이 실패로 끝나 다음 실행이 다시 시도한다.
       errors++
       console.error(`::error::PR ${nums.join(',')} ${sha.slice(0, 7)} 재판정 실패: ${e.message}`)
-      if (!a['dry-run']) for (const name of [CHECK_REVIEW, CHECK_APPROVAL]) { try { await post(name, { state: 'failure', summary: `재판정 수집 실패(닫힌 실패): ${String(e.message).slice(0, 150)}` }) } catch (e2) { console.error(`::error::${name} 실패 표시도 못 올림: ${e2.message}`) } }
+      if (!a['dry-run']) for (const name of [CHECK_APPROVAL]) { try { await post(name, { state: 'failure', summary: `재판정 수집 실패(닫힌 실패): ${String(e.message).slice(0, 150)}` }) } catch (e2) { console.error(`::error::${name} 실패 표시도 못 올림: ${e2.message}`) } }
     }
   }
   if (errors) throw new Error(`${errors}개 커밋 재판정 실패`)

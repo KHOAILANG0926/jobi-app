@@ -151,7 +151,7 @@ jobs:
             if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt; then
               echo "::warning::PR #$num 병합 직전 재확인에서 승인 상태가 바뀜(취소·변경 요청·승인 없음): 병합 중단"; continue
             fi
-            # 병합 조건 검사(approval-checks.yml이 검사 전용 앱으로 올리는 approval-gate — ai-review는 11-21부터 병합 조건 아님)도 저장소 규칙의 필수 검사다(S4).
+            # 병합 조건 검사(approval-checks.yml이 검사 전용 앱으로 올리는 approval-gate — ai-review 검사는 11-21 지움)도 저장소 규칙의 필수 검사다(S4).
             # 위 4종만 보고 병합을 시도하면, 검토 답이나 Lee 승인이 판정에 반영되기 직전(수십 초)에 서버가 거절하고 다음 예약(15분, 자주 빠짐)까지 멈췄다
             # (#920 2026-11-18T22:16:56Z·#925 2026-11-18T23:16:01Z, 같은 원인 2번째 — 원칙 8). 병합 직전에 두 판정을 다시 읽어 아직이면 시도하지 않고,
             # 기존 다시 확인 장치(codex-wait.txt → codex-wait-timer)로 6분 뒤 다시 부른다(approval-checks는 5분마다 + 댓글마다 판정).

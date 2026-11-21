@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process'
 export const REQUIRED_CHECKS = ['checks', 'guard', 'app-screen'] // 브랜치 보호 master 필수 검사(관리자 권한으로 확인한 값과 같아야 함 — PR #R3 본문 근거)
 // S6(#808, S2 설계 5절 43번): 병합 조건 검사(approval-checks.yml) 결과도 병합 시점 기준으로 대조한다 — 출처 앱이 검사 전용 앱일 때만 인정
 // (PR 브랜치 워크플로가 같은 이름으로 만든 검사는 세지 않는다, approval-checks.mjs 머리말).
-// 병합 조건 검사(검사 전용 앱). ai-review(독립 검토)는 Lee 2026-11-21부터 병합 조건이 아니라 neutral「필수 아님」으로만 올라가므로 대조하지 않는다.
+// 병합 조건 검사(검사 전용 앱). ai-review(독립 검토) 검사는 Lee 2026-11-21 병합 조건·Ruleset에서 빠진 뒤 지웠으므로 대조하지 않는다.
 export const GATE_CHECKS = ['approval-gate']
 export const GATE_APP = 'viecganban-checks'
 export const BOT_MERGERS = ['github-actions[bot]']
