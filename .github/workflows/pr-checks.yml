@@ -48,7 +48,7 @@ jobs:
         run: node scripts/decision-approval-gate.test.mjs
       - name: Lee 승인 판정 실제 호출 경로 시험(리뷰 여러 쪽·작성자 인자, S4-4)
         run: node scripts/decision-approval-callpath.test.mjs
-      - name: 병합 조건 검사(ai-review·approval-gate) 판정 시험(S4 8단계)
+      - name: 병합 조건 검사(approval-gate) 판정 시험(S4 8단계)
         run: node scripts/ci/approval-checks.test.mjs
       - name: 병합 조건 검사 재현 시험(같은 SHA PR 오염·수집 실패 시 옛 성공 무효, S4 8단계)
         run: node scripts/ci/approval-checks.main.test.mjs
