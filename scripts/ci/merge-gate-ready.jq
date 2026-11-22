@@ -1,5 +1,5 @@
 # 봇 병합 직전 판정(S8, #808): 저장소 필수 검사 중 병합 조건 검사(approval-checks.yml이 검사 전용 앱으로 올리는 approval-gate).
-# ai-review(독립 검토)는 병합 조건이 아니다(Lee 2026-11-21) — approval-checks가 "필수 아님"으로 neutral을 올리며, 여기서는 보지 않는다.
+# ai-review(독립 검토) 검사는 Lee 2026-11-21 병합 조건·Ruleset에서 빠진 뒤 지웠다 — 여기서는 approval-gate만 본다.
 # 입력 = `gh api --paginate --slurp commits/<sha>/check-runs?per_page=100` 응답(페이지 배열) 또는 한 페이지 객체 — collapse-check-runs.jq와 같은 입력.
 # 출력 = "ok"(최신 approval-gate가 성공) | "pending"(실행 중·아직 없음·조회 잘림·action_required → 곧 바뀜) | "blocked"(실패 등 → 다시 안 부름).
 # action_required를 pending으로 보는 이유: 봇은 이 판정 앞에서 decision-approval-gate(같은 Lee 승인 판정)를 이미 통과시켰다.

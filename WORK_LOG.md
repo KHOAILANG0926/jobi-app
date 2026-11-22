@@ -1,9 +1,15 @@
-## 2026-11-21 — #808 S1~S8 마감: 독립 검토·4대 보고를 병합 조건에서 뺌, 병합 뒤 검사 2개 추가, PR 본문 형식 F12, MAP-1 지도 스타일 대기
+## 2026-11-22 — 크롤링 정상화 1번 그룹(Lee PR #958 최종 지시): 수집·인식·제외 규칙, 미리 보기 → 선택 저장 연결 (Draft, 2~4번 그룹은 별도 Draft로 분리)
+- 실제 원인 [직접 확인]: ① 연락처 미기재가 FINAL(영구 제외, missing_required) ② not_job·office 사전 거름이 정상 구인 글을 영구 제외 — "Quán trả 8 triệu…"처럼 보수 문구가 든 구인 글(not_job), 본문에 kỹ sư·trưởng phòng을 언급한 공장 모집글(office) ③ 파서 예외가 `evaluate_post` 밖으로 나가 글 한 건에 가두지 못함 ④ 선택 저장(`save_selected_from_dryrun`)이 `is_ambiguous_job`만 직접 써서 일반 수집과 판정이 다르고, 미리 보기 아티팩트에는 review 후보가 없어 보류함에 보관 불가, 아티팩트 없음·고른 글 없음이 조용히 성공(종료 0)이었음.
+- 변경: crawler/crawl_facebook.py(판정 네 갈래 정상/인식 실패 review/명백한 제외+근거 기록/파서·수집기 오류 parser_error→JOB_ERRORS · 연락처 없음 → review · not_job 약한 근거(보수 문구)는 직무 낱말 없을 때만·모집 인원 문구 구인 인정 · office는 모집 직무 줄(앞 두 줄)의 낱말+직무 낱말 없을 때만 · early_verdict·judge_read 공용(evaluate_post·judge_text) · evaluate_post_isolated · hold_review_posts(보관 성공 뒤에만 '본 글') · dry-run 아티팩트 review_jobs · 선택 저장: 정상=등록 / review=보류함 보관(성공 확인 뒤에만 완료) / 명백한 제외=종결 / 오류·만료·없는 키=미완료(종료 1), 본 글 기록 안 만듦) · crawler/ingest_gateway.py(REVIEW_STATUS 상태 값만) · 결정 문서(CLAUDE.md·RULES_CORE) 한 줄: 연락처 미기재=review 결정 기록(Lee 11-22, check-repository-policy가 정답 파일 변경 근거로 읽는 정식 기록).
+- 검증 [직접 확인]: 수정 전(3742c14 기준) 새 시험 20건 실패·오류 → 수정 후 통과. 운영 DB·수집·병합 없음. 실제 GitHub dryrun→save는 아직 실행·검증하지 않음.
+- 분리: 보류함 재판정·오류 줄 처리·`--retry-held`·workflow 변경·crawl-guard(2~4번 그룹)는 `claude/crawl-group2-4-preserved` Draft PR에 그대로 보존(유실 없음).
+
+## 2026-11-21 — #808 S1~S8 마감: 독립 검토·4대 보고를 병합 조건에서 뺌, 병합 뒤 검사 2개 추가, PR 본문 형식 F12, MAP-1 지도 스타일 대기, ai-review 검사 삭제
 - 요청(Lee 11-21): 공고 자동 수집→검증→공개에 필요한 것만 끝내고 #808 닫기. 결정 1 대안 거절 뒤 "최신 상태 요구 안 씀", 결정 2 독립 검토 선택화(11-14 결정 7①·#807 게이트 (3) 변경), 3 MAP-1 원인만, 4 vieclam24h 1건, 5 기록.
 - 변경: approval-checks ai-review = neutral「필수 아님, 검토 안 함」·4대 보고 분기 삭제 / decision-approval-gate 4대 보고(highRiskReport 등) 삭제 / bot-pr-automerge 검토 대기·검토관 자동 호출 삭제, 병합 뒤 호출 목록에 ai-reader-calibration·job-ocr-check / merge-gate-ready.jq = approval-gate만 / check-pr-ready READY 줄 뒤 설명 허용·칸 경계 / vietMapStyle 상세·관리자 지도 스타일 대기 5·6초→15·20초(메인은 12초 예비지도 제한 안이라 5·6초 유지 — 검토관 지적 1, 시험으로 묶음) / map-summary-check 실패 증거 저장 / 안 쓰게 된 codexGate·needsSecondReview 삭제(검토관 지적 3) / BLOCKED·MERGED 줄도 같은 기준(지적 2) / CLAUDE.md·RULES_CORE.md·AGENTS.md·claude-auto 주석.
 - MAP-1 [직접 확인 11-21]: 운영 대상 지도 검사 재현 — style.json 6번 200(0.24~1.9초) 뒤 2번 응답 없음(5·6초 제한 초과). 같은 주소 12번 중 3번 11~12초·1번 20초+(다른 VietMap 파일·사이트는 1초 안). 같은 순서 20번: 운영(옛 코드) 실패 10, 새 코드 실패 2(상세 35초+ 1·메인 예비지도 전환 1 — 이 환경은 예비지도 주소 막힘).
 - 검증: 관련 시험 21개·npm test 124/124·tsc·build 통과(로컬). check-repository-policy는 CI 이벤트 필요(CI에서 확인).
-- 남은 것: PR 병합(Lee Approve)·병합 뒤 검사·deploy-verify, Ruleset ai-review 제거(Lee)→ai-review 삭제 PR, vieclam24h 1건, #808 정리.
+- #808 최종 결과(11-21, 닫음): 끝 기준 1 완료 — PR #948 1a83668 봇 병합(run 44883022114)·vercel-deploy 44883059904·deploy-verify 44883165886(MAP-1 통과)·행정 핀 44883204814 성공, 잠금 #943·#945 풀림 조건 충족(이슈는 열린 채) / 끝 기준 2 보류 — vieclam24h 시험 2건(44879128739·44879875442) 본문에 전화번호 없어 공개 0 / Lee가 Ruleset에서 ai-review를 뺀 뒤(08:17Z) ai-review 검사 삭제 PR(approval-checks는 approval-gate만).
 
 ## 2026-11-21 — 이전 HANDOFF 본문(11-09~11-18 상태 목록) 이동 — HANDOFF를 1페이지로 덮어쓰며 옮김
 - 11-18 vieclam24h 전화번호: 상세 공개 버튼 눌러 읽기 PR(로그인 필요하면 멈춤). 실제 화면 확인은 병합 뒤 VPS 시험 수집 1건. 저장·공개·정기 수집 없음.
@@ -53,6 +59,7 @@
 - 변경(#913): approval-checks.mjs — 열린 '운영 배포 검증 실패' 이슈(github-actions[bot])가 있으면 일반 PR approval-gate를 Lee 승인 필요로. 풀림 = master 최근 성공 deploy-verify 커밋이 실패 커밋 포함·이슈 닫기·복구 PR Lee Approve. deploy-verify.yml(STRICT)은 그대로. merge-provenance.mjs — 검사 전용 앱 ai-review·approval-gate 병합 시점 대조.
 - 모의 시험: s6/deploy-fail-mock(빈 커밋 47fc051) deploy-verify run 44313174748 실패 → 이슈 #918 → 일반 PR 5건 잠금 → #918 닫음 → 풀림. 운영 배포 영향 없음.
 - VPS 러너 crawler 정상(run 44277027923). 남은 일: S7.
+
 ## 2026-11-18 — vieclam24h 새 공고 근무지 줄을 등록 입구와 같은 트랜잭션으로 (#916, #6255 핀 안 생김)
 - 원인 [직접 확인 코드]: crawl_topcv가 ingest_job으로 등록한 직후 replace_job_work_locations로 근무지 줄을 다시 씀 → 저장 직후 위치 확인 서버(location-hook)가 찾는 동안 근무지가 바뀜 → map_r1_complete가 snapshot 불일치로 결과를 버리고 failed(20261111150000_map_r1_other_stores.sql). Facebook은 입구 한 번(등록 트랜잭션)이라 이 경쟁이 없음.
 - GEOAPIFY 없음은 직접 원인 아님: 크롤러 자체 좌표만 못 구함(unresolved 줄) — 핀은 위치 확인 서버(Google 재사용)가 정함.

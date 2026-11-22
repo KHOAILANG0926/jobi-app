@@ -15,6 +15,11 @@ on:
         description: '그룹 1개(주소 일부), 예: timvieclamthembacninh'
         required: true
         default: timvieclamthembacninh
+      reset_account_lock:
+        description: 'Facebook 로그인·쿠키 갱신 확인 후 이번 dryrun의 계정 잠금 파일만 해제'
+        type: boolean
+        required: false
+        default: false
       post_key:
         description: 'save일 때만: 미리 보기에서 고른 게시물 키(예: id:123)'
         required: false
@@ -78,6 +83,57 @@ jobs:
           d="$HOME/jobi-crawler-state/facebook"; mkdir -p "$d"; echo "CRAWLER_STATE_DIR=$d" >> "$GITHUB_ENV"
           echo "계정 잠금 파일: $([ -f "$d/FACEBOOK_ACCOUNT_LOCK" ] && echo 있음 || echo 없음)"
           echo "본 글 기록: $(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(sum(len(v.get("keys",[])) for v in d.values()),"건")' "$d/facebook_seen.json" 2>/dev/null || echo 없음)"
+      # #872: Facebook 로그인·쿠키 갱신 후, 대표가 수동으로 선택한 dryrun 한 번만 잠금을 해제한다.
+      # 기본값 false; save에서는 절대 삭제하지 않으며, 크롤러의 재잠금 기능은 그대로 둔다.
+      - name: 계정 잠금 수동 해제 (위치·링크 검증)
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.mode == 'dryrun' && inputs.reset_account_lock == true
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_home="/home/crawler-runner"
+          expected_workspace="$expected_home/actions-runner/_work/jobi-app/jobi-app"
+          expected_state="$expected_home/jobi-crawler-state/facebook"
+          expected_legacy="$expected_workspace/crawler/state"
+
+          [ "$HOME" = "$expected_home" ] || { echo "::error::HOME 경로 불일치"; exit 1; }
+          [ "$GITHUB_WORKSPACE" = "$expected_workspace" ] || { echo "::error::작업 폴더 경로 불일치"; exit 1; }
+
+          # 디렉터리 체인의 심볼릭 링크를 전부 거부한다. legacy 폴더는 없어도 정상이다.
+          for d in "$expected_home" \
+                   "$expected_home/jobi-crawler-state" "$expected_state" \
+                   "$expected_home/actions-runner" "$expected_home/actions-runner/_work" \
+                   "$expected_home/actions-runner/_work/jobi-app" "$expected_workspace" \
+                   "$expected_workspace/crawler" "$expected_legacy"; do
+            [ ! -L "$d" ] || { echo "::error::심볼릭 링크 디렉터리 차단"; exit 1; }
+          done
+
+          [ -d "$expected_state" ] || { echo "::error::상태 디렉터리 없음"; exit 1; }
+          [ -d "$expected_workspace/crawler" ] || { echo "::error::크롤러 디렉터리 없음"; exit 1; }
+          [ "$(cd "$expected_home" && pwd -P)" = "$expected_home" ] || exit 1
+          [ "$(cd "$expected_state" && pwd -P)" = "$expected_state" ] || exit 1
+          [ "$(cd "$expected_workspace" && pwd -P)" = "$expected_workspace" ] || exit 1
+          [ "$(cd "$expected_workspace/crawler" && pwd -P)" = "$expected_workspace/crawler" ] || exit 1
+          if [ -e "$expected_legacy" ]; then
+            [ -d "$expected_legacy" ] || exit 1
+            [ "$(cd "$expected_legacy" && pwd -P)" = "$expected_legacy" ] || exit 1
+          fi
+
+          lock1="$HOME/jobi-crawler-state/facebook/FACEBOOK_ACCOUNT_LOCK"
+          lock2="$GITHUB_WORKSPACE/crawler/state/FACEBOOK_ACCOUNT_LOCK"
+          [ "$lock1" = "$expected_state/FACEBOOK_ACCOUNT_LOCK" ] || exit 1
+          [ "$lock2" = "$expected_legacy/FACEBOOK_ACCOUNT_LOCK" ] || exit 1
+
+          for file in "$lock1" "$lock2"; do
+            [ ! -L "$file" ] || { echo "::error::잠금 파일 심볼릭 링크 차단"; exit 1; }
+            if [ -e "$file" ]; then
+              [ -f "$file" ] || { echo "::error::잠금 대상이 일반 파일이 아님"; exit 1; }
+            fi
+          done
+          rm -f -- "$lock1" "$lock2"
+          [ ! -e "$lock1" ] && [ ! -L "$lock1" ] || exit 1
+          [ ! -e "$lock2" ] && [ ! -L "$lock2" ] || exit 1
+          echo "잠금 해제 완료 (허용된 파일 2개만 검사)"
+
       - name: 미리 보기(저장 없음) — 그룹 1개
         if: inputs.mode == 'dryrun'
         working-directory: crawler

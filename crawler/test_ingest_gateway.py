@@ -543,6 +543,30 @@ def run_company_agreement():
     print("test_ingest_gateway: company name agreement (rule + AI x3) passed")
 
 
+def run_review_status_stored():
+    """인식 실패(review, Lee 2026-11-22): 원문·출처·사유가 그대로 같은 보류함에 비공개로 보존된다. 이 상태를 다시 판정·해소하는 로직은 없다(후속 그룹) —
+    다시 확인하는 재시도(retry_held)는 review 줄을 건드리지 않고, 입구(공고 목록)도 부르지 않는다."""
+    g._HOLDS_RETRIED = False
+    c = HoldClient()
+    job = {"title": "Tuyển gấp", "company": "Cty A", "location": "Bắc Ninh", "source_url": "https://example.invalid/r",
+           "source_text": "Tuyển gấp 5 bạn. Không có số", "description": "[source:facebook] Tuyển gấp 5 bạn"}
+    g.hold_job(c, job, "연락처 없음", g.REVIEW_STATUS)
+    (row,) = c.rows.values()
+    assert row["meta"]["status"] == g.REVIEW_STATUS == "review" and row["meta"]["reason"] == "연락처 없음", row["meta"]
+    assert row["payload"]["source_text"] == job["source_text"] and row["payload"]["source_url"] == job["source_url"], "원문·출처 보존"
+    assert c.calls == [], "보존만 한다 — 입구(공고 목록)를 부르지 않는다"
+    # 같은 글을 다시 보존해도 한 줄(덮어쓰지 않음)
+    g.hold_job(c, job, "다른 사유", g.REVIEW_STATUS)
+    assert len(c.rows) == 1 and next(iter(c.rows.values()))["meta"]["reason"] == "연락처 없음"
+    # 다시 확인(retry_held)은 이 줄을 건드리지 않는다
+    row["meta"]["next_at"] = "2000-01-01T00:00:00+00:00"
+    g.PRECHECK = lambda j: {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"}
+    out = g.retry_held(c)
+    assert c.calls == [] and row["meta"]["status"] == "review" and out["registered"] == 0, (out, row["meta"])
+    g._HOLDS_RETRIED = True
+    print("test_ingest_gateway: review status stored passed")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
@@ -550,3 +574,4 @@ if __name__ == "__main__":
     run_hold_without_new_jobs()
     run_unfound_recheck_fresh()
     run_company_agreement()
+    run_review_status_stored()
