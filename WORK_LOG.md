@@ -1,3 +1,9 @@
+## 2026-11-22 — 5342·5437 비공개 원인: 검사 쪽 홍보 판별이 성조를 빼고 읽어 오판 (PR 초안, 미병합)
+- 원인 [직접 확인 로컬]: 만드는 쪽 isPromoLine은 두 줄을 11-04 규칙대로 홍보로 뺌. 검사 쪽 promoLike는 성조를 빼고 'xa'를 xã, 'tỏa'를 tòa로 읽어 정보 줄로 보고 '원문 줄 빠짐'으로 잡음.
+- 변경: inspectReading.promoLike — 성조를 빼면 흔한 낱말과 같아지는 주소 낱말(tầng·đường·phố·phường·xã·quận·thôn·ngõ·tòa)만 성조 그대로 대조. 만드는 쪽 변경 없음(1차 안 되돌림). r2Inspect.test.ts에 규칙 기준 정답표(두 함수 각각 대조).
+- 진단 조회 scripts/ops/jobs/diag-private-7-20261122.sql(읽기 전용, run-sql-plan 통과·로컬 PostgreSQL 16 실행 확인), docs/ops/2026-11-22_dev_db_separation_plan.md(제안).
+- 남은 것: 운영 데이터 확인 못 함(5368·5421·5873·5938), 원본 저장소 PR은 이 세션 push 권한 거부.
+
 ## 2026-11-21 — #808 S1~S8 마감: 독립 검토·4대 보고를 병합 조건에서 뺌, 병합 뒤 검사 2개 추가, PR 본문 형식 F12, MAP-1 지도 스타일 대기, ai-review 검사 삭제
 - 요청(Lee 11-21): 공고 자동 수집→검증→공개에 필요한 것만 끝내고 #808 닫기. 결정 1 대안 거절 뒤 "최신 상태 요구 안 씀", 결정 2 독립 검토 선택화(11-14 결정 7①·#807 게이트 (3) 변경), 3 MAP-1 원인만, 4 vieclam24h 1건, 5 기록.
 - 변경: approval-checks ai-review = neutral「필수 아님, 검토 안 함」·4대 보고 분기 삭제 / decision-approval-gate 4대 보고(highRiskReport 등) 삭제 / bot-pr-automerge 검토 대기·검토관 자동 호출 삭제, 병합 뒤 호출 목록에 ai-reader-calibration·job-ocr-check / merge-gate-ready.jq = approval-gate만 / check-pr-ready READY 줄 뒤 설명 허용·칸 경계 / vietMapStyle 상세·관리자 지도 스타일 대기 5·6초→15·20초(메인은 12초 예비지도 제한 안이라 5·6초 유지 — 검토관 지적 1, 시험으로 묶음) / map-summary-check 실패 증거 저장 / 안 쓰게 된 codexGate·needsSecondReview 삭제(검토관 지적 3) / BLOCKED·MERGED 줄도 같은 기준(지적 2) / CLAUDE.md·RULES_CORE.md·AGENTS.md·claude-auto 주석.
