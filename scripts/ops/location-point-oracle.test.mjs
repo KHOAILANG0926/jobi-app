@@ -39,12 +39,13 @@ test('지도 화면 대기 실패: 외부 지도 요청 실패만 외부, 데이
  const timeout=Object.assign(new Error('waiting for locator'),{name:'TimeoutError'})
  const points=[point(1),point(2,'area')]
  const planned=JSON.stringify(points.map(p=>({...p,jobId:'sb-1'})))
- const aborted=[{failure:'net::ERR_ABORTED',status:null},{failure:'net::ERR_ABORTED',status:null}]
+ const vm='https://maps.vietmap.vn/maps/styles/tm/style.json?apikey=***'
+ const aborted=[{url:vm,failure:'net::ERR_ABORTED',status:null},{url:vm,failure:'net::ERR_ABORTED',status:null}]
  // 외부: 스타일 요청이 끊겼고, 화면이 그리려던 점은 원본과 같다
  const ok=classifyMapFailure(timeout,{state:{mapError:true,planned},styleRequests:aborted,points})
  assert.equal(ok.external,true);assert.match(ok.reason,/ERR_ABORTED/)
- assert.equal(classifyMapFailure(timeout,{state:{mapError:true},styleRequests:[{status:503}],points}).external,true,'5xx도 외부')
- assert.equal(classifyMapFailure(timeout,{state:{mapError:true},styleRequests:[{status:429}],points}).external,true,'429도 외부')
+ assert.equal(classifyMapFailure(timeout,{state:{mapError:true},styleRequests:[{url:vm,status:503}],points}).external,true,'5xx도 외부')
+ assert.equal(classifyMapFailure(timeout,{state:{mapError:true},styleRequests:[{url:vm,status:429}],points}).external,true,'429도 외부')
  // 데이터 오류: 비교 오류·원본과 다른 점은 외부 요청이 실패했어도 실패
  let assertion;try{assertPoints(points,[],'x')}catch(e){assertion=e}
  assert.equal(classifyMapFailure(assertion,{state:{mapError:true,planned},styleRequests:aborted,points}).external,false,'비교 오류는 외부로 못 묻음')
@@ -52,7 +53,10 @@ test('지도 화면 대기 실패: 외부 지도 요청 실패만 외부, 데이
  assert.equal(classifyMapFailure(timeout,{state:{mapError:true,planned:moved},styleRequests:aborted,points}).external,false,'그리려던 점이 원본과 다르면 데이터 오류')
  // 원인을 못 묻는 경우: 요청 기록 없음·스타일 정상 응답·우리 열쇠 401/403·다른 종류 오류
  assert.equal(classifyMapFailure(timeout,{state:{planned},styleRequests:[],points}).external,false,'요청 기록이 없으면 외부로 보지 않음')
- assert.equal(classifyMapFailure(timeout,{state:{planned},styleRequests:[{status:200}],points}).external,false,'스타일이 정상이면 화면 문제')
- assert.equal(classifyMapFailure(timeout,{state:{planned},styleRequests:[{status:403}],points}).external,false,'열쇠 문제')
+ assert.equal(classifyMapFailure(timeout,{state:{planned},styleRequests:[{url:vm,status:200}],points}).external,false,'스타일이 정상이면 화면 문제')
+ assert.equal(classifyMapFailure(timeout,{state:{planned},styleRequests:[{url:vm,status:403}],points}).external,false,'열쇠 문제')
+ assert.equal(classifyMapFailure(timeout,{state:{planned},styleRequests:[{url:'https://viecganban.vn/vietmap/styles/tm.json',status:404}],points}).external,false,'우리 쪽 사본 실패는 외부가 아님')
+ assert.equal(classifyMapFailure(timeout,{state:{planned},styleRequests:[{failure:'x'}],points}).external,false,'주소를 모르는 요청은 외부로 묻지 않음')
+ assert.equal(classifyMapFailure(timeout,{state:{planned},styleRequests:[...aborted,{url:'https://viecganban.vn/vietmap/styles/tm.json',status:404}],points}).external,false,'VietMap 실패와 사본 실패가 섞이면 외부가 아님')
  assert.equal(classifyMapFailure(new Error('boom'),{state:{planned},styleRequests:aborted,points}).external,false,'시간 초과가 아닌 오류')
 })

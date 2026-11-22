@@ -62,6 +62,9 @@ export function classifyMapFailure(error, { state, styleRequests, points }) {
   if(error?.name!=='TimeoutError') return {external:false,reason:'화면 대기 시간 초과가 아님'}
   const failed=(styleRequests??[]).filter(r=>r.failure || !(r.status>=200 && r.status<300))
   if(!failed.length) return {external:false,reason:'이 공고를 여는 동안 실패한 지도 스타일 요청이 없음'}
+  // 외부로 볼 수 있는 것은 VietMap 서버(maps.vietmap.vn)로 간 요청의 실패뿐이다. 우리 쪽 사본(/vietmap/styles/…)이나 주소를 모르는 요청의 실패는 우리 배포 문제일 수 있어 외부로 묻지 않는다.
+  const host=r=>{ try { return new URL(r.url).hostname } catch { return '' } }
+  if(failed.some(r=>host(r)!=='maps.vietmap.vn')) return {external:false,reason:'VietMap 서버가 아닌 스타일 요청(우리 쪽 사본 등)이 실패'}
   if(failed.some(r=>r.status===401 || r.status===403)) return {external:false,reason:'지도 스타일 요청이 401·403(우리 열쇠 문제)'}
   if(state?.planned) {
     try { assertPoints(points,JSON.parse(state.planned),'planned points') }
