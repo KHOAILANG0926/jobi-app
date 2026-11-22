@@ -33,28 +33,27 @@ for (const o of R2_ORACLE) {
 }
 // Codex #763 지적 사례: 정보 문장은 홍보로 안 빼고, 사이트 UI 글자·+84 반복 번호는 빼며, 카드 급여는 금액 단위·직무별 행이 있어야 읽힘.
 ok(!promoLike('Công việc lâu dài!') && !promoLike('Ứng viên vui lòng gửi CV để được trao đổi chi tiết!') && promoLike('Nhanh tay ứng tuyển để có công việc tốt nhé!'), '홍보 판별', 'promoLike')
-// 홍보 판별 두 함수(만드는 쪽 isPromoLine·검사 쪽 promoLike)는 일부러 따로 둔다(검사기 독립). 대신 같은 줄에 같은 답을 내는지 이 표로 계속 맞춘다.
-// 만드는 쪽이 줄을 빼는데(true) 검사 쪽이 빠짐으로 잡는(false) 어긋남이 5342·5437 비공개의 원인이었다.
+// 홍보 판별 두 함수(만드는 쪽 isPromoLine·검사 쪽 promoLike)는 일부러 따로 둔다(검사기 독립). 정답은 함수 출력이 아니라
+// 11-04 규칙(CLAUDE.md 10-30 ④ ③: "!"/"?" 끝 + 숫자·주소·회사·연락처·이름표 없음 = 홍보, 애매하면 남김)으로 사람이 정한 값이다.
+// 두 함수가 이 표와 다르면 시험이 실패한다 — 5342·5437은 만드는 쪽은 홍보로 빼고 검사 쪽은 성조를 빼고 읽어 'xa'를 xã, 'tỏa'를 tòa로 오인해 빠짐으로 잡았다.
 {
-  const known = ['JOY THÁI', 'Bắc Ninh']
   const table: Array<[string, boolean]> = [
     ['Nhanh tay ứng tuyển để có công việc tốt nhé!', true],
-    ['Cơ hội đang chờ bạn!', true],
     ['#TuyenDung #ViecLam', true],
+    ['JOY THÁI – Nơi bạn phát triển và tỏa sáng!', true],   // 5342 원문: 회사 이름이 들어 있지만 구호(회사 정보·근무 조건 없음)
+    ['Không cần đi đâu xa tìm việc — job xịn ngay tại Bắc Ninh đây rồi!', true],   // 5437 원문: "xa"는 '멀리'(xã 아님)
     ['Công việc lâu dài!', false],
+    ['Tăng ca nhiều, thu nhập cao!', false],
     ['Ứng viên vui lòng gửi CV để được trao đổi chi tiết!', false],
+    ['Làm việc tại xã Yên Trung, Bắc Ninh!', false],
+    ['Văn phòng tại tòa nhà Vincom!', false],
+    ['Công ty TNHH ABC tuyển gấp!', false],
     ['Lương 10 triệu!', false],
-    ['JOY THÁI – Nơi bạn phát triển và tỏa sáng!', false],
-    ['Không cần đi đâu xa tìm việc — job xịn ngay tại Bắc Ninh đây rồi!', false],
   ]
   for (const [line, promo] of table) {
-    ok(isPromoLine(line, known) === promo && promoLike(line) === promo, `홍보 판별 두 함수 일치: ${line}`, `isPromoLine=${isPromoLine(line, known)} promoLike=${promoLike(line)} 기대=${promo}`)
+    ok(isPromoLine(line) === promo, `만드는 쪽 홍보 판별: ${line}`, `isPromoLine=${isPromoLine(line)} 기대=${promo}`)
+    ok(promoLike(line) === promo, `검사 쪽 홍보 판별: ${line}`, `promoLike=${promoLike(line)} 기대=${promo}`)
   }
-  // 만드는 쪽 끝까지: 회사·주소 칸에서 이름을 모아 두 줄이 상세요강에 남는다(5342·5437).
-  const built = buildDescriptionFromSources([{ name: 'source_text', text: 'Công việc lâu dài\nJOY THÁI – Nơi bạn phát triển và tỏa sáng!\nKhông cần đi đâu xa tìm việc — job xịn ngay tại Bắc Ninh đây rồi!\nCơ hội đang chờ bạn!' }],
-    { company: 'JOY THÁI', addresses: ['KCN Tiên Sơn, Bắc Ninh'] })
-  ok(built.description.includes('JOY THÁI – Nơi') && built.description.includes('ngay tại Bắc Ninh') && !built.description.includes('Cơ hội đang chờ bạn!'), '회사·지명 줄은 남고 순수 홍보 줄만 빠짐', built.description)
-  ok(isPromoLine('JOY THÁI – Nơi bạn phát triển và tỏa sáng!', []), '회사 이름을 모르면(컨텍스트 없음) 예전처럼 홍보 판정', 'isPromoLine')
 }
 ok(sourceLines('Công việc\nẨn số\nXem thêm\nDoanh nghiệp đăng tuyển').length === 1, '사이트 UI 글자 제외', 'sourceLines')
 ok(contactRepeat('Liên hệ: +84 901 234 567', ['Hotline: 0901234567']), '+84 반복 번호', 'contactRepeat')

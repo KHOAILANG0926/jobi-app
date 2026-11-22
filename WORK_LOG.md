@@ -1,3 +1,9 @@
+## 2026-11-22 — 5342·5437 비공개 원인: 검사 쪽 홍보 판별이 성조를 빼고 읽어 오판 (PR 초안, 미병합)
+- 원인 [직접 확인 로컬]: 만드는 쪽 isPromoLine은 두 줄을 11-04 규칙대로 홍보로 뺌. 검사 쪽 promoLike는 성조를 빼고 'xa'를 xã, 'tỏa'를 tòa로 읽어 정보 줄로 보고 '원문 줄 빠짐'으로 잡음.
+- 변경: inspectReading.promoLike — 성조를 빼면 흔한 낱말과 같아지는 주소 낱말(tầng·đường·phố·phường·xã·quận·thôn·ngõ·tòa)만 성조 그대로 대조. 만드는 쪽 변경 없음(1차 안 되돌림). r2Inspect.test.ts에 규칙 기준 정답표(두 함수 각각 대조).
+- 진단 조회 scripts/ops/jobs/diag-private-7-20261122.sql(읽기 전용, run-sql-plan 통과·로컬 PostgreSQL 16 실행 확인), docs/ops/2026-11-22_dev_db_separation_plan.md(제안).
+- 남은 것: 운영 데이터 확인 못 함(5368·5421·5873·5938), 원본 저장소 PR은 이 세션 push 권한 거부.
+
 ## 2026-11-19 — S7 완료: 필수 아닌 시험 필수화·중복 워크플로 정리·71개 처리 기록 (#808, #920)
 - 변경(#920): pr-checks.yml checks에 crawler-cli-tests(offline)·job-policy-tests·reprocess-queue-ci 시험 그대로 옮김, 제거 3개(job-policy-tests·reprocess-queue-ci·r7-source-aware-unit, 참조 0), map-pin-fit-check 손으로만, SAFE_TEST_WORKFLOWS 정리, 라벨 regression.
 - 기록: docs/system-redesign/S7-workflow-results.md(71줄). RULES_CORE 자동 생성은 보류(요약본 문장 훼손 위험).
