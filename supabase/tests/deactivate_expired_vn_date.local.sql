@@ -27,7 +27,8 @@ begin
   select t, d,
          (d < (t at time zone 'UTC')::date) as old_closes,
          (d < (t at time zone 'Asia/Ho_Chi_Minh')::date) as new_closes,
-         (d < (t at time zone 'Asia/Ho_Chi_Minh')::date) as screen_closed -- 화면 isJobOpen(마감일 < 베트남 오늘이면 닫힘)과 같은 식
+         -- 화면 isJobOpen(src/lib/jobDetailView.ts: 마감일 >= 베트남 오늘이면 열림, 베트남 = +07:00 고정)을 시간대 이름이 아니라 +7시간 더하기로 따로 표현
+         not (d >= ((t at time zone 'UTC') + interval '7 hours')::date) as screen_closed
   from generate_series(timestamptz '2026-11-20 00:00+00', timestamptz '2026-11-23 23:00+00', interval '1 hour') t,
        generate_series(date '2026-11-15', date '2026-11-27', interval '1 day') d(d);
   -- 새 기준이 옛 기준이 닫던 공고를 안 닫는 경우는 없다(덜 닫지 않는다)
