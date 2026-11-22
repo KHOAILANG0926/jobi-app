@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-23 00:03 (VN)**
-- 기준 커밋: `334d72f` (fix(ci): check-pr-ready — gh 응답이 1MiB를 넘어도 읽게 (열린 PR 목록 ENOBUFS) (#974))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45047090716
+- 생성 시각: **2026-11-23 00:21 (VN)**
+- 기준 커밋: `d5ae60b` (Merge pull request #972 from KHOAILANG0926/claude/1c-db-rule-reject-kept)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45048864050
 - 검증 스크립트 지문(SHA-256): `381fdde1e2023cb4`
 
 ## 한눈에 보기
@@ -44,12 +44,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 124/124 파일 통과 |
+| 테스트 `npm test` | ✅ 125/125 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `334d72f` · 상태 **success** · 2026-11-23 00:01 (VN)
+- 마지막 Production 배포: `d5ae60b` · 상태 **success** · 2026-11-23 00:20 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -57,6 +57,9 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #972 | 2026-11-23 00:20 (VN) | `d5ae60b` | fix(crawler): 1-C Facebook DB 규칙 거부 원문·출처·규칙 코드·사유를 보류함에 rejected로 보존 (Draft) |
+| #970 | 2026-11-23 00:15 (VN) | `b0daf6c` | feat(criteria): 1-B 마감·연락처·필수 9개 기준 한 곳 정리 — 코드·시험 (Draft, DB 변경 없음) |
+| #971 | 2026-11-23 00:14 (VN) | `1e63441` | fix(db): 공고 만료 처리 기준 날짜를 베트남 날짜로 — deactivate_expired_jobs 함수 한 개 교체 (Draft, 운영 적용 없음) |
 | #974 | 2026-11-23 00:01 (VN) | `334d72f` | fix(ci): check-pr-ready — gh 응답이 1MiB를 넘어도 읽게 (열린 PR 목록 ENOBUFS, 검사기 수정) |
 | #968 | 2026-11-22 21:09 (VN) | `dbe78b2` | fix(detail): 종류를 모르는 공장 공고 ④ 그림 = 카드와 같은 공장 사진 (Lee 11-22 sb-6309) |
 | #965 | 2026-11-22 20:51 (VN) | `757d540` | fix(detail): ④ 상세요강에 위쪽과 겹치는 줄도 원문 그대로 (Lee 11-22 "상단내용 포함") |
@@ -64,13 +67,10 @@
 | #958 | 2026-11-22 16:03 (VN) | `3a3d31d` | fix(crawler): 크롤링 정상화 1번 그룹 — 수집 판정 네 갈래·review 보존·선택 저장 연결 |
 | #953 | 2026-11-21 20:25 (VN) | `f02306d` | fix(#872): Facebook 미리 보기 전 계정 잠금 파일 수동 해제 옵션 — #941을 봇 PR로 |
 | #949 | 2026-11-21 15:52 (VN) | `7b37362` | chore(#808): ai-review 검사 삭제 — Ruleset에서 빠진 뒤, approval-gate 하나만 |
-| #948 | 2026-11-21 15:03 (VN) | `1a83668` | ci(#808 마감): 독립 검토·4대 보고를 병합 조건에서 뺌 · 병합 뒤 검사 2개 · PR 본문 형식(F12) · MAP-1 지도 스타일 대기 |
-| #944 | 2026-11-21 08:46 (VN) | `0ac281d` | ci(S1 B3): 봇 병합 직전 운영 배포 잠금 재확인 — 기존 activeLocks 재사용 (#808) |
-| #942 | 2026-11-20 17:46 (VN) | `804a4ae` | ci(S1): 보호 변경 Draft 게시 모드·STRICT 무조건 실패 제거·STATUS 라벨 예외 제거 (#808) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **26건** (전체 38건, 숨김·비활성 12건)
+- 공개 중: **26건** (전체 40건, 숨김·비활성 14건)
 - 출처별: 출처 없음 22 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -89,6 +89,7 @@
 | #5505 | 2026-11-11 20:11 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
 | #5599 | 2026-11-11 20:12 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
 | #5422 | 2026-11-11 20:23 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
+| #6329 (비공개) | 2026-11-23 00:21 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
 
 ## 6. VietMap 호출 수 (서버 카운터)
 
@@ -99,16 +100,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-11-23 00:21 (VN) | location_candidate.approve | job 6329 |
+| 2026-11-23 00:21 (VN) | location_candidate.add | job 6329 |
+| 2026-11-23 00:18 (VN) | location_candidate.approve | job 6326 |
+| 2026-11-23 00:18 (VN) | location_candidate.add | job 6326 |
+| 2026-11-23 00:17 (VN) | location_candidate.approve | job 6323 |
+| 2026-11-23 00:17 (VN) | location_candidate.add | job 6323 |
 | 2026-11-23 00:03 (VN) | location_candidate.approve | job 6319 |
 | 2026-11-23 00:03 (VN) | location_candidate.add | job 6319 |
 | 2026-11-22 21:11 (VN) | location_candidate.approve | job 6316 |
 | 2026-11-22 21:11 (VN) | location_candidate.add | job 6316 |
-| 2026-11-22 20:53 (VN) | location_candidate.approve | job 6312 |
-| 2026-11-22 20:53 (VN) | location_candidate.add | job 6312 |
-| 2026-11-22 20:19 (VN) | location_candidate.approve | job 6307 |
-| 2026-11-22 20:19 (VN) | location_candidate.add | job 6307 |
-| 2026-11-22 16:04 (VN) | location_candidate.approve | job 6303 |
-| 2026-11-22 16:04 (VN) | location_candidate.add | job 6303 |
 
 ## 8. 검증 장치 변경 이력
 
