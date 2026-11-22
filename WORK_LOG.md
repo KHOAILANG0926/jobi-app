@@ -1,3 +1,9 @@
+## 2026-11-22 — 크롤링 정상화 1번 그룹(Lee PR #958 최종 지시): 수집·인식·제외 규칙, 미리 보기 → 선택 저장 연결 (Draft, 2~4번 그룹은 별도 Draft로 분리)
+- 실제 원인 [직접 확인]: ① 연락처 미기재가 FINAL(영구 제외, missing_required) ② not_job·office 사전 거름이 정상 구인 글을 영구 제외 — "Quán trả 8 triệu…"처럼 보수 문구가 든 구인 글(not_job), 본문에 kỹ sư·trưởng phòng을 언급한 공장 모집글(office) ③ 파서 예외가 `evaluate_post` 밖으로 나가 글 한 건에 가두지 못함 ④ 선택 저장(`save_selected_from_dryrun`)이 `is_ambiguous_job`만 직접 써서 일반 수집과 판정이 다르고, 미리 보기 아티팩트에는 review 후보가 없어 보류함에 보관 불가, 아티팩트 없음·고른 글 없음이 조용히 성공(종료 0)이었음.
+- 변경: crawler/crawl_facebook.py(판정 네 갈래 정상/인식 실패 review/명백한 제외+근거 기록/파서·수집기 오류 parser_error→JOB_ERRORS · 연락처 없음 → review · not_job 약한 근거(보수 문구)는 직무 낱말 없을 때만·모집 인원 문구 구인 인정 · office는 모집 직무 줄(앞 두 줄)의 낱말+직무 낱말 없을 때만 · early_verdict·judge_read 공용(evaluate_post·judge_text) · evaluate_post_isolated · hold_review_posts(보관 성공 뒤에만 '본 글') · dry-run 아티팩트 review_jobs · 선택 저장: 정상=등록 / review=보류함 보관(성공 확인 뒤에만 완료) / 명백한 제외=종결 / 오류·만료·없는 키=미완료(종료 1), 본 글 기록 안 만듦) · crawler/ingest_gateway.py(REVIEW_STATUS 상태 값만) · 결정 문서(CLAUDE.md·RULES_CORE) 한 줄: 연락처 미기재=review 결정 기록(Lee 11-22, check-repository-policy가 정답 파일 변경 근거로 읽는 정식 기록).
+- 검증 [직접 확인]: 수정 전(3742c14 기준) 새 시험 20건 실패·오류 → 수정 후 통과. 운영 DB·수집·병합 없음. 실제 GitHub dryrun→save는 아직 실행·검증하지 않음.
+- 분리: 보류함 재판정·오류 줄 처리·`--retry-held`·workflow 변경·crawl-guard(2~4번 그룹)는 `claude/crawl-group2-4-preserved` Draft PR에 그대로 보존(유실 없음).
+
 ## 2026-11-21 — VietMap 지도 스타일 사본 먼저(메인·상세·관리자), 배포 빌드 때 사본 갱신 (#950, #946 MAP-1)
 - 요청(Lee 11-21): style.json 멈춤은 실제 사용자 화면 문제 — 대기 시간을 더 늘리지 않고(같은 종류 두 번째), 약관 확인 뒤 사본을 우리 쪽에서 제공, 사본 없거나 실패할 때만 원본. 갱신은 기존 예약 작업에, 새 워크플로 없음. 검사 기준 그대로, deploy-verify 통과가 완료.
 - 약관 [직접 확인]: VietMap 개발 문서 map-api overview "You may implement caching or response filtering as appropriate."(베트남어판 같은 뜻). 금지 조항 못 찾음(사이트 '약관' 링크는 개인정보 정책뿐).
@@ -60,6 +66,7 @@
 - 변경(#913): approval-checks.mjs — 열린 '운영 배포 검증 실패' 이슈(github-actions[bot])가 있으면 일반 PR approval-gate를 Lee 승인 필요로. 풀림 = master 최근 성공 deploy-verify 커밋이 실패 커밋 포함·이슈 닫기·복구 PR Lee Approve. deploy-verify.yml(STRICT)은 그대로. merge-provenance.mjs — 검사 전용 앱 ai-review·approval-gate 병합 시점 대조.
 - 모의 시험: s6/deploy-fail-mock(빈 커밋 47fc051) deploy-verify run 44313174748 실패 → 이슈 #918 → 일반 PR 5건 잠금 → #918 닫음 → 풀림. 운영 배포 영향 없음.
 - VPS 러너 crawler 정상(run 44277027923). 남은 일: S7.
+
 ## 2026-11-18 — vieclam24h 새 공고 근무지 줄을 등록 입구와 같은 트랜잭션으로 (#916, #6255 핀 안 생김)
 - 원인 [직접 확인 코드]: crawl_topcv가 ingest_job으로 등록한 직후 replace_job_work_locations로 근무지 줄을 다시 씀 → 저장 직후 위치 확인 서버(location-hook)가 찾는 동안 근무지가 바뀜 → map_r1_complete가 snapshot 불일치로 결과를 버리고 failed(20261111150000_map_r1_other_stores.sql). Facebook은 입구 한 번(등록 트랜잭션)이라 이 경쟁이 없음.
 - GEOAPIFY 없음은 직접 원인 아님: 크롤러 자체 좌표만 못 구함(unresolved 줄) — 핀은 위치 확인 서버(Google 재사용)가 정함.
@@ -75,8 +82,3 @@
 - 실측 [직접 확인]: publish_one 실행 44296448509 — El Gaucho 공고 location_precheck_failed, 로그에 이유가 없어 원인 확인 불가.
 - 변경: crawl_topcv 규칙 거부 줄에 이유(회사 이름·판정) — Facebook 수집기와 같은 형식. 판정은 그대로.
 - 남은 문제: 이유 확인 → 위치 확인 → publish_one 다시 → 운영 상세 PC·모바일.
-
-## 2026-11-18 — vieclam24h "전화번호 보기" 버튼 못 찾는 원인 확인(PC 내린 뒤·모바일 화면) (Lee 15:33)
-- 변경: 시험 수집(DB 없음)에서 버튼을 못 찾으면 ① 아래까지 천천히 내린 뒤 같은 버튼 찾기 다시(늦게 그려지는 칸) ② 모바일 화면(390px, 앞 2건) 같은 확인 ③ 누를 수 있는 연락·지원 요소 글자(숫자 가림, vieclam24h Hotline 제외)·tel 링크 수 기록. 누르는 방식은 기존 reveal_employer_phone 그대로(눌러서 새로 보인 번호만). 숨긴 페이지 자료는 쓰지 않음.
-- 검증 [직접 확인 로컬]: test_detail_section_parser_dom 11/11(내린 뒤 그려지는 버튼 클릭 사례 추가)·job_error_isolation·scheduled_cli·ingest_gateway·cli_safety.
-- 남은 문제: VPS 시험 수집으로 실제 버튼 글자·위치·로그인 조건 확인.
