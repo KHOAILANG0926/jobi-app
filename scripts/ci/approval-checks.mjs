@@ -166,7 +166,10 @@ export async function main(argv, { getAppToken = checksAppToken, framePaths: fp 
   const repo = a.repo, readTok = process.env.GITHUB_TOKEN
   if (!repo || !readTok || (!a.pr && !a.all)) throw new Error('사용: --repo o/r (--pr N | --all), 환경변수 GITHUB_TOKEN(읽기)')
   const framePaths = fp ?? approvedFramePaths(readFileSync(new URL('../test-desktop-baseline.mjs', import.meta.url), 'utf8'))
-  const open = (await pages(readTok, `repos/${repo}/pulls?state=open&base=master`)).filter((p) => p.base?.ref === 'master' && p.head.repo?.full_name === repo)
+  // Only the immutable repo ID and the verified bot PR author qualify the designated fork.
+  // PR source is data, never executed; the evaluator runs the trusted master version.
+  const trustedBotFork = (p) => p.head.repo?.full_name === 'viecganban-bot/jobi-app' && p.head.repo?.id === 1457251322 && p.user?.login === 'viecganban-bot'
+  const open = (await pages(readTok, `repos/${repo}/pulls?state=open&base=master`)).filter((p) => p.base?.ref === 'master' && (p.head.repo?.full_name === repo || trustedBotFork(p)))
   // --all은 열린 PR 전체(Draft 제외)를 다시 판정하고, --pr을 함께 주면 그 PR(Draft 포함)도 넣는다. 워크플로는 항상 둘을 함께 써서(직렬 실행) 건너뛴 실행이 있어도 다음 실행이 전체를 최신 자료로 덮는다.
   const eligible = open.filter((p) => !p.draft && p.number >= 251)
   const targets = a.all ? [...new Map([...eligible, ...open.filter((p) => a.pr && p.number === Number(a.pr))].map((p) => [p.number, p])).values()] : open.filter((p) => p.number === Number(a.pr))
