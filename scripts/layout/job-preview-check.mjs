@@ -60,8 +60,9 @@ try {
     assert.equal((await pop.locator('.jd2-rich__step').count()), 3, 'rich: process arrows from source words')
     assert.equal(await pop.locator('a.jd2-rich__cta').getAttribute('href'), 'tel:0969661314', 'rich: call button')
     assert(!(await pop.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), 'rich: no horizontal overflow')
-    // Lee 2026-11-11 "덧대기": 공장 그림은 회사 이름·제목만 본다 — 'ép nhựa'가 본문에만 있는 ZHAN AN은 업종 기본 그림(본문 낱말 오판 예외를 더하지 않음)
-    assert.match(await pop.locator('.jd2-desc-visual__img').getAttribute('src'), /01[bc]?-co-ban/, 'header drawing: factory kind only from company/title → basic art when unknown')
+    // Lee 2026-11-11 "덧대기": 공장 그림은 회사 이름·제목만 본다 — 'ép nhựa'가 본문에만 있는 ZHAN AN은 종류 모름.
+    // Lee 2026-11-22 sb-6309 "이공고는 사진안맞아": 종류 모름이면 사무실 기본 그림이 아니라 카드와 같은 공장 업종 사진
+    assert.match(await pop.locator('.jd2-desc-visual__img').getAttribute('src'), /\/images\/industry\/san_xuat_xay_dung\.jpg$/, 'header drawing: factory kind only from company/title → card factory photo when unknown')
     // 2026-11-11 Lee "사진 안 맞는다": 커피 가게는 카드와 같은 카페 사진(쌀국수 주방 아님)
     await pop.evaluate(() => { const k = 'vgb:postjob-preview'; const j = JSON.parse(localStorage.getItem(k) || '{}')
       localStorage.setItem(k, JSON.stringify({ ...j, category: 'am_thuc_do_uong', company: 'TRUNG NGUYÊN LEGEND BẮC NINH', title: 'TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND', description: `${j.description}\nPha chế cà phê, phục vụ khách` })) })
