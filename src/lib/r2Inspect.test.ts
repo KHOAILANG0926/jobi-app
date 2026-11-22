@@ -4,6 +4,7 @@
 import { R2_ORACLE } from './r2Oracle.fixtures.ts'
 import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
 import { inspectJob } from './jobInspect.ts'
+import { isPromoLine } from './jobDescriptionBuild.ts'
 import { promoLike, sourceLines, contactRepeat, cardReadableSalary } from './inspectReading.ts'
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -32,6 +33,29 @@ for (const o of R2_ORACLE) {
 }
 // Codex #763 지적 사례: 정보 문장은 홍보로 안 빼고, 사이트 UI 글자·+84 반복 번호는 빼며, 카드 급여는 금액 단위·직무별 행이 있어야 읽힘.
 ok(!promoLike('Công việc lâu dài!') && !promoLike('Ứng viên vui lòng gửi CV để được trao đổi chi tiết!') && promoLike('Nhanh tay ứng tuyển để có công việc tốt nhé!'), '홍보 판별', 'promoLike')
+// 홍보 판별 두 함수(만드는 쪽 isPromoLine·검사 쪽 promoLike)는 일부러 따로 둔다(검사기 독립). 대신 같은 줄에 같은 답을 내는지 이 표로 계속 맞춘다.
+// 만드는 쪽이 줄을 빼는데(true) 검사 쪽이 빠짐으로 잡는(false) 어긋남이 5342·5437 비공개의 원인이었다.
+{
+  const known = ['JOY THÁI', 'Bắc Ninh']
+  const table: Array<[string, boolean]> = [
+    ['Nhanh tay ứng tuyển để có công việc tốt nhé!', true],
+    ['Cơ hội đang chờ bạn!', true],
+    ['#TuyenDung #ViecLam', true],
+    ['Công việc lâu dài!', false],
+    ['Ứng viên vui lòng gửi CV để được trao đổi chi tiết!', false],
+    ['Lương 10 triệu!', false],
+    ['JOY THÁI – Nơi bạn phát triển và tỏa sáng!', false],
+    ['Không cần đi đâu xa tìm việc — job xịn ngay tại Bắc Ninh đây rồi!', false],
+  ]
+  for (const [line, promo] of table) {
+    ok(isPromoLine(line, known) === promo && promoLike(line) === promo, `홍보 판별 두 함수 일치: ${line}`, `isPromoLine=${isPromoLine(line, known)} promoLike=${promoLike(line)} 기대=${promo}`)
+  }
+  // 만드는 쪽 끝까지: 회사·주소 칸에서 이름을 모아 두 줄이 상세요강에 남는다(5342·5437).
+  const built = buildDescriptionFromSources([{ name: 'source_text', text: 'Công việc lâu dài\nJOY THÁI – Nơi bạn phát triển và tỏa sáng!\nKhông cần đi đâu xa tìm việc — job xịn ngay tại Bắc Ninh đây rồi!\nCơ hội đang chờ bạn!' }],
+    { company: 'JOY THÁI', addresses: ['KCN Tiên Sơn, Bắc Ninh'] })
+  ok(built.description.includes('JOY THÁI – Nơi') && built.description.includes('ngay tại Bắc Ninh') && !built.description.includes('Cơ hội đang chờ bạn!'), '회사·지명 줄은 남고 순수 홍보 줄만 빠짐', built.description)
+  ok(isPromoLine('JOY THÁI – Nơi bạn phát triển và tỏa sáng!', []), '회사 이름을 모르면(컨텍스트 없음) 예전처럼 홍보 판정', 'isPromoLine')
+}
 ok(sourceLines('Công việc\nẨn số\nXem thêm\nDoanh nghiệp đăng tuyển').length === 1, '사이트 UI 글자 제외', 'sourceLines')
 ok(contactRepeat('Liên hệ: +84 901 234 567', ['Hotline: 0901234567']), '+84 반복 번호', 'contactRepeat')
 ok(!cardReadableSalary('10000000') && !cardReadableSalary('Theo vị trí — xem chi tiết') && cardReadableSalary('10 triệu/tháng'), '카드 급여', 'cardReadableSalary')
