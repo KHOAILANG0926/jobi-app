@@ -1,0 +1,23 @@
+{
+  "version": "2026-11-22-v1",
+  "note": "공고 기준 중 값이 하나뿐인 것(마감·연락처·필수 9개 항목)의 단일 원천. Python(crawler/job_criteria.py)과 화면(src/lib/jobCriteria.mjs)이 읽는다. DB는 별도 migration이 같은 값을 쓴다(만료 cron = 베트남 날짜). 정책 판정(job-posting-rules.json)과 별개.",
+  "deadline": {
+    "timezone": "Asia/Ho_Chi_Minh",
+    "utc_offset_hours": 7,
+    "open_through_deadline_day": true
+  },
+  "contact": {
+    "min_digits": 8
+  },
+  "required_fields": [
+    { "key": "salary", "label": "급여" },
+    { "key": "hours", "label": "근무시간" },
+    { "key": "employment_type", "label": "고용형태" },
+    { "key": "occupation", "label": "업직종" },
+    { "key": "application_deadline", "label": "모집마감" },
+    { "key": "num_hires", "label": "모집인원" },
+    { "key": "address", "label": "주소" },
+    { "key": "duties", "label": "업무 내용" },
+    { "key": "contact", "label": "연락처" }
+  ]
+}

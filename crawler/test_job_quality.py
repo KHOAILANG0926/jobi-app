@@ -208,8 +208,10 @@ def test_payload_validation() -> None:
     assert_true("missing source tag: vieclam24h" in errors, "missing source tag error")
     assert_true("invalid category: security" in errors, "invalid category error")
 
-    expired_job = {**good_job, "application_deadline": "2026-08-22"}
+    expired_job = {**good_job, "application_deadline": "2026-08-21"}
     assert_true("deadline is expired" in validate_job_payload(expired_job, today="2026-08-22"), "expired job error")
+    deadline_day_job = {**good_job, "application_deadline": "2026-08-22"}
+    assert_false("deadline is expired" in validate_job_payload(deadline_day_job, today="2026-08-22"), "the deadline day itself is not expired")
 
     # 2026-09-05 사용자 지시로 정정(실사례 오탐 — vieclam24h-blind-10 독립검증
     # 표본 3): 제목이 일반 영업직이고 "thu hồi công nợ"가 본문에만(주문·납품
@@ -1238,6 +1240,34 @@ def test_extract_phones_only_real_vietnam_mobile_numbers() -> None:
         assert extract_phones(good) == [good.replace(" ", "").replace(".", "").replace("-", "")], good
 
 
+def test_deadline_day_is_open_like_the_screen_and_db() -> None:
+    """1-B(F2): 마감 당일은 열림, 지난 날만 만료 — 화면(isJobOpen)·알림 RPC와 같은 기준. 오늘은 베트남 날짜."""
+    assert_false(is_expired("2026-11-23", today="2026-11-23"), "the deadline day itself is still open")
+    assert_true(is_expired("2026-11-22", today="2026-11-23"), "the day after the deadline is expired")
+    assert_false(is_expired("", today="2026-11-23"), "no deadline stays open")
+    from datetime import datetime, timezone
+    from job_criteria import today_vn
+    assert_equal(today_vn(datetime(2026, 11, 22, 18, 30, tzinfo=timezone.utc)), "2026-11-23", "UTC 18:30 is already the next day in Vietnam")
+    assert_equal(today_vn(datetime(2026, 11, 22, 16, 59, tzinfo=timezone.utc)), "2026-11-22", "UTC 16:59 is still the same day in Vietnam")
+
+
+def test_contact_needs_enough_digits_like_the_db_gate() -> None:
+    """1-B(F3): '연락처 있음' = 전화·Zalo에 숫자 8자리 이상(DB 공개 게이트와 같은 기준). 정상 연락처는 어떤 표기든 통과해야 한다."""
+    normal = ["0912345678", "0912 345 678", "091.234.5678", "+84 912 345 678", "84912345678", "(028) 3822 1234", "028-3822-1234", "09123456"]
+    for value in normal:
+        assert_true(has_application_path(value, "", ""), f"normal phone is accepted: {value!r}")
+        assert_true(has_application_path("", value, ""), f"normal zalo value is accepted: {value!r}")
+    assert_true(has_application_path("", "https://zalo.me/0912345678", ""), "zalo link with the number is accepted")
+    for value in ["", "0912345", "abc", "---", "zalo", "N/A"]:
+        assert_false(has_application_path(value, "", ""), f"not a contact: {value!r}")
+        assert_false(has_application_path("", value, ""), f"not a zalo contact: {value!r}")
+    assert_true(has_application_path("---", "", "https://vieclam24h.vn/abc.html"), "a valid source page is still its own path (unchanged)")
+    from job_criteria import CRITERIA, MIN_CONTACT_DIGITS
+    assert_equal(MIN_CONTACT_DIGITS, 8, "contact needs 8 digits (the DB publish-gate value)")
+    assert_true(CRITERIA["deadline"]["open_through_deadline_day"] is True, "deadline day is open (shared with the screen)")
+    assert_equal(len(CRITERIA["required_fields"]), 9, "the confirmed nine required fields")
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
@@ -1256,6 +1286,8 @@ def main() -> int:
         test_valid_categories_matches_new_taxonomy_and_classify_output_passes_validation,
         test_title_first_classification_company_not_used_for_cafe_cleaning,
         test_extract_phones_only_real_vietnam_mobile_numbers,
+        test_deadline_day_is_open_like_the_screen_and_db,
+        test_contact_needs_enough_digits_like_the_db_gate,
     ]
     for test in tests:
         test()

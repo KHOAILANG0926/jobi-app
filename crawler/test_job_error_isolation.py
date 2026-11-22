@@ -1128,5 +1128,29 @@ class SelectedSaveUsesTheSameJudgement(_SaveHarness):
         self.assertEqual(source_fields.JOB_ERRORS.failed_keys(), {"id:9"})
 
 
+
+class FacebookCriteriaAlignment(unittest.TestCase):
+    """1-B(F2·F3): Facebook 수집기가 마감·연락처를 DB·화면과 같은 기준으로 본다(마감 당일 열림, 연락처 숫자 8자리)."""
+
+    def test_deadline_day_is_kept_and_a_past_date_is_still_just_dropped(self):
+        with mock.patch.object(fb, "TODAY", "2026-11-23"):
+            self.assertEqual(fb.extract_deadline("Hạn nộp hồ sơ: 23/11/2026"), "2026-11-23", "마감 당일은 기한으로 남긴다")
+            self.assertEqual(fb.extract_deadline("Hạn nộp hồ sơ: 24/11/2026"), "2026-11-24")
+            self.assertIsNone(fb.extract_deadline("Hạn nộp hồ sơ: 22/11/2026"), "지난 날짜는 기존대로 기한에서 뺀다(새 제외 규칙 없음)")
+
+    def _problems(self, phone, zalo):
+        job = {"title": "Tuyển công nhân may", "company": "CTY A", "employer_phone": phone, "zalo": zalo,
+               "description": "Tuyển công nhân may, lương 8 triệu", "location": "Bắc Ninh"}
+        return fb.missing_required(job)
+
+    def test_normal_contacts_are_never_flagged_missing(self):
+        for value in ["0912345678", "0912 345 678", "091.234.5678", "+84 912 345 678", "84912345678", "(028) 3822 1234", "09123456"]:
+            self.assertNotIn("연락처 없음", self._problems(value, ""), value)
+            self.assertNotIn("연락처 없음", self._problems("", value), value)
+
+    def test_not_a_contact_is_flagged_missing(self):
+        for value in ["", "0912345", "abc", "---"]:
+            self.assertIn("연락처 없음", self._problems(value, ""), repr(value))
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
