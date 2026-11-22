@@ -2,16 +2,14 @@ name: Facebook 공고 1건 수집 (수동, 미리 보기 → 1건 저장)
 
 # Lee 2026-10-29 "크롤링 한 개 진행하자": Facebook 그룹 1개만, 먼저 저장 없이 미리 보기(dryrun),
 # 그다음 미리 본 글 중 1건만 입구(ingest_job)로 저장(save). 정기 실행 없음(수동만).
-# retry_held(Lee 2026-11-22 크롤링 정상화): 정기 수집이 멈춰 있어도 보류함 공고가 끊기지 않게 — Facebook에 접속하지 않고(쿠키 없음) 기존 보류함 재시도만 한 번(최대 5건).
-#   저장(save)과 같은 GitHub 서버·같은 DB·판독 열쇠 단계를 쓰며, 수집을 켜는 것이 아니다(새 글을 읽지 않음).
 # 키(쿠키·서버 키)는 GitHub Secrets에만. 미리 보기 결과 파일은 1일 보관 후 삭제되는 비공개 artifact.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'dryrun = 저장 없이 미리 보기 / save = 미리 본 글 1건 저장 / retry_held = 보류함(위치 미확인·회사 이름 판독 실패·판단 보류) 다시 확인 최대 5건(Facebook 접속 없음)'
+        description: 'dryrun = 저장 없이 미리 보기 / save = 미리 본 글 1건 저장'
         type: choice
-        options: [dryrun, save, retry_held]
+        options: [dryrun, save]
         default: dryrun
       group:
         description: '그룹 1개(주소 일부), 예: timvieclamthembacninh'
@@ -38,7 +36,7 @@ permissions:
 
 concurrency:
   # 미리 보기는 한국 Facebook 조사(korea-fb-*)와 같은 계정·컴퓨터라 같은 줄, 저장은 Facebook에 안 붙어 따로 줄(Codex #690)
-  group: ${{ inputs.mode != 'dryrun' && 'facebook-save' || 'crawl-facebook-one' }}
+  group: ${{ inputs.mode == 'save' && 'facebook-save' || 'crawl-facebook-one' }}
   cancel-in-progress: false
 
 jobs:
@@ -50,7 +48,7 @@ jobs:
     # GitHub 서버(미국, 매번 다른 IP)에서 돌리자 session_expired(run 42152363009). VPS에 이미 연결된 실행기(crawler)에서 실행.
     # 2026-11-11: Facebook에 접속하는 건 미리 보기(dryrun)뿐 — 저장(save)은 미리 본 결과만 등록 입구로 보내므로 GitHub 서버에서 돈다
     # (수집용 컴퓨터를 다른 조사가 몇 시간 쓰는 동안 저장이 묶이던 것, Lee "다른 데서 쓰고 있으면 넌 못하는 거야?").
-    runs-on: ${{ inputs.mode != 'dryrun' && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64"]') }}
+    runs-on: ${{ inputs.mode == 'save' && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64"]') }}
     timeout-minutes: 30
     # 열쇠는 잡 전체가 아니라 쓰는 단계에만 준다(Lee 2026-11-17 #881, S4 열쇠 분리):
     #   미리 보기 = Facebook 쿠키만(DB 열쇠 없음 → DB 중복 세기·회사 이름 읽기 생략, 저장 불가) / 저장 = DB·판독 열쇠만(Facebook 접속 없음).
@@ -75,12 +73,12 @@ jobs:
       - name: 의존성 설치
         run: |
           set -o pipefail
-          { python -m pip install -r crawler/requirements.txt && { [ "$MODE" != dryrun ] || python -m playwright install chromium; }; } 2>&1 | tee /tmp/deps.log || {
+          { python -m pip install -r crawler/requirements.txt && { [ "$MODE" = save ] || python -m playwright install chromium; }; } 2>&1 | tee /tmp/deps.log || {
             echo "::error title=의존성 설치 실패::$(tail -c 1500 /tmp/deps.log | tr '\n' ' ')"; exit 1; }
       # #872 사전점검: checkout이 git에 없는 파일(crawler/state/)을 매번 지워 계정 잠금·본 글 기록이 사라졌다 →
       # VPS 작업 폴더 밖 고정 폴더를 수집 상태 폴더로 쓴다(crawl_facebook.py CRAWLER_STATE_DIR). 값은 출력하지 않고 있음/없음·개수만.
       - name: 수집 상태 폴더(실행 사이 유지)
-        if: inputs.mode == 'dryrun'
+        if: inputs.mode != 'save'
         run: |
           d="$HOME/jobi-crawler-state/facebook"; mkdir -p "$d"; echo "CRAWLER_STATE_DIR=$d" >> "$GITHUB_ENV"
           echo "계정 잠금 파일: $([ -f "$d/FACEBOOK_ACCOUNT_LOCK" ] && echo 있음 || echo 없음)"
@@ -197,11 +195,11 @@ jobs:
           github-token: ${{ github.token }}
       # 회사 이름 AI 확인(scripts/ocr/read-company-ai.mjs, #872 R)은 Node 22 형식 지우기 실행이 필요하다(설치 패키지 없음).
       - uses: actions/setup-node@v4
-        if: inputs.mode != 'dryrun'
+        if: inputs.mode == 'save'
         with:
           node-version: '22'
-      - name: 고른 1건만 입구(ingest_job)로 저장 (retry_held 모드는 보류함 다시 확인만)
-        if: inputs.mode != 'dryrun'
+      - name: 고른 1건만 입구(ingest_job)로 저장
+        if: inputs.mode == 'save'
         working-directory: crawler
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -210,19 +208,12 @@ jobs:
         run: |
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::GitHub Secrets에 SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
           set -o pipefail
-          if [ "$MODE" = retry_held ]; then
-            # 보류함 다시 확인만: 기존 retry_held(한 번에 5건) 그대로 — Facebook 접속·쿠키 없음, 새 글을 읽지 않는다.
-            python -u crawl_facebook.py --retry-held 2>&1 | tee /tmp/fb.log || {
-              echo "::error title=보류함 다시 확인 실패::$(tail -c 1500 /tmp/fb.log | tr '\n' ' ')"; exit 1; }
-            grep -E '보류 공고 다시 확인|보류함|다시 확인할 때' /tmp/fb.log | while read -r line; do echo "::notice title=보류함 결과::$line"; done
-            exit 0
-          fi
           python -u crawl_facebook.py --save-from /tmp/fbdry/facebook_dryrun.json --post-keys "$POST_KEY" --max-save 1 2>&1 | tee /tmp/fb.log || {
             echo "::error title=저장 실패::$(tail -c 1500 /tmp/fb.log | tr '\n' ' ')"; exit 1; }
           grep -E '저장 ID|결과:|⛔|🚧|저장 전 점검' /tmp/fb.log | while read -r line; do echo "::notice title=저장 결과::$line"; done
       - name: 서버 정리(실행마다) — VPS 디스크가 차지 않게
-        # 저장(save)·보류함 다시 확인(retry_held)은 GitHub 서버에서 돌아 VPS 정리가 필요 없다(2026-11-11)
-        if: always() && inputs.mode == 'dryrun'
+        # 저장(save)은 GitHub 서버에서 돌아 VPS 정리가 필요 없다(2026-11-11)
+        if: always() && inputs.mode != 'save'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
