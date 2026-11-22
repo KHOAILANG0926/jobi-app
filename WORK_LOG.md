@@ -1,3 +1,9 @@
+## 2026-11-22 — 체크리스트 7번 1차: 안 쓰는 자동 작업 13개 삭제
+- 요청(Lee 11-22): 1인 기업답게 필요한 것만. 과한 장치 삭제부터(7번).
+- 변경: 워크플로 13개 삭제(location-ladder-compare·street-center-dryrun·dup-count·company-code-assign·company-reread·job-repair-preview·facebook-preview-read·crawl-chotot-probe·desktop-header-proof·merge-provenance·unmerged-work-alert·detail-read·brand-logo-watch) + 그 전용 스크립트·시험 / pr-checks에서 지운 시험 2단계 / vercel-deploy의 desktop-header-proof 호출 2곳 / CLAUDE.md·AGENTS.md 언급 정리.
+- 남김(이유): business-search-compare·admin-location-evening-report(Lee 결정 절차), map-pin-fit-check(운영 위치 시험 목록), crawl-guard(DB가 직접 부름 → 3번 DB 정리 때), codex-wait-timer(이름과 달리 병합 봇 재시도 타이머), approval-checks·bot-pr-automerge(필수 검사·병합 장치).
+- 검증: npm test 124/124, tsc, 결정 관문·필수 검사 이름·병합 뒤 연결·열쇠 분리 시험 통과(로컬).
+
 ## 2026-11-21 — #808 S1~S8 마감: 독립 검토·4대 보고를 병합 조건에서 뺌, 병합 뒤 검사 2개 추가, PR 본문 형식 F12, MAP-1 지도 스타일 대기, ai-review 검사 삭제
 - 요청(Lee 11-21): 공고 자동 수집→검증→공개에 필요한 것만 끝내고 #808 닫기. 결정 1 대안 거절 뒤 "최신 상태 요구 안 씀", 결정 2 독립 검토 선택화(11-14 결정 7①·#807 게이트 (3) 변경), 3 MAP-1 원인만, 4 vieclam24h 1건, 5 기록.
 - 변경: approval-checks ai-review = neutral「필수 아님, 검토 안 함」·4대 보고 분기 삭제 / decision-approval-gate 4대 보고(highRiskReport 등) 삭제 / bot-pr-automerge 검토 대기·검토관 자동 호출 삭제, 병합 뒤 호출 목록에 ai-reader-calibration·job-ocr-check / merge-gate-ready.jq = approval-gate만 / check-pr-ready READY 줄 뒤 설명 허용·칸 경계 / vietMapStyle 상세·관리자 지도 스타일 대기 5·6초→15·20초(메인은 12초 예비지도 제한 안이라 5·6초 유지 — 검토관 지적 1, 시험으로 묶음) / map-summary-check 실패 증거 저장 / 안 쓰게 된 codexGate·needsSecondReview 삭제(검토관 지적 3) / BLOCKED·MERGED 줄도 같은 기준(지적 2) / CLAUDE.md·RULES_CORE.md·AGENTS.md·claude-auto 주석.

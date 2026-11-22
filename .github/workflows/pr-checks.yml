@@ -62,8 +62,6 @@ jobs:
           node scripts/ci/salary-single-writer.test.mjs
       - name: 검사기 독립성 정적 시험 (jobInspect는 만드는 쪽 모듈을 import하지 않음, R2 #753)
         run: node scripts/ci/inspector-independence.test.mjs
-      - name: 병합 출처 기록 판정 시험 (#687 사례 — 병합 계정·작성자·AI 자기신고를 서로 다른 필드로, R3 #728)
-        run: node scripts/ci/merge-provenance.test.mjs
       - name: 필수 검사 이름 충돌 정적 시험 (checks·guard·app-screen·publication-gate가 PR 잡 1개씩인지, #728 S1)
         run: node scripts/ci/required-check-names.test.mjs
       # S4(#808): 열쇠 있는 잡이 PR 코드를 실행하지 않는지(정적) + 악성 PR 흉내 시험(실제 컨테이너 실행). 실패 = 병합 불가.
@@ -78,8 +76,6 @@ jobs:
         run: node scripts/ci/post-merge-chain.test.mjs
       - name: artifact 출처 확인 시험 (가짜 실행·브랜치·포크·이력 밖 커밋 거절)
         run: bash scripts/ci/verify-artifact-run.test.sh
-      - name: master 직접 push 경보 시험 (병합 직후 PR 연결 지연은 경보 안 함, 진짜 직접 push는 경보)
-        run: bash scripts/ci/direct-push-check.test.sh
       - name: PR 쪽 Claude 설정·링크 치우기 시험 (악성 hook·MCP·열쇠 파일 링크)
         run: bash scripts/ci/hold-pr-claude-settings.test.sh
       - name: Claude 입력 고르기 시험 (아무나 단 댓글의 꼬임 공격 문구가 Claude 입력에 안 들어가는지)
