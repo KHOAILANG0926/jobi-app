@@ -47,7 +47,7 @@ assert.equal(gate({ labels: [NEEDS_LEE_LABEL] }).approved, false, 'needs-lee 라
 assert.deepEqual(gate({ labels: [NEEDS_LEE_LABEL] }).reasons, ['needs-lee 라벨'])
 assert.equal(gate({ labels: [NEEDS_LEE_LABEL], reviews: leeReview }).approved, true, 'Lee 승인 리뷰가 head에 있으면 라벨 PR도 병합')
 // S3-2 ④ 검사·보호 장치 변경(검사 약화 가능) = Lee 승인 대상
-for (const f of ['.github/workflows/pr-checks.yml', '.github/approved-migrations.json', 'scripts/ci/merge-provenance.mjs', 'scripts/status/generate-status.mjs', 'scripts/check-pr-ready.mjs', 'scripts/codex-review-gate.mjs', 'scripts/decision-approval-gate.mjs', 'scripts/approved-migrations.mjs', 'AGENTS.md']) {
+for (const f of ['.github/workflows/pr-checks.yml', '.github/approved-migrations.json', 'scripts/ci/approval-checks.mjs', 'scripts/status/generate-status.mjs', 'scripts/check-pr-ready.mjs', 'scripts/codex-review-gate.mjs', 'scripts/decision-approval-gate.mjs', 'scripts/approved-migrations.mjs', 'AGENTS.md']) {
   assert.ok(GATE_CODE(f), `${f} is gate code`)
   assert.equal(gate({ files: [{ filename: f }] }).approved, false, `${f} change needs Lee approval`)
   assert.deepEqual(gate({ files: [{ filename: f }] }).reasons, ['검사·보호 장치'])
