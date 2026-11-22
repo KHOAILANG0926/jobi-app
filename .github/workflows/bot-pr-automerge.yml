@@ -36,7 +36,10 @@ jobs:
     if: >-
       vars.S4_PROTECTION_VERIFIED == 'true' && ((github.event_name != 'issue_comment' && github.event_name != 'pull_request_review') ||
       (github.event_name == 'pull_request_review' &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
+       (github.event.pull_request.head.repo.full_name == github.repository ||
+        (github.event.pull_request.head.repo.full_name == 'viecganban-bot/jobi-app' &&
+         github.event.pull_request.head.repo.id == 1457251322 &&
+         github.event.pull_request.user.login == 'viecganban-bot')) &&
        (github.event.review.user.login == 'chatgpt-codex-connector[bot]' ||
         (github.event.review.user.login == 'KHOAILANG0926' && github.event.review.state == 'approved'))) ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request != null &&
@@ -73,7 +76,11 @@ jobs:
             # 기존 미완료 PR을 소급 자동병합하지 않음; 새 규정 시행 이후 PR만.
             [ "$num" -ge 251 ] || continue
             echo "검사: PR #$num ($sha)"
-            # github-actions[bot]이 임의 외부 fork 소스를 실행하지 않는다: API 데이터만 검사.
+            # Only upstream and the verified official bot fork are eligible. Never execute PR code.
+            if ! gh api "repos/$REPO/pulls/$num" | jq -e --arg repo "$REPO" '(.base.repo.full_name == $repo and .base.ref == "master") and ((.head.repo.full_name == $repo) or (.head.repo.full_name == "viecganban-bot/jobi-app" and .head.repo.id == 1457251322 and .user.login == "viecganban-bot"))' >/dev/null; then
+              echo "::notice::PR #$num untrusted fork — merge blocked"; continue
+            fi
+            # GitHub API reads PR data; the job checks out trusted master only.
             gh api "repos/$REPO/pulls/$num/files?per_page=100" --paginate --slurp | jq 'add' > files.json
             node scripts/approved-migrations.mjs files.json > approved-migrations.json
             if jq --slurpfile approved approved-migrations.json -e '.[] | select((.filename as $path | $approved[0] | index($path) | not) and (.filename|startswith("supabase/migrations/")) and ((.patch // "") | test("(?im)^\\+(?!\\s*--)\\s*.*\\b(drop[[:space:]]+(table|column|schema|policy)|truncate|delete[[:space:]]+from|alter[[:space:]]+table[^;]*drop)\\b")))' files.json >/dev/null; then
