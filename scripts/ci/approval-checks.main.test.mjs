@@ -46,6 +46,24 @@ process.env.GITHUB_TOKEN = 'x'
 const opts = { getAppToken: async () => 'app', framePaths: [] }
 const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
 
+// S4 trusted bot fork: same PR SHA and Lee approval must be evaluated;
+// name lookalikes, wrong repo ID, and non-bot authors must remain excluded.
+{
+  const botFork = pr(955, { head: { sha, repo: { full_name: 'viecganban-bot/jobi-app', id: 1457251322 } } })
+  const trusted = world({ prs: [botFork], reviews: { 955: [leeOk] }, comments: { 955: [] } })
+  await main(['--repo', repo, '--pr', '955'], opts)
+  assert.equal(last(trusted.writes, 'approval-gate').state, 'success', 'official bot fork + Lee Approve receives approval-gate')
+  for (const bad of [
+    { head: { sha, repo: { full_name: 'someone/jobi-app', id: 1457251322 } } },
+    { head: { sha, repo: { full_name: 'viecganban-bot/jobi-app', id: 100 } } },
+    { user: { login: 'some-other-author' } }
+  ]) {
+    const blocked = world({ prs: [{ ...botFork, ...bad }], reviews: { 955: [leeOk] }, comments: { 955: [] } })
+    await main(['--repo', repo, '--pr', '955'], opts)
+    assert.equal(blocked.writes.length, 0, 'untrusted fork must not receive trusted approval check')
+  }
+}
+
 // ① 같은 SHA 두 PR: A는 Lee 승인·검토 통과, B는 승인 없음 → 공유된 approval-gate는 success가 아니어야 한다
 {
   const w = world({ prs: [pr(1), pr(2)], reviews: { 1: [leeOk], 2: [] }, comments: { 1: [claudeOk], 2: [claudeOk] } })
