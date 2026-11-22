@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-21 11:19 (VN)**
-- 기준 커밋: `0ac281d` (ci(S1 B3): 봇 병합 직전 운영 배포 잠금 재확인 — 기존 activeLocks 재사용 (#808) (#944))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/44865448363
+- 생성 시각: **2026-11-22 10:31 (VN)**
+- 기준 커밋: `f02306d` (fix(#872): Facebook 미리 보기 전 계정 잠금 파일 수동 해제 옵션 — #941을 봇 PR로 (#953))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/44980929748
 - 검증 스크립트 지문(SHA-256): `381fdde1e2023cb4`
 
 ## 한눈에 보기
@@ -50,7 +50,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `0ac281d` · 상태 **success** · 2026-11-21 08:47 (VN)
+- 마지막 Production 배포: `f02306d` · 상태 **success** · 2026-11-21 20:25 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -58,6 +58,9 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #953 | 2026-11-21 20:25 (VN) | `f02306d` | fix(#872): Facebook 미리 보기 전 계정 잠금 파일 수동 해제 옵션 — #941을 봇 PR로 |
+| #949 | 2026-11-21 15:52 (VN) | `7b37362` | chore(#808): ai-review 검사 삭제 — Ruleset에서 빠진 뒤, approval-gate 하나만 |
+| #948 | 2026-11-21 15:03 (VN) | `1a83668` | ci(#808 마감): 독립 검토·4대 보고를 병합 조건에서 뺌 · 병합 뒤 검사 2개 · PR 본문 형식(F12) · MAP-1 지도 스타일 대기 |
 | #944 | 2026-11-21 08:46 (VN) | `0ac281d` | ci(S1 B3): 봇 병합 직전 운영 배포 잠금 재확인 — 기존 activeLocks 재사용 (#808) |
 | #942 | 2026-11-20 17:46 (VN) | `804a4ae` | ci(S1): 보호 변경 Draft 게시 모드·STRICT 무조건 실패 제거·STATUS 라벨 예외 제거 (#808) |
 | #939 | 2026-11-20 11:11 (VN) | `4e9c534` | S8 Track A v3.1 — post-merge workflow chain recovery |
@@ -65,9 +68,6 @@
 | #931 | 2026-11-19 09:35 (VN) | `9f4f944` | fix(approval-checks): 잠금 풀림 비교 중복 조회 제거 — GitHub 읽기 한도 403 원인 (#808) |
 | #925 | 2026-11-19 06:27 (VN) | `47ec961` | fix(korea): parseKoreaSavedId 빈·잘못된 id는 null + 시험 추가 (S8 #808) |
 | #923 | 2026-11-19 05:48 (VN) | `420bc2a` | docs: S7 완료 기록 (#808, #920) |
-| #920 | 2026-11-19 05:26 (VN) | `702281d` | chore(ci): S7 — 필수 아닌 시험 필수화·중복 워크플로 정리·71개 처리 기록 (#808) |
-| #922 | 2026-11-18 21:50 (VN) | `e0d92ba` | crawler: 가짜 번호 0111111111 공개 근본 수정 (#6255) |
-| #919 | 2026-11-18 21:23 (VN) | `350be5a` | docs: S6 완료 기록 (#808, #913) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -100,16 +100,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-11-21 20:26 (VN) | location_candidate.approve | job 6301 |
+| 2026-11-21 20:26 (VN) | location_candidate.add | job 6301 |
+| 2026-11-21 15:53 (VN) | location_candidate.approve | job 6297 |
+| 2026-11-21 15:53 (VN) | location_candidate.add | job 6297 |
+| 2026-11-21 15:05 (VN) | location_candidate.approve | job 6294 |
+| 2026-11-21 15:05 (VN) | location_candidate.add | job 6294 |
 | 2026-11-21 08:48 (VN) | location_candidate.approve | job 6292 |
 | 2026-11-21 08:48 (VN) | location_candidate.add | job 6292 |
 | 2026-11-20 17:54 (VN) | location_candidate.approve | job 6289 |
 | 2026-11-20 17:54 (VN) | location_candidate.add | job 6289 |
-| 2026-11-20 11:12 (VN) | location_candidate.approve | job 6286 |
-| 2026-11-20 11:12 (VN) | location_candidate.add | job 6286 |
-| 2026-11-19 09:37 (VN) | location_candidate.approve | job 6282 |
-| 2026-11-19 09:37 (VN) | location_candidate.add | job 6282 |
-| 2026-11-19 09:36 (VN) | location_candidate.approve | job 6279 |
-| 2026-11-19 09:36 (VN) | location_candidate.add | job 6279 |
 
 ## 8. 검증 장치 변경 이력
 
