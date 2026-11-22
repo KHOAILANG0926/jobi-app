@@ -57,6 +57,18 @@ const context=await browser.newContext({viewport:{width:1440,height:1000},geoloc
 const page=await context.newPage()
 const errors=[]
 page.on('pageerror',e=>errors.push(e.message))
+// MAP-1 증거(#946): 지도 스타일 파일 요청의 실제 응답(상태·걸린 시간·주소)을 남긴다. 판정 기준은 바꾸지 않는다. 열쇠(apikey)는 가린다.
+const styleRequests=[]
+const isStyle=u=>/maps\.vietmap\.vn\/.*style\.json/.test(u)
+const masked=u=>u.replace(/apikey=[^&]+/,'apikey=***')
+page.on('requestfinished',async r=>{ if(!isStyle(r.url()))return; const res=await r.response().catch(()=>null); const t=r.timing(); styleRequests.push({at:new Date().toISOString(),page:page.url(),url:masked(r.url()),status:res?.status()??null,ms:t.responseEnd>=0?Math.round(t.responseEnd):null}) })
+page.on('requestfailed',r=>{ if(isStyle(r.url()))styleRequests.push({at:new Date().toISOString(),page:page.url(),url:masked(r.url()),status:null,failure:r.failure()?.errorText??'failed'}) })
+async function saveFailure(job,error) {
+ const state=await page.evaluate(()=>{ const v=document.querySelector('.jd2-vmap'); return {mapText:v?.textContent?.trim().slice(0,120)??null,mapError:!!document.querySelector('.job-location-map__error'),planned:v?.getAttribute('data-planned-location-points')??null,unavailable:v?.getAttribute('data-map-unavailable')??null,markers:document.querySelectorAll('.jd2-vmap [data-location-points]').length} }).catch(()=>null)
+ await page.screenshot({path:`${out}/failure-sb-${job.id}.png`,fullPage:false}).catch(()=>{})
+ await writeFile(`${out}/failure-sb-${job.id}.json`,JSON.stringify({jobId:job.id,url:page.url(),error:String(error?.message??error).slice(0,300),state,styleRequests:styleRequests.slice(-6)},null,2)).catch(()=>{})
+ console.log('MAP_FAILURE_EVIDENCE '+JSON.stringify({jobId:job.id,state,lastStyle:styleRequests.slice(-3)}))
+}
 const markerSelector='[data-location-points]'
 async function rendered(scope) {
  return scope.locator(markerSelector).evaluateAll(elements=>elements.map(el=>JSON.parse(el.getAttribute('data-location-points'))))
@@ -104,7 +116,7 @@ try {
   const evidence={jobId:job.id,source:fields(job.points),main:fields(mainPoints),detail:fields(detailPoints)}
   verifiedJobs.push(evidence)
   console.log('LOCATION_POINTSET_PASS '+JSON.stringify(evidence))
-  } catch(e) { if(await settleChange(e,job,readFresh)==='changed'){changed.add(job.id);console.log('AUDIT_JOB_CHANGED '+job.id)} }
+  } catch(e) { await saveFailure(job,e); if(await settleChange(e,job,readFresh)==='changed'){changed.add(job.id);console.log('AUDIT_JOB_CHANGED '+job.id)} }
  }
  for(const job of snapshot) if(!changed.has(job.id)) assertPoints(job.points,pointsForJob([[...observed.values()]],job.id),'full observed main point set '+job.id)
  await page.goto(base,{waitUntil:'domcontentloaded'})
@@ -156,4 +168,4 @@ try {
  assert.deepEqual(errors,[])
  await writeFile(out+'/result.json',JSON.stringify({base,ok:true,publicJobs:snapshot.length,excludedByPublicAdmission:excluded,verifiedJobs,sourcePoints:snapshot.reduce((n,j)=>n+j.points.length,0),checks:['paginated independent public source','all main/group point sets','all detail point sets','kind precision revision','dynamic category selection','mobile summary absent']},null,2))
  console.log('PASS: independent public source, main and detail point sets agree')
-}finally{await browser.close()}
+}finally{await writeFile(out+'/map-style-requests.json',JSON.stringify(styleRequests,null,2)).catch(()=>{});await browser.close()}

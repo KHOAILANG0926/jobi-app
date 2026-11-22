@@ -63,8 +63,10 @@ jobs:
         run: |
           set -euo pipefail
           # S3-2(#808, Lee 2026-11-14 결정 6①·7①): 댓글 승인(LEE-APPROVE·LEE-DEMO-APPLY)과 데모 적용 시 검토 생략을 폐지했다.
-          # Lee 승인은 GitHub 승인 리뷰만(decision-approval-gate.mjs), 모든 PR은 독립 검토(Codex 또는 Claude 검토관) 뒤에만 병합(codex-review-gate.mjs).
+          # Lee 승인은 GitHub 승인 리뷰만(decision-approval-gate.mjs). 독립 검토는 병합 조건이 아니다(Lee 2026-11-21, 선택적 수동 검토).
           : > codex-wait.txt
+          rm -f lock-cache.json  # S1 B3: 잠금 compare 기억은 이 실행 안에서만
+          : > dispatch-fail.txt
           gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName,(.author.login // "")] | @tsv' |
           while IFS=$'\t' read -r num sha branch author; do
             [ -n "$num" ] || continue
@@ -112,35 +114,11 @@ jobs:
                   '{basePkg:$bp[0],headPkg:$hp[0],baseLock:$bl[0],headLock:$hl[0]}' > deps.json || echo '{}' > deps.json
               fi
             fi
-            # AI 팀 검사관(Lee 2026-11-08, 11-11): GPT Codex 검사를 기다린다. 한도 초과·12분 무응답이면 Claude 검토관, 그것도 20분 안 오면 예전 규칙, 지적이 있으면 Claude 답이 있어야 진행.
-            gh api "repos/$REPO/pulls/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > review-comments.json
-            head_date=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.committer.date')
-            if node scripts/codex-review-gate.mjs reviews.json review-comments.json comments.json "$sha" "$head_date" files.json > gate.txt; gate_rc=$?; [ "$gate_rc" != 0 ]; then
-              cat gate.txt
-              # Codex 한도 초과·무응답(종료 코드 3): Claude 검토관을 한 번 부른다(Lee 2026-11-11). 요청 표시 댓글이 시각 기준이다.
-              if [ "$gate_rc" = 3 ]; then
-                if gh api -X POST "repos/$REPO/issues/$num/comments" -f body="<!-- claude-fallback-request --> $sha
-            Codex 검사가 오지 않아(한도 초과 또는 12분 무응답) Claude 검토관이 이 커밋을 대신 검토합니다." >/dev/null; then
-                  gh workflow run claude-auto.yml --repo "$REPO" --ref master -f fallback_pr="$num" \
-                    && echo "::notice::PR #$num Claude 검토관 요청" || echo "::warning::PR #$num Claude 검토관 실행 실패(20분 뒤 예전 규칙)"
-                else echo "::warning::PR #$num 검토관 요청 댓글 실패"; fi
-                echo 21 >> codex-wait.txt
-              fi
-              # 표시 댓글은 이 봇(github-actions[bot])이 단 것·첫머리 표시만 인정한다(S4 11회 지적: 다른 댓글·파일 이름 속 표시로 안내를 막지 못하게).
-              # 검토관이 여러 번 결과를 못 낸 운영·보안·DB 파일 PR(종료 코드 2): 장치 고장 — Lee에게 넘기지 않고 ai-team 이슈로 한 번 알린다(Lee 2026-11-11).
-              if [ "$gate_rc" = 2 ] && ! jq -e --arg sha "$sha" '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | startswith("<!-- fallback-reviewer-broken -->")) and ((.body // "") | contains($sha[0:7])))' comments.json >/dev/null; then
-                gh api -X POST "repos/$REPO/issues/$num/comments" -f body="<!-- fallback-reviewer-broken --> ${sha:0:7}: Claude 검토관이 여러 번 결과를 내지 못했습니다(장치 고장). 운영·보안·DB 파일이라 두 번째 검토 없이 병합하지 않고, 검토관 실행 기록을 고칩니다." >/dev/null || echo "::warning::PR #$num 안내 댓글 실패"
-                gh api -X POST "repos/$REPO/issues" -f title="Claude 검토관 결과 없음 — PR #$num (${sha:0:7})" -f body="봇 병합이 PR #$num 에 Claude 검토관(claude-auto.yml fallback-review)을 여러 번 불렀지만 결과 댓글이 없습니다. 실행 기록을 확인해 고칠 것." -f 'labels[]=ai-team' >/dev/null || echo "::warning::이슈 생성 실패"
-              fi
-              # 'Codex 검사 대기(x/12분)'·'Claude 검토관 대기(x/20분)'이면 시간이 차는 시각에 다시 보도록 남은 분을 적어 둔다(#574).
-              waited=$(sed -n 's/.*대기(\([0-9]*\)\/\([0-9]*\)분).*/\2 \1/p' gate.txt | awk '{print $1-$2+1}')
-              [ -n "$waited" ] && echo "$waited" >> codex-wait.txt
-              echo "PR #$num Codex 검사 대기: 병합 생략"; continue
-            fi
-            cat gate.txt
-            # S4(Lee 2026-11-15 ①): Lee 승인 요청은 필수 검사와 독립 검토를 모두 통과한 뒤에만 보낸다 — 검증이 덜 된 PR에 승인을 요청하지 않는다.
+            # 독립 검토(Codex·Claude 검토관)는 병합 조건이 아니다(Lee 2026-11-21, 11-14 결정 7①·#807 게이트 (3) 변경) — 봇은 검토를 기다리지 않고 검토관도 부르지 않는다.
+            # 검토가 필요하면 사람이 claude-auto.yml(fallback_pr)을 수동으로 실행한다. 필수 기계 검사·Lee 공식 Approve·보안 보호는 그대로다.
+            # S4(Lee 2026-11-15 ①): Lee 승인 요청은 필수 검사를 통과한 뒤에만 보낸다 — 검증이 덜 된 PR에 승인을 요청하지 않는다.
             # 8번째 = PR 작성자(자기 승인 무효 — Lee 계정이 쓴 PR의 Lee 승인은 인정 안 함, 작성자를 모르면 승인 없음으로 봄, S4-4)
-            # 9·10번째 = PR 본문 파일·저장소(고위험 PR의 4대 보고 확인 — 보고가 없으면 Lee 승인 요청 대신 보고 요청). 본문을 못 읽으면 병합하지 않는다(닫힌 실패).
+            # 9·10번째 = PR 본문 파일·저장소(판정기 입력 형식 유지 — 고위험 4대 보고 강제는 Lee 2026-11-21 폐지). 본문을 못 읽으면 병합하지 않는다(닫힌 실패).
             gh api "repos/$REPO/pulls/$num" --jq '.body // ""' > pr-body.txt || { echo "::warning::PR #$num 본문 조회 실패: 병합 안 함"; continue; }
             if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt; then
               echo "::notice::PR #$num Lee 승인 대상(고위험·위험도 판단 불가): 승인 대기 — 병합 안 함"
@@ -173,15 +151,28 @@ jobs:
             if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt; then
               echo "::warning::PR #$num 병합 직전 재확인에서 승인 상태가 바뀜(취소·변경 요청·승인 없음): 병합 중단"; continue
             fi
-            # 병합 조건 검사(approval-checks.yml이 검사 전용 앱으로 올리는 ai-review·approval-gate)도 저장소 규칙의 필수 검사다(S4).
+            # 병합 조건 검사(approval-checks.yml이 검사 전용 앱으로 올리는 approval-gate — ai-review 검사는 11-21 지움)도 저장소 규칙의 필수 검사다(S4).
             # 위 4종만 보고 병합을 시도하면, 검토 답이나 Lee 승인이 판정에 반영되기 직전(수십 초)에 서버가 거절하고 다음 예약(15분, 자주 빠짐)까지 멈췄다
             # (#920 2026-11-18T22:16:56Z·#925 2026-11-18T23:16:01Z, 같은 원인 2번째 — 원칙 8). 병합 직전에 두 판정을 다시 읽어 아직이면 시도하지 않고,
             # 기존 다시 확인 장치(codex-wait.txt → codex-wait-timer)로 6분 뒤 다시 부른다(approval-checks는 5분마다 + 댓글마다 판정).
             gate=$(gh api --paginate --slurp "repos/$REPO/commits/$sha/check-runs?per_page=100" | jq -r -f scripts/ci/merge-gate-ready.jq) || gate=pending
             if [ "$gate" != ok ]; then
               # 진행 중·승인 반영 전 옛 값이면 6분 뒤 다시(곧 바뀜, 판정은 merge-gate-ready.jq). 실패면 다시 부르지 않는다(새 커밋·댓글·예약이 봇을 부른다).
-              echo "::notice::PR #$num 병합 조건 검사(ai-review·approval-gate) $gate — 병합 시도 안 함"
+              echo "::notice::PR #$num 병합 조건 검사(approval-gate) $gate — 병합 시도 안 함"
               [ "$gate" = pending ] && echo 6 >> codex-wait.txt
+              continue
+            fi
+            # S1 B3(#808): 병합 직전 운영 배포 잠금 재확인. approval-gate는 approval-checks가 다시 판정할 때만 잠금을 반영해
+            # 실패 이슈가 생긴 뒤에도 옛 판정이 남는 공백이 있었다(#943 10:49 → 첫 반영 12:53). 병합 API 바로 앞에서 본다(틈 최소). 같은 activeLocks를 그대로 다시 부르고(새 판정 없음),
+            # 잠금이 있으면 이 커밋에 Lee 승인이 없는 PR은 병합하지 않는다. 조회 실패는 2회까지 다시 시도한 뒤 병합 보류(닫힌 실패)·오류 기록.
+            # compare 기억(lock-cache.json)은 이 실행 안에서만 함께 쓴다 — 잠금 이슈·deploy-verify 성공 기록은 부를 때마다 새로 읽는다.
+            lock_rc=0
+            GITHUB_TOKEN="$GH_TOKEN" node scripts/ci/approval-checks.mjs --merge-lock-check --repo "$REPO" --sha "$sha" --author "$author" --reviews reviews.json --cache lock-cache.json > lock.txt || lock_rc=$?
+            if [ "$lock_rc" = 3 ]; then
+              echo "::notice::PR #$num $(cat lock.txt)"; continue
+            elif [ "$lock_rc" != 0 ]; then
+              echo "::error::PR #$num 병합 직전 운영 배포 잠금 재확인 실패(코드 $lock_rc): $(cat lock.txt)"
+              echo "- PR #$num 운영 배포 잠금 재확인 실패 — 병합 보류: $(cat lock.txt)" >> "$GITHUB_STEP_SUMMARY"
               continue
             fi
             if merge_out=$(gh api -X PUT "repos/$REPO/pulls/$num/merge" -f merge_method=squash -f sha="$sha" -f commit_title="$title (#$num)" 2>&1); then
@@ -193,6 +184,27 @@ jobs:
                 gh workflow run migrations-apply.yml --repo "$REPO" --ref master
               fi
               gh workflow run vercel-deploy.yml --repo "$REPO" --ref master
+              # GITHUB_TOKEN 병합은 master push 기반 검사 워크플로를 시작하지 않는다 — 각 검사 워크플로 자신의 on.push.paths(master 사본)에 맞을 때만 명시 호출한다(경로 목록을 복사하지 않는다).
+              # 대상 5개는 모두 `push: branches: [master] + paths: 블록 목록` 모양이다(ai-reader-calibration·job-ocr-check는 Lee 2026-11-21: PR 단계에도 없고 봇도 안 부르던 push 전용 검사)(pr-checks의 post-merge-chain 시험이 실제 YAML로 그 모양과 이 읽기 결과를 대조한다).
+              # paths는 GitHub 방식으로 읽는다(* = 한 칸, ** = 여러 칸). 목록이 없거나 해석할 수 없는 패턴(?·+·[]·\·!)이면 "해당 없음"으로 넘기지 않고 오류로 기록한다.
+              # 호출·읽기 실패는 타이머까지 마친 뒤 이 단계를 실패로 끝낸다(침묵 실패 방지).
+              jq -r '.[].filename' files.json > changed.txt
+              for wf in job-rules-apply occupation-r8-apply jobcard-integrity ai-reader-calibration job-ocr-check; do
+                hit=0; bad=""
+                pats=$(awk '/^on:/{o=1;next} o&&/^[^ #]/{o=0} o&&/^  push:/{p=1;next} o&&p&&/^  [a-z_]+:/{p=0} p&&/^    paths:/{q=1;next} p&&q&&/^      - /{sub(/^      - /,"");sub(/[ ]+#.*$/,"");gsub(/[\047"]/,"");if($0!="")print;next} p&&/^    [a-z]/{q=0}' ".github/workflows/$wf.yml" 2>/dev/null) || pats=""
+                [ -n "$pats" ] || bad="paths 목록 없음·읽기 실패"
+                while IFS= read -r pat; do
+                  case "$pat" in
+                    '!'*|*'?'*|*'+'*|*'['*|*']'*|*'\'*) bad="$pat" ;;
+                    *) re=$(printf '%s' "$pat" | sed -e 's/[.^$(){}|]/\\&/g' -e 's#\*\*#\x01#g' -e 's#\*#[^/]*#g' -e 's#\x01#.*#g')
+                       if grep -Eq "^$re\$" changed.txt; then hit=1; fi ;;
+                  esac
+                done <<< "$pats"
+                if [ -n "$bad" ]; then echo "::error::PR #$num $wf.yml 의 push 조건을 해석하지 못함($bad) — 호출 여부를 판단할 수 없다"; echo "$wf($bad)" >> dispatch-fail.txt; continue; fi
+                if [ "$hit" = 1 ]; then
+                  gh workflow run "$wf.yml" --repo "$REPO" --ref master || { echo "::error::PR #$num 병합 뒤 $wf.yml 시작 실패 — 해당 검사가 돌지 않았다"; echo "$wf(호출 실패)" >> dispatch-fail.txt; }
+                fi
+              done
               # 관리자 E2E 두 개는 vercel-deploy가 migration 성공·운영 배포 뒤에 부른다(예전 봇 대기 반복문 뒤 순서 유지, #812 검토관 지적).
             else
               echo "::warning::PR #$num 병합 거절(서버): $(printf '%s' "$merge_out" | tr '\n' ' ' | cut -c1-300) — 다음 실행에서 다시 봄"
@@ -204,3 +216,5 @@ jobs:
             gh workflow run codex-wait-timer.yml --repo "$REPO" --ref master -f minutes="$minutes" \
               && echo "::notice::Codex 대기 PR: ${minutes}분 뒤 다시 확인" || echo "::warning::다시 확인 예약 실패(예약 실행으로 대신)"
           fi
+          # 병합 루프는 파이프 오른쪽(하위 셸)이라 실패 기록은 파일로 넘긴다(codex-wait.txt와 같은 방식).
+          if [ -s dispatch-fail.txt ]; then echo "::error::병합 뒤 후속 검사 시작 실패: $(sort -u dispatch-fail.txt | tr '\n' ' ')(위 오류 확인)"; exit 1; fi

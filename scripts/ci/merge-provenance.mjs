@@ -7,7 +7,8 @@ import { execFileSync } from 'node:child_process'
 export const REQUIRED_CHECKS = ['checks', 'guard', 'app-screen'] // 브랜치 보호 master 필수 검사(관리자 권한으로 확인한 값과 같아야 함 — PR #R3 본문 근거)
 // S6(#808, S2 설계 5절 43번): 병합 조건 검사(approval-checks.yml) 결과도 병합 시점 기준으로 대조한다 — 출처 앱이 검사 전용 앱일 때만 인정
 // (PR 브랜치 워크플로가 같은 이름으로 만든 검사는 세지 않는다, approval-checks.mjs 머리말).
-export const GATE_CHECKS = ['ai-review', 'approval-gate']
+// 병합 조건 검사(검사 전용 앱). ai-review(독립 검토) 검사는 Lee 2026-11-21 병합 조건·Ruleset에서 빠진 뒤 지웠으므로 대조하지 않는다.
+export const GATE_CHECKS = ['approval-gate']
 export const GATE_APP = 'viecganban-checks'
 export const BOT_MERGERS = ['github-actions[bot]']
 export const UNKNOWN = '미확인'
@@ -125,7 +126,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const bad = ok.filter((r) => r.merged_with_non_green_required.length)
   console.log(`필수 검사가 초록이 아닌데 병합된 건: ${bad.length}${bad.length ? '\n' + bad.map((r) => `- #${r.pr} ${r.title} — ${r.merged_with_non_green_required.join(', ')} (병합 ${r.merged_by}, ${r.merge_path})`).join('\n') : ''}`)
   const badGate = ok.filter((r) => (r.merged_with_non_green_gate ?? []).length)
-  console.log(`병합 조건 검사(검사 전용 앱 ai-review·approval-gate)가 초록이 아닌데 병합된 건: ${badGate.length}${badGate.length ? '\n' + badGate.map((r) => `- #${r.pr} ${r.title} — ${r.merged_with_non_green_gate.join(', ')} (병합 ${r.merged_at})`).join('\n') : ''}`)
+  console.log(`병합 조건 검사(검사 전용 앱 approval-gate)가 초록이 아닌데 병합된 건: ${badGate.length}${badGate.length ? '\n' + badGate.map((r) => `- #${r.pr} ${r.title} — ${r.merged_with_non_green_gate.join(', ')} (병합 ${r.merged_at})`).join('\n') : ''}`)
   const reg = regressions(ok, process.env.SINCE || GATE_SINCE, process.env.GATE2_SINCE || MERGE_GATE_SINCE)
   console.log(`\n회귀 게이트(${process.env.SINCE || GATE_SINCE} 이후 병합): ${reg.length ? '실패 — ' + reg.map((r) => '#' + r.pr).join(', ') : '통과(필수 검사가 초록이 아닌 병합 없음)'}`)
   const failedRows = rows.filter((r) => r.error)

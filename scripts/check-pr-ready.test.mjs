@@ -43,6 +43,10 @@ assert.ok(checkCompletion('').length > 0)
 // 2026-11-01: 링크·성공 미리 적기는 요구하지 않는다(실제 결과는 봇 병합이 check-runs로 확인)
 assert.deepEqual(checkCompletion(valid.replace('https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345', 'pending'), '1234567890123456789012345678901234567890'), [], 'no link needed')
 assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [ ] READY FOR APPROVAL')).length > 0)
+// F12(Lee 2026-11-21): READY 줄 뒤 설명은 형식 차이라 막지 않음. BLOCKED를 함께 고르면 여전히 막음
+assert.ok(!checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [x] READY FOR APPROVAL (Draft 유지 — Lee 승인 대기)'), '1234567890123456789012345678901234567890').includes('READY FOR APPROVAL만 선택해야 함'), 'READY 뒤 설명 허용')
+assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [x] READY FOR APPROVAL\n- [x] BLOCKED'), '1234567890123456789012345678901234567890').includes('READY FOR APPROVAL만 선택해야 함'), 'BLOCKED 함께 선택은 차단')
+for (const extra of ['- [x] BLOCKED: 사유 있음', '- [x] MERGED (병합됨)']) assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [x] READY FOR APPROVAL\n' + extra), '1234567890123456789012345678901234567890').includes('READY FOR APPROVAL만 선택해야 함'), `뒤 설명이 붙은 BLOCKED·MERGED도 함께 선택하면 차단: ${extra}`)
 assert.deepEqual(checkCompletion(valid.replaceAll('| success | 1234567890123456789012345678901234567890 |', '| pending | (검사 후 자동 확인) |'), '1234567890123456789012345678901234567890'), [], 'pending before checks allowed')
 console.log('PR completion guard: 7/7 passed')
 
@@ -238,6 +242,13 @@ assert.deepEqual(mergeLineProblems(prBody('x', '없음 — #666 장치와 겹치
 assert.ok(mergeLineProblems(prBody('x', '없음 — 이유가 충분히 있음'), [ch('scripts/ops/new-audit.mjs', { status: 'added' })]).some((e) => e.includes('새 검사기')), '새 검사 스크립트')
 assert.deepEqual(mergeLineProblems(prBody('x', '없음 — 이유가 충분히 있음'), [ch('scripts/ops/new-audit.test.mjs', { status: 'added' })]), [], '시험 파일은 새 검사기가 아님')
 assert.equal(fieldOf(prBody('a', '합친 것 — 줄 하나\n  - 이어지는 줄', '- 예외 근거: #1'), '지운 것\\/합친 것'), '합친 것 — 줄 하나\n  - 이어지는 줄', '이어지는 줄까지 읽음')
+// F12(Lee 2026-11-21): 목록에 없는 다른 칸 이름 줄('- 재사용한 기존 기능:')에서 '변경 파일' 읽기를 멈춤 — 그 줄 낱말을 파일로 읽어 '안 바꾼 파일'로 막던 문제
+{ const b = `## 작업 범위와 변경 파일\n- 변경 파일: src/a.ts\n- 재사용한 기존 기능: scripts/ci/protected-paths.mjs 목록\n- 지운 것/합친 것: 없음 — 이유가 있는 설명입니다\n`
+  assert.equal(fieldOf(b, '변경 파일'), 'src/a.ts', '다음 칸 이름 줄에서 멈춤')
+  assert.deepEqual(scopeProblems(b, [ch('src/a.ts')], (p) => p === 'scripts/ci/protected-paths.mjs'), [], '다른 칸의 파일 이름을 안 바꾼 파일로 막지 않음')
+  const nested = `## 작업 범위와 변경 파일\n- 변경 파일:\n  - 코드: src/a.ts\n  - 시험: src/a.test.ts\n- 지운 것/합친 것: 없음 — 이유가 있는 설명입니다\n`
+  assert.ok(['src/a.ts', 'src/a.test.ts'].every((f) => declaredFiles(nested).includes(f)), '들여쓴 하위 글머리(코드:·시험:)는 같은 칸으로 계속 읽음')
+  assert.ok(declaredFiles(`## 작업 범위와 변경 파일\n- 변경 파일: src/a.ts\n- scripts/b.mjs: 설명\n`).includes('scripts/b.mjs'), '경로 글머리(/·. 포함)는 칸 이름이 아님') }
 // 공고 번호 예외: 코드에 id 비교·sb-번호 상수를 더하면 차단(시험·자료·주석 제외), 실제 있는 근거(#이슈·결정)가 있으면 통과
 const patch = (line) => ({ ...ch('src/lib/x.ts'), patch: `@@ -1,1 +1,2 @@\n context\n+${line}\n` })
 assert.ok(exceptionProblems(prBody('x'), [patch("if (job.id === 5438) return 'area'")]).length === 1, 'id 비교 예외 차단')

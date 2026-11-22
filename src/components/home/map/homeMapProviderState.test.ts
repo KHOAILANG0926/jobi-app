@@ -3,12 +3,16 @@ import {
   createHomeMapProviderState,
   homeMapProviderReducer,
 } from './homeMapProviderState.ts'
+import { HOME_STYLE_ATTEMPTS_MS, STYLE_ATTEMPTS_MS } from './vietMapStyle.ts'
 
 function assert(condition: boolean, label: string): void {
   if (!condition) throw new Error(label)
 }
 
 assert(PRIMARY_MAP_INIT_TIMEOUT_MS === 12_000, 'primary provider initialization timeout is exactly 12 seconds')
+// MAP-1(#946, 2026-11-21): 메인 지도 스타일 재시도는 12초 초기화 제한 안에 끝나야 한다(넘으면 재시도 전에 예비 지도로 넘어감). 상세·관리자는 긴 값.
+assert(HOME_STYLE_ATTEMPTS_MS.reduce((a, b) => a + b, 0) < PRIMARY_MAP_INIT_TIMEOUT_MS, 'home style attempts fit inside the 12s init limit')
+assert(STYLE_ATTEMPTS_MS.join() === '15000,20000', 'detail/admin style attempts follow measured VietMap latency')
 
 const withoutKey = createHomeMapProviderState(false)
 assert(withoutKey.provider === 'geoapify', 'no key selects Geoapify immediately')

@@ -48,7 +48,7 @@ jobs:
         run: node scripts/decision-approval-gate.test.mjs
       - name: Lee 승인 판정 실제 호출 경로 시험(리뷰 여러 쪽·작성자 인자, S4-4)
         run: node scripts/decision-approval-callpath.test.mjs
-      - name: 병합 조건 검사(ai-review·approval-gate) 판정 시험(S4 8단계)
+      - name: 병합 조건 검사(approval-gate) 판정 시험(S4 8단계)
         run: node scripts/ci/approval-checks.test.mjs
       - name: 병합 조건 검사 재현 시험(같은 SHA PR 오염·수집 실패 시 옛 성공 무효, S4 8단계)
         run: node scripts/ci/approval-checks.main.test.mjs
@@ -72,6 +72,10 @@ jobs:
           python3 -c 'import yaml' 2>/dev/null || pip install --quiet pyyaml
           bash scripts/ci/check-secret-isolation.test.sh
           python3 scripts/ci/check-secret-isolation.py
+      # S8 트랙 A(#808): 병합 뒤 후속 검사 연결 — 운영 배포 확인(deploy-verify) 성공 뒤 행정구역 핀 검사가 최신 실행이 success인 같은 커밋에서만 한 번. 실패 = 병합 불가.
+      # 위 단계가 PyYAML을 설치하므로 그 뒤에 둔다(이 시험이 실제 워크플로 YAML을 읽는다).
+      - name: 병합 뒤 후속 검사 연결 시험 (봇 병합·deploy-verify 성공 뒤 핀 검사 1회, 결함 주입 31개가 잡히는지)
+        run: node scripts/ci/post-merge-chain.test.mjs
       - name: artifact 출처 확인 시험 (가짜 실행·브랜치·포크·이력 밖 커밋 거절)
         run: bash scripts/ci/verify-artifact-run.test.sh
       - name: master 직접 push 경보 시험 (병합 직후 PR 연결 지연은 경보 안 함, 진짜 직접 push는 경보)
