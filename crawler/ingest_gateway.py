@@ -80,6 +80,9 @@ UNFOUND_REASONS = {"approximate_only", "not_found", "outside_original_province",
 UNFOUND_RECHECK_DAYS = 7
 UNFOUND_MAX_CHECKS = 2
 HOLD_KIND = "location-hold"  # 비공개 저장소(research_artifacts, RLS 공개 차단)
+# 인식 실패(review, Lee 2026-11-22 크롤링 정상화 1번 그룹): 부적합이라는 근거가 아니라 원문 정보가 모자라 지금 판정 못 한 공고(연락처·제목 미기재·직무 불분명·정책 review).
+# 같은 보류함에 비공개로 보존한다(원문·출처·사유 그대로). 다시 판정·해소하는 로직은 이 상태에 없다(후속 그룹) — 보존 성공을 확인한 글만 수집기가 '본 글'로 기록한다.
+REVIEW_STATUS = "review"
 HOLD_RETRY_PER_RUN = 5
 HOLD_MAX_DAYS = 14  # held(한도 초과)
 UNFOUND_MAX_DAYS = 30
@@ -326,7 +329,7 @@ def _reason_of(exc: BaseException) -> str:
 
 
 def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
-    """확인 못 한 새 공고를 보류함에 넣는다(비공개, 지우지 않음, 같은 공고는 한 줄). held=다음 수집 때 바로, unfound=7일 뒤 다시 확인.
+    """확인 못 한 새 공고를 보류함에 넣는다(비공개, 지우지 않음, 같은 공고는 한 줄). held=다음 수집 때 바로, unfound=7일 뒤 다시 확인, review=인식 실패 보존(REVIEW_STATUS).
     이미 보류함에 있는 공고는 상태·횟수를 덮어쓰지 않는다(재수집이 재확인 일정을 되돌리지 않게). 저장 실패는 수집을 멈추지 않는다."""
     if job.get("admin_hidden") is True:
         return  # 검증 저장(verify_write)은 보류하지 않는다 — 재시도가 숨김 처리를 건너뛰게 되므로

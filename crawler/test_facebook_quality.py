@@ -198,7 +198,7 @@ def test_evaluate_post_pipeline_order_and_reasons() -> None:
                                max_age_days=3)[0], "accepted", "3 days is within 3")
     no_contact = "Cần tuyển 2 bạn phục vụ quán cafe khu Kinh Bắc, lương 7 triệu/tháng, làm ca sáng, ưu tiên nữ nhanh nhẹn"
     assert_equal(evaluate_post(no_contact, fresh, True, "Bắc Ninh", now=NOW_EVAL)[:2],
-                 ("missing_required", ["연락처 없음"]), "missing contact")
+                 ("review", ["연락처 없음"]), "missing contact is recognition failure (hold), not permanent exclusion (Lee 2026-11-22)")
     d, reasons, job = evaluate_post(pm, fresh, True, "Bắc Ninh", now=NOW_EVAL)
     assert_equal(d, "accepted", "complete fresh job accepted")
     assert_true("salary" not in job, "job parsed without crawler salary")
