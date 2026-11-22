@@ -215,3 +215,22 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(x.r.items.some((i) => i.key === 'source_lost' && !i.ok), 'a real pasted original with a missing line is still caught')
   console.log('jobInspect.test.ts: 고용주 등록 → 검사 → 공개 판정(#797) 통과')
 }
+
+// 1-B(F2): 공개 판정의 기본 '오늘'은 베트남 날짜다. UTC 날짜로 보면 베트남 새벽(UTC 17시 이후)에 마감 당일이 하루 일찍 닫힌다.
+{
+  const RealDate = Date
+  const fixed = RealDate.parse('2026-11-22T18:30:00Z') // 베트남 2026-11-23 01:30
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(globalThis as any).Date = class extends RealDate {
+    constructor(...a: unknown[]) { if (a.length === 0) super(fixed); else super(...(a as [string])) }
+    static now() { return fixed }
+  }
+  try {
+    const r = { items: [] } as unknown as Parameters<typeof publishDecision>[0]
+    const held = { active: false, hold: true, admin_hidden: false }
+    assert(!publishDecision(r, { ...held, application_deadline: '2026-11-22' }).active, 'VN 11-23: a deadline of 11-22 is over')
+    assert(publishDecision(r, { ...held, application_deadline: '2026-11-23' }).active, 'VN 11-23: the deadline day itself is still open')
+    assert(publishDecision(r, { ...held, application_deadline: null }).active, 'no deadline stays open')
+  } finally { (globalThis as { Date: DateConstructor }).Date = RealDate }
+  console.log('jobInspect.test.ts: 공개 판정 기본 날짜 = 베트남 날짜(1-B F2) 통과')
+}

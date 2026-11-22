@@ -49,6 +49,7 @@ from job_quality import (
 from job_posting_policy import crawler_policy_errors
 from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 from ingest_gateway import ingest_job, retry_held_once
+from job_criteria import deadline_passed, today_vn
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -124,7 +125,7 @@ def enable_writes():
         yield
     finally:
         _WRITE_ENABLED = False
-TODAY = date.today().isoformat()
+TODAY = today_vn()  # 1-B(F2): 서버 시간대가 아니라 베트남 날짜(화면·DB와 같은 기준)
 
 
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -1335,7 +1336,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         }
 
     deadline = detail.get("deadline")
-    if deadline and deadline <= TODAY:
+    if deadline and deadline_passed(deadline, TODAY):  # 마감 당일은 열림(1-B F2)
         return {
             "source_url": url, "title": title, "company": company,
             "_skip": True, "_skip_reason": "deadline_expired", "_skip_detail": deadline,
@@ -2002,7 +2003,7 @@ def build_vietnamworks_job_record(url: str, detail: dict, listing_hint: dict | N
         }
 
     deadline = detail.get("deadline")
-    if deadline and deadline <= TODAY:
+    if deadline and deadline_passed(deadline, TODAY):  # 마감 당일은 열림(1-B F2)
         return {
             "source_url": url, "title": title, "company": company,
             "_skip": True, "_skip_reason": "deadline_expired", "_skip_detail": deadline,

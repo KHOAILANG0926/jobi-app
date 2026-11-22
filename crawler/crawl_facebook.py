@@ -27,6 +27,7 @@ load_dotenv(Path(__file__).parent / ".env")
 
 from job_quality import ascii_key, extract_phone, has_excluded_money_terms
 from job_posting_policy import evaluate_job_posting_policy, crawler_policy_errors
+from job_criteria import deadline_passed, has_enough_contact, today_vn
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
 from occupation_classifier import occupation_fields
 from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
@@ -43,7 +44,7 @@ FB_XS     = os.getenv("FB_XS", "")
 FB_DATR   = os.getenv("FB_DATR", "")
 FB_FR     = os.getenv("FB_FR", "")
 
-TODAY = date.today().isoformat()
+TODAY = today_vn()  # 1-B(F2): 서버 시간대가 아니라 베트남 날짜(화면·DB와 같은 기준)
 TARGET_PER_GROUP = 30
 
 # ── 증분 수집 (2026-09-28) ──────────────────────────────────────────
@@ -292,7 +293,7 @@ def extract_deadline(text: str) -> str | None:
         d, mo, y = m.groups()
         try:
             deadline = f"{y}-{int(mo):02d}-{int(d):02d}"
-            if deadline > TODAY:
+            if not deadline_passed(deadline, TODAY):  # 마감 당일은 열림(1-B F2) — 지난 날짜는 기존대로 기한에서만 뺀다
                 return deadline
         except Exception:
             pass
@@ -1302,7 +1303,7 @@ def missing_required(job: dict) -> list[str]:
         problems.append("본문 잘림")
     if not (job.get("title") or "").strip():
         problems.append("제목 없음")
-    if not (job.get("employer_phone") or job.get("zalo")):
+    if not has_enough_contact(job.get("employer_phone"), job.get("zalo")):  # 숫자 8자리 이상(1-B F3, DB 공개 게이트와 같은 기준)
         problems.append("연락처 없음")
     # 지역 없음은 거르지 않는다(Lee 2026-10-29): 글에 위치가 없으면 핀 없이 관리자 위치 확정으로 넘긴다.
     if is_self_promotion(body):

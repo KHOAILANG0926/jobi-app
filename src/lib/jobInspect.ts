@@ -6,6 +6,8 @@
  */
 // 화면이 실제로 보여 주는 것(detailSections)과 그 소제목 낱말(headingOf)만 만드는 쪽에서 읽는다 — 검사 대상 자체이기 때문. 나머지 읽기는 검사기 전용(inspectReading, R2 #753).
 import { bare, detailSections, headingOf, type ShownAbove } from './jobDetailSections.ts'
+import { isJobOpen, todayVn } from './jobDetailView.ts'
+import { REQUIRED_FIELDS } from './jobCriteria.mjs'
 import { sourceLines, covers, sameLine, timeRanges, promoLike, contactRepeat, hasPayAmount, MEAL_WORDS, cardReadableSalary } from './inspectReading.ts'
 
 export interface InspectInput extends ShownAbove {
@@ -74,13 +76,14 @@ export function inspectJob(j: InspectInput): InspectResult {
   if (j.postingFields) {
     const filled = (v: unknown) => v != null && String(v).trim() !== ''
     const p = j.postingFields
-    const mandatory: Array<[string, boolean]> = [
-      ['급여', filled(j.salary)], ['근무시간', filled(p.hours)], ['고용형태', filled(p.employment_type)],
-      ['업직종', filled(j.occupation_code) && filled(j.category)], ['모집마감', filled(p.application_deadline)],
-      ['모집인원', filled(p.num_hires)], ['주소', (j.addresses ?? []).some(filled)],
-      ['업무 내용', (view.sections.find(s => s.key === '01')?.lines.length ?? 0) > 0], ['연락처', (j.phones ?? []).some(filled)],
-    ]
-    const missing = mandatory.filter(([, ok]) => !ok).map(([name]) => name)
+    // 필수 9개 항목의 목록·이름은 policy/job-criteria.json 한 곳(1-B F7). 여기서는 각 항목이 채워졌는지만 본다.
+    const filledByKey: Record<string, boolean> = {
+      salary: filled(j.salary), hours: filled(p.hours), employment_type: filled(p.employment_type),
+      occupation: filled(j.occupation_code) && filled(j.category), application_deadline: filled(p.application_deadline),
+      num_hires: filled(p.num_hires), address: (j.addresses ?? []).some(filled),
+      duties: (view.sections.find(s => s.key === '01')?.lines.length ?? 0) > 0, contact: (j.phones ?? []).some(filled),
+    }
+    const missing = REQUIRED_FIELDS.filter((f) => !filledByKey[f.key]).map((f) => f.label)
     add('required_fields', '필수 9개 항목', missing.length === 0, missing.length ? `누락: ${missing.join(', ')} — 원문에 없으면 확인 필요(추정 입력 금지)` : undefined)
     if (p.reviewOnly) items[items.length - 1].reviewOnly = true
   }
@@ -221,7 +224,7 @@ export const INFO_ONLY = ['photo', 'still_missing']
 export function publishDecision(
   r: InspectResult,
   j: { active?: boolean | null; admin_hidden?: boolean | null; hold?: boolean | null; application_deadline?: string | Date | null },
-  today = new Date().toISOString().slice(0, 10),
+  today = todayVn(), // 베트남 날짜(1-B F2) — UTC 날짜로 보면 베트남 새벽에 마감 당일이 하루 일찍 닫힌다
 ): { publishable: boolean; active: boolean } {
   // Lee 2026-11-06 "비워두고 공개해야지": 원문에 없는 필수 항목(reviewOnly로 표시된 누락)은 경고만 — 공개를 막지 않는다.
   const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || INFO_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
@@ -229,7 +232,7 @@ export function publishDecision(
   if (!publishable) return { publishable, active: false }
   if (j.active) return { publishable, active: true }
   const deadline = j.application_deadline instanceof Date ? j.application_deadline.toISOString() : j.application_deadline
-  const open = !deadline || String(deadline).slice(0, 10) >= today
+  const open = isJobOpen(deadline, today) // 화면과 같은 한 함수(마감 당일은 열림)
   return { publishable, active: !!j.hold && !j.admin_hidden && open }
 }
 
