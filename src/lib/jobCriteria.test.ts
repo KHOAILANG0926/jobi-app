@@ -9,6 +9,7 @@ assert(REQUIRED_FIELDS.map((f) => f.key).join(',') === 'salary,hours,employment_
 assert(REQUIRED_FIELDS.map((f) => f.label).join(',') === '급여,근무시간,고용형태,업직종,모집마감,모집인원,주소,업무 내용,연락처', 'required field labels are the confirmed nine, in order')
 
 // 검사표가 이 목록 그대로 '누락'을 알린다(이름이 바뀌지 않았다 = 검사표 출력은 그대로).
+// 점검기(jobInspect.ts)는 독립성 시험(scripts/ci/inspector-independence.test.mjs, R2 #753)상 이 JSON을 import하지 않는다 — 자기 목록을 갖고, 여기서 일치만 고정한다.
 {
   const r = inspectJob({ id: 1, title: 'x', company: 'y', phones: [], addresses: [], salary: '', values: [], description: '', source_text: 'x', postingFields: { reviewOnly: true } } as never)
   const item = r.items.find((i) => i.key === 'required_fields')
