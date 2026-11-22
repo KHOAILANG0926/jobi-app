@@ -95,6 +95,10 @@ export function recordProblems(body, required) {
   }
   return errors
 }
+/** gh api 한 번 호출해 JSON으로. 열린 PR 목록 한 쪽이 1MiB를 넘어(2026-11-22 1,061,159바이트) 기본 버퍼로는 ENOBUFS — 같은 파일 아래쪽 files 조회와 같은 한도. */
+export function ghApiJson(path) {
+  return JSON.parse(execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/${path}`], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }))
+}
 /** 바뀐 파일마다 ① 최근 14일 그 파일을 바꾼 병합 PR(파일당 최근 5개) ② 최근 3일 갱신된 다른 열린 PR 중 같은 파일을 고치는 것. */
 export function recentPrsFor({ files, self, now = Date.now(), api, stats }) {
   const need = new Map()
@@ -256,7 +260,7 @@ if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
   errors.push(...photoProcessPrProblems(body, changedPhotoPayloads(event)))
   // 확인한 기록(#666): 목록은 검사가 GitHub에서 직접 찾는다. 못 읽으면 통과시키지 않는다(우회 방지).
   try {
-    const api = (path) => JSON.parse(execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/${path}`], { encoding: 'utf8' }))
+    const api = ghApiJson
     const changed = execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/pulls/${pr.number}/files?per_page=100`, '--paginate', '--jq', '.[] | {filename, previous_filename, status, additions, deletions, patch} | @json'], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }).split('\n').filter(Boolean).map((l) => JSON.parse(l))
     const files = changed.map((c) => c.filename)
     const stats = { fixCounts: {} }
