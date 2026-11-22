@@ -709,6 +709,93 @@ def run_review_status_stored():
     print("test_ingest_gateway: review status stored passed")
 
 
+def run_db_rule_rejection_kept():
+    """1-C(Lee 2026-11-22): Facebook 등 hold=True 수집기가 DB 규칙(job_rule_R*·정책 제외)으로 거부당하면 원문·출처·규칙 코드·사유를 보류함에
+    rejected(종결, 자동 재시도 없음)로 남긴다. hold=False(TopCV 계열)·이미 있는 공고 다시 수집·규칙 코드 없는 오류는 그대로다."""
+    from source_fields import rule_code
+
+    class RejectClient(HoldClient):
+        def __init__(self, message):
+            super().__init__()
+            self.message = message
+
+        def rpc(self, name, params):
+            self.calls.append((name, params))
+            raise RuntimeError(self.message)
+
+    g._HOLDS_RETRIED = True
+    g.PRECHECK = lambda j: {"findable": True, "reason": "google_company_place", "location": "KCN Quế Võ, Bắc Ninh"}
+    job = {"title": "Công nhân may", "company": "CTY A", "location": "Bắc Ninh", "source": "facebook",
+           "source_url": "https://example.invalid/p/9", "source_text": "ORIGINAL TEXT 9", "description": "[source:facebook] ORIGINAL TEXT 9"}
+    # 1) 근거 규칙 거부(R5): 예외는 그대로 올라가고(수집기가 거부로 센다), 보류함에 rejected로 남는다
+    c = RejectClient("job_rule_R5: company \"CTY A\" 가 source_text에 같은 글자로 없음")
+    try:
+        g.ingest_job(c, dict(job))
+        raise AssertionError("거부는 예외로 올라가야 한다")
+    except RuntimeError as exc:
+        assert rule_code(exc) == "job_rule_R5", exc
+    (row,) = c.rows.values()
+    assert row["kind"] == g.HOLD_KIND and row["meta"]["status"] == "rejected", row["meta"]
+    assert row["meta"]["reason"].startswith("job_rule_R5") and "CTY A" in row["meta"]["reason"], row["meta"]
+    assert row["payload"]["source_text"] == "ORIGINAL TEXT 9" and row["payload"]["source"] == "facebook" and row["payload"]["source_url"] == job["source_url"], row["payload"]
+    # 2) 자동 재시도 없음: 다시 확인(retry_held)은 rejected 줄을 고르지 않는다
+    row["meta"]["next_at"] = "2000-01-01T00:00:00+00:00"
+    calls_before = len(c.calls)
+    out = g.retry_held(c)
+    assert len(c.calls) == calls_before and row["meta"]["status"] == "rejected" and sum(out.values()) == 0, (out, row["meta"])
+    # 3) 정책 제외도 같은 방식
+    c = RejectClient("job_posting_policy_excluded: exclude:dedicated_debt_collection@2026-10-12-v3")
+    try:
+        g.ingest_job(c, dict(job))
+        raise AssertionError
+    except RuntimeError as exc:
+        assert rule_code(exc) == "job_posting_policy_excluded"
+    (row,) = c.rows.values()
+    assert row["meta"]["status"] == "rejected" and "dedicated_debt_collection" in row["meta"]["reason"], row["meta"]
+    # 4) 보류함 저장 실패 → 거부로 넘기지 않고 HoldStoreError(규칙 코드 없음) — 수집기가 그 글을 '처리 완료'로 표시하지 않는다
+    class BrokenRejectClient(RejectClient):
+        def table(self, name):
+            t = super().table(name)
+            def boom(*_a, **_k):
+                raise RuntimeError("storage down")
+            t.upsert = boom
+            return t
+    try:
+        g.ingest_job(BrokenRejectClient("job_rule_R3: source_text(원문)가 비어 있음"), dict(job))
+        raise AssertionError("보관 실패는 예외여야 한다")
+    except g.HoldStoreError as exc:
+        assert rule_code(exc) is None, exc
+    # 5) hold=False(TopCV 계열)·이미 있는 공고 다시 수집·규칙 코드 없는 오류는 보류함에 넣지 않는다(예전 그대로)
+    c = RejectClient("job_rule_R5: x")
+    try:
+        g.ingest_job(c, dict(job), hold=False)
+    except RuntimeError:
+        pass
+    assert c.rows == {}, "hold=False는 보관하지 않는다"
+    c = RejectClient("job_rule_R5: x")
+    try:
+        g.ingest_job(c, dict(job), job_id=5)
+    except RuntimeError:
+        pass
+    assert c.rows == {}, "이미 있는 공고 다시 수집은 보관하지 않는다"
+    c = RejectClient("503 upstream connect error")
+    try:
+        g.ingest_job(c, dict(job))
+    except RuntimeError:
+        pass
+    assert c.rows == {}, "규칙 코드가 없는 오류(DB·네트워크)는 보관하지 않는다 — 수집기가 오류로 세고 다음 실행에서 다시 한다"
+    # 6) 위치 거부는 예전 그대로(unfound 보관) — 이번 변경이 건드리지 않는다
+    g.PRECHECK = lambda j: {"findable": False, "reason": "not_found"}
+    c = RejectClient("never called")
+    try:
+        g.ingest_job(c, dict(job))
+    except g.LocationNotFound:
+        pass
+    (row,) = c.rows.values()
+    assert row["meta"]["status"] == "unfound" and c.calls == [], row["meta"]
+    print("test_ingest_gateway: DB rule rejection kept as rejected passed")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
@@ -719,3 +806,4 @@ if __name__ == "__main__":
     run_review_hold()
     run_retry_error_does_not_block_queue()
     run_review_status_stored()
+    run_db_rule_rejection_kept()
