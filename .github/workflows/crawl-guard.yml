@@ -149,10 +149,14 @@ jobs:
 
           # ⑧ 수집 실행 실패·신규 저장 0건 경고(Lee 2026-11-17 트랙 B, #872). 알림만 — 수집을 막거나 멈추지 않는다.
           #    수집 경로별 마지막 실행(26시간 안)을 본다: 실패면 "실행 실패", 성공인데 그 실행 뒤 새 공고가 0건이면 "신규 저장 0건".
-          #    같은 실행으로 두 번 알리지 않고, 정상(성공·신규 있음)이 되면 이슈를 닫는다. 경로 = "소스 워크플로" 한 줄씩.
-          watch="vieclam24h crawl.yml"
+          #    같은 실행으로 두 번 알리지 않고, 정상(성공·신규 있음)이 되면 이슈를 닫는다. 경로 = "소스 워크플로 검사" 한 줄씩.
+          #    검사: fail = 실행 실패만 / fail_and_new = 실행 실패 + 신규 저장 0건. 수동 전용 경로(정기 실행 없음 — Lee 2026-11-17 #872)는 fail:
+          #    미리 보기(저장 없음)·보류함 확인 실행 뒤의 "신규 0건"은 고장이 아니라 정상이라 오보였다(S1-WATCH-1). 정기 수집을 승인해 되살릴 때 그 줄을 fail_and_new로 바꾼다.
+          #    Facebook(crawl-facebook-one)도 본다 — 계정 잠금·쿠키 만료는 미리 보기 실행 실패로 드러난다(예전엔 vieclam24h만 봐서 Facebook 정지가 알림에 안 보였다).
+          watch="${CRAWL_WATCH:-vieclam24h crawl.yml fail
+          facebook crawl-facebook-one.yml fail}"   # CRAWL_WATCH는 시험(scripts/ci/crawl-guard-watch.test.sh)이 경로 하나씩 보려고 넣는 값 — 운영에서는 비어 있음
           since26=$(date -u -d '-26 hours' +%Y-%m-%dT%H:%M:%SZ)
-          while read -r src wf; do {
+          while read -r src wf check; do {
             [ -z "$src" ] && continue
             title="수집 경고: $src"
             # 건너뛴 실행(조건에 막힌 예약 실행 등, conclusion=skipped)은 수집 실행이 아니므로 빼고 마지막 실제 실행을 본다(#877 검토관)
@@ -164,7 +168,7 @@ jobs:
             url="https://github.com/$REPO/actions/runs/$rid"
             problem=""
             if [ "$concl" != success ]; then problem="실행 실패($concl)"
-            else
+            elif [ "$check" = fail_and_new ]; then
               new=$(q "select count(*) from public.local_jobs where description like '%[source:$src]%' and created_at >= '$started'::timestamptz")
               [ "$new" = 0 ] && problem="신규 저장 0건(실행은 성공 — 중복·위치 보류·규칙 거부일 수 있음, 실행 기록의 거부 사유 확인)"
             fi
@@ -176,7 +180,7 @@ jobs:
               elif ! gh api "repos/$REPO/issues/$num/comments?per_page=100" --jq '.[].body' | grep -qF "(run $rid)" && ! gh api "repos/$REPO/issues/$num" --jq .body | grep -qF "(run $rid)"; then
                 gh issue comment "$num" --repo "$REPO" --body "$body"; fi
             elif [ -n "$num" ]; then
-              gh issue comment "$num" --repo "$REPO" --body "정상으로 돌아옴: 실행 성공·신규 저장 있음 ($url). 자동으로 닫습니다."
+              gh issue comment "$num" --repo "$REPO" --body "정상으로 돌아옴: 마지막 실행 성공 ($url). 자동으로 닫습니다."
               gh issue close "$num" --repo "$REPO"
             fi
           } </dev/null; done <<<"$watch"
