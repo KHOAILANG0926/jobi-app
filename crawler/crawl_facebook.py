@@ -27,6 +27,7 @@ load_dotenv(Path(__file__).parent / ".env")
 
 from job_quality import ascii_key, extract_phone, has_excluded_money_terms
 from job_posting_policy import evaluate_job_posting_policy, crawler_policy_errors
+from job_criteria import deadline_passed, has_enough_contact, today_vn
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
 from occupation_classifier import occupation_fields
 from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
@@ -43,7 +44,7 @@ FB_XS     = os.getenv("FB_XS", "")
 FB_DATR   = os.getenv("FB_DATR", "")
 FB_FR     = os.getenv("FB_FR", "")
 
-TODAY = date.today().isoformat()
+TODAY = today_vn()  # 1-B(F2): 서버 시간대가 아니라 베트남 날짜(화면·DB와 같은 기준)
 TARGET_PER_GROUP = 30
 
 # ── 증분 수집 (2026-09-28) ──────────────────────────────────────────
@@ -292,7 +293,7 @@ def extract_deadline(text: str) -> str | None:
         d, mo, y = m.groups()
         try:
             deadline = f"{y}-{int(mo):02d}-{int(d):02d}"
-            if deadline > TODAY:
+            if not deadline_passed(deadline, TODAY):  # 마감 당일은 열림(1-B F2) — 지난 날짜는 기존대로 기한에서만 뺀다
                 return deadline
         except Exception:
             pass
@@ -922,7 +923,7 @@ def evaluate_post_isolated(key: str, text: str, time_info: dict | None, full_tex
 
 
 def judge_parsed_job(job: dict, full_text_confirmed: bool = True) -> tuple[str, list[str]]:
-    """읽어 낸 공고 한 건의 판정(순수) → (코드, 사유). 일반 수집(evaluate_post)과 미리 보기 뒤 선택 저장(judge_text)이 같은 함수를 쓴다.
+    """읽어 낸 공고 한 건의 판정(순수) → (코드, 사유). 수집 직후(evaluate_post)와 보류함 다시 판정(review_recheck)이 같은 함수를 쓴다.
     명백한 부적합 = 정책 exclude·구직자 홍보. 본문을 못 읽음 = truncated(다시 읽기). 그 밖에 정보가 모자란 것(연락처·제목 미기재 포함) = review(보류)."""
     decision = evaluate_job_posting_policy(job)
     if decision["decision"] == "exclude":
@@ -1302,7 +1303,7 @@ def missing_required(job: dict) -> list[str]:
         problems.append("본문 잘림")
     if not (job.get("title") or "").strip():
         problems.append("제목 없음")
-    if not (job.get("employer_phone") or job.get("zalo")):
+    if not has_enough_contact(job.get("employer_phone"), job.get("zalo")):  # 숫자 8자리 이상(1-B F3, DB 공개 게이트와 같은 기준)
         problems.append("연락처 없음")
     # 지역 없음은 거르지 않는다(Lee 2026-10-29): 글에 위치가 없으면 핀 없이 관리자 위치 확정으로 넘긴다.
     if is_self_promotion(body):
@@ -1378,6 +1379,47 @@ def hold_review_posts(group_stats: list[dict]) -> int:
     if held:
         print(f"  ⏸️  판단 보류 {held}건 보류함 보관(비공개 — 지금의 판정 코드로 다시 판정)")
     return held
+
+
+# 보류함에서 다시 판정할 때 '명백한 부적합'으로 보는 판정(나머지 보류 사유는 아직 못 정함으로 둔다)
+_REVIEW_EXCLUDED = {"money", "policy_excluded", "self_promo"}
+
+
+def review_recheck(payload: dict) -> tuple[dict, str | None, bool]:
+    """보류함(review) 공고를 지금의 읽기·판정 코드로 다시 판정한다(ingest_gateway.REVIEW_RECHECK에 등록). 원문(source_text)을 다시 읽어
+    수집 직후와 같은 judge_parsed_job으로 판정한다. 허용이면 다시 읽은 칸을 반영한 payload를 돌려준다 — 공개 여부는 DB 입구의 기존 공개 판정이 정한다."""
+    text = str(payload.get("source_text") or "").strip()
+    if not text:
+        text = str(payload.get("description") or "").replace("[source:facebook]", "", 1).strip()
+    if not text:
+        return payload, "no_source_text", False
+    group_location = str(payload.get("location") or "").split(", ")[-1]
+    try:
+        job = parse_post({"text": text, "location": group_location, "images": payload.get("images") or []})
+    except RuntimeError as exc:  # 회사 이름 읽기 서버를 지금 못 부름 — 오류로 세지 않고 다음 확인 때 다시(보류 유지)
+        if "company_read_unavailable" in str(exc):
+            return payload, "company_read_unavailable", False
+        raise
+    code, reasons = judge_parsed_job(job)
+    if code == "accepted":
+        return {**payload, **to_db_payload(job)}, None, False
+    return payload, ("; ".join(reasons) or code)[:80], code in _REVIEW_EXCLUDED
+
+
+ingest_gateway.REVIEW_RECHECK["facebook"] = review_recheck
+
+
+def retry_held_cli() -> int:
+    """보류함 다시 확인만(Facebook 접속·쿠키 없음). 정기 수집이 멈춰 있어도 보류 공고(위치 미확인·회사 이름 판독 실패·판단 보류)가 끊기지 않게 하는 수동 입구 —
+    한 번에 ingest_gateway.HOLD_RETRY_PER_RUN건만, 기존 보류함 재시도(retry_held) 그대로."""
+    if supabase is None:
+        print("  ⚠️  Supabase 서버 설정 없음 — 보류함을 확인하지 않음")
+        return 1
+    ingest_gateway._HOLDS_RETRIED = True
+    counts = ingest_gateway.retry_held(supabase)
+    if not any(counts.values()):
+        print("  ℹ️  다시 확인할 때가 된 보류 공고 없음")
+    return 0
 
 
 def save_to_supabase(jobs: list[dict]) -> list[dict]:
@@ -1558,6 +1600,8 @@ def parse_args(argv=None):
     parser.add_argument("--save-from", default="",
                         help="DRY-RUN 결과 JSON에서 --post-keys 게시물만 저장(브라우저·페이스북 접속 없음)")
     parser.add_argument("--post-keys", default="", help="쉼표 구분 게시물 키(예: id:123,id:456)")
+    parser.add_argument("--retry-held", action="store_true",
+                        help="보류함 공고만 다시 확인(Facebook 접속·쿠키 없음, 한 번에 5건) — 정기 수집 없이도 보류 공고가 끊기지 않게")
     parser.add_argument("--max-save", type=int, default=None,
                         help="저장 상한(--save-from 기본 2, 정기 실행 기본 무제한)")
     return parser.parse_args(argv)
@@ -1569,6 +1613,8 @@ async def main(argv=None) -> int:
     COMPANY_READ_SKIPPED = bool(args.dry_run and not SUPABASE_KEY)
     if COMPANY_READ_SKIPPED:
         print("  ℹ️ DB 열쇠 없는 미리 보기 — 회사 이름 읽기(위치 확인 서버)는 건너뜀: 미검증")
+    if args.retry_held:
+        return retry_held_cli()
     if args.save_from:
         keys = [k.strip() for k in args.post_keys.split(",") if k.strip()]
         if not keys:

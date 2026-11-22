@@ -229,6 +229,8 @@ class HoldClient:
                     return type("R", (), {"data": [self.data]})()
                 if self.op == "update":
                     outer.rows[self.filters["name"]]["meta"] = self.data["meta"]
+                    if "payload" in self.data:
+                        outer.rows[self.filters["name"]]["payload"] = self.data["payload"]
                     return type("R", (), {"data": []})()
                 held = [r for r in outer.rows.values() if r["meta"].get("status") in self.filters["meta->>status"]
                         and r["meta"].get("next_at", "") < self.filters["meta->>next_at<"]]
@@ -543,6 +545,146 @@ def run_company_agreement():
     print("test_ingest_gateway: company name agreement (rule + AI x3) passed")
 
 
+def run_review_hold():
+    """판단 보류(Lee 2026-11-22 크롤링 정상화): 부적합이라는 근거가 없고 지금 근거로 판정 못 한 공고는 보류함(review)에 보관하고,
+    다시 볼 때마다 지금의 판정 코드로 다시 판정한다 — 허용이면 기존 보류 경로(위치 확인 → 같은 입구)로, 명백한 부적합이면 종결(줄은 남김)."""
+    saved_checkers = dict(g.REVIEW_RECHECK)
+    g.REVIEW_RECHECK.clear()
+    old = "2000-01-01T00:00:00+00:00"
+    try:
+        def tagged(name, **extra):
+            return {"title": name, "company": f"Cty {name}", "location": "Bắc Ninh", "description": "[source:facebook] Tuyển " + name,
+                    "source_url": f"https://example.invalid/{name}", **extra}
+
+        # ① 보관: 비공개 보류함에 status review, 첫 재판정은 하루 뒤(같은 줄은 덮어쓰지 않음)
+        c = HoldClient()
+        g.hold_job(c, tagged("a"), "incomplete_role_evidence", g.REVIEW_STATUS)
+        row = c.rows[g._hold_name(tagged("a"))]
+        assert row["meta"]["status"] == "review" and row["meta"]["reason"] == "incomplete_role_evidence" and row["meta"]["next_at"] > g._now(), row["meta"]
+        assert c.calls == [], "보관만 한다 — 입구(공고 목록)를 부르지 않는다"
+
+        # ② 아직 못 정함: 보류 유지, 하루 뒤로 미룸, 입구 안 부름, 위치 확인(Google)도 안 씀
+        row["meta"]["next_at"] = old
+        asked = []
+        g.PRECHECK = lambda j: asked.append(j) or {"findable": True, "location": "KCN"}
+        g.REVIEW_RECHECK["facebook"] = lambda payload: (payload, "still_vague", False)
+        out = g.retry_held(c)
+        assert out["review"] == 1 and out["registered"] == 0 and c.calls == [] and asked == [], (out, c.calls, asked)
+        assert row["meta"]["status"] == "review" and row["meta"]["reason"] == "still_vague" and row["meta"]["next_at"] > g._now(), row["meta"]
+
+        # ③ 명백한 부적합으로 판정이 바뀜: 종결(rejected), 줄은 남음, 입구 안 부름
+        row["meta"]["next_at"] = old
+        g.REVIEW_RECHECK["facebook"] = lambda payload: (payload, "dedicated_debt_collection", True)
+        out = g.retry_held(c)
+        assert out["rejected"] == 1 and row["meta"]["status"] == "rejected" and row["meta"]["reason"] == "dedicated_debt_collection" and c.calls == [], (out, row["meta"])
+        assert len(c.rows) == 1, "보류함 줄은 지우지 않는다"
+        before = len(c.calls)
+        g.retry_held(c)
+        assert len(c.calls) == before, "끝난 줄은 다시 보지 않는다"
+
+        # ④ 고친 판정 코드가 허용으로 풀고 칸을 다시 읽어 옴: 위치 확인을 거쳐 같은 입구로 등록, 다시 읽은 칸이 입구로 간다
+        c = HoldClient()
+        g.hold_job(c, tagged("b"), "professional_incentive_sales", g.REVIEW_STATUS)
+        (rowb,) = c.rows.values()
+        rowb["meta"]["next_at"] = old
+        g.REVIEW_RECHECK["facebook"] = lambda payload: ({**payload, "title": "Tuyển b (다시 읽음)"}, None, False)
+        g.PRECHECK = lambda j: {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"}
+        out = g.retry_held(c)
+        assert out["registered"] == 1 and rowb["meta"]["status"] == "registered" and rowb["meta"].get("job_id"), (out, rowb["meta"])
+        assert len(c.calls) == 1 and c.calls[0][0] == "ingest_job" and c.calls[0][1]["p"]["title"] == "Tuyển b (다시 읽음)", c.calls
+
+        # ⑤ 허용으로 풀렸지만 위치 확인이 한도 초과: 기존 위치 보류(held)로 이어지고, 다시 읽은 칸은 보류함 원본에 반영된다
+        c = HoldClient()
+        g.hold_job(c, tagged("c"), "incomplete_role_evidence", g.REVIEW_STATUS)
+        (rowc,) = c.rows.values()
+        rowc["meta"]["next_at"] = old
+        calls = []
+        g.REVIEW_RECHECK["facebook"] = lambda payload: (calls.append(1), {**payload, "title": "Tuyển c (다시 읽음)"})[1], None, False
+        g.REVIEW_RECHECK["facebook"] = lambda payload: (calls.append(1) or {**payload, "title": "Tuyển c (다시 읽음)"}, None, False)
+        g.PRECHECK = lambda j: {"findable": False, "reason": "google_quota"}
+        out = g.retry_held(c)
+        assert out["held"] == 1 and c.calls == [] and rowc["meta"]["status"] == "held" and rowc["meta"]["reason"] == "google_quota", (out, rowc["meta"])
+        assert rowc["payload"]["title"] == "Tuyển c (다시 읽음)", "다시 읽은 칸이 보류함 원본에 남는다"
+        rowc["meta"]["next_at"] = old
+        g.PRECHECK = lambda j: {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"}
+        out = g.retry_held(c)
+        assert out["registered"] == 1 and len(calls) == 1, "위치 보류로 넘어간 뒤에는 판정을 다시 돌리지 않는다(기존 위치 재시도 그대로)"
+        assert c.calls[-1][1]["p"]["title"] == "Tuyển c (다시 읽음)"
+
+        # ⑥ 판정은 보류를 만든 소스의 함수만 한다 — 이 실행에 그 함수가 없으면(예: vieclam24h 수집 실행) review 줄은 아예 건드리지 않는다
+        #    (다른 기준으로 대신 풀어 주면 Facebook 직무 불분명·제목 읽기 실패 보류가 기준 없이 등록된다)
+        g.REVIEW_RECHECK.clear()
+        c = HoldClient()
+        g.PRECHECK = lambda j: {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"}
+        g.hold_job(c, tagged("e"), "직무/연락처가 불분명한 일반 모집글", g.REVIEW_STATUS)
+        g.hold_job(c, {**tagged("f"), "description": "Tuyển f"}, "x", "held")
+        for r in c.rows.values():
+            r["meta"]["next_at"] = old
+        out = g.retry_held(c, limit=10)
+        got = {r["payload"]["title"]: r["meta"]["status"] for r in c.rows.values()}
+        assert got == {"e": "review", "f": "registered"}, got
+        assert out["review"] == 0 and len(c.calls) == 1, "함수가 없으면 review 줄은 대상에서 빠진다(위치 보류 줄만 처리)"
+        assert next(r for r in c.rows.values() if r["payload"]["title"] == "e")["meta"]["attempts"] == 0, "건드리지 않음"
+        # 다른 소스 함수만 등록된 실행에서도 그 소스가 아닌 review 줄은 풀리지 않는다
+        g.REVIEW_RECHECK["other"] = lambda payload: (payload, None, False)
+        g.retry_held(c, limit=10)
+        e = next(r for r in c.rows.values() if r["payload"]["title"] == "e")["meta"]
+        assert e["status"] == "review" and e["reason"] == "checker_unavailable" and len(c.calls) == 1, e
+
+        # ⑦ 기간이 지난 보류(14일)는 종결(expired), 줄은 남음
+        c = HoldClient()
+        g.hold_job(c, tagged("d"), "incomplete_role_evidence", g.REVIEW_STATUS)
+        (rowd,) = c.rows.values()
+        rowd["meta"].update({"next_at": old, "held_at": "2000-01-01T00:00:00+00:00"})
+        out = g.retry_held(c)
+        assert out["expired"] == 1 and rowd["meta"]["status"] == "expired" and c.calls == [], (out, rowd["meta"])
+    finally:
+        g.REVIEW_RECHECK.clear()
+        g.REVIEW_RECHECK.update(saved_checkers)
+    print("test_ingest_gateway: review hold/recheck passed")
+
+
+class _PoisonClient(HoldClient):
+    """제목이 poison인 공고만 입구(rpc)가 계속 DB 오류를 내는 가짜 — 규칙 거부가 아닌 오류(네트워크·DB)."""
+
+    def rpc(self, name, params):
+        if params["p"].get("title") == "poison":
+            self.calls.append((name, params))
+            raise RuntimeError("503 upstream connect error")
+        return super().rpc(name, params)
+
+
+def run_retry_error_does_not_block_queue():
+    """보류 공고를 다시 넣다가 규칙 거부가 아닌 오류가 난 줄이 대기열 맨 앞에 그대로 남아 매번 같은 곳에서 멈추면(예전 동작)
+    뒤의 정상 공고가 영영 확인되지 않는다 — 오류 줄은 하루 뒤로 미루고, 같은 줄이 RETRY_ERROR_LIMIT번 오류면 종결한다(줄은 남김)."""
+    old = "2000-01-01T00:00:00+00:00"
+    c = _PoisonClient()
+    for i, name in enumerate(["poison", "healthy"]):
+        payload = {"title": name, "company": f"Cty {name}", "location": "Bắc Ninh", "source_url": f"https://example.invalid/{name}"}
+        c.rows[g._hold_name(payload)] = {"name": g._hold_name(payload), "payload": payload,
+                                          "meta": {"status": "held", "reason": "google_quota", "held_at": g._now(), "attempts": 0,
+                                                   "next_at": f"2000-01-0{i + 1}T00:00:00+00:00"}}
+    g.PRECHECK = lambda j: {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"}
+    by = lambda: {r["payload"]["title"]: r["meta"] for r in c.rows.values()}
+    out = g.retry_held(c)
+    assert out["registered"] == 0, "첫 실행: 오류 줄에서 멈춘다(DB 문제일 수 있어 헛호출 방지)"
+    st = by()
+    assert st["poison"]["errors"] == 1 and st["poison"]["reason"] == "retry_error" and st["poison"]["next_at"] > g._now(), st["poison"]
+    assert st["poison"]["status"] == "held", "아직 종결 아님 — 보관 내용은 그대로"
+    out = g.retry_held(c)
+    assert out["registered"] == 1 and by()["healthy"]["status"] == "registered", ("다음 실행에서는 오류 줄이 뒤로 가서 정상 공고가 확인된다", out, by())
+    # 같은 줄이 계속 오류: 한도에서 종결(rejected/retry_error_limit), 줄은 남음
+    for _ in range(g.RETRY_ERROR_LIMIT):
+        for r in c.rows.values():
+            if r["payload"]["title"] == "poison" and r["meta"]["status"] == "held":
+                r["meta"]["next_at"] = old
+        g.retry_held(c)
+    st = by()["poison"]
+    assert st["status"] == "rejected" and st["reason"] == "retry_error_limit" and st["errors"] == g.RETRY_ERROR_LIMIT, st
+    assert len(c.rows) == 2, "보류함 줄은 지우지 않는다"
+    print("test_ingest_gateway: retry error does not block the queue passed")
+
+
 def run_review_status_stored():
     """인식 실패(review, Lee 2026-11-22): 원문·출처·사유가 그대로 같은 보류함에 비공개로 보존된다. 이 상태를 다시 판정·해소하는 로직은 없다(후속 그룹) —
     다시 확인하는 재시도(retry_held)는 review 줄을 건드리지 않고, 입구(공고 목록)도 부르지 않는다."""
@@ -574,4 +716,6 @@ if __name__ == "__main__":
     run_hold_without_new_jobs()
     run_unfound_recheck_fresh()
     run_company_agreement()
+    run_review_hold()
+    run_retry_error_does_not_block_queue()
     run_review_status_stored()

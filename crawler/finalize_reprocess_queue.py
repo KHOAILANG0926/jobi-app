@@ -12,6 +12,7 @@ import json
 from datetime import datetime, timezone, date
 import time
 import pin_guard
+from job_criteria import deadline_passed, today_vn
 
 
 def _jsonb_text(value):
@@ -38,7 +39,7 @@ AWAITING_INSPECT = "awaiting_inspect"
 
 def blocking_reason(current, today=None):
     """비공개 공고가 막힌 실제 사유(기존 게이트·검사 기록에서 읽음). 없으면 None = 사유 불명."""
-    today = today or date.today().isoformat()
+    today = today or today_vn()  # 1-B(F2): 베트남 날짜
     oc = current.get("ocr_check") or {}
     if current.get("admin_hidden") is True:
         return "admin_hidden"
@@ -50,7 +51,7 @@ def blocking_reason(current, today=None):
     if gate not in (None, "ok"):
         return "publish_gate:" + str(gate)
     deadline = current.get("application_deadline")
-    if deadline and str(deadline)[:10] < today:
+    if deadline_passed(deadline, today):
         return "deadline_passed"
     inspect = oc.get("inspect") or {}
     if inspect.get("publishable") is False:

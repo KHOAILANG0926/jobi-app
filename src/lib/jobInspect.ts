@@ -221,7 +221,9 @@ export const INFO_ONLY = ['photo', 'still_missing']
 export function publishDecision(
   r: InspectResult,
   j: { active?: boolean | null; admin_hidden?: boolean | null; hold?: boolean | null; application_deadline?: string | Date | null },
-  today = new Date().toISOString().slice(0, 10),
+  // 1-B(F2): 기본 '오늘'은 베트남 날짜 — UTC 날짜로 보면 베트남 새벽에 마감 당일이 하루 일찍 닫힌다.
+  // 검사기 독립성(R2 #753): 만드는 쪽 모듈(jobDetailView.todayVn)을 import하지 않고 같은 기준을 여기서 직접 계산한다 — 일치는 jobCriteria.test.ts가 지킨다.
+  today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date()),
 ): { publishable: boolean; active: boolean } {
   // Lee 2026-11-06 "비워두고 공개해야지": 원문에 없는 필수 항목(reviewOnly로 표시된 누락)은 경고만 — 공개를 막지 않는다.
   const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || INFO_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)

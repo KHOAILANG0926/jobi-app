@@ -813,6 +813,51 @@ class FacebookReviewHold(unittest.TestCase):
             fb.save_and_mark_seen([], {}, stats)
         self.assertEqual(sorted(captured["keys"]), ["done", "id:2"])
 
+    def test_recheck_clears_when_the_judgement_code_now_allows(self):
+        """고친 판정 코드(예: 직무 낱말 보강)가 들어가면 보류 글이 허용으로 풀리고, 다시 읽은 칸이 payload에 반영된다."""
+        text = "Tuyển gấp 5 bạn, lương cao. LH 0987654321"
+        payload = {**fb.to_db_payload({**_fb_job("Tuyển gấp 5 bạn", text), "fb_post_key": "id:3", "source_text": text}), "source_text": text, "location": "Bắc Ninh"}
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": ""}):
+            fixed, why, excluded = fb.review_recheck(payload)
+            self.assertEqual((why, excluded), ("직무/연락처가 불분명한 일반 모집글", False), "코드가 그대로면 보류 유지")
+            with mock.patch.object(fb, "is_ambiguous_job", lambda job: False):
+                fixed, why, excluded = fb.review_recheck(payload)
+        self.assertEqual((why, excluded), (None, False))
+        self.assertEqual(fixed["source_url"], payload["source_url"], "원문 출처는 바꾸지 않는다")
+
+    def test_recheck_ends_when_now_clearly_unsuitable(self):
+        text = "Cần tuyển nhân viên thu hồi nợ, lương 10 triệu. LH 0987654321"
+        payload = {"title": "x", "company": "y", "description": "[source:facebook] " + text, "source_text": text, "location": "Bắc Ninh"}
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": "CTY A"}):
+            _p, why, excluded = fb.review_recheck(payload)
+        self.assertEqual((why, excluded), ("dedicated_debt_collection", True))
+
+    def test_recheck_keeps_hold_when_company_reader_is_down(self):
+        payload = {"description": "[source:facebook] Tuyển gấp", "source_text": "Tuyển gấp 5 bạn. 0987654321", "location": "Bắc Ninh"}
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"reason": "precheck_unavailable"}):
+            _p, why, excluded = fb.review_recheck(payload)
+        self.assertEqual((why, excluded), ("company_read_unavailable", False), "읽기 서버 장애는 부적합도 오류 횟수도 아니다")
+
+    def test_registered_for_facebook_source_tag(self):
+        self.assertIs(fb.ingest_gateway.REVIEW_RECHECK["facebook"], fb.review_recheck)
+
+
+class FacebookRetryHeldCli(unittest.TestCase):
+    """정기 수집이 멈춰 있어도 보류 공고가 끊기지 않게 — Facebook 접속·쿠키 없이 보류함만 다시 확인하는 수동 입구."""
+
+    def test_flag_runs_hold_retry_without_facebook_cookies(self):
+        import asyncio
+        calls = []
+        with mock.patch.object(fb, "supabase", object()), mock.patch.object(fb, "FB_C_USER", ""), mock.patch.object(fb, "FB_XS", ""), \
+                mock.patch.object(fb.ingest_gateway, "retry_held", lambda client: calls.append(client) or {"registered": 1}):
+            self.assertEqual(asyncio.run(fb.main(["--retry-held"])), 0)
+        self.assertEqual(len(calls), 1, "쿠키 없이 보류함 다시 확인만 한다(정기 수집을 켜는 것이 아니다)")
+
+    def test_without_server_credentials_it_fails_loudly(self):
+        import asyncio
+        with mock.patch.object(fb, "supabase", None):
+            self.assertEqual(asyncio.run(fb.main(["--retry-held"])), 1)
+
 
 
 # ── 크롤링 정상화 1번 그룹(Lee 2026-11-22): 수집·인식·제외 규칙, 미리 보기 → 선택 저장 연결 ─────────────────────────────
@@ -1082,6 +1127,30 @@ class SelectedSaveUsesTheSameJudgement(_SaveHarness):
         self.assertEqual((self.saved, self.held), ([], []))
         self.assertEqual(source_fields.JOB_ERRORS.failed_keys(), {"id:9"})
 
+
+
+class FacebookCriteriaAlignment(unittest.TestCase):
+    """1-B(F2·F3): Facebook 수집기가 마감·연락처를 DB·화면과 같은 기준으로 본다(마감 당일 열림, 연락처 숫자 8자리)."""
+
+    def test_deadline_day_is_kept_and_a_past_date_is_still_just_dropped(self):
+        with mock.patch.object(fb, "TODAY", "2026-11-23"):
+            self.assertEqual(fb.extract_deadline("Hạn nộp hồ sơ: 23/11/2026"), "2026-11-23", "마감 당일은 기한으로 남긴다")
+            self.assertEqual(fb.extract_deadline("Hạn nộp hồ sơ: 24/11/2026"), "2026-11-24")
+            self.assertIsNone(fb.extract_deadline("Hạn nộp hồ sơ: 22/11/2026"), "지난 날짜는 기존대로 기한에서 뺀다(새 제외 규칙 없음)")
+
+    def _problems(self, phone, zalo):
+        job = {"title": "Tuyển công nhân may", "company": "CTY A", "employer_phone": phone, "zalo": zalo,
+               "description": "Tuyển công nhân may, lương 8 triệu", "location": "Bắc Ninh"}
+        return fb.missing_required(job)
+
+    def test_normal_contacts_are_never_flagged_missing(self):
+        for value in ["0912345678", "0912 345 678", "091.234.5678", "+84 912 345 678", "84912345678", "(028) 3822 1234", "09123456"]:
+            self.assertNotIn("연락처 없음", self._problems(value, ""), value)
+            self.assertNotIn("연락처 없음", self._problems("", value), value)
+
+    def test_not_a_contact_is_flagged_missing(self):
+        for value in ["", "0912345", "abc", "---"]:
+            self.assertIn("연락처 없음", self._problems(value, ""), repr(value))
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -8,6 +8,7 @@ from datetime import date
 
 import classifier
 from job_posting_policy import evaluate_job_posting_policy, has_excluded_money_role, crawler_policy_errors
+from job_criteria import deadline_passed, has_enough_contact
 
 
 # Pure mirror of crawl_category()'s in-browser line-parsing JS in
@@ -679,8 +680,9 @@ def has_application_path(
 ) -> bool:
     """True if a job seeker has at least one real way to act on this listing.
 
-    A phone number or Zalo contact is always sufficient on its own — those
-    are direct, not affected by whether the original page still exists.
+    A phone number or Zalo contact (8+ digits, the DB publish-gate rule) is
+    always sufficient on its own — those are direct, not affected by whether
+    the original page still exists.
 
     A bare source_url is NOT automatically sufficient — confirmed the naive
     version of this check would count it even for a since-expired/removed/
@@ -696,7 +698,8 @@ def has_application_path(
     (unit tests, callers that only know phone/zalo/url) keep their old
     behavior — only crawl_topcv.py's real crawl passes the checked values.
     """
-    if normalize_whitespace(employer_phone) or normalize_whitespace(zalo):
+    # 1-B(F3): '연락처 있음'은 숫자 8자리 이상(DB 공개 게이트와 같은 기준) — 값이 비어 있지 않다는 것만으로는 부족하다.
+    if has_enough_contact(employer_phone, zalo):
         return True
     if not normalize_whitespace(source_url):
         return False
@@ -828,11 +831,8 @@ def has_excluded_money_terms(title="", company="", description="", category=""):
 
 
 def is_expired(deadline: object, today: str | None = None) -> bool:
-    deadline_text = normalize_whitespace(deadline)
-    if not deadline_text:
-        return False
-    today_text = today or date.today().isoformat()
-    return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", deadline_text)) and deadline_text <= today_text
+    # 1-B(F2): 마감 당일은 열림(화면·알림 RPC와 같은 기준), 오늘은 베트남 날짜 — 기준은 job_criteria 한 곳.
+    return deadline_passed(normalize_whitespace(deadline), today)
 
 
 def validate_job_payload(job: dict, source: str = "vieclam24h", today: str | None = None) -> list[str]:

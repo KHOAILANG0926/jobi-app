@@ -1,17 +1,14 @@
-# HANDOFF — 2026-11-22 (Claude) · VietMap 스타일 사본 PR #952 + 크롤링 정상화 #958 병합 뒤
-
+# HANDOFF — 2026-11-22 (Claude) · JOBI 4단계 — 1-B·1-C Draft PR 3개
 ## 1. 현재 상태
-- 코드: master `3a3d31d`(#958 크롤링 정상화 1번 그룹 — 판정 네 갈래·review 보존·선택 저장 연결, 운영 DB 변경 없음). 2~4번 그룹은 별도 Draft(`claude/crawl-group2-4-preserved`). #953(Facebook 잠금 파일 수동 해제 옵션) 병합 `f02306d`.
-- PR #952(브랜치 `claude/map-style-copy`, master 합침): 지도(메인·상세·관리자)가 우리 쪽 VietMap style 사본(public/vietmap/styles, 열쇠 값 비움)을 먼저 쓰고 실패할 때만 원본, 사본은 vercel-deploy 빌드 직전 갱신(scripts/ops/vietmap-style-copy.mjs). 검사·보호 장치(workflow) 변경이라 Lee 공식 Approve(최신 커밋) 뒤 봇 병합.
-- 배포: deploy-verify 44908805702(f02306d) 통과 → 잠금 #950·#951(7b37362) 풀림 조건 충족(이슈는 열림). 운영 지도는 아직 옛 코드 — VietMap style.json이 멈추면 같은 실패가 다시 날 수 있음.
-- 수집: 정기 실행 꺼짐(Lee 11-17 #872), vieclam24h GitHub 서버 403·본문 전화번호 숨김, Facebook 계정 잠금(쿠키 만료) — Lee가 쿠키 교체 뒤 미리 보기(dryrun)를 reset_account_lock=true로 1번. 실제 dryrun→save는 아직 검증 안 함. DB: 변경 없음.
-
+- 코드: master 최신(#959 병합 포함). PR 3개 — #970(1-B 코드·시험: 마감 당일 열림·베트남 날짜, 연락처 8자리, 필수 9개 일치 시험, 정책 판정기 Python·JS·SQL 일치 시험) · #971(1-B DB: 만료 cron 기준 날짜 = 베트남 날짜, migration이라 Lee 공식 Approve) · #972(1-C: Facebook이 DB 규칙 거부 공고의 원문·출처·규칙 코드·사유를 보류함에 rejected로 보존). 세 PR 모두 병합·배포·운영 DB 변경 없음, 작업 기록(WORK_LOG·HANDOFF)은 #970에만 있음.
+- 1-A 측정 [직접 확인]: 정책 평가기 3벌은 4,057건 불일치 0. 실제 불일치는 마감·연락처·직업분류/점검기(khac)·review 처리·필수 항목. 이번에 고친 것은 마감·연락처·필수 9개 일치 시험·DB 규칙 거부 보존.
+- PR #952(지도 style 사본, 브랜치 `claude/map-style-copy`): 메인·상세·관리자 지도가 우리 쪽 VietMap style 사본(public/vietmap/styles, 열쇠 값 비움)을 먼저 쓰고 실패할 때만 원본, 사본은 vercel-deploy 빌드 직전 갱신. 필수 검사 통과, Lee 공식 Approve(최신 커밋) 대기. 운영 지도는 아직 옛 코드 — VietMap style.json이 멈추면 deploy-verify 지도 실패·배포 잠금이 다시 날 수 있음(#950·#951 잠금은 f02306d deploy-verify 통과로 풀림 조건 충족).
+- 남은 결정·운영 확인 보류: 이슈 #973(F4 khac, F5 관리자 review, 작성 화면 12 vs 9, 화면 연락 버튼, Facebook 지난 마감일, rejected vs review). 운영 DB 조회 불가(프록시)라 공개 24건별 판정 분포·운영 확인은 미검증.
 ## 2. 다음 할 일 3개
-1. PR #952: 필수 검사 → Lee Approve(최신 커밋) → 봇 병합 → vercel-deploy 사본 갱신 줄 확인 → deploy-verify 통과.
-2. Facebook: Lee 쿠키(FB_C_USER·FB_XS) 교체 → dryrun(reset_account_lock=true) → 후보 1건 선택 저장(Lee 승인). 2~4번 그룹 Draft 진행 여부는 Lee 결정.
-3. 정기 수집 재개는 별도 승인 PR. vieclam24h는 본문에 전화번호 있는 공고만(공개 기준 완화 금지).
-
+1. Lee: #970·#971·#972 검토(#970·#971은 GitHub에서 공식 Approve, #972는 needs-lee). 병합은 승인 뒤 봇이 한다.
+2. #973의 결정 6건 확인 후 필요한 것만 별도 PR(1-C 남은 범위: 관리자·고용주 위치 공개 정책 등).
+3. Facebook 쿠키 갱신(계정 잠금 해제) 뒤 실제 dryrun→보류함·거부 보존 확인(#940), #971 적용 뒤 production_check 결과 확인.
 ## 3. 필수 규칙
 - CLAUDE.md·.claude/RULES_CORE.md 먼저. 확인한 것만 [직접 확인]/[기존 기록]/[추정], 5줄 이내.
-- 운영 DB는 migration + production_check PR로만. 비밀값·권한·DB 삭제·검사 장치 변경은 Lee 공식 Approve. 새 검사·규칙·워크플로·대기열을 덧붙이지 않는다(기존 오류만 최소 수정). 지도 style 대기 시간은 더 늘리지 않는다.
-- 위치를 모르면 핀을 찍지 않는다·못 찾은 공고는 등록하지 않는다(보류함에 보관). 정기 전체 수집은 승인 없이 켜지 않는다.
+- 운영 DB는 migration + production_check PR로만. 새 검사·규칙·승인 절차·대기열을 덧붙이지 않는다. 필수 9개 목록·상세 구성은 Lee 지시 없이 바꾸지 않는다. 점검기 독립성 시험(R2 #753)을 약화하지 않는다.
+- 위치를 모르면 핀을 찍지 않는다·못 찾은 공고는 등록하지 않는다(보류함에 보관). 정기 수집은 승인 없이 켜지 않는다.

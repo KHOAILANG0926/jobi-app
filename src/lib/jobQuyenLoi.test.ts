@@ -35,7 +35,7 @@ assert(usesAlbamonLayout('sb-4879'), 'former Quyền lợi job (ADTEK) uses 4-se
   const pos = albamonConditionLines(detailSections('Thu nhập\nLương 7 triệu, đã bao gồm tăng ca').sections, '7 triệu')
   assert(pos.overtimeNote === 'đã gồm tăng ca', 'positive overtime: ' + pos.overtimeNote)
 }
-// 10-30 확정 구성(Lee 2026-11-10 "세부구성"): 원문 줄을 ①②④ 확정 자리로 — 지우지 않고 옮김, 위쪽에 있는 줄만 ④에서 뺌
+// 10-30 확정 구성(Lee 2026-11-10 "세부구성"): 원문 줄을 ①② 확정 자리에 보여 주고, ④에는 위쪽과 겹쳐도 원문 전부(Lee 2026-11-22 "상단내용 포함")
 {
   const desc = ['Công việc', '2. CÔNG VIỆC', 'Vận hành, hỗ trợ sản xuất tại bộ phận ép nhựa.', 'Yêu cầu', '3. YÊU CẦU', 'Không yêu cầu kinh nghiệm, được hướng dẫn công việc.', 'Chăm chỉ, có trách nhiệm, nghiêm túc trong công việc.',
     'Thu nhập', 'LƯƠNG & PHỤ CẤP 7.300.000Đ/THÁNG – CHƯA TÍNH TĂNG CA!', 'Tiền tăng ca được tính riêng theo quy định.', 'Làm đủ 30 ngày: Thưởng 500.000đ.',
@@ -44,14 +44,16 @@ assert(usesAlbamonLayout('sb-4879'), 'former Quyền lợi job (ADTEK) uses 4-se
   const c = albamonCompose(detailSections(desc).sections, { title: 'CÔNG TY TNHH ZHAN AN – TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', company: 'CÔNG TY TNHH ZHAN AN',
     addresses: ['Khu vực Khắc Niệm, phường Hạp Lĩnh, Bắc Ninh, Bắc Ninh'], salary: '7.300.000Đ/THÁNG', hasHours: false, preference: 'Không yêu cầu kinh nghiệm, được hướng dẫn công việc.' })
   const by = (l: string) => c.detail.find((x) => x.label === l)?.lines ?? []
-  assert(JSON.stringify(c.detail.map((x) => x.label)) === JSON.stringify(['Nội dung công việc', 'Tăng ca', 'Môi trường làm việc', 'Quy trình tuyển dụng', 'Liên hệ']), 'labels ' + JSON.stringify(c.detail.map((x) => x.label)))
-  assert(by('Nội dung công việc')[0].startsWith('Công ty TNHH ZHAN AN cần tuyển') && by('Nội dung công việc')[1].startsWith('Vận hành'), 'intro then duties')
+  assert(JSON.stringify(c.detail.map((x) => x.label)) === JSON.stringify(['Nội dung công việc', 'Yêu cầu ứng viên', 'Tăng ca', 'Thu nhập và phụ cấp', 'Môi trường làm việc', 'Quy trình tuyển dụng', 'Liên hệ']), 'labels ' + JSON.stringify(c.detail.map((x) => x.label)))
+  assert(by('Nội dung công việc')[0].startsWith('CÔNG TY TNHH ZHAN AN –') && by('Nội dung công việc').some((l) => l.startsWith('Vận hành')), 'intro then duties')
   assert(by('Tăng ca')[0] === 'Tiền tăng ca được tính riêng theo quy định.', 'overtime line')
   assert(JSON.stringify(by('Liên hệ')) === JSON.stringify(['Điện thoại: 0969 661 314', 'Email: zhanan@zhan-an.com']), 'contact')
   assert(JSON.stringify(c.otherRequirements) === JSON.stringify(['Chăm chỉ, có trách nhiệm, nghiêm túc trong công việc.']), 'other requirements without the preference repeat')
   assert(c.allowance[0] === 'Làm đủ 30 ngày: Thưởng 500.000đ.' && c.overtimeNote === 'chưa tính tăng ca', 'allowance + note')
   assert(by('Môi trường làm việc').includes('Tham gia BHXH, BHYT, BHTN theo quy định.'), 'Codex #653: insurance sentence kept for mobile')
-  assert(!c.detail.flatMap((x) => x.lines).some((l) => l === 'CÔNG TY TNHH ZHAN AN' || l.startsWith('Khu vực Khắc Niệm') || l.startsWith('CÔNG TY TNHH ZHAN AN –')), 'lines shown above are not repeated in ④')
+  // Lee 2026-11-22: 위쪽에 나온 줄(회사 이름·주소·급여·자격)도 ④에 원문 그대로 — 원문 줄(소제목 제외)이 ④에 하나도 빠지지 않는다
+  const shown = c.detail.flatMap((x) => x.lines)
+  for (const l of detailSections(desc).sections.flatMap((x) => x.lines)) assert(shown.includes(l.trim()), '④ keeps source line: ' + l)
 }
 // Codex #653: 위 금액과 같은 금액이 하나 들어 있어도 다른 금액(내역)이 있으면 지우지 않는다
 {
@@ -59,12 +61,12 @@ assert(usesAlbamonLayout('sb-4879'), 'former Quyền lợi job (ADTEK) uses 4-se
   const all = [...c.allowance, ...c.detail.flatMap((x) => x.lines)].join('|')
   assert(all.includes('phụ cấp 1 triệu'), 'breakdown with extra amount kept: ' + all)
 }
-// #653(Lee 2026-11-10 적용) "위쪽에 이미 있는 … 주소 … 줄만 ④에서 뺌" — 이름표(Địa điểm:)가 붙은 주소 줄도 같은 줄이다(5157). 주소가 아닌 이름표 줄은 그대로 둔다.
+// Lee 2026-11-22 "상단내용 포함"(#653 '주소 줄은 ④에서 뺌'을 대체): 위쪽 주소와 같은 줄도 ④에 그대로 둔다.
 {
   const desc = ['Thông tin khác', 'HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI', 'Địa điểm:  Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh', 'Địa điểm: Nhà xưởng số 3'].join('\n')
   const c = albamonCompose(detailSections(desc).sections, { title: 'Highlands Coffee tuyển nhân viên', company: 'Highlands Coffee', addresses: ['Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh'] })
   const all = c.detail.flatMap((x) => x.lines)
-  assert(!all.some((l) => l.includes('Số 395')), 'label+address line shown above is not repeated in ④: ' + JSON.stringify(all))
-  assert(all.includes('Địa điểm: Nhà xưởng số 3'), 'a label line that is not the shown address stays')
+  assert(all.some((l) => l.includes('Số 395')), 'address line shown above stays in ④: ' + JSON.stringify(all))
+  assert(all.includes('Địa điểm: Nhà xưởng số 3'), 'other label line stays')
 }
 console.log('jobQuyenLoi: verbatim copies, baseline exempt, two frames only')

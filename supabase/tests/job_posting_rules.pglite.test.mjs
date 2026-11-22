@@ -41,4 +41,33 @@ const tested = [...new Set([...f('./job_posting_rules_test.sql').matchAll(/res \
 if (tested.length < 7) { console.error('FAIL 시험 규칙 목록을 읽지 못함', tested); process.exit(1) }
 const bad = tested.map((k) => rows.find((r) => r.rule_key === k) ?? { rule_key: k, last_test_result: '규칙 표에 없음' }).filter((r) => r.last_test_result !== '통과')
 if (bad.length || left) { console.error('FAIL', bad, left); process.exit(1) }
+// 1-B(F1, Lee 2026-11-22): 정책 판정기 3벌(Python·JS·SQL)이 같은 입력에 같은 판정을 내는지 — 고정 사례 57개 + 고정 씨앗 무작위 조합 2,000건.
+// 1-A 측정(4,057건)에서 불일치 0건이었다. 평가기를 하나로 합치거나 생성하지 않고 이 일치 시험으로만 묶는다(각 85줄 안팎, 분기가 늘면 이 시험이 먼저 깨진다).
+// 규칙 데이터(policy/job-posting-rules.json)만 바꾸고 SQL(job_policy_rules)을 안 바꾸거나 한쪽 분기만 고치면 여기서 실패한다. 운영 DB는 쓰지 않는다.
+{
+  const { execFileSync } = await import('node:child_process')
+  const { evaluateJobPostingPolicy } = await import('../../src/lib/jobPostingPolicy.mjs')
+  const fixtures = JSON.parse(f('../../policy/job-posting-fixtures.json'))
+  let seed = 12345
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296)
+  const vocab = [...new Set(fixtures.flatMap((x) => Object.values(x.input).flatMap((v) => String(v).split(/\s+/))).filter(Boolean))]
+  const pick = (n) => Array.from({ length: n }, () => vocab[Math.floor(rnd() * vocab.length)]).join(' ')
+  const cases = fixtures.map((x) => ({ input: x.input, expected: x.expected }))
+  for (let i = 0; i < 2000; i++) cases.push({ input: { title: pick(1 + Math.floor(rnd() * 5)), company: pick(1 + Math.floor(rnd() * 3)), description: pick(2 + Math.floor(rnd() * 14)), category: rnd() < 0.5 ? '' : pick(1), salary: pick(Math.floor(rnd() * 4)) } })
+  const js = cases.map((c) => { const r = evaluateJobPostingPolicy(c.input); return r.decision + ':' + r.reason })
+  const py = JSON.parse(execFileSync('python3', ['-I', '-c', `
+import json, sys
+sys.path.insert(0, ${JSON.stringify(new URL('../../crawler', import.meta.url).pathname)})
+from job_posting_policy import evaluate_job_posting_policy as e
+print(json.dumps([(lambda r: r['decision'] + ':' + r['reason'])(e(c['input'])) for c in json.load(sys.stdin)]))
+`], { input: JSON.stringify(cases), encoding: 'utf8' }))
+  const mismatches = []
+  for (let i = 0; i < cases.length; i++) {
+    const i0 = cases[i].input
+    const sql = (await db.query('select public.job_policy_decision($1,$2,$3,$4,$5) d', [i0.title ?? '', i0.company ?? '', i0.description ?? '', i0.category ?? '', i0.salary ?? ''])).rows[0].d.replace(/@.*$/, '')
+    if (!(js[i] === py[i] && py[i] === sql) || (cases[i].expected && js[i].split(':')[0] !== cases[i].expected)) mismatches.push({ i, js: js[i], py: py[i], sql, expected: cases[i].expected })
+  }
+  if (mismatches.length) { console.error('FAIL 정책 판정기 3벌 불일치', mismatches.slice(0, 10)); process.exit(1) }
+  console.log('정책 판정기 일치(Python·JS·SQL):', cases.length, '건 불일치 0')
+}
 console.log('PASS')

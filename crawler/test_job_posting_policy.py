@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import unittest
 from job_posting_policy import evaluate_job_posting_policy, crawler_policy_errors, has_excluded_money_role
+from job_criteria import has_enough_contact
 import job_quality
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -58,6 +59,7 @@ class PostingPolicyTests(unittest.TestCase):
         fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "missing_required")
         ns = {"crawler_policy_errors": crawler_policy_errors,
               "SEE_MORE_LABELS": ("See more",), "is_self_promotion": lambda text: False}
+        ns["has_enough_contact"] = has_enough_contact  # 1-B(F3): missing_required가 쓰는 연락처 도우미
         exec(compile(ast.Module(body=[fn], type_ignores=[]), "facebook-offline", "exec"), ns)
         for fixture in CASES:
             job = {**fixture["input"], "employer_phone": "synthetic", "location": "Synthetic"}
