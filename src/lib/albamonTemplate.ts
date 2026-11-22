@@ -128,9 +128,11 @@ export function detailLook(category: string | null | undefined, seed: number, st
   // 일반 식당은 우리 식당 그림(홀 2장 — 쌀국수 주방 그림은 쌀국수·phở 낱말이 있을 때만)
   const own = kind === 'nha_hang_chung' ? (NOODLE_WORDS.test(String(kindText || text).normalize('NFC')) ? ['02c-an-uong'] : ['02-an-uong', '02b-an-uong']) : null
   if (kind && !own) return { photo: `/images/industry/${kind}.jpg`, bar: c.hi, head: c.bg, point: c.point, style: pick }
-  // 공장: 카드 사진과 같은 공장 그림 한 장(cardPhoto.factoryPhotos 첫 장) — 종류를 모르면 지금처럼 기본 그림 중 공고 번호로
+  // 공장: 카드 사진과 같은 공장 그림 한 장(cardPhoto.factoryPhotos 첫 장).
+  // 종류를 모르면 카드와 같은 공장 업종 사진(cardPhoto.industryPhotoUrl) — Lee 2026-11-22 sb-6309 GOERTEK "이공고는 사진안맞아"(사무실 로비 기본 그림이 나옴)
   const factory = g === DETAIL_GROUP.san_xuat_xay_dung ? factoryPhotos(text) : null
-  const list = own ?? (factory ? [factory[0]] : g === DETAIL_GROUP.san_xuat_xay_dung ? CATEGORY_IMAGES[0] : CATEGORY_IMAGES[g])
+  if (g === DETAIL_GROUP.san_xuat_xay_dung && !factory && !own) return { photo: '/images/industry/san_xuat_xay_dung.jpg', bar: c.hi, head: c.bg, point: c.point, style: pick }
+  const list = own ?? (factory ? [factory[0]] : CATEGORY_IMAGES[g])
   const photo = list[n % list.length]
   return { photo: `/images/template/${photo}.jpg`, bar: c.hi, head: c.bg, point: c.point, style: pick }
 }
