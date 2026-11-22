@@ -694,15 +694,12 @@ class FacebookDecisionSplit(unittest.TestCase):
     예전에는 둘 다 ambiguous·missing_required로 '본 글' 기록이 돼 다시 판정할 기회 없이 영구 제외됐다."""
 
     def test_clear_unsuitable_posts_stay_final(self):
-        # 전담 채권 추심(돈 문제) / 기업 간 계약 영업(정책 exclude) / 연락처 없음(공개 기준 — 연락처 없는 수집 공고는 공개 안 함)
+        # 전담 채권 추심(돈 문제) / 기업 간 계약 영업(정책 exclude) / 구직자 홍보 — 명백한 제외. 연락처 없음은 여기가 아니다(아래 review)
         self.assertEqual(fb.judge_parsed_job(_fb_job("Nhân viên thu hồi nợ", "Thu hồi nợ khách hàng, lương 10 triệu"))[0], "money")
         self.assertEqual(fb.judge_parsed_job(_fb_job(
             "Nhân viên kinh doanh B2B", "Tìm kiếm khách hàng doanh nghiệp, chăm sóc khách hàng doanh nghiệp, ký hợp đồng cung cấp với doanh nghiệp, bán hàng B2B."))[0],
             "policy_excluded")
-        self.assertEqual(fb.judge_parsed_job(_fb_job(
-            "Phục vụ quán cafe", "Cần tuyển 2 bạn phục vụ quán cafe khu Kinh Bắc, lương 7 triệu/tháng, làm ca sáng", employer_phone=""))[0],
-            "missing_required")
-        for code in ("money", "policy_excluded", "missing_required", "self_promo"):
+        for code in ("money", "policy_excluded", "self_promo"):
             self.assertIn(code, fb.FINAL_DECISIONS)
             self.assertNotIn(code, fb.HOLD_DECISIONS)
 
@@ -860,6 +857,275 @@ class FacebookRetryHeldCli(unittest.TestCase):
         import asyncio
         with mock.patch.object(fb, "supabase", None):
             self.assertEqual(asyncio.run(fb.main(["--retry-held"])), 1)
+
+
+
+# ── 크롤링 정상화 1번 그룹(Lee 2026-11-22): 수집·인식·제외 규칙, 미리 보기 → 선택 저장 연결 ─────────────────────────────
+# 판정은 네 갈래: 정상(accepted) / 인식 실패(review → 보류함) / 명백한 제외(근거 기록 후 종결) / 파서·수집기 오류(JOB_ERRORS, 보류함 아님).
+import contextlib  # noqa: E402
+import io  # noqa: E402
+import json  # noqa: E402
+import tempfile  # noqa: E402
+
+_NOW = fb.datetime(2026, 11, 22, 12, 0)
+_FRESH = {"estimate": "2026-11-22T10:00", "precision": "hour"}
+
+FACTORY_POST = ("CÔNG TY TNHH ABC KCN QUẾ VÕ TUYỂN CÔNG NHÂN SẢN XUẤT 20 NAM NỮ\n"
+                "Làm việc dưới sự hướng dẫn của kỹ sư và trưởng phòng sản xuất, ca ngày 8h.\n"
+                "Lương 9 triệu - 12 triệu/tháng. Liên hệ 0987654321")
+PAY_PHRASE_POST = "Quán Phở Hà Nội cần tuyển 2 bạn phục vụ. Quán trả 8 triệu/tháng, bao ăn trưa. Liên hệ 0987654321"
+NEED_N_POST = "Quán cần 2 bạn, lương 8tr. Zalo 0987654321"
+OFFICE_POST = "TUYỂN KẾ TOÁN TỔNG HỢP\nLương 12 triệu. Liên hệ 0987654321"
+SCAM_POST = "Tôi nhiều tiền quá, muốn công đức thì sợ người ta bảo rửa tiền. 1 tháng tôi trả 100 triệu"
+MULE_POST = "Cần người nhận chuyển khoản hộ, trả 50 triệu mỗi tháng, không cần kinh nghiệm"
+VAGUE_POST = "Tuyển gấp 5 bạn, lương cao. LH 0987654321"
+NO_CONTACT_POST = "Cần tuyển 2 bạn phục vụ quán cafe khu Kinh Bắc, lương 7 triệu/tháng, làm ca sáng, ưu tiên nữ nhanh nhẹn"
+MONEY_POST = "Cần tuyển nhân viên thu hồi nợ, lương 10 triệu. LH 0987654321"
+NORMAL_POST = "Cần tuyển 2 bạn phục vụ quán cafe khu Kinh Bắc, lương 7 triệu/tháng, làm ca sáng, liên hệ 0987654321"
+
+
+class OverExclusionOfRealPosts(unittest.TestCase):
+    """not_job·office 사전 거름이 실제 유효 구인 글을 보류함·등록 도달 전에 영구 제외하던 것 — 명백한 근거가 있을 때만 종결."""
+
+    def test_factory_post_that_mentions_staff_titles_is_not_office(self):
+        # 본문에 '상급자 직함'이 나올 뿐 모집 직무는 공장 직원 — 예전에는 office로 영구 제외
+        self.assertFalse(fb.is_office_job(FACTORY_POST))
+
+    def test_hiring_post_with_pay_phrase_is_a_job(self):
+        # '8 triệu를 준다'는 보수 문구가 구인 글에도 흔하다 — 예전에는 not_job으로 영구 제외
+        self.assertTrue(fb.is_job_post(PAY_PHRASE_POST))
+
+    def test_explicit_need_n_people_is_a_job(self):
+        self.assertTrue(fb.is_job_post(NEED_N_POST))
+
+    def test_clear_evidence_is_still_excluded_with_the_evidence_recorded(self):
+        self.assertFalse(fb.is_job_post(SCAM_POST), "자금 세탁·기부 낱말 — 명백한 비구인")
+        self.assertFalse(fb.is_job_post(MULE_POST), "직무 근거 없이 보수만 내거는 글")
+        code, reasons, job = fb.evaluate_post(OFFICE_POST, _FRESH, True, "Bắc Ninh", now=_NOW)
+        self.assertEqual((code, job), ("office", None))
+        self.assertIn("kế toán", reasons[0].lower(), "제외 근거(모집 직무 줄의 낱말)를 사유에 남긴다")
+        code, reasons, _ = fb.evaluate_post(SCAM_POST, _FRESH, True, "Bắc Ninh", now=_NOW)
+        self.assertEqual(code, "not_job")
+        self.assertIn("자금 세탁", reasons[0], "비구인 근거를 사유에 남긴다")
+
+    def test_over_excluded_posts_now_reach_the_normal_path(self):
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": "CTY ABC"}):
+            for text in (FACTORY_POST, PAY_PHRASE_POST, NEED_N_POST):
+                code, reasons, job = fb.evaluate_post(text, _FRESH, True, "Bắc Ninh", now=_NOW)
+                self.assertNotIn(code, ("not_job", "office"), (text[:40], code, reasons))
+
+
+class FourWayClassification(unittest.TestCase):
+    """정상 / 인식 실패(review) / 명백한 제외 / 파서·수집기 오류 — 서로 다른 곳으로 간다."""
+
+    def setUp(self):
+        source_fields.JOB_ERRORS.reset()
+        patcher = mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": "CTY ABC"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _eval(self, text):
+        return fb.evaluate_post(text, _FRESH, True, "Bắc Ninh", now=_NOW)
+
+    def test_missing_contact_is_review_not_permanent_exclusion(self):
+        code, reasons, job = self._eval(NO_CONTACT_POST)
+        self.assertEqual((code, reasons), ("review", ["연락처 없음"]))
+        self.assertTrue(job, "보관할 수 있게 읽은 공고를 돌려준다")
+        self.assertIn(code, fb.HOLD_DECISIONS)
+        self.assertNotIn(code, fb.FINAL_DECISIONS)
+        self.assertNotIn("missing_required", fb.FINAL_DECISIONS, "연락처 미기재는 영구 제외 사유가 아니다")
+        # 공개 불가는 그대로: 저장 직전 방어선은 연락처 없는 공고를 막는다
+        self.assertIn("연락처 없음", fb.missing_required(job))
+
+    def test_four_outcomes(self):
+        self.assertEqual(self._eval(NORMAL_POST)[0], "accepted")
+        self.assertEqual(self._eval(VAGUE_POST)[0], "review")
+        self.assertEqual(self._eval(MONEY_POST)[0], "money")
+        self.assertEqual(self._eval(OFFICE_POST)[0], "office")
+        self.assertEqual(self._eval(SCAM_POST)[0], "not_job")
+
+    def test_parser_exception_goes_to_error_record_not_hold_or_seen(self):
+        with mock.patch.object(fb, "evaluate_post", side_effect=ValueError("DOM 구조 변경으로 제목 줄 추출 실패")):
+            code, reasons, job = fb.evaluate_post_isolated("id:9", NORMAL_POST, _FRESH, True, "Bắc Ninh", None, _NOW, 3)
+        self.assertEqual((code, job), ("parser_error", None))
+        self.assertIn("ValueError", reasons[0])
+        self.assertEqual(source_fields.JOB_ERRORS.failed_keys(), {"id:9"}, "공통 장애 기록(JOB_ERRORS)에 남는다")
+        for group in (fb.FINAL_DECISIONS, fb.HOLD_DECISIONS):
+            self.assertNotIn("parser_error", group, "보류함에 묻히지도 '본 글'로 기록되지도 않는다 → 다음 실행에서 다시")
+
+    def test_normal_judgement_resets_error_streak_and_three_in_a_row_stops(self):
+        with mock.patch.object(fb, "evaluate_post", side_effect=ValueError("x")):
+            fb.evaluate_post_isolated("id:1", "t", _FRESH, True, "B", None, _NOW, 3)
+            fb.evaluate_post_isolated("id:2", "t", _FRESH, True, "B", None, _NOW, 3)
+        self.assertEqual(fb.evaluate_post_isolated("id:3", NORMAL_POST, _FRESH, True, "Bắc Ninh", None, _NOW, 3)[0], "accepted")
+        with mock.patch.object(fb, "evaluate_post", side_effect=ValueError("x")):
+            fb.evaluate_post_isolated("id:4", "t", _FRESH, True, "B", None, _NOW, 3)
+            fb.evaluate_post_isolated("id:5", "t", _FRESH, True, "B", None, _NOW, 3)
+            with self.assertRaises(RuntimeError):
+                fb.evaluate_post_isolated("id:6", "t", _FRESH, True, "B", None, _NOW, 3)
+
+
+class DryRunArtifactKeepsReviewCandidates(unittest.TestCase):
+    """dryrun 비공개 아티팩트(1일 보관)에 인식 실패 공고의 전체 원문·출처·사유·다음 처리 조건이 담긴다(DB 키 없이)."""
+
+    def test_review_candidates_carry_source_text_source_url_reason_and_next_step(self):
+        text = VAGUE_POST
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": ""}):
+            code, reasons, job = fb.evaluate_post(text, _FRESH, True, "Bắc Ninh", now=_NOW)
+        job.update({"fb_post_key": "id:77", "_hold_reason": "; ".join(reasons)})
+        (entry,) = fb.review_candidates([{"held_jobs": [job]}])
+        self.assertEqual(entry["fb_post_key"], "id:77")
+        self.assertEqual(entry["decision"], "review")
+        self.assertEqual(entry["hold_reasons"], reasons)
+        self.assertIn(text, entry["source_text"], "원문 전체")
+        self.assertTrue(entry["source_url"], "출처")
+        self.assertIn("선택 저장", entry["next_step"])
+        json.dumps(entry, ensure_ascii=False)  # 비공개 아티팩트로 그대로 직렬화된다
+
+
+def _artifact(entries_jobs, entries_review, path):
+    path.write_text(json.dumps({"jobs": entries_jobs, "review_jobs": entries_review}, ensure_ascii=False), encoding="utf-8")
+
+
+def _read(text, key):
+    with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": "CTY ABC"}):
+        job = fb.parse_post({"text": text, "location": "Bắc Ninh", "images": []})
+    job.update({"fb_post_key": key, "fb_full_text_confirmed": True})
+    return job
+
+
+class _SaveHarness(unittest.TestCase):
+    def setUp(self):
+        source_fields.JOB_ERRORS.reset()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = Path(self.tmp.name) / "facebook_dryrun.json"
+        self.saved, self.held, self.seen_writes = [], [], []
+        self.existing = []
+        self.hold_error = None
+
+        def fake_hold(client, payload, reason, status="held"):
+            if self.hold_error:
+                raise self.hold_error
+            self.held.append((payload, reason, status))
+
+        patches = [
+            mock.patch.object(fb, "supabase", object()),
+            mock.patch.object(fb, "fetch_existing_facebook_rows", lambda *a, **k: self.existing),
+            mock.patch.object(fb, "save_to_supabase", lambda jobs: self.saved.extend(jobs) or [{"id": 900 + i, "title": j["title"]} for i, j in enumerate(jobs)]),
+            mock.patch.object(fb.ingest_gateway, "hold_job", fake_hold),
+            mock.patch.object(fb, "save_seen_state", lambda *a, **k: self.seen_writes.append(1)),
+            mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": "CTY ABC"}),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+
+    def run_save(self, keys, max_save=2):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = fb.save_selected_from_dryrun(str(self.path), keys, max_save)
+        return code, out.getvalue()
+
+
+class SelectedSaveUsesTheSameJudgement(_SaveHarness):
+    """dryrun → 선택 저장(save)도 일반 수집과 같은 판정 함수를 쓴다: 정상=등록 / 인식 실패=review 보관 / 명백한 제외=종결 / 오류=실패."""
+
+    def test_same_text_gets_the_same_verdict_in_collection_and_manual_save(self):
+        texts = {"normal": NORMAL_POST, "vague": VAGUE_POST, "no_contact": NO_CONTACT_POST, "money": MONEY_POST,
+                 "office": OFFICE_POST, "scam": SCAM_POST, "factory": FACTORY_POST, "pay_phrase": PAY_PHRASE_POST}
+        for name, text in texts.items():
+            collected = fb.evaluate_post(text, _FRESH, True, "Bắc Ninh", now=_NOW)[0]
+            manual = fb.judge_text(text, True, "Bắc Ninh", [])[0]
+            self.assertEqual(collected, manual, name)
+
+    def test_normal_post_is_registered_through_the_existing_save_stage(self):
+        _artifact([_read(NORMAL_POST, "id:1")], [], self.path)
+        code, out = self.run_save(["id:1"])
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len(self.saved), 1)
+        self.assertEqual(self.held, [], "정상 공고는 보류함에 넣지 않는다")
+        self.assertEqual(self.seen_writes, [], "수동 선택 저장은 '본 글' 기록을 만들지 않는다")
+
+    def test_review_post_is_kept_in_hold_box_as_review_only_after_success(self):
+        _artifact([], [_read(VAGUE_POST, "id:2")], self.path)
+        code, out = self.run_save(["id:2"])
+        self.assertEqual(code, 0, out)
+        (payload, reason, status), = self.held
+        self.assertEqual(status, "review")
+        self.assertIn("불분명", reason)
+        self.assertTrue(payload.get("source_url") and payload.get("source_text"), "출처·원문이 보류함 payload에 남는다")
+        self.assertEqual(self.saved, [], "공개·등록 경로로 보내지 않는다")
+        self.assertIn("보류함(review) 보관 완료 —", out)
+
+    def test_contactless_post_is_kept_as_review_not_registered(self):
+        _artifact([], [_read(NO_CONTACT_POST, "id:3")], self.path)
+        code, out = self.run_save(["id:3"])
+        self.assertEqual(code, 0, out)
+        self.assertEqual([h[2] for h in self.held], ["review"])
+        self.assertEqual(self.saved, [])
+
+    def test_clear_exclusion_is_closed_with_reason_and_not_stored(self):
+        _artifact([], [_read(MONEY_POST, "id:4")], self.path)
+        code, out = self.run_save(["id:4"])
+        self.assertEqual(code, 0, out)
+        self.assertEqual((self.saved, self.held), ([], []))
+        self.assertIn("명백한 제외", out)
+        self.assertIn("dedicated_debt_collection", out)
+
+    def test_hold_failure_is_not_marked_complete_and_run_fails(self):
+        self.hold_error = fb.ingest_gateway.HoldStoreError("hold_store_failed")
+        _artifact([], [_read(VAGUE_POST, "id:5")], self.path)
+        code, out = self.run_save(["id:5"])
+        self.assertEqual(code, 1, out)
+        self.assertEqual(self.held, [])
+        self.assertIn("id:5", source_fields.JOB_ERRORS.failed_keys(), "실패는 공통 장애 기록에 남아 재수집 가능")
+        self.assertNotIn("보관 완료 —", out, "보관 성공 전에는 완료라고 말하지 않는다")
+        self.assertIn("보관 완료 0", out)
+        self.assertEqual(self.seen_writes, [])
+
+    def test_expired_or_missing_artifact_is_not_completion(self):
+        code, out = self.run_save(["id:6"])  # 파일 없음(아티팩트 만료)
+        self.assertEqual(code, 1)
+        self.assertIn("완료 처리 안 함", out)
+        self.assertEqual((self.saved, self.held, self.seen_writes), ([], [], []))
+
+    def test_selected_key_not_in_artifact_is_a_failure_not_silent_success(self):
+        _artifact([_read(NORMAL_POST, "id:1")], [], self.path)
+        code, out = self.run_save(["id:404"])
+        self.assertEqual(code, 1, out)
+        self.assertEqual((self.saved, self.held), ([], []))
+
+    def test_unselected_posts_are_never_stored(self):
+        _artifact([_read(NORMAL_POST, "id:1")], [_read(VAGUE_POST, "id:2"), _read(NO_CONTACT_POST, "id:3")], self.path)
+        code, out = self.run_save(["id:2"])
+        self.assertEqual(code, 0, out)
+        self.assertEqual([h[0]["source_url"].endswith("2") for h in self.held], [True])
+        self.assertEqual(self.saved, [])
+
+    def test_selection_over_limit_stores_nothing(self):
+        _artifact([_read(NORMAL_POST, "id:1")], [_read(VAGUE_POST, "id:2")], self.path)
+        code, out = self.run_save(["id:1", "id:2"], max_save=1)
+        self.assertEqual(code, 1, out)
+        self.assertEqual((self.saved, self.held), ([], []))
+
+    def test_review_post_already_registered_is_not_held_again(self):
+        job = _read(VAGUE_POST, "id:8")
+        self.existing = [{"id": 5, "title": job["title"], "company": job["company"], "description": job["description"],
+                          "source_text": job["source_text"], "source_url": fb.facebook_source_url("id:8")}]
+        _artifact([], [job], self.path)
+        code, out = self.run_save(["id:8"])
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.held, [])
+        self.assertIn("DB 중복", out)
+
+    def test_collector_error_while_rereading_is_a_failure_not_a_hold(self):
+        _artifact([], [_read(VAGUE_POST, "id:9")], self.path)
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"reason": "precheck_unavailable"}):
+            code, out = self.run_save(["id:9"])
+        self.assertEqual(code, 1, out)
+        self.assertEqual((self.saved, self.held), ([], []))
+        self.assertEqual(source_fields.JOB_ERRORS.failed_keys(), {"id:9"})
 
 
 if __name__ == "__main__":

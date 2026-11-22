@@ -147,19 +147,41 @@ OFFICE_JOB_PATTERNS = re.compile(
 # 옛 extract_district 규칙과 시험 사례(#5157·#5599 등)는 그쪽으로 옮겼다.
 
 
+# 명백한 비구인 근거: 자금 세탁·기부·돈 쓰기 낱말. 이 낱말이 있으면 구인 글이 아니다.
 NON_JOB_PATTERNS = re.compile(
-    r"rửa tiền|rua tien|công đức|cong duc|tiêu tiền|tieu tien|trả\s+\d+.*triệu",
+    r"rửa tiền|rua tien|công đức|cong duc|tiêu tiền|tieu tien",
     re.IGNORECASE,
 )
+# 약한 근거: "trả N triệu"(N백만을 준다) 보수 문구는 "Quán trả 8 triệu/tháng"처럼 정상 구인 글에도 흔하다 —
+# 직무 낱말이 없을 때만 비구인 근거로 본다(Lee 2026-11-22: 명백한 근거가 있을 때만 종결). 예전에는 이 문구만 있어도 not_job으로 영구 제외됐다.
+PAY_PHRASE_PATTERN = re.compile(r"trả\s+\d+.*triệu", re.IGNORECASE)
+# 명시적 모집 문구: "cần 2 bạn" 같은 인원 모집은 구인 키워드가 없어도 구인 글이다.
+HIRING_COUNT_RE = re.compile(r"\bcan\s+\d+\s+(?:ban|nguoi|nv|nhan vien)\b")
+
+
+def non_job_evidence(text: str) -> str | None:
+    """구인 글이 아니라는 근거(없으면 None). 사유 기록용 — is_job_post와 같은 기준."""
+    t = (text or "").lower()
+    strong = NON_JOB_PATTERNS.search(t)
+    if strong:
+        return f"구인 글 아님: '{strong.group(0)}' (자금 세탁·기부 낱말)"
+    if PAY_PHRASE_PATTERN.search(t) and not has_role_hint(text):
+        return "구인 글 아님: 직무 근거 없이 보수 문구만 있음"
+    if not _has_hiring_signal(t):
+        return "구인 근거 없음: 구인 키워드·직무 낱말+보수 낱말·모집 인원 문구가 없음"
+    return None
+
+
+def _has_hiring_signal(t: str) -> bool:
+    if any(kw in t for kw in JOB_KEYWORDS):
+        return True
+    if HIRING_COUNT_RE.search(ascii_key(t)):
+        return True
+    return any(kw in t for kw in LOCAL_JOB_TYPES) and any(kw in t for kw in COMPENSATION_KEYWORDS)
 
 
 def is_job_post(text: str) -> bool:
-    t = text.lower()
-    if NON_JOB_PATTERNS.search(t):
-        return False
-    if any(kw in t for kw in JOB_KEYWORDS):
-        return True
-    return any(kw in t for kw in LOCAL_JOB_TYPES) and any(kw in t for kw in COMPENSATION_KEYWORDS)
+    return non_job_evidence(text) is None
 
 
 # ── 구직자 자기홍보글 (2026-09-28) ─────────────────────────────────
@@ -195,9 +217,20 @@ def is_local_priority(text: str) -> bool:
     return any(kw in t for kw in LOCAL_JOB_TYPES)
 
 
+def office_job_term(text: str) -> str | None:
+    """사무/전문직을 모집하는 글이면 그 근거 낱말, 아니면 None.
+    근거 = 모집 직무가 보이는 앞쪽 두 줄의 낱말이고 같은 줄에 생활밀착·현장 직무 낱말이 없을 때만이다(Lee 2026-11-22).
+    예전에는 본문 어디든 낱말이 나오면(공장 모집글의 '상급자 kỹ sư·trưởng phòng' 언급 등) office로 영구 제외했다."""
+    head = "\n".join([line for line in (text or "").splitlines() if line.strip()][:2])
+    found = OFFICE_JOB_PATTERNS.search(head)
+    if not found or has_role_hint(head):
+        return None
+    return found.group(0)
+
+
 def is_office_job(text: str) -> bool:
-    """사무/전문직이면 True (우선순위 하향)"""
-    return bool(OFFICE_JOB_PATTERNS.search(text))
+    """사무/전문직 모집 글이면 True (수집 범위 밖 — 근거는 office_job_term)"""
+    return office_job_term(text) is not None
 
 
 def extract_zalo(text: str) -> str:
@@ -281,6 +314,20 @@ ROLE_HINTS = [
 ]
 
 
+def has_role_hint(text: str) -> bool:
+    """직무 낱말(ROLE_HINTS)이 글에 있는가. 짧은 낱말은 낱말 경계로 본다('kho'가 'khoảng'에 걸리지 않게).
+    is_ambiguous_job·is_office_job·is_job_post가 같은 확인을 쓴다(Lee 2026-11-22: 직무 근거 없는 보수 문구와 직무가 있는 구인 글을 가름)."""
+    key = ascii_key(text)
+
+    def matches(hint: str) -> bool:
+        normalized = ascii_key(hint)
+        if len(normalized) <= 4 and " " not in normalized:
+            return bool(re.search(rf"\b{re.escape(normalized)}\b", key))
+        return normalized in key
+
+    return any(matches(hint) for hint in ROLE_HINTS)
+
+
 def is_ambiguous_job(job: dict) -> bool:
     title = job.get("title", "").strip()
     company = job.get("company", "").strip()
@@ -290,13 +337,7 @@ def is_ambiguous_job(job: dict) -> bool:
     if has_excluded_money_terms(title, company, description):
         return True
 
-    def matches_role_hint(hint: str) -> bool:
-        normalized = ascii_key(hint)
-        if len(normalized) <= 4 and " " not in normalized:
-            return bool(re.search(rf"\b{re.escape(normalized)}\b", text))
-        return normalized in text
-
-    has_role = any(matches_role_hint(hint) for hint in ROLE_HINTS)
+    has_role = has_role_hint(f"{title}\n{company}\n{description}")
     has_contact = bool(job.get("employer_phone") or re.search(r"zalo|0\d{9}|@[a-z0-9.-]+", text, re.IGNORECASE))
     is_generic_title = bool(GENERIC_TITLE_RE.search(ascii_key(title)))
     fallback_company = company == "Nhà tuyển dụng Facebook"
@@ -786,17 +827,22 @@ async def goto_with_retry(page, url: str) -> bool:
 MAX_POST_AGE_DAYS = float(os.getenv("FB_MAX_POST_AGE_DAYS", "3"))
 FEED_STALL_STEPS = 3  # 새 ID·새 요소·문서 높이 증가가 모두 없는 스텝이 이만큼 연속이면 종료
 
-# 판정은 세 종류다(Lee 2026-11-22 크롤링 정상화: '명백한 부적합'과 '지금 근거로 판정 못 함'을 구별 — 예전에는 둘 다 ambiguous·missing_required로
-# '본 글' 기록이 돼 다시 판정할 기회 없이 영구 제외됐다).
-# ① 다음 실행에서 다시 볼 필요가 없는 판정(= 수집 상태에 '본 글'로 기록): 등록했거나(accepted) 명백한 부적합
-#    not_job·self_promo·office·too_old·dup_in_run / money(전담 대출·채권) / policy_excluded(공고 정책이 정한 제외, 예: 기업 간 계약 영업) / missing_required(연락처 없음)
-FINAL_DECISIONS = {"accepted", "not_job", "self_promo", "money", "policy_excluded", "office", "too_old",
-                   "missing_required", "dup_in_run"}
-# ② 본문·시각을 못 읽어 다음 실행에서 같은 글을 다시 읽는 판정(기록하지 않음)
+# 판정은 네 갈래다(Lee 2026-11-22 크롤링 정상화 — 예전에는 '명백한 부적합'과 '지금 근거로 판정 못 함'이 ambiguous·missing_required로
+# 섞여 '본 글' 기록이 돼 다시 판정할 기회 없이 영구 제외됐다):
+# ① 정상: accepted — 기존 저장 단계(등록 입구)로.
+# ② 명백한 제외(근거를 사유에 기록하고 종결 = 수집 상태에 '본 글'로 기록):
+#    not_job(구인 글 아님 근거) · self_promo(구직자 홍보) · office(사무/전문직 모집 — 수집 범위 밖) · too_old · money(전담 채권) ·
+#    policy_excluded(공고 정책이 정한 제외, 예: 기업 간 계약 영업) · dup_in_run
+FINAL_DECISIONS = {"accepted", "not_job", "self_promo", "money", "policy_excluded", "office", "too_old", "dup_in_run"}
+# ③ 본문·시각을 못 읽음: 다음 실행에서 같은 글을 다시 읽는다(기록하지 않음)
 RETRY_DECISIONS = {"truncated", "time_unknown"}
-# ③ 판단 보류: 부적합이라는 근거가 없고 지금 근거로 판정 못 한 글(공고 정책 review·직무 불분명·제목 읽기 실패) — 버리지 않고 보류함(review)에
-#    보관해 다시 판정한다. 보관이 성공한 글만 '본 글'로 기록한다(보관 실패는 다음 실행에서 다시 만남).
+# ④ 인식 실패(원문 정보 부족·모호 — 정책 review·직무 불분명·제목 읽기 실패·연락처 미기재): 부적합이라는 근거가 아니다. 원문·출처·사유를 남겨
+#    기존 보류함(review, research_artifacts)에 보관한다. 보관이 성공한 글만 '본 글'로 기록한다(보관 실패는 다음 실행에서 다시 만남).
+#    연락처 미기재는 공개 불가 사유일 뿐 영구 제외가 아니다 — 보류함은 비공개이고 공개는 DB 입구의 기존 공개 판정이 그대로 막는다.
 HOLD_DECISIONS = {"review"}
+# ⑤ 파서·수집기 오류(예외·화면 구조 추출 실패): 판정이 아니다. 보류함에 숨기지 않고 공통 장애 기록(JOB_ERRORS)으로 분리한다.
+#    '본 글'로 기록하지 않아 다음 실행에서 다시 읽고, 실행 결과는 실패로 남는다.
+ERROR_DECISIONS = {"parser_error"}
 
 
 def post_age_hours(time_info: dict | None, now: datetime) -> float | None:
@@ -809,36 +855,75 @@ def post_age_hours(time_info: dict | None, now: datetime) -> float | None:
     return max(0.0, (now - est).total_seconds() / 3600)
 
 
+def early_verdict(text: str, full_text_ok: bool) -> tuple[str, list[str]] | None:
+    """원문 글자만으로 정해지는 앞 단계 판정(없으면 None). 일반 수집(evaluate_post)과 미리 보기 뒤 선택 저장(judge_text)이 같은 함수를 쓴다.
+    명백한 제외는 근거를 사유에 남긴다."""
+    if not text:
+        return "not_job", ["구인 근거 없음: 본문 없음"]
+    evidence = non_job_evidence(text)
+    if evidence:
+        return "not_job", [evidence]
+    if is_self_promotion(text):
+        return "self_promo", ["구직자 자기홍보"]
+    term = office_job_term(text)
+    if term:
+        return "office", [f"사무/전문직 모집(수집 범위 밖): 모집 직무 줄의 '{term}'"]
+    if not full_text_ok:
+        return "truncated", ["본문 전문 미확보('더 보기' 펼치기 실패)"]
+    return None
+
+
+def judge_read(text: str, location: str, images: list | None) -> tuple[str, list[str], dict | None]:
+    """원문을 읽고(parse_post) 판정한다(judge_parsed_job). 보류(review)는 보관할 수 있게 읽은 공고를 함께 돌려준다 — 저장 후보가 아니다."""
+    job = parse_post({"text": text, "location": location, "images": images or []})
+    code, reasons = judge_parsed_job(job)
+    if code == "accepted":
+        return "accepted", [], job
+    return code, reasons, (job if code in HOLD_DECISIONS else None)
+
+
 def evaluate_post(text: str, time_info: dict | None, full_text_ok: bool, location: str,
                   images: list | None = None, now: datetime | None = None,
                   max_age_days: float | None = None) -> tuple[str, list[str], dict | None]:
-    """(판정 코드, 사유, 저장 후보 job 또는 None)."""
+    """일반 수집의 글 한 건 판정 → (판정 코드, 사유, 저장 후보 또는 보관할 job 또는 None)."""
     now = now or datetime.now()
     max_age = MAX_POST_AGE_DAYS if max_age_days is None else max_age_days
-    if not text or not is_job_post(text):
-        return "not_job", ["구인 키워드 없음"], None
-    if is_self_promotion(text):
-        return "self_promo", ["구직자 자기홍보"], None
-    if is_office_job(text):
-        return "office", ["사무/전문직(수집 범위 밖)"], None
-    if not full_text_ok:
-        return "truncated", ["본문 전문 미확보('더 보기' 펼치기 실패)"], None
+    early = early_verdict(text, full_text_ok)
+    if early:
+        return early[0], early[1], None
     age_h = post_age_hours(time_info, now)
     if age_h is None:
         return "time_unknown", ["게시 시각 해석 불가"], None
     if age_h > max_age * 24:
         return "too_old", [f"게시 {age_h / 24:.1f}일 전 > 기준 {max_age:g}일"], None
-    job = parse_post({"text": text, "location": location, "images": images or []})
-    code, reasons = judge_parsed_job(job)
-    if code == "accepted":
-        return "accepted", [], job
-    # 판단 보류는 보관할 수 있게 읽은 공고를 함께 돌려준다(저장 후보가 아님 — crawl_group이 따로 모은다).
-    return code, reasons, (job if code in HOLD_DECISIONS else None)
+    return judge_read(text, location, images)
+
+
+def judge_text(text: str, full_text_ok: bool, location: str, images: list | None = None) -> tuple[str, list[str], dict | None]:
+    """미리 보기 결과를 다시 읽는 선택 저장의 판정 — 시각·최신성(수집 때 이미 거른 것)만 빼고 evaluate_post와 같은 함수(early_verdict·judge_read)를 쓴다."""
+    early = early_verdict(text, full_text_ok)
+    if early:
+        return early[0], early[1], None
+    return judge_read(text, location, images)
+
+
+def evaluate_post_isolated(key: str, text: str, time_info: dict | None, full_text_ok: bool, location: str,
+                           images: list | None, now: datetime, max_age_days: float | None) -> tuple[str, list[str], dict | None]:
+    """evaluate_post의 예외를 글 한 건에 가둔다. 파서·수집기 오류(예외)는 판정이 아니다 — 보류함·'본 글' 기록에 넣지 않고 공통 장애 기록
+    (JOB_ERRORS)으로 분리한다. 다음 실행에서 다시 읽고, 정상 판정이 나오면 연속 오류가 끊기며, 연속 3건이면 파서·서버 문제로 보고 멈춘다."""
+    try:
+        result = evaluate_post(text, time_info, full_text_ok, location, images, now, max_age_days)
+    except Exception as exc:  # noqa: BLE001
+        first = next((l.strip() for l in (text or "").split("\n") if l.strip()), "")[:70]
+        JOB_ERRORS.add(first or key, exc, key=key)
+        return "parser_error", [f"{type(exc).__name__}: {str(exc)[:100]}"], None
+    JOB_ERRORS.ok()
+    return result
 
 
 def judge_parsed_job(job: dict, full_text_confirmed: bool = True) -> tuple[str, list[str]]:
     """읽어 낸 공고 한 건의 판정(순수) → (코드, 사유). 수집 직후(evaluate_post)와 보류함 다시 판정(review_recheck)이 같은 함수를 쓴다.
-    명백한 부적합 = 정책 exclude·구직자 홍보·연락처 없음. 본문을 못 읽음 = truncated(다시 읽기). 그 밖에 근거가 모자란 것 = review(보류)."""
+    명백한 부적합 = 정책 exclude·구직자 홍보. 본문을 못 읽음 = truncated(다시 읽기). 그 밖에 정보가 모자란 것(연락처·제목 미기재 포함) = review(보류)."""
     decision = evaluate_job_posting_policy(job)
     if decision["decision"] == "exclude":
         return ("money" if decision["reason"].startswith("dedicated_") else "policy_excluded"), [decision["reason"]]
@@ -850,9 +935,7 @@ def judge_parsed_job(job: dict, full_text_confirmed: bool = True) -> tuple[str, 
         return "self_promo", ["구직자 자기홍보"]
     if "본문 잘림" in problems:
         return "truncated", ["본문 전문 미확보(글 끝이 '더 보기'로 끝남)"]
-    if "연락처 없음" in problems:
-        return "missing_required", problems
-    if problems:  # 제목 없음 등 읽기 실패 — 부적합 근거가 아니다
+    if problems:  # 연락처 없음·제목 없음 등 — 부적합 근거가 아니라 원문 정보 부족(인식 실패). 보류함(비공개), 공개는 DB 입구가 판단
         return "review", problems
     if is_ambiguous_job(job):
         return "review", ["직무/연락처가 불분명한 일반 모집글"]
@@ -912,7 +995,7 @@ async def crawl_group(page, target: dict, prev_seen: set[str], max_age_days: flo
     print(f"\n  📄 그룹: {url}")
     stats = {
         "group": url, "state": "ok", "steps": 0, "stop_reason": None, "had_previous_state": bool(prev_seen),
-        "overlap": 0, "final_keys": [], "retry_keys": [], "hold_keys": [], "held_jobs": [], "counts": {}, "decisions": [], "trace": [],
+        "overlap": 0, "final_keys": [], "retry_keys": [], "hold_keys": [], "held_jobs": [], "error_keys": [], "counts": {}, "decisions": [], "trace": [],
         "expanded": 0, "author_ellipsis": 0, "truncated_debug": [], "id_missing": 0, "jobs": 0,
         "max_age_days": MAX_POST_AGE_DAYS if max_age_days is None else max_age_days,
     }
@@ -997,8 +1080,8 @@ async def crawl_group(page, target: dict, prev_seen: set[str], max_age_days: flo
             text = clean_text(r.get("text", ""))
             label = r.get("timeLabel", "")
             time_info = parse_time_label(label)
-            decision, reasons, job = evaluate_post(text, time_info, full_text_ok, location,
-                                                   r.get("images"), now, stats["max_age_days"])
+            decision, reasons, job = evaluate_post_isolated(key, text, time_info, full_text_ok, location,
+                                                            r.get("images"), now, stats["max_age_days"])
             if decision == "accepted":
                 if text[:80] in seen_text:
                     decision, reasons, job = "dup_in_run", ["같은 실행 안에서 같은 본문"], None
@@ -1017,15 +1100,18 @@ async def crawl_group(page, target: dict, prev_seen: set[str], max_age_days: flo
             stats["counts"][decision] = stats["counts"].get(decision, 0) + 1
             if decision in HOLD_DECISIONS:
                 stats["hold_keys"].append(key)  # 보류함 보관이 성공한 뒤에만 '본 글'로 기록(hold_review_posts)
+            elif decision in ERROR_DECISIONS:
+                stats["error_keys"].append(key)  # 파서·수집기 오류 — 보류함도 '본 글'도 아님(JOB_ERRORS에 기록됨), 다음 실행에서 다시 읽음
             else:
                 (stats["final_keys"] if decision in FINAL_DECISIONS else stats["retry_keys"]).append(key)
-            if decision in ("self_promo", "truncated", "too_old", "time_unknown", "accepted", "review", "policy_excluded"):
+            if decision in ("self_promo", "truncated", "too_old", "time_unknown", "accepted", "review", "policy_excluded", "parser_error", "office", "not_job"):
                 print(f"    [{decision}] {key} {label!r} {first_line[:50]!r}")
             if job:
                 job.update({"fb_post_key": key, "fb_time": time_info,
                             "fb_age_hours": None if age_h is None else round(age_h, 1)})
                 if decision in HOLD_DECISIONS:
                     job["_hold_reason"] = "; ".join(reasons)[:80]
+                    job["_hold_reasons"] = list(reasons)
                     stats["held_jobs"].append(job)  # 저장 후보가 아니다 — 보류함에 보관할 글
                     continue
                 jobs.append(job)
@@ -1295,7 +1381,7 @@ def hold_review_posts(group_stats: list[dict]) -> int:
 
 
 # 보류함에서 다시 판정할 때 '명백한 부적합'으로 보는 판정(나머지 보류 사유는 아직 못 정함으로 둔다)
-_REVIEW_EXCLUDED = {"money", "policy_excluded", "self_promo", "missing_required"}
+_REVIEW_EXCLUDED = {"money", "policy_excluded", "self_promo"}
 
 
 def review_recheck(payload: dict) -> tuple[dict, str | None, bool]:
@@ -1397,41 +1483,98 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
     return saved
 
 
+def review_candidates(group_stats: list[dict]) -> list[dict]:
+    """미리 보기(dryrun) 비공개 아티팩트에 담을 인식 실패(review) 후보. 전체 원문·출처·사유·다음 처리 조건을 그대로 보존한다 —
+    선택 저장(save)이 이 항목에서 그 글만 골라 기존 보류함(review)에 보관한다. DB 키·운영 DB 쓰기 없음(미리 보기 보안 원칙 그대로)."""
+    out = []
+    for stats in group_stats:
+        for job in stats.get("held_jobs", []):
+            key = job.get("fb_post_key")
+            reasons = list(job.get("_hold_reasons") or [x for x in str(job.get("_hold_reason") or "").split("; ") if x])
+            out.append({
+                **job,
+                "fb_post_key": key, "fb_full_text_confirmed": True,
+                "decision": "review", "hold_reasons": reasons,
+                "source_url": facebook_source_url(key), "group": stats.get("group"),
+                "judged_without_company_read": bool(COMPANY_READ_SKIPPED),
+                "next_step": "선택 저장(save)에서 이 게시물 키를 고르면 보류함(review, 비공개)에 보관한다 — 공개·등록은 DB 입구의 기존 판정이 정한다",
+            })
+    return out
+
+
 def save_selected_from_dryrun(path: str, post_keys: list[str], max_save: int) -> int:
-    """DRY-RUN 결과 파일에서 지정한 게시물만 저장(페이스북 재접속 없음). 사람이 원문을
-    대조한 뒤 소량 저장할 때 쓴다."""
+    """미리 보기(DRY-RUN) 결과 파일에서 사람이 고른 게시물만 처리한다(페이스북 재접속 없음). 일반 수집과 같은 판정 함수(judge_text)로 다시 판정한다:
+      정상 → 기존 저장 단계(등록 입구) / 인식 실패(review) → 기존 보류함(research_artifacts, 비공개)에 review로 보관 / 명백한 제외 → 사유를 남기고 종결 /
+      파서·수집기 오류 → 공통 장애 기록(JOB_ERRORS), 보류함 아님.
+    '처리 완료'는 DB·보류함 저장 성공을 확인한 뒤에만 말한다. 파일 없음·만료·고른 글 없음·본문 미확보·오류·보관 실패는 완료가 아니다 —
+    종료 코드 1로 남고 수동 선택 저장은 '본 글' 기록을 만들지 않으므로 같은 글을 다시 수집·선택할 수 있다. 고르지 않은 글은 저장·보관하지 않는다."""
     ingest_gateway._HOLDS_RETRIED = True  # 선택 저장은 그 글만 — 다른 보류 공고를 같이 처리하지 않는다
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    by_key = {j.get("fb_post_key"): j for j in data.get("jobs", [])}
-    picked = []
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"  ⛔ 미리 보기 결과 파일을 읽지 못함({type(exc).__name__}) — 아티팩트 없음·만료(1일)·손상일 수 있음. "
+              "완료 처리 안 함: 미리 보기를 다시 실행해 새 결과에서 고르세요.")
+        return 1
+    by_key: dict = {}
+    for entry in [*data.get("jobs", []), *data.get("review_jobs", [])]:
+        by_key.setdefault(entry.get("fb_post_key"), entry)
+    accepted: list[dict] = []
+    reviews: list[tuple[dict, list[str]]] = []
+    closed = unfinished = 0
     for key in post_keys:
         old = by_key.get(key)
         if not old:
-            print(f"  ⛔ 결과 파일에 없는 게시물: {key}")
+            print(f"  ⛔ 결과 파일에 없는 게시물: {key} — 완료 처리 안 함(미리 보기를 다시 실행)")
+            unfinished += 1
             continue
-        # 결과 파일의 옛 추출값 대신 원문에서 현재 로직으로 다시 추출
-        text = (old.get("description") or "").replace("[source:facebook]", "", 1).strip()
+        # 결과 파일의 옛 추출값 대신 원문에서 현재 로직으로 다시 판정(수집 직후와 같은 judge_text)
+        text = (old.get("source_text") or "").strip() or (old.get("description") or "").replace("[source:facebook]", "", 1).strip()
         group_location = (old.get("location") or "").split(", ")[-1]
-        job = parse_post({"text": text, "location": group_location, "images": old.get("images") or []})
-        job["fb_post_key"] = key
-        job["fb_full_text_confirmed"] = bool(old.get("fb_full_text_confirmed"))
-        if is_ambiguous_job(job):
-            print(f"  ⛔ 애매한 공고로 판정 — 제외: {key}")
+        try:
+            code, reasons, job = judge_text(text, bool(old.get("fb_full_text_confirmed")), group_location, old.get("images") or [])
+        except Exception as exc:  # noqa: BLE001 — 파서·수집기 오류는 판정이 아니다(보류함에 넣지 않음)
+            JOB_ERRORS.add(str(old.get("title") or key), exc, key=key)
+            print(f"  ⛔ 다시 읽기 오류 — 파서·수집기 오류로 기록, 보관·등록 안 함: {key}")
+            unfinished += 1
             continue
-        picked.append(job)
-    if len(picked) > max_save:
-        print(f"  ⛔ 선택 {len(picked)}건 > 최대 {max_save}건 — 저장 안 함")
+        if code == "accepted" or code in HOLD_DECISIONS:
+            job["fb_post_key"] = key
+            job["fb_full_text_confirmed"] = True
+            (accepted.append(job) if code == "accepted" else reviews.append((job, reasons)))
+        elif code in RETRY_DECISIONS:
+            print(f"  ⛔ {key}: 본문·시각 미확보({'; '.join(reasons)}) — 완료 처리 안 함, 다음 미리 보기에서 다시 읽음")
+            unfinished += 1
+        else:
+            closed += 1
+            print(f"  ⛔ {key}: 명백한 제외({code}) — 종결: {'; '.join(reasons)}")
+    if len(accepted) + len(reviews) > max_save:
+        print(f"  ⛔ 선택 {len(accepted) + len(reviews)}건 > 최대 {max_save}건 — 저장 안 함")
         return 1
-    existing = fetch_existing_facebook_rows()
-    fresh_keys = {j.get("fb_post_key") for j in filter_new_jobs(picked, existing)}
-    for job in picked:
+    existing = fetch_existing_facebook_rows() if (accepted or reviews) else []
+    fresh_keys = {j.get("fb_post_key") for j in filter_new_jobs([*accepted, *[j for j, _ in reviews]], existing)}
+    for job in accepted:
         state = "신규" if job.get("fb_post_key") in fresh_keys else "DB 중복"
         print(f"  저장 전 점검: {job.get('fb_post_key')} / {state} / 필수조건 문제: {missing_required(job) or '없음'}")
-    saved = save_to_supabase(picked)
+    saved = save_to_supabase(accepted) if accepted else []
     for row in saved:
         print(f"  💾 저장 ID {row['id']}: {row['title']}")
-    print(f"  결과: 선택 {len(picked)} / 저장 {len(saved)}")
-    return 1 if JOB_ERRORS.failed else 0
+    held = 0
+    for job, reasons in reviews:
+        key = job.get("fb_post_key")
+        if key not in fresh_keys:
+            print(f"  ℹ️  {key}: DB 중복 — 이미 등록된 글이라 보관하지 않음(처리 완료)")
+            continue
+        try:
+            ingest_gateway.hold_job(supabase, to_db_payload(job), "; ".join(reasons)[:80], ingest_gateway.REVIEW_STATUS)
+        except Exception as exc:  # noqa: BLE001 — 보관 성공을 확인하지 못했으므로 완료가 아니다(재수집·재선택 가능)
+            JOB_ERRORS.add(str(job.get("title") or key), exc, key=key)
+            print(f"  ⛔ {key}: 보류함 보관 실패 — 완료 처리 안 함(다시 선택 가능)")
+            unfinished += 1
+            continue
+        held += 1
+        print(f"  ⏸️  {key}: 보류함(review) 보관 완료 — 비공개, 사유: {'; '.join(reasons)}")
+    print(f"  결과: 선택 {len(post_keys)} / 저장 {len(saved)} / 보류함(review) 보관 완료 {held} / 명백한 제외 종결 {closed} / 미완료 {unfinished}")
+    return 1 if (JOB_ERRORS.failed or unfinished) else 0
 
 
 def summarize_group(g: dict) -> dict:
@@ -1572,7 +1715,7 @@ async def main(argv=None) -> int:
         write_json_atomic(out, {"stop_state": stop_state, "db_duplicates": db_dup,
                                 "groups": [{**s, **{k: g[k] for k in ("decisions", "trace", "truncated_debug")}}
                                            for s, g in zip(summary, group_stats)],
-                                "jobs": all_jobs})
+                                "jobs": all_jobs, "review_jobs": review_candidates(group_stats)})
         print(f"  💾 DRY-RUN 결과: {out} (DB·수집 상태 변경 없음)")
     else:
         to_save = all_jobs

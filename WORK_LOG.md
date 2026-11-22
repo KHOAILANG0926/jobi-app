@@ -1,3 +1,9 @@
+## 2026-11-22 — 크롤링 정상화 1번 그룹(Lee PR #958 최종 지시): 수집·인식·제외 규칙, 미리 보기 → 선택 저장 연결 (Draft 수정, 2~4번 그룹은 더 안 건드림)
+- 실제 원인 [직접 확인]: ① 연락처 미기재가 FINAL(영구 제외, missing_required) ② not_job·office 사전 거름이 정상 구인 글을 영구 제외 — "Quán trả 8 triệu…"처럼 보수 문구가 든 구인 글(not_job), 본문에 kỹ sư·trưởng phòng을 언급한 공장 모집글(office) ③ 파서 예외가 `evaluate_post` 밖으로 나가 한 건에 가두지 못함 ④ 선택 저장(`save_selected_from_dryrun`)이 `is_ambiguous_job`만 직접 써서 일반 수집과 판정이 다르고, 미리 보기 아티팩트에는 review 후보가 없어 보류함에 보관 불가, 아티팩트 없음·고른 글 없음이 조용히 성공(종료 0)이었음.
+- 변경(crawler/crawl_facebook.py): 판정 네 갈래(정상/인식 실패 review/명백한 제외+근거 기록/파서·수집기 오류 parser_error→JOB_ERRORS) · 연락처 없음 → review · not_job 약한 근거(보수 문구)는 직무 낱말 없을 때만, 모집 인원 문구 구인 인정 · office는 모집 직무 줄(앞 두 줄)의 낱말+직무 낱말 없을 때만 · early_verdict·judge_read 공용(evaluate_post·judge_text) · evaluate_post_isolated · dry-run 아티팩트 review_jobs(원문·출처·사유·다음 처리) · 선택 저장: 같은 판정 → 정상=등록 / review=보류함 보관(성공 확인 뒤에만 완료) / 명백한 제외=종결 / 오류·만료·없는 키=미완료(종료 1), 본 글 기록 안 만듦.
+- 검증 [직접 확인]: 수정 전(PR 3742c14) 새 시험 20건 실패·오류(72건 중) → 수정 후 72/72. test_facebook_quality 29/29, test_ingest_gateway·scheduled_cli·finalize·korea·policy·quality·VPS 진단 통과. 운영 DB·수집·병합 없음.
+- 남은 문제: PR #958에 이전 커밋의 2~4번 그룹 변경(retry_held 모드·crawl-guard·보류함 재판정)이 남아 있음 — 분리는 Lee 결정. Facebook 실제 화면 수치·retry_held 실행은 미확인.
+
 ## 2026-11-22 — 크롤링 정상화(Lee): 영구 제외 → 판단 보류, 보류함 재시도 끊김, 수집 감시 오보 (Draft PR, 병합·배포·정기 수집 없음)
 - 요청(Lee 11-22): 수집 규제(명백한 부적합 vs AI 인식 실패)·미처리 복구(위치·회사 이름·본문·DB 오류)·자동화(Facebook·vieclam24h 실행·실패·재시도 경로) 바로잡기. 새 검사기·대기열·공고 전용 예외 금지.
 - 실제 원인 [직접 확인 — 코드·실행 기록]: ① Facebook `evaluate_post`가 정책 review·직무 불분명(낱말 목록)·제목 읽기 실패를 ambiguous·missing_required로 돌려주고 둘 다 FINAL_DECISIONS('본 글' 기록) → 다시 판정 기회 없이 영구 제외(명백한 제외 b2b도 ambiguous로 오표시). ② 보류함 재시도는 수집 저장 실행 안에서만 돌고 수동 저장 모드는 일부러 건너뜀 → 정기 수집이 멈춘 지금 보류 공고가 한 번도 다시 확인되지 않음. ③ 재시도 중 규칙 거부 아닌 오류(DB·네트워크)가 난 줄이 대기열 맨 앞에 그대로 남아 매번 같은 곳에서 멈춤(수정 전 5회 실행: poison 시도 5, 정상 공고 0). ④ crawl-guard ⑧이 vieclam24h만 보고, 수동 전용(저장 없는 미리 보기) 성공 실행 뒤 "신규 저장 0건" 오보 + Facebook 계정 잠금은 아예 안 보임. 자동 수집이 멈춘 이유: 정기 실행 제거(Lee 11-17 #872) + GitHub 서버 403(vieclam24h)·Facebook 계정 잠금(쿠키 만료)은 [기존 기록 #946·HANDOFF], 이번 변경은 정기 수집을 켜지 않음.
@@ -76,8 +82,3 @@
 - 실측 [직접 확인]: publish_one 실행 44296448509 — El Gaucho 공고 location_precheck_failed, 로그에 이유가 없어 원인 확인 불가.
 - 변경: crawl_topcv 규칙 거부 줄에 이유(회사 이름·판정) — Facebook 수집기와 같은 형식. 판정은 그대로.
 - 남은 문제: 이유 확인 → 위치 확인 → publish_one 다시 → 운영 상세 PC·모바일.
-
-## 2026-11-18 — vieclam24h "전화번호 보기" 버튼 못 찾는 원인 확인(PC 내린 뒤·모바일 화면) (Lee 15:33)
-- 변경: 시험 수집(DB 없음)에서 버튼을 못 찾으면 ① 아래까지 천천히 내린 뒤 같은 버튼 찾기 다시(늦게 그려지는 칸) ② 모바일 화면(390px, 앞 2건) 같은 확인 ③ 누를 수 있는 연락·지원 요소 글자(숫자 가림, vieclam24h Hotline 제외)·tel 링크 수 기록. 누르는 방식은 기존 reveal_employer_phone 그대로(눌러서 새로 보인 번호만). 숨긴 페이지 자료는 쓰지 않음.
-- 검증 [직접 확인 로컬]: test_detail_section_parser_dom 11/11(내린 뒤 그려지는 버튼 클릭 사례 추가)·job_error_isolation·scheduled_cli·ingest_gateway·cli_safety.
-- 남은 문제: VPS 시험 수집으로 실제 버튼 글자·위치·로그인 조건 확인.

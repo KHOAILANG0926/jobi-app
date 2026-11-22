@@ -1,8 +1,9 @@
-# HANDOFF — 2026-11-22 (Claude) · 크롤링 정상화 Draft PR
+# HANDOFF — 2026-11-22 (Claude) · 크롤링 정상화 Draft PR #958 (1번 그룹 수정 반영)
 ## 1. 현재 상태
-- 코드: master `f02306d`(#953). 이번 작업은 Draft PR(브랜치 `claude/vigilant-turing-s3wcrs`) — 병합·배포·정기 수집 없음, 운영 DB 변경 없음. #808 마감 상태(병합 조건 = 필수 기계 검사 + approval-gate + S6 배포 잠금)는 그대로.
-- 크롤링(Lee 11-22 지시): ① 수집 판정을 '명백한 부적합'(FINAL)·'본문 못 읽음'(RETRY)·'판단 보류'(HOLD→보류함 review)로 구분 — 예전 ambiguous·missing_required 영구 제외 제거(연락처 없음·정책 제외·구직자 홍보만 최종) ② 보류함(위치 미확인·회사 이름 판독 실패·판단 보류) 다시 확인 입구 `crawl-facebook-one.yml` mode retry_held(쿠키·Facebook 접속 없음, 한 번에 5건) + 오류 줄이 대기열을 막지 않음(하루 뒤로, 5번이면 종결) ③ crawl-guard ⑧: Facebook 감시 추가, 수동 전용 경로는 실패만 검사(미리 보기 뒤 '신규 0건' 오보 제거).
-- 자동 수집 정지 이유: 정기 실행 제거(Lee 11-17 #872)가 직접 이유. 그 밖에 vieclam24h GitHub 서버 403·본문 전화번호 숨김, Facebook 계정 잠금(쿠키 만료) [기존 기록 #946].
+- 코드: master `f02306d`(#953). PR #958(브랜치 `claude/vigilant-turing-s3wcrs`)은 Draft — 병합·배포·정기 수집 없음, 운영 DB 변경 없음.
+- 1번 그룹(수집·인식·제외, Lee PR 댓글 최종 지시): 판정 네 갈래(정상 / 인식 실패 review — 연락처 미기재 포함 / 명백한 제외+근거 기록 / 파서·수집기 오류 → JOB_ERRORS) · not_job·office 과도한 제외 완화 · dryrun 아티팩트에 review 후보(원문·출처·사유) · 선택 저장이 같은 판정(judge_text)으로 정상=등록, review=보류함 보관(성공 확인 뒤에만 완료), 명백한 제외=종결, 오류·아티팩트 만료=미완료(재수집 가능).
+- 2~4번 그룹(이전 커밋의 retry_held 모드·crawl-guard·보류함 재판정/오류 줄 처리)은 PR에 남아 있으나 이번에 더 바꾸지 않음 — 분리 여부는 Lee 결정.
+- 자동 수집 정지 이유: 정기 실행 제거(Lee 11-17 #872) + vieclam24h GitHub 서버 403·본문 전화번호 숨김, Facebook 계정 잠금(쿠키 만료) [기존 기록 #946].
 - DB: 이번 작업 변경 없음.
 ## 2. 다음 할 일 3개
 1. Draft PR: 필수 검사 → Lee 확인(워크플로 2개 변경) → 봇 병합 → deploy-verify 확인. retry_held 첫 실행은 Lee 승인 뒤(Google 한도 안, 새 글 안 읽음).
