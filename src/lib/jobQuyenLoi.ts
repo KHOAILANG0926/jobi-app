@@ -1,7 +1,7 @@
 // Lee 2026-10-29 상세페이지 새 구성(CLAUDE.md "공고 상세페이지 구성 확정"):
 // 받는 것 줄 판정(지급 방식·주기 / Thưởng·Phụ cấp / 연장 수당 금액 / Bảo hiểm) — 4칸 틀에서 근무조건 급여 아래·복리후생에 원문 줄을 복사할 때 쓴다(상세요강에서도 지우지 않음).
 // 식사·숙소·통근버스는 상단 아이콘에 있으므로 여기서 다루지 않는다.
-import { salaryAmounts, type DetailSection } from './jobDetailSections'
+import { salaryAmounts, DETAIL_LABELS, type DetailSection } from './jobDetailSections'
 
 /** 기준 공고(승인된 기존 틀 유지, Lee 2026-10-29 "기준 공고는 절대 건드리지 마"). */
 export const BASELINE_FRAME_JOB_IDS: ReadonlySet<string> = new Set(['sb-4824'])
@@ -98,10 +98,10 @@ export function insuranceTags(lines: string[]): string[] {
  * 원문 줄(detailSections 결과)을 지우지 않고 확정 자리로 나눈다. 글자는 그대로.
  * - ② 모집조건: 자격 줄(02) → 'Kinh nghiệm'(경험 낱말 줄 1개, DB 값이 없을 때) + 'Yêu cầu khác'(나머지)
  * - ① 근무조건 Phụ cấp·Thưởng: 상여·수당 줄(albamonConditionLines, 최대 3줄) / 보험은 ① Phúc lợi 짧은 표시
- * - ④ 상세요강: Nội dung công việc(01 + 위에 없는 07 설명 줄) · Tăng ca(연장 줄) · Phụ cấp · Thưởng(① 3줄을 넘은 나머지만)
- *   · Môi trường làm việc(05 보험 외) · Quy trình tuyển dụng(06 연락처 외) · Liên hệ(전화·Zalo·이메일 줄)
- * - 위쪽에 이미 있는 줄(제목·회사 이름·근무지 주소와 같은 줄, 급여 금액 반복·제목·대문자 홍보 줄)은 ④에 다시 넣지 않는다.
- * - 근무시간·형태 줄(03 연장 외)은 ① 근무시간이 비어 있으면 그 칸(최대 3줄), 아니면 ④ Nội dung công việc 끝에 남긴다(지우지 않음).
+ * - ④ 상세요강(Lee 2026-11-22 "상단내용 포함"): 원문 줄 전부 — Nội dung công việc(01 + 07 설명 줄 + 근무시간·형태 줄) · Yêu cầu ứng viên(02)
+ *   · Tăng ca(연장 줄) · Thu nhập và phụ cấp(04) · Môi trường làm việc(05) · Quy trình tuyển dụng(06 연락처 외) · Liên hệ(전화·Zalo·이메일 줄)
+ * - 위쪽(①②·제목·주소·급여)에 이미 나온 줄도 ④에서 빼지 않는다(①②는 같은 줄을 따로 보여 줄 뿐).
+ * - 근무시간·형태 줄(03 연장 외)은 ① 근무시간이 비어 있으면 그 칸에도(최대 3줄) 보인다.
  */
 export interface Compose1030 {
   experience?: string
@@ -116,9 +116,6 @@ const OT_LINE = /tăng ca|tang ca|làm thêm giờ|ngoài giờ/iu
 export function albamonCompose(sections: DetailSection[], ctx: { title?: string | null; company?: string | null; addresses?: (string | null | undefined)[]; salary?: string | null; hasHours?: boolean; preference?: string | null }): Compose1030 {
   const at = (k: string) => sections.find((s) => s.key === k)?.lines.map((l) => l.trim()) ?? []
   const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-  const above = [ctx.title, ctx.company, ...(ctx.addresses ?? [])].map((s) => fold(String(s ?? ''))).filter((s) => s.length >= 4)
-  // #653(Lee 2026-11-10 적용) "위쪽에 이미 있는 … 주소 … 줄만 ④에서 뺌": 이름표(Địa điểm:·Địa chỉ:)가 붙은 주소 줄도 위쪽 주소와 같은 줄이다(5157). 이름표를 뗀 글자로 비교한다.
-  const shownAbove = (l: string) => { const f = fold(l.replace(/^\s*(?:địa điểm|địa chỉ)\s*[:：]\s*/iu, '')); return !!f && above.some((a) => a === f || a.startsWith(f) || (f.length >= 12 && a.includes(f))) }
   const cond = albamonConditionLines(sections, ctx.salary)
   // 02 → ②
   const req = at('02')
@@ -131,27 +128,22 @@ export function albamonCompose(sections: DetailSection[], ctx: { title?: string 
   const ot: string[] = [], timeLines: string[] = []
   for (const l of at('03')) (OT_LINE.test(l) ? ot : timeLines).push(l)
   const top = salaryAmounts(ctx.salary)
-  const payRest: string[] = []
-  for (const l of at('04')) {
-    if (OT_LINE.test(l) && !repeatsTop(l, top)) { ot.push(l); continue }
-    if (cond.salary.includes(l.replace(/^\s*[-•*]\s+/, ''))) continue
-    if (repeatsTop(l, top)) continue
-    const letters = l.replace(/[^\p{L}]/gu, '')
-    if (/[:：]\s*$/.test(l) || (letters.length >= 4 && letters === letters.toLocaleUpperCase('vi'))) continue
-    payRest.push(l)
-  }
+  const pay: string[] = []
+  for (const l of at('04')) (OT_LINE.test(l) && !repeatsTop(l, top) ? ot : pay).push(l)
   const hours = !ctx.hasHours ? timeLines.slice(0, SALARY_CELL_MAX) : []
-  const timeRest = ctx.hasHours ? timeLines : timeLines.slice(SALARY_CELL_MAX)
   const env = at('05') // 보험 문장(시용 조건 등)은 모바일에서 ① 복리후생이 숨겨지므로 원문 그대로 남긴다
   const contact: string[] = [], process: string[] = []
   for (const l of at('06')) (CONTACT_LINE.test(l) ? contact : process).push(l)
   const extra: string[] = []
-  for (const l of at('07')) { if (shownAbove(l)) continue; (CONTACT_LINE.test(l) ? contact : extra).push(l) }
+  for (const l of at('07')) (CONTACT_LINE.test(l) ? contact : extra).push(l)
+  // Lee 2026-11-22 "원래 상세내용은 상단내용 포함해서 넣는거야"(10-30 확정 ④ 원문 전체·11-01 "위쪽 칸과 겹쳐도 지우지 않음"으로 되돌림):
+  // 위쪽(①②·제목·주소·급여)에 나온 줄도 ④에 원문 그대로 모두 넣는다. ①②의 값은 위 그대로 따로 만든다(옮기는 게 아니라 같이 보여 줌).
   const detail: DetailSection[] = [
-    // 회사 소개·모집 안내 줄("… cần tuyển …")은 업무 앞, 그 밖의 설명 줄은 업무 뒤
-    { key: '01' as const, label: 'Nội dung công việc', lines: [...extra.filter((l) => /tuyển|tuyen/iu.test(l)), ...at('01'), ...extra.filter((l) => !/tuyển|tuyen/iu.test(l)), ...timeRest] },
+    // 회사 소개·모집 안내 줄("… cần tuyển …")은 업무 앞, 그 밖의 설명 줄은 업무 뒤, 근무시간·형태 줄은 끝
+    { key: '01' as const, label: DETAIL_LABELS['01'], lines: [...extra.filter((l) => /tuyển|tuyen/iu.test(l)), ...at('01'), ...extra.filter((l) => !/tuyển|tuyen/iu.test(l)), ...timeLines] },
+    { key: '02' as const, label: DETAIL_LABELS['02'], lines: req },
     { key: '03' as const, label: 'Tăng ca', lines: ot },
-    { key: '04' as const, label: 'Phụ cấp · Thưởng', lines: payRest.filter((l) => !cond.salary.includes(l)) },
+    { key: '04' as const, label: DETAIL_LABELS['04'], lines: pay },
     { key: '05' as const, label: 'Môi trường làm việc', lines: env },
     { key: '06' as const, label: 'Quy trình tuyển dụng', lines: process },
     { key: '07' as const, label: 'Liên hệ', lines: contact },
