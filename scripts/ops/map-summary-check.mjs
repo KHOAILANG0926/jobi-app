@@ -3,8 +3,9 @@ import { chromium } from 'playwright'
 import { createClient } from '@supabase/supabase-js'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile, readFile } from 'node:fs/promises'
+import { appendFileSync } from 'node:fs'
 import {hasExcludedMoneyRole} from '../../src/lib/jobPostingPolicy.mjs'
-import {sourcePoints,assertPoints,pointsForJob,settleChange} from './location-point-oracle.mjs'
+import {sourcePoints,assertPoints,pointsForJob,settleChange,classifyMapFailure} from './location-point-oracle.mjs'
 const base=process.env.BASE_URL||'http://localhost:4173'
 const out=process.env.SCREENSHOT_DIR||'map-summary-proof'
 const config=await readFile(new URL('../../src/lib/supabase.ts',import.meta.url),'utf8')
@@ -68,6 +69,7 @@ async function saveFailure(job,error) {
  await page.screenshot({path:`${out}/failure-sb-${job.id}.png`,fullPage:false}).catch(()=>{})
  await writeFile(`${out}/failure-sb-${job.id}.json`,JSON.stringify({jobId:job.id,url:page.url(),error:String(error?.message??error).slice(0,300),state,styleRequests:styleRequests.slice(-6)},null,2)).catch(()=>{})
  console.log('MAP_FAILURE_EVIDENCE '+JSON.stringify({jobId:job.id,state,lastStyle:styleRequests.slice(-3)}))
+ return state
 }
 const markerSelector='[data-location-points]'
 async function rendered(scope) {
@@ -84,8 +86,10 @@ try {
  const verifiedJobs=[]
  const observed=new Map()
  const known=new Set(snapshot.map(j=>String(j.id)))
+ const externalUnavailable=[]
  for(const job of snapshot) {
   if(changed.has(job.id))continue
+  const styleFrom=styleRequests.length   // 이 공고를 여는 동안의 지도 스타일 요청만 원인으로 본다
   try {
   for(const target of job.points) {
    await page.evaluate(point=>localStorage.setItem('vgb:map-r1:viewport',JSON.stringify({center:{lat:Number(point.lat),lng:Number(point.lng)},zoom:16})),target)
@@ -116,9 +120,24 @@ try {
   const evidence={jobId:job.id,source:fields(job.points),main:fields(mainPoints),detail:fields(detailPoints)}
   verifiedJobs.push(evidence)
   console.log('LOCATION_POINTSET_PASS '+JSON.stringify(evidence))
-  } catch(e) { await saveFailure(job,e); if(await settleChange(e,job,readFresh)==='changed'){changed.add(job.id);console.log('AUDIT_JOB_CHANGED '+job.id)} }
+  } catch(e) {
+   const state=await saveFailure(job,e)
+   // 외부 지도(VietMap) 요청 실패와 우리 위치 데이터 오류를 가른다(classifyMapFailure). 외부 실패는 이 공고의 '화면에 그려짐'을 확인하지 못한 것으로 따로 남기고,
+   // 데이터·핀 오류·원인을 못 가린 실패는 지금까지처럼 그대로 실패한다. 위치 데이터 자체(원본↔공개 캐시)는 위에서 모든 공고를 이미 독립 대조했다.
+   const verdict=classifyMapFailure(e,{state,styleRequests:styleRequests.slice(styleFrom),points:job.points})
+   if(verdict.external){externalUnavailable.push({jobId:job.id,reason:verdict.reason});console.log('EXTERNAL_MAP_UNAVAILABLE '+JSON.stringify({jobId:job.id,reason:verdict.reason}));continue}
+   if(await settleChange(e,job,readFresh)==='changed'){changed.add(job.id);console.log('AUDIT_JOB_CHANGED '+job.id)}
+  }
  }
- for(const job of snapshot) if(!changed.has(job.id)) assertPoints(job.points,pointsForJob([[...observed.values()]],job.id),'full observed main point set '+job.id)
+ // 외부 지도 실패로 화면을 못 그린 공고도 있고 그려 본 공고가 한 건도 없으면 지도 서비스 전체 불가(또는 우리 쪽 문제)라 통과시키지 않는다.
+ if(externalUnavailable.length && verifiedJobs.length===0) throw Error('지도를 그려서 확인한 공고가 한 건도 없음(외부 지도 실패 '+externalUnavailable.length+'건): '+externalUnavailable.map(x=>x.jobId).join(','))
+ if(externalUnavailable.length) {
+  const note='외부 지도(VietMap) 요청 실패로 화면 그려짐을 확인하지 못한 공고 '+externalUnavailable.length+'건('+externalUnavailable.map(x=>x.jobId).join(',')+') — 위치 데이터는 원본↔공개 캐시 대조로 확인됨, 그린 공고 '+verifiedJobs.length+'건 통과'
+  console.log('::warning::'+note)
+  if(process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,'### 지도 검사: 외부 지도 요청 실패\n- '+note+'\n')
+ }
+ const externalIds=new Set(externalUnavailable.map(x=>x.jobId))
+ for(const job of snapshot) if(!changed.has(job.id)&&!externalIds.has(job.id)) assertPoints(job.points,pointsForJob([[...observed.values()]],job.id),'full observed main point set '+job.id)
  await page.goto(base,{waitUntil:'domcontentloaded'})
  await page.locator('.hme__map').scrollIntoViewIfNeeded()
  const category=page.locator('[data-category]').filter({has:page.locator('strong')})
@@ -166,6 +185,6 @@ try {
  await page.setViewportSize({width:390,height:844})
  await page.waitForFunction(()=>!document.querySelector('[data-testid="map-area-summary"]'))
  assert.deepEqual(errors,[])
- await writeFile(out+'/result.json',JSON.stringify({base,ok:true,publicJobs:snapshot.length,excludedByPublicAdmission:excluded,verifiedJobs,sourcePoints:snapshot.reduce((n,j)=>n+j.points.length,0),checks:['paginated independent public source','all main/group point sets','all detail point sets','kind precision revision','dynamic category selection','mobile summary absent']},null,2))
+ await writeFile(out+'/result.json',JSON.stringify({base,ok:true,publicJobs:snapshot.length,excludedByPublicAdmission:excluded,verifiedJobs,externalMapUnavailable:externalUnavailable,sourcePoints:snapshot.reduce((n,j)=>n+j.points.length,0),checks:['paginated independent public source','all main/group point sets','all detail point sets','kind precision revision','dynamic category selection','mobile summary absent']},null,2))
  console.log('PASS: independent public source, main and detail point sets agree')
 }finally{await writeFile(out+'/map-style-requests.json',JSON.stringify(styleRequests,null,2)).catch(()=>{});await browser.close()}

@@ -50,3 +50,22 @@ export async function settleChange(error, job, readFresh) {
   if(!same) return 'changed'
   throw error
 }
+
+// 외부 지도(VietMap) 요청 실패와 우리 위치 데이터·핀 오류를 가른다(2026-11-23, MAP-1 #946·#948 반복 실패의 근본 구조).
+// 지도 화면을 기다리다 시간이 지난 실패(TimeoutError)를 '외부'로 보는 조건 — 모두 만족해야 한다:
+//  ① 비교·검증 오류(AssertionError)가 아니다(데이터 불일치는 언제나 실패)
+//  ② 이 공고를 여는 동안 VietMap 스타일 요청이 실제로 실패했다(끊김·시간 초과·5xx·429). 401·403은 우리 열쇠 문제라 외부가 아니다. 요청 기록이 없으면 원인을 못 묻히므로 실패 유지
+//  ③ 그 화면이 그리려던 점(data-planned-location-points)이 있으면 원본 점과 같아야 한다 — 다르면 데이터 오류
+// 외부로 분류돼도 이 공고의 '화면에 그려짐'은 확인하지 못한 것이다(호출한 쪽이 따로 기록하고, 한 건도 그려 보지 못하면 실패시킨다).
+export function classifyMapFailure(error, { state, styleRequests, points }) {
+  if(error?.name==='AssertionError' || error?.code==='ERR_ASSERTION') return {external:false,reason:'비교 오류(데이터 불일치)'}
+  if(error?.name!=='TimeoutError') return {external:false,reason:'화면 대기 시간 초과가 아님'}
+  const failed=(styleRequests??[]).filter(r=>r.failure || !(r.status>=200 && r.status<300))
+  if(!failed.length) return {external:false,reason:'이 공고를 여는 동안 실패한 지도 스타일 요청이 없음'}
+  if(failed.some(r=>r.status===401 || r.status===403)) return {external:false,reason:'지도 스타일 요청이 401·403(우리 열쇠 문제)'}
+  if(state?.planned) {
+    try { assertPoints(points,JSON.parse(state.planned),'planned points') }
+    catch { return {external:false,reason:'화면이 그리려던 점이 원본 점과 다름'} }
+  }
+  return {external:true,reason:`VietMap 스타일 요청 실패 ${failed.length}건(${[...new Set(failed.map(r=>r.failure??('HTTP '+r.status)))].join(', ')})`}
+}
