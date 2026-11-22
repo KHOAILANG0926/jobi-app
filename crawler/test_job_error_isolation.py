@@ -642,6 +642,28 @@ class VerifyWriteNeverPublic(unittest.TestCase):
         self.assertFalse(topcv.db_gate_has_contact({"employer_phone": "0912", "contact_zalo": ""}))
         self.assertFalse(topcv.db_gate_has_contact({}))
 
+    def test_contact_rule_follows_the_shared_criteria(self):
+        # 1-B 공통 기준(crawler/job_criteria.py)이 바뀌면 검증 저장 대상 고르기도 같이 바뀐다 — 자기 숫자(8)를 따로 갖지 않는다(2단계 #978).
+        import job_criteria
+        self.assertFalse(topcv.db_gate_has_contact({"employer_phone": "123456"}))
+        with mock.patch.object(job_criteria, "MIN_CONTACT_DIGITS", 6):
+            self.assertTrue(topcv.db_gate_has_contact({"employer_phone": "123456"}))
+            self.assertFalse(topcv.db_gate_has_contact({"contact_zalo": "12345"}))
+
+    def test_source_url_search_uses_the_vietnam_date(self):
+        # 서버 로컬 날짜(date.today)가 아니라 공통 베트남 날짜로 마감일 ±1일을 맞춘다(2단계 #978).
+        import asyncio
+        from datetime import date
+        seen = {}
+        def fake_match(title, company, deadline, candidates, today):
+            seen["today"] = today
+            return {"confidence": "NOT_FOUND", "url": None}
+        with mock.patch.object(topcv, "search_source_url_candidates", mock.AsyncMock(return_value=[])), \
+                mock.patch.object(topcv, "match_source_url_candidate", fake_match), \
+                mock.patch.object(topcv, "today_vn", lambda: "2030-01-02"):
+            asyncio.run(topcv.discover_source_url(None, {"title": "t", "company": "c"}))
+        self.assertEqual(seen["today"], date(2030, 1, 2))
+
     def test_job_with_contact_is_not_saved(self):
         db = _VerifyDb()
         ingest = mock.Mock()

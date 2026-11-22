@@ -22,4 +22,17 @@ assert(MIN_CONTACT_DIGITS === 8, 'contact needs 8 digits (the DB publish gate va
 assert(DEADLINE_OPEN_THROUGH_DAY === true && DEADLINE_TIMEZONE === 'Asia/Ho_Chi_Minh', 'deadline day is open, in Vietnam time')
 assert(isJobOpen('2026-11-23', '2026-11-23') && !isJobOpen('2026-11-22', '2026-11-23') && isJobOpen(null, '2026-11-23'), 'screen helper follows the shared deadline rule')
 assert(todayVn(new Date('2026-11-22T18:30:00Z')) === '2026-11-23' && todayVn(new Date('2026-11-22T16:59:00Z')) === '2026-11-22', 'todayVn is the Vietnam date')
+// DB가 하드코딩한 같은 기준이 JSON과 어긋나지 않는다(2단계 #978): 공개 게이트의 연락처 자릿수와 만료 처리·알림 RPC의 시간대.
+// 운영 DB 함수는 JSON을 읽을 수 없어 migration에 값이 글자로 박혀 있다 — 값을 바꾸면 이 시험이 새 migration 필요를 알려 준다.
+{
+  const fsModule = 'node:fs' // 다른 시험(JobDetail 소스 읽기)과 같은 방식 — src 타입 검사에 node 타입을 들이지 않는다
+  const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as { readFileSync: (path: URL, enc: string) => string }
+  const migration = (file: string) => readFileSync(new URL('../../supabase/migrations/' + file, import.meta.url), 'utf8')
+  const gate = migration('20261101190000_db_publish_gate.sql')
+  const digitLimits = [...gate.matchAll(/'\\D', '', 'g'\)\)\s*<\s*(\d+)/g)].map((m) => Number(m[1]))
+  assert(digitLimits.length === 2 && digitLimits.every((n) => n === MIN_CONTACT_DIGITS), 'DB publish gate contact digits equal the shared criteria: ' + digitLimits)
+  for (const file of ['20261123000000_deactivate_expired_vn_date.sql', '20260927090000_job_alerts.sql']) {
+    assert(migration(file).includes(`at time zone '${DEADLINE_TIMEZONE}'`), file + ' uses the shared deadline timezone')
+  }
+}
 console.log('jobCriteria.test.ts: 공고 기준 단일 원천 시험 통과')
