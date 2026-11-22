@@ -120,6 +120,121 @@ class FacebookSaveIsolation(unittest.TestCase):
         self.assertEqual(stats[0]["final_keys"], ["id:1", "id:3"])
 
 
+class _FakeLedgerClient:
+    """보류함(research_artifacts)과 등록 입구(rpc ingest_job)를 흉내 내는 가짜 DB — 게시물 제목에 든 낱말로 입구 거부를 고른다."""
+
+    def __init__(self, reject=None, ledger_fail=False):
+        self.reject = reject or {}  # 제목에 든 낱말 → 입구가 내는 오류 메시지
+        self.ledger_fail = ledger_fail
+        self.ledger = []
+        self.registered = []
+
+    def table(self, name):
+        outer = self
+
+        class T:
+            def upsert(self, row, **_k):
+                self.row = row
+                return self
+
+            def execute(self):
+                if outer.ledger_fail:
+                    raise RuntimeError("storage down")
+                outer.ledger.append(self.row)
+                return types.SimpleNamespace(data=[self.row])
+        return T()
+
+    def rpc(self, name, params):
+        title = str(params["p"].get("title") or "")
+        for word, message in self.reject.items():
+            if word in title:
+                raise RuntimeError(message)
+        self.registered.append(title)
+        return types.SimpleNamespace(execute=lambda: types.SimpleNamespace(data=800 + len(self.registered)))
+
+
+def _fb_post(key):
+    return {"title": f"Tuyển công nhân {key}", "fb_post_key": key, "company": "CTY A", "employer_phone": "0912345678",
+            "description": f"[source:facebook] Tuyển công nhân. LH 0912345678 ({key})", "source_text": f"ORIGINAL TEXT {key}",
+            "location": "Bắc Ninh", "source": "facebook", "is_local_priority": True}
+
+
+class FacebookDbRuleRejectionKept(unittest.TestCase):
+    """1-C(Lee 2026-11-22): 위치는 찾았는데 DB 규칙이 거부한 Facebook 글은 원문·출처·규칙 코드·사유를 보류함에 rejected로 남기고(자동 재시도 없음),
+    보관에 실패하면 '본 글'로 기록하지 않아 다음 수집에서 다시 처리한다. 일반 수집·선택 저장 두 길 모두."""
+
+    def setUp(self):
+        source_fields.JOB_ERRORS.reset()
+        self.seen = {}
+        patches = [
+            mock.patch.object(fb, "missing_required", lambda job: []),
+            mock.patch.object(fb, "fetch_existing_facebook_rows", lambda *a, **k: []),
+            mock.patch.object(fb, "filter_new_jobs", lambda jobs, rows: list(jobs)),
+            mock.patch.object(fb, "facebook_source_url", lambda key: f"https://example.invalid/{key}"),
+            mock.patch.object(fb.ingest_gateway, "retry_held_once", lambda sb: None),
+            mock.patch.object(fb.ingest_gateway, "PRECHECK", lambda j: {"findable": True, "reason": "google_company_place", "location": "KCN Quế Võ, Bắc Ninh"}),
+            mock.patch.object(fb, "save_seen_state", lambda state, gs: self.seen.setdefault("keys", list(gs[0]["final_keys"]))),
+            mock.patch.object(fb, "hold_review_posts", lambda gs: 0),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        self.addCleanup(source_fields.JOB_ERRORS.reset)
+
+    def _collect(self, client, posts):
+        stats = [{"group": "g", "state": "ok", "final_keys": [p["fb_post_key"] for p in posts], "held_jobs": []}]
+        with mock.patch.object(fb, "supabase", client):
+            saved = fb.save_and_mark_seen(posts, {}, stats)
+        return saved
+
+    def test_collection_keeps_a_rule_rejected_post_and_finishes_it(self):
+        client = _FakeLedgerClient(reject={"id:1": 'job_rule_R5: company "CTY A" 가 source_text에 같은 글자로 없음'})
+        saved = self._collect(client, [_fb_post("id:1"), _fb_post("id:2")])
+        self.assertEqual([r["title"] for r in saved], ["Tuyển công nhân id:2"], "거부된 글만 빠지고 다른 글은 등록")
+        (row,) = client.ledger
+        self.assertEqual(row["kind"], "location-hold")
+        self.assertEqual(row["meta"]["status"], "rejected", "종결 상태 — 자동 재시도 없음")
+        self.assertTrue(row["meta"]["reason"].startswith("job_rule_R5"), row["meta"]["reason"])
+        self.assertEqual(row["payload"]["source_text"], "ORIGINAL TEXT id:1", "원문 보존")
+        self.assertEqual(row["payload"]["source"], "facebook")
+        self.assertTrue(row["payload"]["source_url"].endswith("id:1"), "출처 보존")
+        self.assertEqual(source_fields.JOB_ERRORS.failed_keys(), set())
+        self.assertEqual(self.seen["keys"], ["id:1", "id:2"], "보관에 성공했으니 처리 완료로 기록")
+
+    def test_policy_exclusion_is_kept_as_rejected_too(self):
+        client = _FakeLedgerClient(reject={"id:1": "job_posting_policy_excluded: exclude:dedicated_debt_collection@2026-10-12-v3"})
+        self._collect(client, [_fb_post("id:1")])
+        (row,) = client.ledger
+        self.assertEqual(row["meta"]["status"], "rejected")
+        self.assertIn("dedicated_debt_collection", row["meta"]["reason"])
+
+    def test_failed_keeping_does_not_mark_the_post_finished(self):
+        client = _FakeLedgerClient(reject={"id:1": "job_rule_R3: source_text(원문)가 비어 있음"}, ledger_fail=True)
+        saved = self._collect(client, [_fb_post("id:1"), _fb_post("id:2")])
+        self.assertEqual([r["title"] for r in saved], ["Tuyển công nhân id:2"])
+        self.assertEqual(source_fields.JOB_ERRORS.failed_keys(), {"id:1"}, "보관 실패는 규칙 거부가 아니라 오류로 센다")
+        self.assertEqual(self.seen["keys"], ["id:2"], "보관 못 한 글은 '본 글'에서 빠져 다음 수집에서 다시 처리된다")
+
+    def test_selected_save_keeps_the_rejected_post_and_reports_unfinished_when_keeping_fails(self):
+        for ledger_fail, want_code in ((False, 0), (True, 1)):
+            source_fields.JOB_ERRORS.reset()
+            client = _FakeLedgerClient(reject={"": 'job_rule_R5: company "CTY ABC" 가 source_text에 같은 글자로 없음'}, ledger_fail=ledger_fail)
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "facebook_dryrun.json"
+                _artifact([_read(NORMAL_POST, "id:1")], [], path)
+                out = io.StringIO()
+                with mock.patch.object(fb, "supabase", client), contextlib.redirect_stdout(out), \
+                        mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": "CTY ABC"}), \
+                        mock.patch.object(fb.ingest_gateway, "CONFIRM_COMPANY", lambda r, t: {"name": r, "agreed": True}):
+                    code = fb.save_selected_from_dryrun(str(path), ["id:1"], 2)
+            self.assertEqual(code, want_code, out.getvalue())
+            self.assertEqual(len(client.ledger), 0 if ledger_fail else 1)
+            if not ledger_fail:
+                self.assertEqual(client.ledger[0]["meta"]["status"], "rejected")
+                self.assertTrue(client.ledger[0]["payload"]["source_text"], "원문 보존")
+            self.assertEqual(self.seen, {}, "수동 선택 저장은 '본 글' 기록을 만들지 않는다")
+
+
 class FacebookRetryNextRun(unittest.TestCase):
     """실패 공고가 다음 실행에서 누락되지 않는지 — '본 글' 상태 파일을 실제로 쓰고 읽어 두 번 실행한다."""
 

@@ -15,6 +15,8 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 
+from source_fields import rule_code
+
 _CHANNELS = (("topcv", "crawler_topcv"), ("facebook", "crawler_facebook"), ("muaban", "crawler_muaban"), ("chotot", "crawler_chotot"),
              ("chợ tốt", "crawler_chotot"))
 
@@ -88,6 +90,10 @@ UNFOUND_MAX_DAYS = 30
 # 버리지 않고 같은 보류함에 보관하고, 다시 볼 때마다 '지금의 판정 코드'로 다시 판정한다 — 허용이 되면 기존 보류 경로(위치 확인 → 같은 입구)로 이어지고,
 # 명백한 부적합으로 판정되면 종결(줄은 남김), 아직 못 정하면 하루 뒤 다시(HOLD_MAX_DAYS까지). 판정 함수는 소스가 REVIEW_RECHECK에 등록한다.
 REVIEW_STATUS = "review"
+# DB 입구가 규칙으로 거부한 공고(job_rule_R*·정책 제외, Lee 2026-11-22 1-C): 판단이 불확실한 것이 아니라 규칙이 거부한 것이므로 원문·출처·규칙 코드·사유만
+# 같은 보류함에 rejected(종결)로 남기고 자동으로 다시 하지 않는다(retry_held는 held·unfound·review만 고른다). 위치·수집 금지 사유는 위 결정 그대로.
+REJECTED_STATUS = "rejected"
+_DB_RULE_CODE = re.compile(r"job_rule_R\d+|job_posting_policy_excluded")
 REVIEW_RECHECK_DAYS = 1
 # 보류 공고를 다시 넣다가 위치·규칙 거부가 아닌 오류(DB·네트워크 등)가 난 횟수 한도. 넘으면 종결(줄은 남김) — 한 줄이 대기열 맨 앞에서 매번 멈추게 하지 않는다.
 RETRY_ERROR_LIMIT = 5
@@ -513,4 +519,11 @@ def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: l
     except LocationNotFound as exc:
         if hold and _reason_of(exc) in UNFOUND_REASONS:
             hold_job(client, job, _reason_of(exc), "unfound")  # 공고 목록에는 넣지 않고 비공개 보관(Lee 2026-11-09)
+        raise
+    except Exception as exc:  # noqa: BLE001 — 규칙 코드가 있는 거부만 보관하고, 모든 예외는 그대로 다시 올린다
+        code = rule_code(exc)
+        if hold and code and _DB_RULE_CODE.fullmatch(code):
+            detail = str(exc).split(code, 1)[-1].strip(" :")[:150]
+            # 보관에 실패하면 HoldStoreError(규칙 코드 없음)가 올라가 수집기가 그 글을 '처리 완료'로 표시하지 않는다 — 다음 수집에서 다시 처리.
+            hold_job(client, job, (code + (": " + detail if detail else ""))[:200], REJECTED_STATUS)
         raise
