@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import urllib.parse
 import urllib.error
 import urllib.request
@@ -81,8 +82,16 @@ UNFOUND_RECHECK_DAYS = 7
 UNFOUND_MAX_CHECKS = 2
 HOLD_KIND = "location-hold"  # 비공개 저장소(research_artifacts, RLS 공개 차단)
 HOLD_RETRY_PER_RUN = 5
-HOLD_MAX_DAYS = 14  # held(한도 초과)
+HOLD_MAX_DAYS = 14  # held(한도 초과)·review(판단 보류)
 UNFOUND_MAX_DAYS = 30
+# 판단 보류(review, Lee 2026-11-22 크롤링 정상화): 명백한 부적합이 아니라 '지금 근거로 판정 못 한' 공고(공고 정책 review·직무 불분명·제목 읽기 실패).
+# 버리지 않고 같은 보류함에 보관하고, 다시 볼 때마다 '지금의 판정 코드'로 다시 판정한다 — 허용이 되면 기존 보류 경로(위치 확인 → 같은 입구)로 이어지고,
+# 명백한 부적합으로 판정되면 종결(줄은 남김), 아직 못 정하면 하루 뒤 다시(HOLD_MAX_DAYS까지). 판정 함수는 소스가 REVIEW_RECHECK에 등록한다.
+REVIEW_STATUS = "review"
+REVIEW_RECHECK_DAYS = 1
+# 보류 공고를 다시 넣다가 위치·규칙 거부가 아닌 오류(DB·네트워크 등)가 난 횟수 한도. 넘으면 종결(줄은 남김) — 한 줄이 대기열 맨 앞에서 매번 멈추게 하지 않는다.
+RETRY_ERROR_LIMIT = 5
+REVIEW_RECHECK: dict = {}  # 출처 이름("facebook" 등, 공고 글머리 [source:이름]) → 함수(payload) → (payload, 아직 보류 사유 | None, 명백한 부적합 여부)
 
 
 def _work_addresses(job: dict) -> list[str]:
@@ -325,15 +334,28 @@ def _reason_of(exc: BaseException) -> str:
     return ""
 
 
+def recheck_review(payload: dict) -> tuple[dict, str | None, bool]:
+    """판단 보류 공고를 지금의 판정 코드로 다시 판정한다 → (payload, 아직 보류 사유 | None, 명백한 부적합 여부).
+    판정은 보류를 만든 소스의 함수(REVIEW_RECHECK[출처])만 한다 — 그 소스의 판정 기준(직무 낱말·제목 읽기 등)을 다른 기준으로 대신하지 않는다.
+    이 실행에 그 소스의 함수가 등록돼 있지 않으면 건드리지 않고 보류를 유지한다(예: vieclam24h 실행이 Facebook 보류 공고를 풀어 주지 않게).
+    DB 입구의 공개 규칙(R4·R8·위치 등)은 이 판정으로 완화되지 않는다 — 허용이 돼도 등록은 같은 입구를 거친다."""
+    tag = re.match(r"\s*\[source:([A-Za-z0-9_-]+)\]", str(payload.get("description") or ""))
+    fn = REVIEW_RECHECK.get(tag.group(1).lower() if tag else str(payload.get("source") or "").lower())
+    if fn is None:
+        return payload, "checker_unavailable", False
+    return fn(payload)
+
+
 def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
-    """확인 못 한 새 공고를 보류함에 넣는다(비공개, 지우지 않음, 같은 공고는 한 줄). held=다음 수집 때 바로, unfound=7일 뒤 다시 확인.
+    """확인 못 한 새 공고를 보류함에 넣는다(비공개, 지우지 않음, 같은 공고는 한 줄). held=다음 수집 때 바로, unfound=7일 뒤 다시 확인,
+    review=하루 뒤 지금의 판정 코드로 다시 판정(판단 보류).
     이미 보류함에 있는 공고는 상태·횟수를 덮어쓰지 않는다(재수집이 재확인 일정을 되돌리지 않게). 저장 실패는 수집을 멈추지 않는다."""
     if job.get("admin_hidden") is True:
         return  # 검증 저장(verify_write)은 보류하지 않는다 — 재시도가 숨김 처리를 건너뛰게 되므로
     # '_company_from_text'는 남긴다: 빠지면 다시 확인할 때 원문에서 읽은 이름이 사이트 회사 칸처럼 서버에 가서 서버의 회사 이름 읽기를 건너뛴다(#872, #892 대조).
     payload = {k: _json_safe(v) for k, v in job.items() if not k.startswith("_") or k == "_company_from_text"}
     meta = {"status": status, "reason": reason, "held_at": _now(), "attempts": 0,
-            "next_at": _now() if status == "held" else _after(UNFOUND_RECHECK_DAYS)}
+            "next_at": _now() if status == "held" else _after(REVIEW_RECHECK_DAYS if status == REVIEW_STATUS else UNFOUND_RECHECK_DAYS)}
     try:
         client.table("research_artifacts").upsert(
             {"kind": HOLD_KIND, "name": _hold_name(job), "payload": payload, "meta": meta},
@@ -349,13 +371,13 @@ _HOLDS_RETRIED = False
 
 def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
     """보류함의 공고를 다시 확인한다(수집 실행마다 한 번, 다시 볼 때가 된 것 최대 limit건). 줄은 지우지 않고 상태만 바꾼다:
-    registered(등록됨 — 공개는 기존 공개 판정대로) / unfound(위치 못 찾음, 7일 뒤 다시) / rejected(2번 확인해도 못 찾음·수집 금지 사유)
+    registered(등록됨 — 공개는 기존 공개 판정대로) / unfound(위치 못 찾음, 7일 뒤 다시) / rejected(2번 확인해도 못 찾음·수집 금지 사유·명백한 부적합 판정·오류 한도)
     / expired(기간 지남) / held(아직 한도 초과 — 이번 실행은 여기서 멈춤, 한도를 헛되이 쓰지 않게.
-    포스터 판독 실패처럼 그 공고만의 문제는 보류로 두고 다음 공고를 계속 확인)."""
-    counts = {"registered": 0, "unfound": 0, "rejected": 0, "held": 0, "expired": 0}
+    포스터 판독 실패처럼 그 공고만의 문제는 보류로 두고 다음 공고를 계속 확인) / review(판단 보류 — 지금의 판정 코드로 다시 판정, 아직 못 정하면 하루 뒤 다시)."""
+    counts = {"registered": 0, "unfound": 0, "rejected": 0, "held": 0, "expired": 0, "review": 0}
     try:
         rows = (client.table("research_artifacts").select("name,payload,meta").eq("kind", HOLD_KIND)
-                .in_("meta->>status", ["held", "unfound"]).lt("meta->>next_at", _now())
+                .in_("meta->>status", ["held", "unfound"] + ([REVIEW_STATUS] if REVIEW_RECHECK else [])).lt("meta->>next_at", _now())
                 .order("meta->>next_at").limit(limit).execute().data) or []  # 다시 볼 때가 오래된 것부터 — 방금 미룬 공고는 뒤로
     except Exception:  # noqa: BLE001
         return counts
@@ -370,18 +392,33 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
         except ValueError:
             old = False
         stop = False
+        new_payload = None
+        review = meta.get("status") == REVIEW_STATUS
         if old:
             meta["status"] = "expired"
         else:
             try:
                 payload = dict(row.get("payload") or {})
-                # '못 찾음' 다시 확인은 Google에 새로 묻는다. 도중에 한도에 막혀 held가 돼도 새로 물어야 함은 남긴다(Codex #619 P2).
-                refresh = meta.get("status") == "unfound" or meta.get("refresh") is True
-                if refresh:
-                    payload["_recheck"] = True
-                meta.pop("refresh", None)
-                meta["job_id"] = _ingest_new(client, payload)
-                meta["status"] = "registered"
+                register = True
+                if review:
+                    # 판단 보류: 지금의 판정 코드로 다시 판정. 허용이면 아래 기존 보류 경로(위치 확인 → 같은 입구)로 이어진다.
+                    payload, why, excluded = recheck_review(payload)
+                    if excluded:
+                        meta["status"], meta["reason"], register = "rejected", str(why or "excluded")[:80], False  # 명백한 부적합 → 종결(줄은 남김)
+                    elif why:
+                        meta["reason"], meta["next_at"], register = str(why)[:80], _after(REVIEW_RECHECK_DAYS), False  # 아직 못 정함 → 보류 유지
+                    else:
+                        meta["status"], meta["reason"] = "held", "review_cleared"
+                        if payload != (row.get("payload") or {}):
+                            new_payload = dict(payload)  # 다시 판정이 고친 칸은 보류함 원본에도 반영(다음 확인이 낡은 읽기로 돌지 않게)
+                if register:
+                    # '못 찾음' 다시 확인은 Google에 새로 묻는다. 도중에 한도에 막혀 held가 돼도 새로 물어야 함은 남긴다(Codex #619 P2).
+                    refresh = meta.get("status") == "unfound" or meta.get("refresh") is True
+                    if refresh:
+                        payload["_recheck"] = True
+                    meta.pop("refresh", None)
+                    meta["job_id"] = _ingest_new(client, payload)
+                    meta["status"] = "registered"
             except LocationDeferred as exc:
                 meta["status"], meta["reason"], meta["next_at"] = "held", _reason_of(exc), _now()
                 if refresh:
@@ -402,11 +439,22 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
                     meta["status"] = "rejected"
                     meta["reason"] = code[:80]
                 else:
+                    # 규칙 거부가 아닌 오류(DB·네트워크 등): 이번엔 멈추되, 그 줄이 대기열 맨 앞에 그대로 남아 매번 멈추게 하지 않는다 —
+                    # 하루 뒤로 미루고, 같은 줄이 RETRY_ERROR_LIMIT번 오류면 종결한다(줄은 남김 — 보관 내용은 지우지 않음).
                     meta["reason"] = "retry_error"
+                    errors = int(meta.get("errors") or 0) + 1
+                    meta["errors"] = errors
+                    if errors >= RETRY_ERROR_LIMIT:
+                        meta["status"], meta["reason"] = "rejected", "retry_error_limit"
+                    else:
+                        meta["next_at"] = _after(1)
                     stop = True
         counts[meta.get("status", "held")] += 1
         try:
-            client.table("research_artifacts").update({"meta": meta}).eq("kind", HOLD_KIND).eq("name", row["name"]).execute()
+            update = {"meta": meta}
+            if new_payload is not None:
+                update["payload"] = new_payload
+            client.table("research_artifacts").update(update).eq("kind", HOLD_KIND).eq("name", row["name"]).execute()
         except Exception:  # noqa: BLE001
             pass
         if stop:

@@ -1,3 +1,10 @@
+## 2026-11-22 — 크롤링 정상화(Lee): 영구 제외 → 판단 보류, 보류함 재시도 끊김, 수집 감시 오보 (Draft PR, 병합·배포·정기 수집 없음)
+- 요청(Lee 11-22): 수집 규제(명백한 부적합 vs AI 인식 실패)·미처리 복구(위치·회사 이름·본문·DB 오류)·자동화(Facebook·vieclam24h 실행·실패·재시도 경로) 바로잡기. 새 검사기·대기열·공고 전용 예외 금지.
+- 실제 원인 [직접 확인 — 코드·실행 기록]: ① Facebook `evaluate_post`가 정책 review·직무 불분명(낱말 목록)·제목 읽기 실패를 ambiguous·missing_required로 돌려주고 둘 다 FINAL_DECISIONS('본 글' 기록) → 다시 판정 기회 없이 영구 제외(명백한 제외 b2b도 ambiguous로 오표시). ② 보류함 재시도는 수집 저장 실행 안에서만 돌고 수동 저장 모드는 일부러 건너뜀 → 정기 수집이 멈춘 지금 보류 공고가 한 번도 다시 확인되지 않음. ③ 재시도 중 규칙 거부 아닌 오류(DB·네트워크)가 난 줄이 대기열 맨 앞에 그대로 남아 매번 같은 곳에서 멈춤(수정 전 5회 실행: poison 시도 5, 정상 공고 0). ④ crawl-guard ⑧이 vieclam24h만 보고, 수동 전용(저장 없는 미리 보기) 성공 실행 뒤 "신규 저장 0건" 오보 + Facebook 계정 잠금은 아예 안 보임. 자동 수집이 멈춘 이유: 정기 실행 제거(Lee 11-17 #872) + GitHub 서버 403(vieclam24h)·Facebook 계정 잠금(쿠키 만료)은 [기존 기록 #946·HANDOFF], 이번 변경은 정기 수집을 켜지 않음.
+- 변경: crawl_facebook.py(판정 3종 FINAL/RETRY/HOLD, judge_parsed_job 한 곳 — 수집 직후·보류함 재판정 공용, 판단 보류 글은 보류함(review)에 보관한 뒤에만 '본 글' 기록, to_db_payload 모듈 함수로 이동, `--retry-held` 쿠키 없는 수동 입구) / ingest_gateway.py(보류함 review 상태·recheck_review·REVIEW_RECHECK 등록, 오류 줄 하루 뒤로 미루고 5번이면 종결) / crawl-facebook-one.yml(mode retry_held, 기존 저장 단계 재사용) / crawl-guard.yml(Facebook 감시, 수동 전용은 실패만 검사) / 시험.
+- 검증 [직접 확인]: 수정 전 코드(master 사본)에서 새 시험 재현 — test_job_error_isolation 새 14건 실패·오류, test_ingest_gateway review·오류 줄 시험 실패, 수정 전 5회 재시도 뒤 정상 공고 확인 0회; 수정 뒤 관련 시험 전부 통과(PR 본문). 정기 수집·운영 DB·병합 없음.
+- 남은 문제: vieclam24h 본문 전화번호 있는 공고 1건 발견 뒤 publish_one(Lee 승인), Facebook 쿠키 갱신(Lee) 뒤 dryrun, 정기 수집 재개는 Lee 승인 PR(crawl-guard 줄을 fail_and_new로).
+
 ## 2026-11-21 — #808 S1~S8 마감: 독립 검토·4대 보고를 병합 조건에서 뺌, 병합 뒤 검사 2개 추가, PR 본문 형식 F12, MAP-1 지도 스타일 대기, ai-review 검사 삭제
 - 요청(Lee 11-21): 공고 자동 수집→검증→공개에 필요한 것만 끝내고 #808 닫기. 결정 1 대안 거절 뒤 "최신 상태 요구 안 씀", 결정 2 독립 검토 선택화(11-14 결정 7①·#807 게이트 (3) 변경), 3 MAP-1 원인만, 4 vieclam24h 1건, 5 기록.
 - 변경: approval-checks ai-review = neutral「필수 아님, 검토 안 함」·4대 보고 분기 삭제 / decision-approval-gate 4대 보고(highRiskReport 등) 삭제 / bot-pr-automerge 검토 대기·검토관 자동 호출 삭제, 병합 뒤 호출 목록에 ai-reader-calibration·job-ocr-check / merge-gate-ready.jq = approval-gate만 / check-pr-ready READY 줄 뒤 설명 허용·칸 경계 / vietMapStyle 상세·관리자 지도 스타일 대기 5·6초→15·20초(메인은 12초 예비지도 제한 안이라 5·6초 유지 — 검토관 지적 1, 시험으로 묶음) / map-summary-check 실패 증거 저장 / 안 쓰게 된 codexGate·needsSecondReview 삭제(검토관 지적 3) / BLOCKED·MERGED 줄도 같은 기준(지적 2) / CLAUDE.md·RULES_CORE.md·AGENTS.md·claude-auto 주석.
@@ -53,6 +60,7 @@
 - 변경(#913): approval-checks.mjs — 열린 '운영 배포 검증 실패' 이슈(github-actions[bot])가 있으면 일반 PR approval-gate를 Lee 승인 필요로. 풀림 = master 최근 성공 deploy-verify 커밋이 실패 커밋 포함·이슈 닫기·복구 PR Lee Approve. deploy-verify.yml(STRICT)은 그대로. merge-provenance.mjs — 검사 전용 앱 ai-review·approval-gate 병합 시점 대조.
 - 모의 시험: s6/deploy-fail-mock(빈 커밋 47fc051) deploy-verify run 44313174748 실패 → 이슈 #918 → 일반 PR 5건 잠금 → #918 닫음 → 풀림. 운영 배포 영향 없음.
 - VPS 러너 crawler 정상(run 44277027923). 남은 일: S7.
+
 ## 2026-11-18 — vieclam24h 새 공고 근무지 줄을 등록 입구와 같은 트랜잭션으로 (#916, #6255 핀 안 생김)
 - 원인 [직접 확인 코드]: crawl_topcv가 ingest_job으로 등록한 직후 replace_job_work_locations로 근무지 줄을 다시 씀 → 저장 직후 위치 확인 서버(location-hook)가 찾는 동안 근무지가 바뀜 → map_r1_complete가 snapshot 불일치로 결과를 버리고 failed(20261111150000_map_r1_other_stores.sql). Facebook은 입구 한 번(등록 트랜잭션)이라 이 경쟁이 없음.
 - GEOAPIFY 없음은 직접 원인 아님: 크롤러 자체 좌표만 못 구함(unresolved 줄) — 핀은 위치 확인 서버(Google 재사용)가 정함.
@@ -73,9 +81,3 @@
 - 변경: 시험 수집(DB 없음)에서 버튼을 못 찾으면 ① 아래까지 천천히 내린 뒤 같은 버튼 찾기 다시(늦게 그려지는 칸) ② 모바일 화면(390px, 앞 2건) 같은 확인 ③ 누를 수 있는 연락·지원 요소 글자(숫자 가림, vieclam24h Hotline 제외)·tel 링크 수 기록. 누르는 방식은 기존 reveal_employer_phone 그대로(눌러서 새로 보인 번호만). 숨긴 페이지 자료는 쓰지 않음.
 - 검증 [직접 확인 로컬]: test_detail_section_parser_dom 11/11(내린 뒤 그려지는 버튼 클릭 사례 추가)·job_error_isolation·scheduled_cli·ingest_gateway·cli_safety.
 - 남은 문제: VPS 시험 수집으로 실제 버튼 글자·위치·로그인 조건 확인.
-
-## 2026-11-18 — vieclam24h 연락처: 공고 본문에 고용주가 적은 번호만 쓴다 (Lee 최종 지시 14:36)
-- 근거 [직접 확인]: 화면에서 숨긴 번호(jobDetailHiddenContact)는 담당자 개인 번호·이메일 — 개인정보보호법(91/2025/QH15, 2026-01-01 시행)상 공개(công khai)도 처리이며 목적 밖 공개 허용 근거를 확인 못 함 → 공개 안 함(있음/없음 기록만).
-- 변경: 시험 수집(DB 없음) detailPhone = 공고 본문 칸(Mô tả·Yêu cầu·Quyền lợi)에 적힌 번호(description_text)만. 칸을 못 찾아 화면 전체 글로 대신한 경우(sectionsFallback)는 고객센터 번호가 섞여 안 씀. 페이지 자료 번호는 진단 줄만.
-- 검증 [직접 확인 로컬]: test_detail_section_parser_dom(본문·없음·화면 전체 3사례)·job_error_isolation·scheduled_cli·ingest_gateway·cli_safety 통과.
-- 남은 문제: 본문에 번호가 적힌 실제 공고 1건 찾기 → keep_for_save → publish_one → 운영 상세 PC·모바일 확인.

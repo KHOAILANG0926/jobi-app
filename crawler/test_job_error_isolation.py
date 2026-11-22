@@ -681,5 +681,186 @@ class PublishOneFromDetails(unittest.TestCase):
                 topcv.upsert_job_record({"source_url": "u1"}, {}, {}, verify_write=False, new_only=True)
 
 
+
+def _fb_job(title: str, desc: str, **extra) -> dict:
+    job = {"title": title, "company": "Cty ABC", "employer_phone": "0987654321", "category": "khac", "salary": "",
+           "description": "[source:facebook] " + desc}
+    job.update(extra)
+    return job
+
+
+class FacebookDecisionSplit(unittest.TestCase):
+    """명백한 부적합과 '지금 근거로 판정 못 함'을 구별한다(Lee 2026-11-22 크롤링 정상화).
+    예전에는 둘 다 ambiguous·missing_required로 '본 글' 기록이 돼 다시 판정할 기회 없이 영구 제외됐다."""
+
+    def test_clear_unsuitable_posts_stay_final(self):
+        # 전담 채권 추심(돈 문제) / 기업 간 계약 영업(정책 exclude) / 연락처 없음(공개 기준 — 연락처 없는 수집 공고는 공개 안 함)
+        self.assertEqual(fb.judge_parsed_job(_fb_job("Nhân viên thu hồi nợ", "Thu hồi nợ khách hàng, lương 10 triệu"))[0], "money")
+        self.assertEqual(fb.judge_parsed_job(_fb_job(
+            "Nhân viên kinh doanh B2B", "Tìm kiếm khách hàng doanh nghiệp, chăm sóc khách hàng doanh nghiệp, ký hợp đồng cung cấp với doanh nghiệp, bán hàng B2B."))[0],
+            "policy_excluded")
+        self.assertEqual(fb.judge_parsed_job(_fb_job(
+            "Phục vụ quán cafe", "Cần tuyển 2 bạn phục vụ quán cafe khu Kinh Bắc, lương 7 triệu/tháng, làm ca sáng", employer_phone=""))[0],
+            "missing_required")
+        for code in ("money", "policy_excluded", "missing_required", "self_promo"):
+            self.assertIn(code, fb.FINAL_DECISIONS)
+            self.assertNotIn(code, fb.HOLD_DECISIONS)
+
+    def test_recognition_failures_are_held_not_final(self):
+        # 정책 review(근거 부족) / 제목 읽기 실패 / 직무 불분명 — 부적합이라는 근거가 아니다 → 보류(HOLD), '본 글'(FINAL)이 아니다
+        cases = [
+            _fb_job("Sale Executive", "Đại lý, ca 1/ca 2, thu nhập 30 triệu, hoa hồng là phần lớn thu nhập.", salary="30 triệu VND"),
+            _fb_job("", "Cần tuyển phục vụ quán cafe, lương 7 triệu"),
+            _fb_job("Tuyển gấp 5 bạn", "Tuyển gấp 5 bạn, lương cao."),
+        ]
+        for job in cases:
+            code, reasons = fb.judge_parsed_job(dict(job))
+            self.assertEqual(code, "review", (job["title"], reasons))
+            self.assertIn(code, fb.HOLD_DECISIONS)
+            self.assertNotIn(code, fb.FINAL_DECISIONS)
+            self.assertNotIn(code, fb.RETRY_DECISIONS)
+        self.assertEqual(fb.FINAL_DECISIONS & {"ambiguous"}, set(), "ambiguous는 더 이상 '본 글'로 기록하지 않는다")
+
+    def test_body_not_acquired_is_retried_not_final(self):
+        job = _fb_job("Phục vụ quán cafe", "Cần tuyển 2 bạn phục vụ quán cafe khu Kinh Bắc, lương 7 triệu/tháng, làm ca sáng, ưu tiên nữ ... Xem thêm")
+        self.assertEqual(fb.judge_parsed_job(job)[0], "truncated")
+        self.assertIn("truncated", fb.RETRY_DECISIONS)
+
+    def test_complete_post_still_accepted(self):
+        job = _fb_job("Tuyển phục vụ quán cafe", "Cần tuyển 2 bạn phục vụ quán cafe khu Kinh Bắc, lương 7 triệu/tháng, làm ca sáng, liên hệ 0987654321")
+        self.assertEqual(fb.judge_parsed_job(job), ("accepted", []))
+
+    def test_evaluate_post_returns_the_parsed_job_only_for_hold(self):
+        now = fb.datetime(2026, 11, 22, 12, 0)
+        fresh = {"estimate": "2026-11-22T10:00", "precision": "hour"}
+        vague = "Tuyển gấp 5 bạn, lương cao. LH 0987654321"
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": ""}):
+            code, reasons, job = fb.evaluate_post(vague, fresh, True, "Bắc Ninh", now=now)
+            self.assertEqual(code, "review")
+            self.assertTrue(job and job["title"], "보관할 수 있게 읽은 공고를 돌려준다")
+            code, reasons, job = fb.evaluate_post("Cần tuyển nhân viên thu hồi nợ, lương 10 triệu. LH 0987654321", fresh, True, "Bắc Ninh", now=now)
+            self.assertEqual((code, job), ("money", None))
+
+
+class _FakeHoldTable:
+    def __init__(self, store: dict, fail: bool):
+        self.store, self.fail = store, fail
+
+    def upsert(self, row, on_conflict=None, ignore_duplicates=False):
+        self.row = row
+        return self
+
+    def execute(self):
+        if self.fail:
+            raise RuntimeError("db down")
+        self.store.setdefault(self.row["name"], self.row)
+        return type("R", (), {"data": [self.row]})()
+
+
+class _FakeHoldClient:
+    def __init__(self, fail_titles=()):
+        self.store, self.fail_titles = {}, set(fail_titles)
+        self._last = None
+
+    def table(self, name):
+        assert name == "research_artifacts", name
+        outer = self
+
+        class T(_FakeHoldTable):
+            def upsert(self, row, on_conflict=None, ignore_duplicates=False):
+                self.fail = row["payload"].get("title") in outer.fail_titles
+                return super().upsert(row, on_conflict, ignore_duplicates)
+
+        return T(self.store, False)
+
+
+class FacebookReviewHold(unittest.TestCase):
+    """판단 보류 글은 보류함(review)에 보관된 뒤에만 '본 글'로 기록된다 — 보관 실패는 기록하지 않아 다음 실행에서 다시 만난다."""
+
+    def setUp(self):
+        source_fields.JOB_ERRORS.reset()
+
+    def _stats(self, jobs):
+        return [{"group": "g", "state": "ok", "final_keys": ["done"], "hold_keys": [j["fb_post_key"] for j in jobs], "held_jobs": jobs}]
+
+    def _job(self, key, title):
+        return {**_fb_job(title, "Tuyển gấp, lương cao. 0987654321"), "fb_post_key": key, "_hold_reason": "incomplete_role_evidence",
+                "source_text": "Tuyển gấp, lương cao. 0987654321", "location": "Bắc Ninh"}
+
+    def test_held_post_is_stored_then_recorded_as_seen(self):
+        client = _FakeHoldClient()
+        stats = self._stats([self._job("id:1", "Tuyển gấp")])
+        with mock.patch.object(fb, "supabase", client):
+            self.assertEqual(fb.hold_review_posts(stats), 1)
+        (row,) = client.store.values()
+        self.assertEqual((row["kind"], row["meta"]["status"], row["meta"]["reason"]), ("location-hold", "review", "incomplete_role_evidence"))
+        self.assertTrue(row["payload"]["source_url"].endswith("1") or row["payload"].get("source_url"), "원문 출처가 payload에 남는다(R3)")
+        self.assertIn("id:1", stats[0]["final_keys"])
+        self.assertTrue(row["meta"]["next_at"] > row["meta"]["held_at"], "첫 재판정은 하루 뒤")
+
+    def test_store_failure_is_not_recorded_as_seen(self):
+        client = _FakeHoldClient(fail_titles={"실패"})
+        stats = self._stats([self._job("id:1", "실패"), self._job("id:2", "Tuyển gấp")])
+        with mock.patch.object(fb, "supabase", client):
+            self.assertEqual(fb.hold_review_posts(stats), 1, "한 건 실패가 다른 글의 보관을 막지 않는다")
+        self.assertNotIn("id:1", stats[0]["final_keys"], "보관 못 한 글은 본 글로 기록하지 않는다 → 다음 실행에서 다시")
+        self.assertIn("id:2", stats[0]["final_keys"])
+        self.assertTrue(source_fields.JOB_ERRORS.failed, "실행 결과는 실패로 남는다")
+
+    def test_save_and_mark_seen_records_only_stored_holds(self):
+        client = _FakeHoldClient(fail_titles={"실패"})
+        stats = self._stats([self._job("id:1", "실패"), self._job("id:2", "Tuyển gấp")])
+        captured = {}
+        with mock.patch.object(fb, "supabase", client), mock.patch.object(fb, "save_to_supabase", lambda jobs: []), \
+                mock.patch.object(fb, "save_seen_state", lambda state, gs: captured.setdefault("keys", list(gs[0]["final_keys"]))):
+            fb.save_and_mark_seen([], {}, stats)
+        self.assertEqual(sorted(captured["keys"]), ["done", "id:2"])
+
+    def test_recheck_clears_when_the_judgement_code_now_allows(self):
+        """고친 판정 코드(예: 직무 낱말 보강)가 들어가면 보류 글이 허용으로 풀리고, 다시 읽은 칸이 payload에 반영된다."""
+        text = "Tuyển gấp 5 bạn, lương cao. LH 0987654321"
+        payload = {**fb.to_db_payload({**_fb_job("Tuyển gấp 5 bạn", text), "fb_post_key": "id:3", "source_text": text}), "source_text": text, "location": "Bắc Ninh"}
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": ""}):
+            fixed, why, excluded = fb.review_recheck(payload)
+            self.assertEqual((why, excluded), ("직무/연락처가 불분명한 일반 모집글", False), "코드가 그대로면 보류 유지")
+            with mock.patch.object(fb, "is_ambiguous_job", lambda job: False):
+                fixed, why, excluded = fb.review_recheck(payload)
+        self.assertEqual((why, excluded), (None, False))
+        self.assertEqual(fixed["source_url"], payload["source_url"], "원문 출처는 바꾸지 않는다")
+
+    def test_recheck_ends_when_now_clearly_unsuitable(self):
+        text = "Cần tuyển nhân viên thu hồi nợ, lương 10 triệu. LH 0987654321"
+        payload = {"title": "x", "company": "y", "description": "[source:facebook] " + text, "source_text": text, "location": "Bắc Ninh"}
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"company": "CTY A"}):
+            _p, why, excluded = fb.review_recheck(payload)
+        self.assertEqual((why, excluded), ("dedicated_debt_collection", True))
+
+    def test_recheck_keeps_hold_when_company_reader_is_down(self):
+        payload = {"description": "[source:facebook] Tuyển gấp", "source_text": "Tuyển gấp 5 bạn. 0987654321", "location": "Bắc Ninh"}
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"reason": "precheck_unavailable"}):
+            _p, why, excluded = fb.review_recheck(payload)
+        self.assertEqual((why, excluded), ("company_read_unavailable", False), "읽기 서버 장애는 부적합도 오류 횟수도 아니다")
+
+    def test_registered_for_facebook_source_tag(self):
+        self.assertIs(fb.ingest_gateway.REVIEW_RECHECK["facebook"], fb.review_recheck)
+
+
+class FacebookRetryHeldCli(unittest.TestCase):
+    """정기 수집이 멈춰 있어도 보류 공고가 끊기지 않게 — Facebook 접속·쿠키 없이 보류함만 다시 확인하는 수동 입구."""
+
+    def test_flag_runs_hold_retry_without_facebook_cookies(self):
+        import asyncio
+        calls = []
+        with mock.patch.object(fb, "supabase", object()), mock.patch.object(fb, "FB_C_USER", ""), mock.patch.object(fb, "FB_XS", ""), \
+                mock.patch.object(fb.ingest_gateway, "retry_held", lambda client: calls.append(client) or {"registered": 1}):
+            self.assertEqual(asyncio.run(fb.main(["--retry-held"])), 0)
+        self.assertEqual(len(calls), 1, "쿠키 없이 보류함 다시 확인만 한다(정기 수집을 켜는 것이 아니다)")
+
+    def test_without_server_credentials_it_fails_loudly(self):
+        import asyncio
+        with mock.patch.object(fb, "supabase", None):
+            self.assertEqual(asyncio.run(fb.main(["--retry-held"])), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
