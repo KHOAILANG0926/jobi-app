@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { checkCompletion, recordProblems, recentPrsFor, titleWords } from './check-pr-ready.mjs'
+import { checkCompletion, recordProblems, recentPrsFor, titleWords, ghApiJson } from './check-pr-ready.mjs'
 import { evaluateFiles, parseNameStatusZ } from './check-repository-policy.mjs'
 
 const valid = `## 사용자 요청 및 확정된 완료 조건
@@ -283,3 +283,16 @@ assert.ok(scopeProblems(prBody('src/a.ts, src/b.ts'), [ch('src/a.ts')], (p) => p
 assert.deepEqual(scopeProblems(prBody('src/a.ts, 새 파일은 src/n.ts.'), [ch('src/a.ts'), ch('src/n.ts', { status: 'added' })], () => false), [], '없는(새) 낱말·문장 끝 마침표')
 assert.deepEqual(exceptionProblems(prBody('x'), [{ ...ch('crawler/test_job_quality.py'), patch: '@@ -1 +1,2 @@\n+job = {"id": "sb-4312"}\n' }]), [], '크롤러 파이썬 시험 제외')
 console.log('R3 PR scope/merge-line/exception guards: passed')
+// gh 응답이 1MiB를 넘어도(열린 PR 목록 한 쪽 1,061,159바이트, 2026-11-22 #970·#971·#972 checks ENOBUFS) 읽는다 — 가짜 gh로 2MB 응답을 만들어 확인
+{
+  const { mkdtempSync, writeFileSync, chmodSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const dir = mkdtempSync(join(tmpdir(), 'fake-gh-'))
+  writeFileSync(join(dir, 'gh'), '#!/bin/sh\nnode -e "process.stdout.write(JSON.stringify([{a: \'x\'.repeat(2*1024*1024)}]))"\n')
+  chmodSync(join(dir, 'gh'), 0o755)
+  const oldPath = process.env.PATH, oldRepo = process.env.GITHUB_REPOSITORY
+  process.env.PATH = dir + ':' + oldPath; process.env.GITHUB_REPOSITORY = 'o/r'
+  try { assert.equal(ghApiJson('pulls?state=open')[0].a.length, 2 * 1024 * 1024, '1MiB 넘는 gh 응답도 읽는다') } finally { process.env.PATH = oldPath; if (oldRepo === undefined) delete process.env.GITHUB_REPOSITORY; else process.env.GITHUB_REPOSITORY = oldRepo }
+}
+console.log('gh 큰 응답(>1MiB) 읽기: passed')
