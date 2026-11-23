@@ -39,3 +39,19 @@ test('multi-store: every store verified or approved → not listed',()=>{
 test('multi-store: the unresolved store is the one offered, not the first row',()=>{
   assert.deepEqual(unresolvedLocations(multi,[storeA,storeB],[]).map(w=>w.id),[2])
 })
+
+// 독립 검토 재현(PR #985): 미확정 매장이 여러 개여도 한 번에 한 매장씩 차례로 나오고, 확정할 때마다 다음 매장이 나온다 — 누락 없음.
+test('multi-store: several unresolved stores are offered one by one until all are confirmed',()=>{
+  const c={...job,company:'CTY KDA',location:'Lô A1 KCN Quế Võ, Bắc Ninh'}
+  const s=(id,a)=>({id,raw_address:`Lô ${a} KCN Quế Võ, Bắc Ninh`,lat:null,lng:null,location_verified:false})
+  const stores=[s(1,'A1'),s(2,'B2'),s(3,'C3')]
+  const ok=[]
+  const approve=(st)=>({status:'approved',company_snapshot:'CTY KDA',address_snapshot:st.raw_address})
+  const offered=[]
+  for(let i=0;i<3;i++){
+    assert.equal(pending(c,stores,ok),true,`still listed after ${i} confirmations`)
+    const next=unresolvedLocations(c,stores,ok)[0]; offered.push(next.id); ok.push(approve(next))
+  }
+  assert.deepEqual(offered,[1,2,3])
+  assert.equal(pending(c,stores,ok),false)
+})
