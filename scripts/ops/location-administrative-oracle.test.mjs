@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import {administrativeBoundaryIssues} from './location-administrative-oracle.mjs'
 const jobs=[{id:22,location:'Bắc Ninh'},{id:45,location:'Hải Dương'}]
-const location=(id,job_id,raw_address,lat,lng)=>({id,job_id,raw_address,lat,lng,point_kind:'area',point_precision:'area',point_revision:1})
+const location=(id,job_id,raw_address,lat,lng)=>({id,job_id,raw_address,lat,lng,point_kind:'exact',point_precision:'site',point_revision:1})  // 확정 좌표만 핀(Lee 2026-11-23) — 이 시험은 점이 원래 성 안인지를 보므로 확정 점으로 둔다
 const rows=[location(8,22,'Bắc Ninh',21.1861,106.0763),location(19,45,'Hải Dương',20.9613,106.364)]
 assert.deepEqual(administrativeBoundaryIssues(jobs,rows),[])
 assert.ok(administrativeBoundaryIssues(jobs,[]).some(i=>i.reason==='missing_canonical_pin'))
