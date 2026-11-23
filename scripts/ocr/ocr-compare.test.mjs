@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { compareWithOcr, moneyValues, posterSalaryEvidence, imageFetchPermanent } from './ocr-compare.mjs'
+import { compareWithOcr, moneyValues, posterSalaryEvidence } from './ocr-compare.mjs'
+import { imageFetchPermanent } from './ocr-check-write.mjs'
 
 const ocr = 'CÔNG TY KDA TUYỂN GẤP\nLiên hệ: NGOC ANH DUONG\nSĐT: 0877 880 756\nLương 8.000.000 - 12.000.000\nTuổi 14-50t'
 const base = { employer_phone: '0877880756', contact_zalo: null, salary: '8.000.000 - 12.000.000', contact_name: 'NGOC ANH DUONG', company: 'KDA', age_min: 14, age_max: 50 }

@@ -15,3 +15,12 @@ export function ocrCheckUpdateSql(hold) {
             age_min::text, age_max::text
           ])::text)))${hold ? ` || case when active then '{"ocr_hold": true}'::jsonb else '{}'::jsonb end, active = false` : ''} where id = $1`
 }
+
+// 사진을 못 받은 이유 가르기(#990, 2026-11-23): 같은 공고가 매 실행 '실패(exit 2)'로 멈추지 않게 영구 접근 거부와 일시 오류를 나눈다.
+// 영구 = 우리 저장소가 아닌 외부 주소(예: 페이스북 사진 주소)가 403·404·410 — 만료·삭제라 다시 받아도 같다 → 이 사진은 '읽을 수 없음'으로 건너뛴다(글자 읽을 사진이 하나도 없으면 compareWithOcr의 읽기불가가 그대로 적용).
+// 일시 = 5xx·429·네트워크 오류, 그리고 우리 저장소(비공개 bucket)의 403·404는 열쇠·저장 문제라 실제 실패로 남겨 다시 시도·알린다.
+// (AI 판독 입력 파일이 아니라서 교정 검사 대상이 아니다 — 판독·대조 결과에 영향을 주지 않고 '사진을 받았는가'만 가른다.)
+export function imageFetchPermanent(status, url, ownStorageUrl) {
+  const own = ownStorageUrl && String(url).startsWith(String(ownStorageUrl))
+  return !own && [403, 404, 410].includes(Number(status))
+}
