@@ -149,7 +149,10 @@ try {
   await page.locator('.hme__map').scrollIntoViewIfNeeded()
   const actual=page.locator('.hme-map '+markerSelector).first()
   await actual.waitFor({timeout:60000})
-  await actual.click({force:true})
+  try{await actual.click({force:true,timeout:15000})}catch(e){
+   console.log('DIAG_961',JSON.stringify(await page.evaluate(t=>{const els=[...document.querySelectorAll('.hme-map [data-location-points]')];const r=el=>{const b=el.getBoundingClientRect();return [Math.round(b.x),Math.round(b.y),Math.round(b.width),Math.round(b.height)]};const m=document.querySelector('.hme__map').getBoundingClientRect();return {window:[innerWidth,innerHeight],map:[Math.round(m.x),Math.round(m.y),Math.round(m.width),Math.round(m.height)],target:t,count:els.length,markers:els.slice(0,12).map(el=>({pts:el.dataset.locationPoints.slice(0,50),rect:r(el)}))}},target)))
+   throw e
+  }
   const detail=page.locator('.hme-job__actions a').filter({hasText:'Xem chi tiết'})
   if(!await detail.count()) {
    const choice=page.locator('.hme-map__job-picker button').first()
