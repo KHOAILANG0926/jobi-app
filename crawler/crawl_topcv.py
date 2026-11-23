@@ -49,7 +49,7 @@ from job_quality import (
 from job_posting_policy import crawler_policy_errors
 from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 from ingest_gateway import ingest_job, retry_held_once
-from job_criteria import deadline_passed, today_vn
+from job_criteria import deadline_passed, has_enough_contact, today_vn
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -101,7 +101,7 @@ class VerifyWriteIsolationError(RuntimeError):
 def db_gate_has_contact(job: dict) -> bool:
     """DB 공개 차단 규칙(public.job_publish_gate_reason, migration 20261101190000)의 연락처 줄과 같은 기준:
     전화 또는 Zalo 숫자가 8자리 이상이면 연락처 있음. 검증 저장 대상 고르기에만 쓴다(공개 판정은 DB가 한다)."""
-    return any(len(re.sub(r"\D", "", str(job.get(k) or ""))) >= 8 for k in ("employer_phone", "contact_zalo"))
+    return has_enough_contact(job.get("employer_phone"), job.get("contact_zalo"))
 
 
 def _require_write_enabled() -> None:
@@ -2656,7 +2656,7 @@ async def discover_source_url(page, existing_row: dict) -> tuple[str | None, str
     candidates = await search_source_url_candidates(page, existing_row.get("title", ""))
     match = match_source_url_candidate(
         existing_row.get("title", ""), existing_row.get("company", ""),
-        existing_row.get("application_deadline"), candidates, date.today(),
+        existing_row.get("application_deadline"), candidates, date.fromisoformat(today_vn()),
     )
     if match["confidence"] in ("EXACT", "HIGH"):
         return match["url"], match["confidence"]
