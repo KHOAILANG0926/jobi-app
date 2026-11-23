@@ -13,6 +13,13 @@
 - 검증 [직접 확인]: 수정 전(3742c14 기준) 새 시험 20건 실패·오류 → 수정 후 통과. 운영 DB·수집·병합 없음. 실제 GitHub dryrun→save는 아직 실행·검증하지 않음.
 - 분리: 보류함 재판정·오류 줄 처리·`--retry-held`·workflow 변경·crawl-guard(2~4번 그룹)는 `claude/crawl-group2-4-preserved` Draft PR에 그대로 보존(유실 없음).
 
+## 2026-11-21 — VietMap 지도 스타일 사본 먼저(메인·상세·관리자), 배포 빌드 때 사본 갱신 (#950, #946 MAP-1)
+- 요청(Lee 11-21): style.json 멈춤은 실제 사용자 화면 문제 — 대기 시간을 더 늘리지 않고(같은 종류 두 번째), 약관 확인 뒤 사본을 우리 쪽에서 제공, 사본 없거나 실패할 때만 원본. 갱신은 기존 예약 작업에, 새 워크플로 없음. 검사 기준 그대로, deploy-verify 통과가 완료.
+- 약관 [직접 확인]: VietMap 개발 문서 map-api overview "You may implement caching or response filtering as appropriate."(베트남어판 같은 뜻). 금지 조항 못 찾음(사이트 '약관' 링크는 개인정보 정책뿐).
+- 변경: vietMapStyle.loadVietMapStyle(사본 4초 1번 → 실패·형식 오류면 원본, 기존 재시도 그대로)·stripStyleKey·withStyleKey 한 곳 — 메인·상세·관리자 처음 지도와 일반↔위성 교체 모두 사용. 사본 public/vietmap/styles/{tm,hm}.json(열쇠 값 비움 — 원본에서 열쇠는 타일 주소에만). scripts/ops/vietmap-style-copy.mjs를 vercel-deploy 빌드 직전에 실행(못 받으면 저장소 사본 그대로). map-summary-check는 사본 요청도 증거에 기록(판정 그대로).
+- 검증 [직접 확인]: 운영 deploy-verify 44886908964 실패 2번(상세 sb-5876 지도 실패 / 재실행은 메인 핀 화면 밖 — 여기서 재현하니 메인 style 5·6초 두 번 멈춤 → 예비 지도). 같은 순서 20번: 운영(옛 코드) 실패 7·원본 요청 멈춤 17 → 새 코드(로컬 빌드) 실패 0·사본 20·원본 0. tsc·npm test 124/124·build 통과.
+- 남은 것: PR 병합(Lee Approve) → 배포 → deploy-verify 통과로 #950 잠금 풀림 확인. 사본 갱신은 배포할 때만(배포가 없으면 갱신도 없음) — 타일 판 번호가 바뀌어도 옛 판이 계속 제공되는지는 미확인(hm은 2026-01 판 사용 중).
+
 ## 2026-11-21 — #808 S1~S8 마감: 독립 검토·4대 보고를 병합 조건에서 뺌, 병합 뒤 검사 2개 추가, PR 본문 형식 F12, MAP-1 지도 스타일 대기, ai-review 검사 삭제
 - 요청(Lee 11-21): 공고 자동 수집→검증→공개에 필요한 것만 끝내고 #808 닫기. 결정 1 대안 거절 뒤 "최신 상태 요구 안 씀", 결정 2 독립 검토 선택화(11-14 결정 7①·#807 게이트 (3) 변경), 3 MAP-1 원인만, 4 vieclam24h 1건, 5 기록.
 - 변경: approval-checks ai-review = neutral「필수 아님, 검토 안 함」·4대 보고 분기 삭제 / decision-approval-gate 4대 보고(highRiskReport 등) 삭제 / bot-pr-automerge 검토 대기·검토관 자동 호출 삭제, 병합 뒤 호출 목록에 ai-reader-calibration·job-ocr-check / merge-gate-ready.jq = approval-gate만 / check-pr-ready READY 줄 뒤 설명 허용·칸 경계 / vietMapStyle 상세·관리자 지도 스타일 대기 5·6초→15·20초(메인은 12초 예비지도 제한 안이라 5·6초 유지 — 검토관 지적 1, 시험으로 묶음) / map-summary-check 실패 증거 저장 / 안 쓰게 된 codexGate·needsSecondReview 삭제(검토관 지적 3) / BLOCKED·MERGED 줄도 같은 기준(지적 2) / CLAUDE.md·RULES_CORE.md·AGENTS.md·claude-auto 주석.
@@ -79,8 +86,3 @@
 - 실측 [직접 확인]: publish_one 44299906107 not_found → 업체 검색 비교 44300276494: Google "El Gaucho Hikari Bình Dương"(11.05904,106.68454) 찾음, 성 안=아니오. 원인: 주소에 시 이름(Thủ Dầu Một, 시 경계 자료 없음)과 새 성(TP.HCM)·옛 성(Bình Dương cũ)이 같이 있어 성을 못 정함.
 - 변경: withinOriginalProvince만 — 시 단계가 모름이면 글에 적힌 원래 성 1곳(여럿이면 "cũ" 표시 1곳)으로 성 경계 검사. 시 대표점·핀 규칙 그대로.
 - 검증 [직접 확인 로컬]: npm test 123/123(administrativeArea 사례 5개 추가), tsc.
-
-## 2026-11-18 — vieclam24h 규칙 거부 로그에 이유 표시 (Lee 18:37 "그냥 공개해")
-- 실측 [직접 확인]: publish_one 실행 44296448509 — El Gaucho 공고 location_precheck_failed, 로그에 이유가 없어 원인 확인 불가.
-- 변경: crawl_topcv 규칙 거부 줄에 이유(회사 이름·판정) — Facebook 수집기와 같은 형식. 판정은 그대로.
-- 남은 문제: 이유 확인 → 위치 확인 → publish_one 다시 → 운영 상세 PC·모바일.
