@@ -138,8 +138,12 @@ const CODE_EXT = /\.(?:[cm]?[jt]sx?|py|sql|sh|ya?ml)$/
 // 검토 지적 2회: 운영에서 실행·배포되는 폴더(api/ = Vercel 함수, crawler/ = 수집기, supabase/tests/*_production_check.sql = 운영 DB 실행)는 파일 이름·하위 폴더(tests/·*.test.*)와 상관없이 항상 내용 검사.
 // 시험·fixture 제외는 그 밖 경로에서만 적용한다.
 const DEPLOYED = (path) => /^(?:api|crawler)\//.test(path)
-const CONTENT_SCAN = (path) => CODE_EXT.test(path) && !/^docs\//.test(path) && (DEPLOYED(path) || (/^supabase\/tests\//.test(path) ? !/\.(?:local|setup)\.sql$/.test(path)
-  : !/(^|\/)[^/]+\.test\.[cm]?[jt]sx?$|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.py$|\.fixtures?\.[^/]+$|(^|\/)(?:tests?|fixtures?)\/|^test-fixtures\//.test(path)))
+// 시험 파일(*.test.*·test_*.py·tests/·fixtures)의 exec·KEY·fetch 같은 단순 문자열은 수동 승인 사유가 아니다(Lee 2026-11-23). 시험 약화는 ⑤(삭제·이름 바꿈)가 따로 본다.
+// 예외 둘: ① supabase/tests/*_production_check.sql은 시험이 아니라 운영 DB에서 실행되는 파일 ② Vercel이 함수로 배포하는 api/ 아래 파일(밑줄로 시작하는 파일·폴더 제외)은 이름이 .test.여도 실제 배포 코드다 — 둘은 계속 검사한다.
+const TEST_FILE = (path) => /(^|\/)[^/]+\.test\.[cm]?[jt]sx?$|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.py$|\.fixtures?\.[^/]+$|(^|\/)(?:tests?|fixtures?)\/|^test-fixtures\//.test(path)
+const DEPLOYED_FUNCTION = (path) => /^api\/(?:[^/_][^/]*\/)*[^/_][^/]*$/.test(path)
+const CONTENT_SCAN = (path) => CODE_EXT.test(path) && !/^docs\//.test(path)
+  && (/^supabase\/tests\/[^/]*_production_check\.sql$/.test(path) || DEPLOYED_FUNCTION(path) || !TEST_FILE(path))
 export const CONTENT_SIGNALS = [
   ['DB 권한·보안 설정', /\b(?:create|alter|drop)\s+(?:or\s+replace\s+)?(?:policy|role|user|extension)\b|row\s+level\s+security|\b(?:grant|revoke)\s+\w|security\s+definer|\bauth\.(?:users|uid\(|jwt\(|role\()|\bset\s+role\b|pgsodium|vault\./i],
   ['인증·비밀값', /service_role|SERVICE_ROLE|\bauth\.admin\b|\.auth\.admin\b|verify_jwt|jsonwebtoken|\bjwt\.(?:sign|verify)\b|\bAuthorization\b\s*[:=]|\bBearer\s+\$|process\.env\.[A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD)\b|os\.environ(?:\.get)?\W+["'][A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD)\b|secrets\.[A-Z_]+|-----BEGIN [A-Z ]*PRIVATE KEY|timingSafeEqual|createHmac|signInWith|resetPasswordForEmail/],
@@ -249,14 +253,74 @@ export function workflowSafeChange(f) {
   })
 }
 
+// ⑪ 일반 워크플로 수정(Lee 2026-11-23 최종 지시): 권한·비밀값·실행 경계를 바꾸지 않는 워크플로 수정은 자동 병합한다.
+//    경계 = on(실행 트리거) · permissions · environment · runs-on · uses(외부 액션) · secrets.* 사용. 기준·head 전체 내용에서 이 경계 표시가 같아야 한다(AST·호출 그래프 없음, 줄 단위 추출).
+//    고권한 = 파일 이름이 아니라 실제 설정: environment: 가 있거나 permissions에 write가 있거나 GITHUB_TOKEN 아닌 secrets를 쓰거나 self-hosted. 고권한 워크플로는 실행 명령·대상·인자 변경(안전 줄 밖)이 모두 Lee 승인.
+//    바뀐 줄에 바깥 입력(github.event·head_ref·inputs·actor)을 쓰는 식이 있으면 명령 삽입 위험이라 승인. 내용을 받지 못하면 판단 불가 → 자동 재확인(아래 retry).
+const stripComments = (t) => String(t ?? '').split('\n').filter((l) => !/^\s*#/.test(l)).join('\n')
+export function workflowPrivileged(text) {
+  const t = stripComments(text)
+  return /^\s*environment\s*:/m.test(t) || /^\s*permissions\s*:\s*write-all\b/m.test(t) || /^\s*[A-Za-z-]+\s*:\s*write\b/m.test(t)
+    || /\bsecrets\.(?!GITHUB_TOKEN\b)[A-Za-z0-9_]+/.test(t) || /\bsecrets\s*:\s*inherit\b/.test(t) || /self-hosted/.test(t)
+}
+function indentOf(l) { return l.length - l.trimStart().length }
+function blocksOf(text, keyRe) {
+  const lines = stripComments(text).split('\n'), out = []
+  for (let i = 0; i < lines.length; i++) {
+    if (!keyRe.test(lines[i])) continue
+    const base = indentOf(lines[i]), block = [lines[i].trim()]
+    for (let j = i + 1; j < lines.length && (lines[j].trim() === '' || indentOf(lines[j]) > base); j++) if (lines[j].trim() !== '') block.push(lines[j].trim())
+    out.push(block.join('\n'))
+  }
+  return out
+}
+export function workflowBoundary(text) {
+  const t = stripComments(text)
+  const lineList = (re) => t.split('\n').filter((l) => re.test(l)).map((l) => l.trim().replace(/\s+#.*$/, ''))
+  return JSON.stringify([
+    blocksOf(text, /^(?:on|"on")\s*:/), blocksOf(text, /^\s*permissions\s*:/),
+    lineList(/^\s*(?:-\s+)?(?:environment|runs-on|uses)\s*:/), [...t.matchAll(/\bsecrets\.[A-Za-z0-9_]+|\bsecrets\s*:\s*inherit\b/g)].map((m) => m[0]).sort(),
+  ])
+}
+// 필수 검사 구성: 이 이름의 검사(잡 id·잡 name)를 정의하는 워크플로는 이름과 상관없이 실제 정의로 판정한다(병합 조건·승인 게이트 구성 — 바꾸면 Lee 승인).
+export const REQUIRED_CHECK_NAMES = ['checks', 'app-screen', 'guard', 'publication-gate', 'migration-postgres', 'approval-gate', 'browser', 'crawl-install', 'sync', 'token-drill', 'publish-checks']
+export function workflowDefinesRequiredCheck(text) {
+  const names = new Set()
+  for (const l of stripComments(text).split('\n')) {
+    const id = l.match(/^ {2}([A-Za-z0-9_-]+):\s*$/), nm = l.match(/^ {4}name:\s*['"]?([^'"#]+?)['"]?\s*(?:#.*)?$/)
+    if (id) names.add(id[1]); if (nm) names.add(nm[1].trim())
+  }
+  return REQUIRED_CHECK_NAMES.some((n) => names.has(n))
+}
+// 내용을 받지 못해도 바뀐 줄 자체가 경계(트리거·권한·환경·실행기·외부 액션·비밀값·실행 조건)를 건드리면 조회 실패가 아니라 바로 승인 대상이다.
+const BOUNDARY_LINE = /^\s*(?:-\s+)?(?:on|"on"|permissions|environment|runs-on|uses|secrets|schedule|cron|workflow_dispatch|workflow_run|workflow_call|pull_request(?:_target)?|push|branches|types|if|id-token|contents|actions|checks|statuses|packages|issues|pull-requests|deployments)\s*:|\bsecrets\.|\bsecrets\s*:\s*inherit/
+const UNTRUSTED_EXPR = /\$\{\{[^}]*\b(?:github\.event|github\.head_ref|github\.actor|inputs)\b/
+// 결과: 'safe' | 'manual' | 'unknown'(내용을 받지 못함). f는 PR 파일 항목, wf는 {base, head} 전체 내용.
+export function workflowGeneralChange(f, wf) {
+  const name = f?.filename ?? ''
+  if (!/^\.github\/workflows\/[^/]+\.ya?ml$/.test(name) || f.status !== 'modified' || f.previous_filename || STATUS_WORKFLOW_PATH.test(name)) return 'manual'
+  if (typeof f.patch !== 'string') return 'unknown'
+  const changed = f.patch.split('\n').filter((l) => /^[+-]/.test(l) && !/^(?:\+\+\+|---)/.test(l)).map((l) => l.slice(1))
+  if (!changed.length) return 'manual'
+  if (changed.some((l) => UNTRUSTED_EXPR.test(l) || BOUNDARY_LINE.test(l))) return 'manual'
+  if (typeof wf?.base !== 'string' || typeof wf?.head !== 'string') return 'unknown'
+  if (workflowBoundary(wf.base) !== workflowBoundary(wf.head)) return 'manual'
+  if (workflowPrivileged(wf.base) || workflowPrivileged(wf.head)) return 'manual'
+  if (workflowDefinesRequiredCheck(wf.base) || workflowDefinesRequiredCheck(wf.head)) return 'manual'
+  return 'safe'
+}
+
 export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {}, author, body = '', repo = '' }) {
+  const wfContents = depFiles?.workflows ?? {}
   // 이름이 바뀐 파일은 새 경로와 옛 경로(previous_filename) 둘 다 판정한다(검토 지적: 워크플로·검사 스크립트·CODEOWNERS·결정 문서·화면 틀 파일을 일반 경로로 옮겨 우회 불가)
   const names = [...new Set(files.flatMap((f) => [f.filename ?? f, f.previous_filename].filter(Boolean)))]
   const decision = names.filter(PROTECTED)
   const frame = names.filter((f) => !PROTECTED(f) && frameApproved(f, framePaths))
   // status-*.yml(STATUS 검증 장치)은 '안전 줄' 예외(⑨)를 적용하지 않는다 — 주석·공백만 바꿔도 대표 승인 대상(정책 검사가 승인 대기를 더는 보지 않으므로 여기가 유일한 승인 판정, S1 독립 검토 지적).
-  const safeWf = new Set(files.filter((f) => typeof f === 'object' && !STATUS_WORKFLOW_PATH.test(f.filename) && workflowSafeChange(f)).map((f) => f.filename))
-  const gate = names.filter((f) => !PROTECTED(f) && GATE_CODE(f) && !safeWf.has(f))
+  const generalWf = new Map(files.filter((f) => typeof f === 'object' && !STATUS_WORKFLOW_PATH.test(f.filename) && !STRICT_PATHS.some((re) => re.test(f.filename)) && !workflowSafeChange(f) && /^\.github\/workflows\//.test(f.filename)).map((f) => [f.filename, workflowGeneralChange(f, wfContents[f.filename])]))
+  const safeWf = new Set([...files.filter((f) => typeof f === 'object' && !STATUS_WORKFLOW_PATH.test(f.filename) && workflowSafeChange(f)).map((f) => f.filename), ...[...generalWf].filter(([, v]) => v === 'safe').map(([k]) => k)])
+  const wfUnknown = [...generalWf].filter(([, v]) => v === 'unknown').map(([k]) => `${k}: 워크플로 내용을 받지 못함(판단 불가)`)
+  const gate = names.filter((f) => !PROTECTED(f) && GATE_CODE(f) && !safeWf.has(f) && generalWf.get(f) !== 'unknown')
   const strict = names.filter((f) => !PROTECTED(f) && STRICT_PATHS.some((re) => re.test(f)))  // 새 경로·옛 경로(이름 바꿈) 모두. 워크플로 안전 줄(safeWf)이어도 deploy*는 STRICT
   const unknown = names.filter((f) => !PROTECTED(f) && !frameApproved(f, framePaths) && !GATE_CODE(f) && !NORMAL_PATH(f))
   const labeled = labels.includes(NEEDS_LEE_LABEL)
@@ -264,13 +328,18 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
   // 경로만으로 이미 고위험인 파일(결정 문서·화면 틀·검사 장치)은 내용 검사를 겹치지 않는다
   const content = contentRisks(files.filter((f) => { const n = f.filename ?? f; return !PROTECTED(n) && !frameApproved(n, framePaths) && (!GATE_CODE(n) || safeWf.has(n)) && !STRICT_PATHS.some((re) => re.test(n)) }))
   const unreadable = content.filter((c) => c.endsWith('(판단 불가)')), realContent = content.filter((c) => !c.endsWith('(판단 불가)'))
-  // 변경 파일 목록이 비어 있으면 분석이 실패한 것이다(PR은 항상 파일을 바꾼다) — 닫힌 실패
+  const depUnread = depRisk.filter((c) => c.endsWith('(판단 불가)')), depReal = depRisk.filter((c) => !c.endsWith('(판단 불가)'))
+  // 정보 조회 실패(Lee 2026-11-23): 변경 내용·파일 목록·워크플로/의존성 내용을 받지 못한 것은 위험 판정이 아니라 조회 오류다 — 대표 승인을 요청하지 않고 자동 재확인·병합 보류로 처리한다.
+  // 다른 승인 사유가 이미 있으면 그대로 대표 승인(조회 실패는 따로 표시만).
   const empty = files.length === 0
-  const touched = [...decision, ...frame, ...gate, ...strict, ...depRisk, ...content, ...unknown, ...(empty ? ['(변경 파일 목록 비어 있음)'] : [])]
+  const lookup = [...unreadable, ...depUnread, ...wfUnknown, ...(empty ? ['(변경 파일 목록 비어 있음)'] : [])]
+  const manualTouched = [...decision, ...frame, ...gate, ...strict, ...depReal, ...realContent, ...unknown]
+  const touched = [...manualTouched, ...lookup]
   if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [], risk: 'normal' }
   const ok = leeApprovedAt(reviews, sha, author)
-  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(strict.length ? ['STRICT 보안 경로(인증·권한·결제·계정·저장소·Edge 함수·배포)'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(realContent.length ? ['변경 내용 위험(DB 권한·인증·실행·외부 주소)'] : []), ...(unknown.length || empty || unreadable.length ? ['위험도 판단 불가'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
-  return { required: true, approved: ok, touched, reasons, changed: names, leeApproved: leeApprovedAt(reviews, sha, author), risk: decision.length || frame.length || gate.length || strict.length || depRisk.length || realContent.length || labeled ? 'high' : 'unknown' }
+  if (!manualTouched.length && !labeled) return { required: true, approved: ok, retry: !ok, touched, reasons: ['정보 조회 실패(자동 재확인)'], changed: names, leeApproved: ok, risk: 'unknown' }
+  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(strict.length ? ['STRICT 보안 경로(인증·권한·결제·계정·저장소·Edge 함수·배포)'] : []), ...(depReal.length ? ['의존성·검증 약화'] : []), ...(realContent.length ? ['변경 내용 위험(DB 권한·인증·실행·외부 주소)'] : []), ...(unknown.length ? ['위험도 판단 불가'] : []), ...(lookup.length ? ['정보 조회 실패(자동 재확인)'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
+  return { required: true, approved: ok, touched, reasons, changed: names, leeApproved: leeApprovedAt(reviews, sha, author), risk: decision.length || frame.length || gate.length || strict.length || depReal.length || realContent.length || labeled ? 'high' : 'unknown' }
 }
 
 export const REQUEST_MARKER = '<!-- decision-approval-request -->'
@@ -306,6 +375,7 @@ if (process.argv[1]?.endsWith('decision-approval-gate.mjs')) {
   let body = ''
   try { if (process.argv[9]) body = readFileSync(process.argv[9], 'utf8') } catch { body = '' }
   const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles, author, body, repo: process.argv[10] ?? '' })
+  if (r.retry) { console.log('정보 조회 실패 — 자동 재확인(대표 승인 요청 아님): ' + r.touched.slice(0, 5).join(', ')); process.exit(4) }
   if (!r.approved) console.log(requestText(sha, r.touched, r.reasons, r.changed))
   process.exit(r.approved ? 0 : 3)
 }

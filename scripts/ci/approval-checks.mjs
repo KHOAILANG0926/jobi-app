@@ -86,6 +86,7 @@ export function verdicts({ files, reviews, reviewComments, comments, labels, dep
       ? { state: 'success', summary: `${lock} — 일반 PR 자동 병합 잠금 중, Lee 승인(최신 커밋)이 있어 통과(복구 PR)` }
       : { state: 'blocked', summary: `${lock} — 일반 PR 자동 병합 잠금(S6). 풀림: 그 커밋을 포함한 master에서 deploy-verify 성공(재실행 포함)·이슈 닫기, 또는 이 PR에 Lee Approve(이 커밋)` }
     else if (!r.required) approval = { state: 'success', summary: '일반 PR(위험도 normal): Lee 승인 불필요' }
+    else if (r.retry) approval = { state: 'pending', summary: `정보 조회 실패(${r.touched.slice(0, 3).join(', ')}) — 자동 재확인 중, Lee 승인 요청 아님` }
     else if (r.approved) approval = { state: 'success', summary: `${r.risk === 'unknown' ? '위험도 판단 불가' : '고위험'}(${r.reasons.join('·')}): Lee 승인(최신 커밋) 확인` }
     else approval = { state: 'blocked', summary: `${r.reasons.join('·')} 대상 — Lee의 공식 Approve(이 커밋) 대기` }
   } catch (e) { approval = { state: 'failure', summary: `위험도 판정 오류(닫힌 실패): ${String(e.message).slice(0, 120)}` } }
@@ -119,6 +120,18 @@ async function collect(token, repo, num, framePaths, locks = []) {
       const raw = (p, ref) => ghFetch(token, `repos/${repo}/contents/${p}?ref=${ref}`, 'application/vnd.github.raw').then(JSON.parse)
       deps = { basePkg: await raw('package.json', pr.base.sha), headPkg: await raw('package.json', sha), baseLock: await raw('package-lock.json', pr.base.sha), headLock: await raw('package-lock.json', sha) }
     } catch { deps = {} }  // 못 받으면 빈 값 → 판정기가 '판단 불가'(닫힌 실패)
+  }
+  // 일반 워크플로 수정 판정(Lee 2026-11-23): 바뀐 워크플로(수정만)의 기준·head 전체 내용을 같이 넘긴다 — 환경·권한·비밀값·트리거 경계가 실제로 바뀌었는지 판정기가 본다. 못 받은 파일은 빠뜨려 판정기가 '조회 실패(자동 재확인)'로 본다.
+  const wfFiles = files.filter((f) => f.status === 'modified' && /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f.filename))
+  if (wfFiles.length) {
+    const workflows = {}
+    for (const f of wfFiles) {
+      try {
+        const rawText = (ref) => ghFetch(token, `repos/${repo}/contents/${f.filename}?ref=${ref}`, 'application/vnd.github.raw')
+        workflows[f.filename] = { base: await rawText(pr.base.sha), head: await rawText(sha) }
+      } catch { /* 못 받으면 빠뜨림 → 재확인 */ }
+    }
+    deps = { ...deps, workflows }
   }
   return { pr, input: { files, reviews, reviewComments, comments, labels, deps, sha, headDate: commit.commit.committer.date, body: pr.body ?? '', author: pr.user?.login ?? '', repo, framePaths, locks } }
 }

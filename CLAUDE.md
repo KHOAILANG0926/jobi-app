@@ -31,6 +31,13 @@
 - 「기존 확정 규정 보호」도 그대로다: 작업 중 기존 확정 규정을 바꾸거나 줄여야 하는 일이 생기면 작업 지시에 그 변경이 명시된 경우가 아닌 한 그 부분은 하지 않고 PR 본문에 사유·변경안만 적는다.
 - 검증하지 못한 항목은 완료라고 쓰지 않고 PR 본문에 미완료로 적는다(「보고 검증 규정」).
 
+## 승인 대상 판정 — 자동 병합과 수동 Approve 구분 (Lee 2026-11-23 최종 지시)
+- 구현은 `scripts/decision-approval-gate.mjs` 한 곳이다(approval-gate 검사·봇 병합이 같은 판정기를 씀). 새 검사 체계·AST 분석·호출 그래프 추적은 만들지 않는다.
+- **수동 Approve 유지**: 결정 문서·CODEOWNERS / `AGENTS.md`·`CLAUDE.md`·`.claude/RULES_CORE.md` 전체 / 승인·병합 게이트와 필수 검사 구성(필수 검사 이름의 잡을 정의하는 워크플로 포함) / 워크플로의 권한·비밀값·실행 트리거(on)·실행기·외부 액션 변경 / 고권한 워크플로(실제 설정 기준: `environment:`·permissions의 write·GITHUB_TOKEN 아닌 secrets·self-hosted)의 실행 명령·대상·인자 변경 / DB 구조·인증·RLS·권한·`supabase/functions/`·운영 배포 핵심 경로 / 승인된 PC 화면 틀. STATUS 직접 수정 금지와 파괴적 migration 차단도 그대로.
+- **자동 병합**: 일반 크롤러·수집·예약 작업 변경, 일반 기능·버그 수정·보조 스크립트, 위 경계를 바꾸지 않는 일반 워크플로 수정(고권한 여부는 파일 이름이 아니라 실제 environment·token·permissions 설정으로 판정), 일반 테스트 추가·수정. 시험 파일 안의 `exec`·`KEY`·`fetch` 같은 단순 문자열은 수동 승인 사유가 아니다(시험 삭제·이름 바꿈 같은 검증 약화 차단은 그대로, `supabase/tests/*_production_check.sql`과 Vercel이 함수로 배포하는 `api/` 파일은 시험 이름이어도 계속 검사).
+- 정보 조회 실패(변경 내용·워크플로 내용·파일 목록을 받지 못함)는 위험 판정이 아니다 — 대표 승인을 요청하지 않고 병합만 보류하며 자동 재확인한다(판정기 exit 4·approval-gate pending). 다른 승인 사유가 이미 있으면 그대로 대표 승인이다.
+- 규칙을 바꿀 때는 문서와 구현을 같은 PR에 묶어 Approve 1회로 처리한다.
+
 ## 운영 DB 직접 접근 금지 — Lee 2026-10-27 재확인 (10-13 결정)
 - Codex는 Supabase 도구 등으로 운영 DB에 직접 연결해 SQL을 실행하거나 조회하지 않는다. 앞으로도 같은 경로를 사용하지 않는다.
 - 운영 DB 변경은 `supabase/migrations/` 파일과 `supabase/tests/*_production_check.sql`을 같은 PR로 제출하고 필수 검사→봇 병합→`migrations-apply.yml` 자동 적용으로만 진행한다.

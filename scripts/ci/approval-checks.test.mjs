@@ -15,7 +15,7 @@ assert.equal(CHECK_APPROVAL, 'approval-gate'); assert.ok(!('CHECK_REVIEW' in che
 // ① 일반 PR: 승인 불필요 → approval-gate success. 판정 결과에 ai-review는 없다(11-21 지움)
 { const r = v({}); assert.equal('review' in r, false, 'ai-review 판정 없음'); assert.equal(r.approval.state, 'success'); assert.match(r.approval.summary, /Lee 승인 불필요/) }
 // ② 고위험(검사 장치 변경): 승인·보고 전 차단 → 보고만 있으면 Lee 대기 → Lee Approve 뒤 통과
-{ const files = [f('.github/workflows/x.yml')]
+{ const files = [f('scripts/ci/x.mjs')]
   assert.equal(v({ files }).approval.state, 'blocked', '본문 보고 없어도 Lee 승인 없음 → 대기(action_required) — 4대 보고 강제 폐지(11-21)'); assert.doesNotMatch(v({ files }).approval.summary, /4대 보고/)
   assert.equal(v({ files, body }).approval.state, 'blocked', 'Lee 승인 없음 → 대기(action_required)')
   assert.equal(v({ files, body, reviews: leeOk }).approval.state, 'success', 'Lee Approve → 통과')
@@ -24,8 +24,10 @@ assert.equal(CHECK_APPROVAL, 'approval-gate'); assert.ok(!('CHECK_REVIEW' in che
   assert.equal(v({ files, body, reviews: [{ ...leeOk[0], user: { login: 'claude[bot]' } }] }).approval.state, 'blocked', '봇 Approve → 대기') }
 // 판단 불가(새 최상위 폴더·patch 없음·파일 목록 비어 있음) = 고위험 취급
 assert.equal(v({ files: [f('newdir/x.js')], body }).approval.state, 'blocked', '모르는 경로 → 대기')
-assert.equal(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body }).approval.state, 'blocked', '코드 patch 없음 → 대기')
-assert.equal(v({ files: [] }).approval.state, 'blocked', '파일 목록 비어 있음 → 판단 불가 → Lee 승인 대기(닫힌 실패)')
+// 정보 조회 실패(Lee 2026-11-23): patch 없음·파일 목록 비어 있음은 위험 판정이 아니라 조회 오류 → pending(자동 재확인), 대표 승인 요청(blocked)이 아니다. 성공으로 넘어가지도 않는다(닫힌 실패)
+assert.equal(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body }).approval.state, 'pending', '코드 patch 없음 → 자동 재확인')
+assert.match(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body }).approval.summary, /자동 재확인.*Lee 승인 요청 아님/)
+assert.equal(v({ files: [] }).approval.state, 'pending', '파일 목록 비어 있음 → 조회 실패 → 자동 재확인(닫힌 실패)')
 // 분석 오류도 닫힌 실패: 입력이 깨져도 success가 되지 않는다
 assert.notEqual(verdicts({ files: null, reviews: [], reviewComments: [], comments: [], labels: [], sha, headDate, body, author: 'x', repo, framePaths }).approval?.state, 'success')
 // 워크플로가 PR 코드를 받거나 실행하지 않음, 필요한 권한만
