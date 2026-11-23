@@ -164,16 +164,16 @@ if(baseUrl==='--self-test') {
  const row=(id,kind='exact')=>({id,lat:21.1+id/10000,lng:106.1,point_kind:kind,point_precision:kind==='exact'?'building':'commune',point_revision:2})
  const one=locationGroundTruth([row(1)]),multi=locationGroundTruth([row(1),row(2,'area')]),zero=locationGroundTruth([])
  const base={addrItems:['Source address'],singleAddr:null,note:'',markerCount:1,actualPoints:one.points,mapUnavailable:false,unknownMsg:null,mapContainerCount:1,directionsCount:0,gmapsLinkCount:0,viewOnMapCount:0}
- const area={...base,areaState:true,areaNotes:'Khu vực — chưa xác minh',visibleAddresses:['Source address','Second site'],markerCount:2,actualPoints:multi.points}
+ const area={...base,areaState:true,areaNotes:'Khu vực — chưa xác minh',visibleAddresses:['Source address','Second site'],markerCount:1,actualPoints:multi.points}
  const cases=[
   ['one canonical point',base,one,true],
   ['canonical zero unknown',{...base,addrItems:[],unknownMsg:'unknown',markerCount:0,actualPoints:[],mapContainerCount:0},zero,true],
   ['multiple approximate/exact sites',area,multi,true],
-  ['keyless planned only',{...area,mapUnavailable:true,plannedMarkerCount:2,plannedPoints:multi.points,markerCount:0,actualPoints:[]},multi,true],
-  ['keyless wrong planned count',{...area,mapUnavailable:true,plannedMarkerCount:1,markerCount:0,actualPoints:[]},multi,false],
+  ['keyless planned only',{...area,mapUnavailable:true,plannedMarkerCount:1,plannedPoints:multi.points,markerCount:0,actualPoints:[]},multi,true],
+  ['keyless wrong planned count',{...area,mapUnavailable:true,plannedMarkerCount:2,markerCount:0,actualPoints:[]},multi,false],
   ['legacy/candidate overlay cannot create point',base,zero,false],
   ['old revision overlay',{...base,actualPoints:[{...one.points[0],revision:1}]},one,false],
-  ['missing second source site',{...area,markerCount:1,actualPoints:one.points},multi,false],
+  ['approximate (area) row drawn as a pin',{...area,markerCount:2,actualPoints:[...one.points,{workLocationId:2,lat:21.1002,lng:106.1,kind:'area',precision:'commune',revision:2}]},multi,false],
   ['approximate without warning',{...area,areaNotes:''},multi,false],
   ['approximate falsely verified',{...area,note:'verified',markerCount:1,actualPoints:sourcePoints([row(2,'area')])},locationGroundTruth([row(2,'area')]),false],
   ['unknown map contradicts source',{...base,addrItems:[],unknownMsg:'unknown'},one,false],
