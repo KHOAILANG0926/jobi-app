@@ -3,7 +3,7 @@
 - 수정 전 실패 [직접 확인]: ① 옛 resolver는 Google이 찾아도 VietMap으로 다시 번지 확인하고 못 하면 대략(area) 위치로 낮춤(시험 'Google place adopted as confirmed exact' 실패, source=VietMap) ② 같은 글의 새 지점 find_existing이 첫 지점 공고를 돌려줌(1) ③ 같은 회사·일·공단 형제 지점 공고 중복 판정 `duplicate:1:same_company_job_location`(꺼짐) ④ 수집 입구는 지점 2곳을 공고 1개+근무지 2줄로 등록.
 - 변경: autoLocationResolver(Google 채택·VietMap·Goong 순, 번지 재확인 단계 삭제) · locationPrecheck(area 회사 장소 분기 삭제) · jobCoords.resolveMapLocations(확정 좌표 exact+확인·gate만 → 핀·거리검색 한 곳) · ingest_gateway(지점마다 ingest_job 1회, branch_location) · migration 20261124000000_branch_job_identity(ingest_job 해시·find_existing에 지점 위치, verdict 같은 글 형제 면제) · 시험 갱신.
 - 검증: tsc · npm test 125/125 · build · 크롤러 파이썬 시험 · branch_job_identity.pglite(운영 함수 본문에 줄 바꾸기 적용) · 로컬 PostgreSQL 16에서 CI와 같은 순서(fixture→setup→migration→local→production_check) 통과.
-- 미완료(이 PR 범위 밖/미검증): TopCV·vieclam24h 지점 분리(crawl_topcv.py 근무지 N행·제목+회사 매칭) · Facebook refresh가 새 지점을 같은 공고에 덧붙임(refresh_facebook_existing.py) · 재수집 지점 누락 판정 · 관리자 위치 확정 대기열(#985·#986 보류) · 기존 다중 근무지 공고 전환(dry-run·승인 필요) · 운영에서 ingest_job 전체 실행·기존 area 핀이 사라지는 건수는 운영 DB 조회 불가라 미확인.
+- TopCV·vieclam24h 지점 분리·Facebook refresh 형제 지점 분리·재수집 지점 누락 비종료는 구현+단위 시험(test_job_error_isolation·test_pin_guard). 미완료(범위 밖/미검증): 관리자 위치 확정 대기열(#985·#986 보류) · 기존 다중 근무지 공고 전환(dry-run·승인 필요) · 운영에서 ingest_job 전체 실행·기존 area 핀이 사라지는 건수는 운영 DB 조회 불가라 미확인.
 
 ## 2026-11-22 — JOBI 1-B(Lee 승인): 마감·연락처·필수 항목 기준 불일치 해소 — 코드·시험 Draft PR + DB cron Draft PR (병합·운영 DB 없음)
 - 실제 실패 [직접 확인, 1-A 측정]: ① 마감 당일을 크롤러는 만료·Facebook은 기한 버림(→상시 공고로 등록), 화면·알림은 열림, 공개 판정 기본 날짜는 UTC ② 연락처: DB 8자리인데 Facebook·job_quality·화면은 값이 있기만 하면 통과(`0912345`·`abc`·`---`도) ③ 필수 9개 목록이 점검 코드·작성 화면·문서에 따로 있음(점검기는 독립성 규칙상 공유 불가 → 일치 시험으로 고정). 정책 평가기 3벌은 4,057건 불일치 0(F1).

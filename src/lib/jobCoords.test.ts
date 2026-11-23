@@ -65,3 +65,16 @@ equal(resolveMapLocations({ rawLocation: 'Bắc Ninh', workLocations: [{ id: 2, 
   equal(resolveDistanceSearchPoints({workLocations:withConfirmed}).map(p=>[p.lat,p.lng,p.precise]), [[21.1,105.9,true]], 'only the confirmed workplace is used for distance')
   equal(resolveMapLocations({workLocations:approx}).source, 'pending', 'job with only approximate points has no map pin (pending)')
 }
+
+// 확정 좌표 출처별 핀(Lee 2026-11-23 「위치 확인 우선순위」): Google·VietMap·Goong이 채택한 exact+verified 좌표는 핀, 대략(area)은 제외하되 행·주소는 그대로 보존
+const providerRows = [
+  {id:21,raw_address:'Google site',lat:21.1,lng:105.9,point_kind:'exact',location_verified:true,point_precision:'site',point_revision:1,point_evidence:{source:'Google g1 (company)',checkedAt:'2026-11-23'}},
+  {id:22,raw_address:'VietMap site',lat:21.2,lng:106.0,point_kind:'exact',location_verified:true,point_precision:'site',point_revision:1,point_evidence:{source:'VietMap v1 (address)',checkedAt:'2026-11-23'}},
+  {id:23,raw_address:'Goong site',lat:21.3,lng:106.1,point_kind:'exact',location_verified:true,point_precision:'site',point_revision:1,point_evidence:{source:'Goong g2 (company)',checkedAt:'2026-11-23'}},
+  {id:24,raw_address:'Ward center',lat:21.4,lng:106.2,point_kind:'area',location_verified:false,point_precision:'ward',point_revision:1,point_evidence:{source:'ward centroid',checkedAt:'2026-11-23'}},
+]
+const providerLocs = providerRows.map(rowToWorkLocation)
+const providerJob = {id:'provider',company:'P',rawLocation:'Bắc Ninh',workLocations:providerLocs} as Job
+equal(resolveMapLocations(providerJob).points.map(p => p.workLocationId), [21,22,23], 'Google·VietMap·Goong confirmed points are pins; the ward-center area row is not')
+equal(resolveDistanceSearchPoints(providerJob).map(p => p.lat), [21.1,21.2,21.3], 'distance search uses the same confirmed set')
+equal(providerLocs.map(l => l.rawAddress ?? (l as any).raw_address ?? null).length, 4, 'area row stays on the job (data preserved, only the pin is withheld)')

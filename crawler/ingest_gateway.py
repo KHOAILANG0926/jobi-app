@@ -482,7 +482,7 @@ def branch_stores(verdict: dict, checked_location: str) -> list[str]:
     return stores if len(stores) > 1 and stores[0] == checked_location else []
 
 
-def _ingest_branches(client, job: dict, stores: list[str]) -> int:
+def ingest_branches(client, job: dict, stores: list[str]) -> int:
     """지점별 독립 공고(Lee 2026-11-23 확정 「지점별 독립 공고」): 한 원문의 지점 A·B·C → 정식 입구(ingest_job)를 지점마다 한 번씩 불러 공고 3개.
     입구가 (원문 + 지점 위치 식별자 `branch_location`)의 쌍으로 같은 공고를 판정하므로 형제 지점은 서로 중복·갱신 대상이 아니다.
     각 공고의 근무지 줄은 그 지점 하나뿐이다. 첫 지점의 공고 번호를 돌려준다."""
@@ -499,7 +499,7 @@ def _ingest_new(client, job: dict, work_location_rows: list[dict] | None = None)
     verdict = require_location(job)
     stores = branch_stores(verdict, str(job.get("location") or ""))
     if stores and not _work_addresses(job):
-        return _ingest_branches(client, job, stores)
+        return ingest_branches(client, job, stores)
     # 근무지 줄을 등록 입구가 같은 트랜잭션에서 쓰게 한다(입구의 replace_job_work_locations — 위치 쓰기 함수 한 곳).
     # 등록 뒤에 따로 다시 쓰면 위치 확인 서버가 찾는 동안 근무지가 바뀌어 그 결과를 버린다(map_r1_complete의 snapshot 대조,
     # #916 #6255 El Gaucho). 위치 확인이 매장 여러 곳 줄을 정했으면(stores) 그쪽이 먼저다.

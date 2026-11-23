@@ -9,7 +9,7 @@ import re
 import unicodedata
 from crawl_facebook import is_facebook_row, parse_post, supabase
 import ingest_gateway
-from pin_guard import merge_store_rows
+from pin_guard import merge_store_rows, other_stores
 from ingest_gateway import ingest_job
 
 # 급여는 다시 수집이 쓰지 않는다(2026-11-01 Lee "읽는 규칙을 하나로" — src/lib/salaryReader.ts 한 곳).
@@ -61,7 +61,7 @@ def refresh_existing(job_id: int):
     # 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 새 공고와 같은 위치 확인으로 '찾은 매장'을 더한다(못 찾은 매장은 안 넣음, 절대 원칙).
     # 기존 근무지 줄은 그대로 둔다(Codex #705): DB 입구는 받은 목록으로 근무지를 바꾸고 빠진 줄은 지우므로, 기존 줄을 앞에 넣고
     # 새로 찾은 매장만 뒤에 붙인다. 확인 실패면 예전 동작(위치 글자만).
-    rows = []
+    rows, siblings = [], []
     try:
         verdict = ingest_gateway.PRECHECK({"company": parsed.get("company") or "", "location": "", "source_text": text}) or {}
         found = [str(x).strip() for x in (verdict.get("stores") or []) if str(x).strip()][:5]
@@ -69,9 +69,17 @@ def refresh_existing(job_id: int):
             existing = (supabase.table("job_work_locations")
                         .select("raw_address,lat,lng,location_verified,point_authority")
                         .eq("job_id", job_id).order("sort_order").execute()).data or []
-            rows = merge_store_rows(existing, found)
-            if rows and not existing:
-                parsed["location"] = found[0]
+            if len(existing) > 1:
+                rows = merge_store_rows(existing, found)  # 전환 전 여러 지점 줄을 가진 기존 공고만 예전 방식 그대로
+            else:
+                # 지점별 독립 공고(Lee 2026-11-23): 이 공고는 지점 하나만 가진다 — 다른 지점은 줄로 덧붙이지 않고 공고로 따로 등록(아래).
+                # 이 공고의 기존 줄이 이번 글의 어느 지점과도 안 맞으면(주소가 바뀜) 어느 쪽이 같은 지점인지 모르므로 새로 만들지 않는다.
+                if not existing:
+                    rows, siblings = [{"raw_address": found[0]}], found[1:]
+                    parsed["location"] = found[0]
+                else:
+                    others = other_stores(existing, found)
+                    siblings = others if len(others) < len(found) else []
     except Exception as exc:  # 위치 확인 서버 오류로 다시 처리를 막지 않는다(예전 동작 그대로)
         print(f"store precheck skipped: {type(exc).__name__}")
     fields = refresh_fields(parsed)
@@ -93,6 +101,13 @@ def refresh_existing(job_id: int):
     result = ingest_job(supabase, payload)
     if int(result) != job_id:
         raise RuntimeError(f"Unexpected job number returned: {result}")
+    # 이 글의 다른 지점 → 지점별 독립 공고(이미 있으면 입구가 (원문+지점 위치)로 알아보고 새로 만들지 않는다). 실패해도 이 공고의 다시 처리는 끝났다.
+    if siblings:
+        try:
+            ingest_gateway.ingest_branches(supabase, {"title": parsed["title"], "company": parsed["company"], "source": "facebook",
+                                                      "source_url": old.get("source_url"), "source_text": text, "images": old.get("images") or []}, siblings)
+        except Exception as exc:  # noqa: BLE001 — 규칙 거부 등으로 새 지점 공고를 못 만들어도 기존 공고 처리는 그대로
+            print(f"branch siblings skipped: {type(exc).__name__}: {str(exc)[:120]}")
     after = (supabase.table("local_jobs")
              .select("id,title,company,salary,location,active,admin_hidden")
              .eq("id", job_id).single().execute()).data

@@ -49,6 +49,7 @@ from job_quality import (
 from job_posting_policy import crawler_policy_errors
 from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 from ingest_gateway import ingest_job, retry_held_once
+from pin_guard import other_stores
 from job_criteria import deadline_passed, has_enough_contact, today_vn
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -2322,6 +2323,40 @@ def merge_protected_work_locations(protected: list[dict], new_rows: list[dict]) 
     return merged
 
 
+# ── 지점별 독립 공고(Lee 2026-11-23 「지점별 독립 공고」): 원문 하나의 물리적 지점 A·B·C → 공고 3개, 공고는 지점 하나의 근무지 줄만 가진다 ──
+def _ingest_branch_jobs(payload: dict, rows: list[dict]) -> list[int]:
+    """지점(근무지 줄)마다 정식 입구(ingest_job)를 한 번씩. 입구가 (원문 + 지점 위치 branch_location)의 쌍으로 같은 공고를 판정하므로
+    이미 있는 지점은 새로 만들지 않고, 형제 지점 공고는 서로 중복·갱신 대상이 아니다."""
+    ids = []
+    for row in rows:
+        address = row["raw_address"]
+        ids.append(ingest_job(supabase, {**payload, "location": address, "branch_location": address, "work_locations": [row]}, hold=False))
+    return ids
+
+
+def _own_branch_rows(job_id: int, resolved: list[dict]) -> list[dict]:
+    """다시 수집한 근무지 줄 중 이 공고(지점)의 것만 — 형제 지점 줄을 이 공고에 섞지 않는다. 이번 글에서 이 지점이 안 보이면 빈 목록(기존 줄을 그대로 둔다:
+    글에서 빠졌다는 것만으로 줄도 공고도 지우지 않는다). 전환 전 여러 지점 줄을 가진 기존 공고는 자동 작업이 건드리지 않는다."""
+    if len(resolved) <= 1:
+        return resolved
+    own = supabase.table("job_work_locations").select("raw_address").eq("job_id", job_id).execute().data or []
+    if len(own) > 1:
+        return []
+    if not own:
+        return resolved[:1]
+    return [r for r in resolved if not other_stores(own, [r.get("raw_address")])]
+
+
+def _unregistered_branch_rows(source_url: str | None, rows: list[dict]) -> list[dict]:
+    """같은 원문(source_url)의 어느 공고에도 아직 없는 지점 줄 — 다시 수집에서 새로 나타난 지점만 새 공고로 만든다."""
+    if not source_url or len(rows) <= 1:
+        return []
+    ids = [r["id"] for r in (supabase.table("local_jobs").select("id").eq("source_url", source_url).execute().data or [])]
+    have = (supabase.table("job_work_locations").select("raw_address").in_("job_id", ids).execute().data or []) if ids else []
+    fresh = other_stores(have, [r["raw_address"] for r in rows])
+    return [r for r in rows if r["raw_address"] in fresh]
+
+
 def load_existing_lookup_maps(source: str = "vieclam24h") -> tuple[dict, dict]:
     """이 크롤러가 쓰는 기존 공고 조회는 이 함수 하나뿐이다 — 카테고리 전체
     크롤(수백 건)과 --process-url/--reprocess-ids(1~수건) 모두 동일하게
@@ -2427,7 +2462,11 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             # hold=False: 근무지 여러 곳은 등록 뒤 _replace_job_work_locations로 따로 쓰므로 보류 재처리(그 단계 없음)에 넣지 않는다.
             # 확인 못 한 공고는 예전처럼 거부 → 저장 안 됨 → 다음 수집 때 다시 만남(Codex #619).
             # 근무지 줄은 입구에 같이 넘긴다(같은 트랜잭션) — 등록 뒤 따로 다시 쓰지 않는다(#916).
-            job_id = ingest_job(supabase, insert_payload, hold=False, work_location_rows=_work_location_rpc_rows(resolved) if resolved else None)
+            branch_rows = _work_location_rpc_rows(resolved) if resolved else []
+            if len(branch_rows) > 1 and not verify_write:  # 검증 저장은 격리(숨김) 처리가 공고 하나 기준이라 예전처럼 한 공고로
+                job_id = _ingest_branch_jobs(insert_payload, branch_rows)[0]
+            else:
+                job_id = ingest_job(supabase, insert_payload, hold=False, work_location_rows=branch_rows or None)
             rows_written_by_ingest = bool(resolved)
         except Exception as exc:  # noqa: BLE001 — 규칙 거부만 건너뛰고 나머지 오류는 그대로 올린다
             code = rule_code(exc)
@@ -2521,11 +2560,26 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     if existing is None and rows_written_by_ingest:
         pass  # 새 공고: 근무지 줄은 등록 입구가 이미 썼다(#916) — 다시 쓰면 위치 확인 결과를 버린다
     elif job_id and (not had_transient or not had_existing_work_locations):
-        _replace_job_work_locations(job_id, resolved)
+        own_rows = _own_branch_rows(job_id, resolved)
+        if own_rows:
+            _replace_job_work_locations(job_id, own_rows)
         if had_transient:
             print(f"    ⚠️  job_id={job_id}: geocode 일시 오류가 있었지만 기존 근무지 행이 0건(지킬 데이터 없음) — 이번 판정 그대로 저장")
     elif had_transient:
         print(f"    ⚠️  job_id={job_id}: geocode 일시 오류 — 근무지 동기화 보류(기존 데이터 유지)")
+
+    if existing is not None and len(resolved) > 1 and not had_transient and not verify_write:
+        # 다시 수집에서 새로 나타난 지점은 지점별 독립 공고로(이미 있는 지점은 건드리지 않음).
+        fresh_rows = _unregistered_branch_rows(job.get("source_url"), _work_location_rpc_rows(resolved))
+        if fresh_rows:
+            new_payload = {k: v for k, v in job.items() if not k.startswith("_")}
+            new_payload["last_verified_at"] = datetime.now(timezone.utc).isoformat()
+            try:
+                _ingest_branch_jobs(new_payload, fresh_rows)
+            except Exception as exc:  # noqa: BLE001 — 규칙 거부 등은 새 지점만 건너뛰고 이 공고의 다시 수집 결과는 그대로
+                if not rule_code(exc):
+                    raise
+                print(f"    🚧 새 지점 공고 규칙 거부({rule_code(exc)}): 건너뜀")
 
     if verify_write:
         # 사용자 지시: "저장된 검증 공고 ID를 실행 결과 JSON에 명확히 출력" —
