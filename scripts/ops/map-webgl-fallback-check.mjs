@@ -7,7 +7,7 @@ if (!['127.0.0.1','localhost'].includes(new URL(base).hostname)) throw new Error
 const out = process.env.SCREENSHOT_DIR || '/tmp/map-no-webgl-proof'
 mkdirSync(out,{recursive:true})
 const job = { id:910080, title:'Trợ lý nhân sự thử nghiệm', company:'Map Browser Fixture', category:'van_phong', occupation_code:'4406', occupation_evidence:'Tuyển dụng và nhân sự', salary:'18.000.000đ/tháng', salary_period:'month', active:true, admin_hidden:false, posted_at:'2026-11-05', location:'Hà Nội', description:'Công việc\nTuyển dụng và nhân sự', employer_phone:'0900000000' }
-const location = { id:910081, job_id:job.id, raw_address:'Hà Nội', lat:21.0285, lng:105.8542, point_kind:'area', point_precision:'area', point_revision:1, point_evidence:{source:'isolated browser fixture'}, location_verified:false, coordinate_accuracy:'region', sort_order:0 }
+const location = { id:910081, job_id:job.id, raw_address:'Hà Nội', lat:21.0285, lng:105.8542, point_kind:'exact', point_precision:'site', point_revision:1, point_evidence:{source:'isolated browser fixture'}, location_verified:true, coordinate_accuracy:'exact', sort_order:0 }
 const widths=process.argv.length>2?process.argv.slice(2).map(Number):[1366,390]
 assert(widths.every(width=>[1366,390].includes(width)),'supported test viewport')
 const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined,args:['--no-sandbox']})
@@ -27,7 +27,7 @@ try {
    const rows=table==='local_jobs'?[job]:table.includes('work_locations')?[location]:[]
    return route.fulfill({json:rows,headers:{'content-range':`0-${Math.max(rows.length-1,0)}/${rows.length}`}})
   })
-  await context.route('**/api/map-locations?**',r=>r.fulfill({json:{points:{[`sb-${job.id}`]:[{...location,workLocationId:location.id,kind:'area',precision:'area',revision:1}]}}}))
+  await context.route('**/api/map-locations?**',r=>r.fulfill({json:{points:{[`sb-${job.id}`]:[{...location,workLocationId:location.id,kind:'exact',precision:'site',revision:1}]}}}))
   await context.route('https://maps.geoapify.com/**',route=>{
    if(route.request().url().includes('/tile/'))return tilesAvailable?route.fulfill({contentType:'image/png',body:readFileSync('public/logo.png')}):route.abort()
    return route.fulfill({json:{version:8,sources:{},layers:[]}})
@@ -43,7 +43,7 @@ try {
   await page.waitForFunction(()=>Number.isFinite(Number(document.querySelector('[data-map-provider="raster"] .hme-map__canvas')?.dataset.mapZoom)))
   const marker=map.locator('.hme-map__job-marker').first()
   await marker.waitFor({state:'visible'})
-  assert.equal(await marker.getAttribute('data-location-kind'),'area','approximate point keeps its accuracy label')
+  assert.equal(await marker.getAttribute('data-location-kind'),'exact','confirmed point keeps its accuracy label (approximate area points are never pins, Lee 2026-11-23)')
   assert((await marker.getAttribute('data-location-points')).includes('sb-910080'),'canonical job provenance stays on the marker')
   await marker.click()
   await page.locator('.hme-job__title').filter({hasText:job.title}).waitFor({state:'visible'})

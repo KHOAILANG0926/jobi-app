@@ -7,7 +7,7 @@ import { collectScreen, waitForMap } from './screen-collect.mjs'
 const base = process.env.BASE_URL || 'http://127.0.0.1:4190'
 if (!['127.0.0.1','localhost'].includes(new URL(base).hostname)) throw new Error('local fixture server required')
 const job = { id:910080, title:'Trợ lý nhân sự thử nghiệm', company:'Map Browser Fixture', category:'van_phong', occupation_code:'4406', occupation_evidence:'Tuyển dụng và nhân sự', salary:'18.000.000đ/tháng', salary_period:'month', active:true, admin_hidden:false, posted_at:'2026-11-05', location:'Hà Nội', description:'Công việc\nTuyển dụng và nhân sự', employer_phone:'0900000000' }
-const location = { id:910081, job_id:job.id, raw_address:'Hà Nội', lat:21.0285, lng:105.8542, point_kind:'area', point_precision:'area', point_revision:1, point_evidence:{source:'isolated browser fixture'}, location_verified:false, coordinate_accuracy:'region', sort_order:0 }
+const location = { id:910081, job_id:job.id, raw_address:'Hà Nội', lat:21.0285, lng:105.8542, point_kind:'exact', point_precision:'site', point_revision:1, point_evidence:{source:'isolated browser fixture'}, location_verified:true, coordinate_accuracy:'exact', sort_order:0 }
 const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox'] })
 let failures = 0
 try {
