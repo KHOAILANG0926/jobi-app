@@ -10,7 +10,9 @@ export function administrativeBoundaryIssues(jobs, locations, boundaryProvider=(
  const issues=[]
  for(const job of jobs) {
   const source=sourcePoints(locations.filter(w=>String(w.job_id)===String(job.id)))
-  if(!source.length)issues.push({jobId:job.id,reason:'missing_canonical_pin'})
+  // 확정 좌표가 없는 공개 공고(Lee 2026-11-23 지도 위치 절대 원칙, #990): 근무지 줄은 있으나 모두 대략(area)·미확인(unresolved)이면 핀이 없는 것이 정상이다(대략 위치로 핀을 채우지 않음,
+  // 관리자 위치 확정 대기) — 실패가 아니라 unconfirmedLocationJobs로 따로 보고한다. 근무지 줄 자체가 없는 공개 공고만 실제 결함(missing_canonical_pin)이다.
+  if(!source.length&&!locations.some(w=>String(w.job_id)===String(job.id)))issues.push({jobId:job.id,reason:'missing_canonical_pin'})
   for(const p of source) {
    const row=locations.find(w=>String(w.id)===String(p.workLocationId))
    const area=boundaryProvider(row?.raw_address||job.location,job)
@@ -20,4 +22,10 @@ export function administrativeBoundaryIssues(jobs, locations, boundaryProvider=(
   }
  }
  return issues
+}
+
+// 핀 없는 정상 보류 목록(근거 출력용): 공개 공고 중 근무지 줄은 있으나 확정 좌표(exact·gate)가 하나도 없는 것과 그 줄의 종류·정확도.
+export function unconfirmedLocationJobs(jobs, locations) {
+ return jobs.filter(job=>!sourcePoints(locations.filter(w=>String(w.job_id)===String(job.id))).length&&locations.some(w=>String(w.job_id)===String(job.id)))
+  .map(job=>({jobId:job.id,rows:locations.filter(w=>String(w.job_id)===String(job.id)).map(w=>({kind:w.point_kind,precision:w.point_precision??null,verified:!!w.location_verified}))}))
 }

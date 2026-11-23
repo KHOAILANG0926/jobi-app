@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { compareWithOcr, moneyValues, posterSalaryEvidence } from './ocr-compare.mjs'
+import { imageFetchPermanent } from './ocr-check-write.mjs'
 
 const ocr = 'CÔNG TY KDA TUYỂN GẤP\nLiên hệ: NGOC ANH DUONG\nSĐT: 0877 880 756\nLương 8.000.000 - 12.000.000\nTuổi 14-50t'
 const base = { employer_phone: '0877880756', contact_zalo: null, salary: '8.000.000 - 12.000.000', contact_name: 'NGOC ANH DUONG', company: 'KDA', age_min: 14, age_max: 50 }
@@ -58,3 +59,11 @@ assert.ok(moneyValues('THU NHẬP 13 - 15 TRIỆU/THÁNG').has(13000000), '13 - 
 assert.ok(moneyValues('Lương 8 – 15 TRIỆU/tháng').has(8000000), '8 – 15 triệu 앞 숫자')
 assert.ok(moneyValues('7h - 13h').size === 0, '근무시간은 금액 아님')
 assert.ok(!moneyValues('0388036322').has(388036322) || true)
+
+// #990(2026-11-23, 공고 6311 사진 HTTP 403이 매 실행 exit 2): 외부 주소의 영구 접근 거부는 건너뜀, 일시 오류·우리 저장소 오류는 실패로 남김
+const OWN = 'https://edhuesdnuxlbcfephutq.supabase.co'
+for (const st of [403, 404, 410]) assert.equal(imageFetchPermanent(st, 'https://scontent.xx.fbcdn.net/v/a.jpg', OWN), true, `외부 사진 ${st}은 영구`)
+for (const st of [429, 500, 502, 503]) assert.equal(imageFetchPermanent(st, 'https://scontent.xx.fbcdn.net/v/a.jpg', OWN), false, `외부 사진 ${st}은 일시 — 실패로 다시 시도`)
+for (const st of [403, 404]) assert.equal(imageFetchPermanent(st, `${OWN}/storage/v1/object/job-images/a.jpg`, OWN), false, `우리 저장소 ${st}은 실제 문제 — 실패로 남김`)
+assert.equal(imageFetchPermanent(403, 'https://x.io/a.jpg', undefined), true, '저장소 주소를 모르면 외부로 본다')
+console.log('ocr-compare: image fetch permanent vs transient classification passed')

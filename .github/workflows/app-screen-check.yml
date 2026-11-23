@@ -115,6 +115,9 @@ jobs:
         run: BASE_URL=http://localhost:4173 node scripts/ops/tefal-content-acceptance.mjs
       - name: 좌표 검사 실행 명령 검증
         run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts
+      # #990(2026-11-23): 운영 행정구역 핀 검사(병합 뒤 deploy-verify 뒤에만 돌던 것)를 PR 단계에서도 — 공개 REST 읽기만(열쇠·SQL·쓰기 없음). 확정 좌표의 원래 성 안 검사 + 핀 없는 정상 보류 목록 출력.
+      - name: 운영 공개 원본 위치 읽기 전용 검사 (행정구역·핀 없는 공고 근거)
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-administrative-public-check.mjs
       - name: PC·모바일 화면 검사
         run: BASE_URL=http://localhost:4173 node scripts/ops/app-smoke.mjs
       - name: 공고 화면 도면 대조 (결정 0005, 치수 측정)

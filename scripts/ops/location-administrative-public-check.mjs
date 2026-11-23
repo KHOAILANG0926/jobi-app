@@ -2,7 +2,7 @@
 // 공개 공고의 원본 근무지 점이 원래 행정구역(성) 안인가. 화면(메인·상세) 핀 집합은 deploy-verify의 map-summary-check가 점마다 지도를 옮겨 이미 검증한다
 // (예전에는 여기서 기본 화면의 메인 핀을 읽었으나 지도는 화면 안 핀만 그려 항상 0개였다 — #728 R2 운영 검사 모순 해결).
 import {supabaseServer as publicClient} from '../../src/lib/supabaseServer.ts'
-import {administrativeBoundaryIssues} from './location-administrative-oracle.mjs'
+import {administrativeBoundaryIssues,unconfirmedLocationJobs} from './location-administrative-oracle.mjs'
 try {
  const jobs=[]
  for(let from=0;;from+=500) {
@@ -18,7 +18,8 @@ try {
   locations.push(...data)
  }
  const issues=administrativeBoundaryIssues(jobs,locations)
- console.log(JSON.stringify({kind:'read-only-live-public-source-boundary',jobs:jobs.length,rows:locations.length,unverifiedRows:locations.filter(w=>!w.location_verified).length,issues}))
+ const unconfirmed=unconfirmedLocationJobs(jobs,locations)   // 핀 없는 정상 보류(확정 좌표 없음) — 실패 아님, 근거로 출력
+ console.log(JSON.stringify({kind:'read-only-live-public-source-boundary',jobs:jobs.length,rows:locations.length,unverifiedRows:locations.filter(w=>!w.location_verified).length,unconfirmedLocationJobs:unconfirmed,issues}))
  if(issues.length)process.exitCode=1
 } catch(error) {
  console.log(JSON.stringify({kind:'read-only-live-public-source-boundary',verified:false,error:error.message}))
