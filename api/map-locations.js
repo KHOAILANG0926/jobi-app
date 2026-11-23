@@ -26,7 +26,7 @@ export function createMapLocationsHandler(injected) {
       for(const row of rows??[]) {
         if (!ids.includes(Number(row.job_id))) continue
         const sourcePoints = Array.isArray(row.source_points) ? row.source_points : []
-        points[`sb-${row.job_id}`] = sourcePoints.filter(r => r && ['exact','gate','area'].includes(r.kind) &&
+        points[`sb-${row.job_id}`] = sourcePoints.filter(r => r && ['exact','gate'].includes(r.kind) && // 확정 좌표만(area 제외, Lee 2026-11-23) —
           typeof r.lat === 'number' && typeof r.lng === 'number' && r.lat >= 8 && r.lat <= 24 && r.lng >= 102 && r.lng <= 110 &&
           Number.isSafeInteger(r.workLocationId) && Number.isSafeInteger(r.revision) && typeof r.precision === 'string')
           .map(r => ({workLocationId:r.workLocationId,kind:r.kind,lat:r.lat,lng:r.lng,precision:r.precision,

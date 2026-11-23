@@ -1,3 +1,8 @@
+## 2026-11-23 — 이슈 #990: 공개 위치 요약(/api/map-locations)이 대략(area) 점을 내보내 운영 검증 실패(공고 5599) 수정 (Draft→Ready, 병합·운영 DB 없음)
+- 원인 [직접 확인 — 코드]: #989가 핀 원천을 확정 좌표(exact·gate)로 좁히면서 원본 대조(oracle sourcePoints)와 화면 코드는 맞췄지만, 공개 캐시 읽기 `api/map-locations.js`의 허용 종류가 아직 exact·gate·area라 5599의 대략 줄이 응답에 남아 deploy-verify '지도 요약'(map-summary-check) 대조가 어긋남. 5599만의 문제가 아니라 area 줄이 있는 모든 공고.
+- 변경: `api/map-locations.js` 허용 종류 exact·gate만(캐시 표·DB 줄은 그대로 보존), `api/map-locations.test.ts`·`api/_map-r1.test.ts` 기대값을 확정 좌표만으로(수정 전 실패 재현: area 포함 → 1 !== 2).
+- 검증: tsc · npm test 125/125. 운영 화면·핀 검사는 병합 뒤 deploy-verify로 확인(미실행).
+
 ## 2026-11-23 — 이슈 #988: 지점별 독립 공고 + 위치 우선순위(Google→VietMap→Goong) 구현 + 자율 완주 규정 (Draft→Ready, 병합·운영 DB 없음)
 - 요청: Lee 2026-11-23 — #987 규정의 실제 구현(지점별 독립 공고, Google→VietMap→Goong, 확정 좌표만 핀·거리검색)과 「자율 완주 및 승인 게이트 원칙」 문서 반영.
 - 수정 전 실패 [직접 확인]: ① 옛 resolver는 Google이 찾아도 VietMap으로 다시 번지 확인하고 못 하면 대략(area) 위치로 낮춤(시험 'Google place adopted as confirmed exact' 실패, source=VietMap) ② 같은 글의 새 지점 find_existing이 첫 지점 공고를 돌려줌(1) ③ 같은 회사·일·공단 형제 지점 공고 중복 판정 `duplicate:1:same_company_job_location`(꺼짐) ④ 수집 입구는 지점 2곳을 공고 1개+근무지 2줄로 등록.
@@ -82,10 +87,3 @@
 - 변경(#913): approval-checks.mjs — 열린 '운영 배포 검증 실패' 이슈(github-actions[bot])가 있으면 일반 PR approval-gate를 Lee 승인 필요로. 풀림 = master 최근 성공 deploy-verify 커밋이 실패 커밋 포함·이슈 닫기·복구 PR Lee Approve. deploy-verify.yml(STRICT)은 그대로. merge-provenance.mjs — 검사 전용 앱 ai-review·approval-gate 병합 시점 대조.
 - 모의 시험: s6/deploy-fail-mock(빈 커밋 47fc051) deploy-verify run 44313174748 실패 → 이슈 #918 → 일반 PR 5건 잠금 → #918 닫음 → 풀림. 운영 배포 영향 없음.
 - VPS 러너 crawler 정상(run 44277027923). 남은 일: S7.
-
-## 2026-11-18 — vieclam24h 새 공고 근무지 줄을 등록 입구와 같은 트랜잭션으로 (#916, #6255 핀 안 생김)
-- 원인 [직접 확인 코드]: crawl_topcv가 ingest_job으로 등록한 직후 replace_job_work_locations로 근무지 줄을 다시 씀 → 저장 직후 위치 확인 서버(location-hook)가 찾는 동안 근무지가 바뀜 → map_r1_complete가 snapshot 불일치로 결과를 버리고 failed(20261111150000_map_r1_other_stores.sql). Facebook은 입구 한 번(등록 트랜잭션)이라 이 경쟁이 없음.
-- GEOAPIFY 없음은 직접 원인 아님: 크롤러 자체 좌표만 못 구함(unresolved 줄) — 핀은 위치 확인 서버(Google 재사용)가 정함.
-- 변경: ingest_gateway.ingest_job(work_location_rows=) — 위치 확인 뒤 입구 payload로(서버가 매장 여러 곳을 정하면 그쪽 먼저). crawl_topcv 새 공고는 등록 뒤 근무지를 따로 다시 쓰지 않음. 기존 공고 다시 수집은 그대로.
-- 검증 [직접 확인 로컬]: test_ingest_gateway(El Gaucho 사례)·test_address_pipeline_integration(#4572 사례: 새 공고 근무지 줄 보존 — 입구 payload로)·test_job_error_isolation(근무지 실패 시 반쯤 저장 없음)·scheduled_cli·cli_safety·work_location_protection·refresh_store_rows.
-
