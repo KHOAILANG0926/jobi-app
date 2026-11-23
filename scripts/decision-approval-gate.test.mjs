@@ -536,3 +536,29 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   for (const f of ['AGENTS.md', 'CLAUDE.md', '.claude/RULES_CORE.md']) { const r = judge([{ filename: f, status: 'modified', patch: '+x' }]); assert.equal(r.required && !r.approved, true, `규칙 문서 수동 Approve: ${f}`) }
   console.log('승인 자동화 완화 시험 통과 — 일반 워크플로 자동·경계/고권한/필수 검사 구성 승인·조회 실패 재확인·시험 파일 단순 문자열 제외·규칙 문서 수동')
 }
+
+// 승인 기준 보완(Lee 2026-11-23, #992 대조): 재확인 상한 · DB 구조(DDL) · pull_request_target 고권한
+{
+  const { workflowGeneralChange, workflowPrivileged, RETRY_LIMIT_MINUTES } = await import('./decision-approval-gate.mjs')
+  const bot = 'viecganban-bot', hv = 'd'.repeat(40)
+  const judge = (files, extra = {}) => rawDecisionApproval({ files, reviews: [], comments: [], author: bot, sha: hv, body: '', ...extra })
+  // 재확인 상한: 조회 실패만이면 상한 안은 재확인(retry), 상한 넘으면 '판정 불가'로 대표 판단(retry 아님)
+  const lookupOnly = [{ filename: 'src/big.ts', status: 'modified' }]
+  assert.equal(RETRY_LIMIT_MINUTES, 60)
+  assert.equal(judge(lookupOnly, { headAgeMinutes: 10 }).retry, true, '상한 안 → 자동 재확인')
+  assert.equal(judge(lookupOnly).retry, true, '나이를 모르면 재확인만')
+  { const r = judge(lookupOnly, { headAgeMinutes: 61 }); assert.equal(r.retry, undefined, '상한 넘으면 재확인 중단'); assert.equal(r.approved, false); assert.match(r.reasons.join(), /판정 불가.*60분/, '사유 기록') }
+  assert.equal(judge(lookupOnly, { headAgeMinutes: 61, reviews: [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: hv, submitted_at: '2026-11-23T00:00:00Z' }] }).approved, true, '상한 뒤에도 대표 Approve면 통과')
+  // DB 구조(DDL): migration의 새 표·칸·색인·트리거·뷰는 수동 Approve, 함수 본문 교체·시험 파일은 해당 없음
+  const mig = (sql) => judge([{ filename: 'supabase/migrations/20261201000000_x.sql', status: 'added', patch: `@@ -0,0 +1,3 @@\n+${sql}` }])
+  for (const sql of ['create table public.new_t (id bigint);', 'alter table public.local_jobs add column x text;', 'drop index if exists i;', 'create trigger t before insert on public.a for each row execute function f();', 'create view v as select 1;', 'alter table a rename column x to y;', 'alter table a drop constraint c;'])
+    { const r = mig(sql); assert.equal(r.required && !r.approved && !r.retry, true, `DDL 수동 Approve: ${sql}`) }
+  for (const sql of ['create or replace function public.f() returns int language sql as $$ select 1 $$;', 'update public.t set a = 1;'])
+    assert.equal(mig(sql).required, false, `구조 아님 → 자동: ${sql}`)
+  assert.equal(judge([{ filename: 'src/lib/a.ts', status: 'modified', patch: '@@\n+const s = "create table x"' }]).required, false, 'migrations 밖 문자열은 해당 없음')
+  // pull_request_target 트리거가 있는 워크플로는 권한 설정과 상관없이 고권한(명령 변경도 수동)
+  const PRT = 'name: x\non:\n  pull_request_target:\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n'
+  assert.equal(workflowPrivileged(PRT), true, 'pull_request_target = 고권한')
+  assert.equal(workflowGeneralChange({ filename: '.github/workflows/zz.yml', status: 'modified', patch: '@@\n-      - run: echo hi\n+      - run: echo bye' }, { base: PRT, head: PRT.replace('hi', 'bye') }), 'manual', 'pull_request_target 워크플로의 run 변경은 수동')
+  console.log('승인 기준 보완 시험 통과 — 재확인 상한 60분·DB 구조(DDL) 수동·pull_request_target 고권한')
+}

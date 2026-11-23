@@ -1,3 +1,8 @@
+## 2026-11-23 — #992 대조 후 승인 기준 보완: 재확인 상한 60분·DB 구조(DDL)·pull_request_target 수동 (Draft, 병합·운영 DB 없음)
+- 대조 결과 [직접 확인]: #992에 이미 반영 — 규칙 문서 3개·결정 문서·CODEOWNERS·필수 검사 구성(필수 이름 잡 정의 워크플로)·워크플로 경계(on·permissions·environment·runs-on·uses·secrets)·고권한(실제 설정) 명령 변경·STRICT·화면 틀 수동, 조회 실패 자동 재확인. 빠짐: ① 재확인 상한 없음 ② DB 구조(DDL)가 권한 신호만 보아 자동 ③ pull_request_target를 고권한으로 안 봄 ④ 격리 Preview 차등 검증(미구현, 후속).
+- 변경: decision-approval-gate(RETRY_LIMIT_MINUTES=60 초과 시 '판정 불가' 사유 기록·대표 판단, DDL 신호는 supabase/migrations만, pull_request_target 고권한) · approval-checks·bot-pr-automerge가 head 나이를 넘김 · 규칙 문서 3개.
+- 검증: 신규 시험 + S4 우회 시험·approval-checks·callpath·claude-publish·scope 통과, 최근 병합 42건 재판정 전환 0건(보안 미탐 0).
+
 ## 2026-11-23 — 이슈 #990 후속: 행정구역 핀 검사 6건·OCR 검사 2회 실패 원인별 수정 + PR 단계 읽기 전용 검사 (Draft→Ready, 병합·운영 DB 없음)
 - 원인(공개 캐시·원본 불일치): #991이 공개 위치 요약 API를 확정 좌표만으로 맞춰 해결, 병합 커밋 deploy-verify 성공이 증거. 원인(핀 6건 5599·5876·5993·6043·6255·6309): #989 규칙(대략 area는 핀 아님) 뒤 확정 좌표가 없는 공개 공고를 행정구역 검사가 아직 '핀 없음 = 실패'로 봄. 원인(OCR 2회 실패): 공고 6311의 외부 사진 주소 HTTP 403(영구 접근 거부)이 매 실행 exit 2.
 - 변경: oracle — 근무지 줄이 있으나 확정 좌표 없는 공고는 실패가 아니라 `unconfirmedLocationJobs`로 출력(줄 없는 공고·확정 좌표의 성 밖은 그대로 실패) / ocr-compare `imageFetchPermanent`(외부 주소 403·404·410만 건너뜀, 일시 오류·우리 저장소 오류는 실패 유지) + ocr-check 사용 / app-screen-check에 읽기 전용 운영 위치 검사 단계(PR 단계).
@@ -81,9 +86,3 @@
 - 변경(#920): pr-checks.yml checks에 crawler-cli-tests(offline)·job-policy-tests·reprocess-queue-ci 시험 그대로 옮김, 제거 3개(job-policy-tests·reprocess-queue-ci·r7-source-aware-unit, 참조 0), map-pin-fit-check 손으로만, SAFE_TEST_WORKFLOWS 정리, 라벨 regression.
 - 기록: docs/system-redesign/S7-workflow-results.md(71줄). RULES_CORE 자동 생성은 보류(요약본 문장 훼손 위험).
 - 검증: PR 실행에서 옮긴 시험 단계 success, 독립 검토 0, 병합 뒤 master 배포·운영 화면 검사 통과. 남은 일: S8.
-
-## 2026-11-18 — 가짜 전화번호 0111111111 공개(#6255) 근본 수정
-- 최초 발생 [직접 확인]: vieclam24h 페이지 자료 jobDetailHiddenContact.contact_phone(로그인 전 자리 채움 값) → #904 detailPageDataPhones → 시험 수집 44246281411(#907 전)의 details.json detailPhone → publish_one 44307094201 build_job_record employer_phone → DB → 상세 "Gọi ngay".
-- 원인: ① 공통 번호 읽기 extract_phones가 0으로 시작하는 10자리 모두를 번호로 봄(01x 없는 번호도) ② 저장 단계가 detailPhone 출처(phoneProbe)를 보지 않아 #907 뒤에도 옛 결과가 숨긴 번호를 넘김.
-- 변경: extract_phones = 베트남 휴대폰 03·05·07·08·09(Facebook·vieclam24h 공통), build_job_record 전화 = screen_phone(revealed·description_text만), 숨긴 자료 번호·이메일 읽기(#904)·진단 줄 지움. #6255 전화 칸 정정 SQL(scripts/ops/jobs/fix-6255-fake-phone.sql, 입구 update_fields만).
-- 검증 [직접 확인 로컬]: 회귀 시험 2개 수정 전 실패 → 수정 뒤 통과, 크롤러 시험 11개 통과.
