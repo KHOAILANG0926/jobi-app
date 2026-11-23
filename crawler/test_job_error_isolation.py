@@ -1266,6 +1266,88 @@ class SelectedSaveUsesTheSameJudgement(_SaveHarness):
 
 
 
+class _FakeTable:
+    def __init__(self, db, name):
+        self.db, self.name, self.filters = db, name, []
+
+    def select(self, *_a, **_k):
+        return self
+
+    def eq(self, col, val):
+        self.filters.append(lambda r: r.get(col) == val)
+        return self
+
+    def in_(self, col, vals):
+        self.filters.append(lambda r: r.get(col) in vals)
+        return self
+
+    def execute(self):
+        rows = [r for r in self.db[self.name] if all(f(r) for f in self.filters)]
+        return types.SimpleNamespace(data=rows)
+
+
+class _FakeSupabase:
+    def __init__(self, db):
+        self.db = db
+
+    def table(self, name):
+        return _FakeTable(self.db, name)
+
+
+class TopcvBranchJobs(unittest.TestCase):
+    """지점별 독립 공고(Lee 2026-11-23, 이슈 #988): 원문 하나의 지점 A·B·C → 입구 3번, 같은 지점 여러 직무 → 1번,
+    다시 수집에서 지점이 빠져도 기존 공고·줄을 건드리지 않고 새 지점만 새 공고."""
+
+    A, B, C = "Lô A1, KCN Quế Võ, Bắc Ninh", "Lô D4, KCN Quế Võ, Bắc Ninh", "Lô E7, KCN Quế Võ, Bắc Ninh"
+    URL = "https://example.vn/post-1"
+
+    def _rows(self, *addrs):
+        return [{"raw_address": a, "normalized_address": a.lower()} for a in addrs]
+
+    def test_three_branches_make_three_independent_calls(self):
+        calls = []
+        def ingest(sb, payload, hold=True, **k):
+            calls.append(payload)
+            return len(calls)
+        with mock.patch.object(topcv, "supabase", object()), mock.patch.object(topcv, "ingest_job", ingest):
+            ids = topcv._ingest_branch_jobs({"title": "t", "source_url": self.URL}, self._rows(self.A, self.B, self.C))
+        self.assertEqual(ids, [1, 2, 3])
+        self.assertEqual([c["branch_location"] for c in calls], [self.A, self.B, self.C])
+        for c in calls:
+            self.assertEqual(len(c["work_locations"]), 1, "공고 하나 = 지점 하나의 근무지 줄")
+            self.assertEqual(c["source_url"], self.URL)
+
+    def test_one_branch_with_many_roles_is_one_call(self):
+        calls = []
+        with mock.patch.object(topcv, "supabase", object()), mock.patch.object(topcv, "ingest_job", lambda sb, p, hold=True, **k: calls.append(p) or 1):
+            topcv._ingest_branch_jobs({"title": "t (3 직무)", "source_url": self.URL}, self._rows(self.A))
+        self.assertEqual(len(calls), 1)
+
+    def test_recollection_with_a_branch_missing_touches_nothing(self):
+        db = {"local_jobs": [{"id": 1, "source_url": self.URL}, {"id": 2, "source_url": self.URL}, {"id": 3, "source_url": self.URL}],
+              "job_work_locations": [{"job_id": 1, "raw_address": self.A}, {"job_id": 2, "raw_address": self.B}, {"job_id": 3, "raw_address": self.C}]}
+        with mock.patch.object(topcv, "supabase", _FakeSupabase(db)):
+            seen = self._rows(self.A, self.B)  # 이번 글에서 C가 안 보임
+            self.assertEqual(topcv._own_branch_rows(1, seen), self._rows(self.A))
+            self.assertEqual(topcv._own_branch_rows(2, seen), self._rows(self.B))
+            self.assertEqual(topcv._own_branch_rows(3, seen), [], "이번 글에 없는 지점은 줄도 공고도 건드리지 않음")
+            self.assertEqual(topcv._unregistered_branch_rows(self.URL, seen), [], "이미 있는 지점은 새 공고가 아님")
+        self.assertEqual(len(db["local_jobs"]), 3)
+        self.assertEqual(len(db["job_work_locations"]), 3)
+
+    def test_recollection_new_branch_only_is_created(self):
+        db = {"local_jobs": [{"id": 1, "source_url": self.URL}], "job_work_locations": [{"job_id": 1, "raw_address": self.A}]}
+        with mock.patch.object(topcv, "supabase", _FakeSupabase(db)):
+            fresh = topcv._unregistered_branch_rows(self.URL, self._rows(self.A, self.B))
+        self.assertEqual([r["raw_address"] for r in fresh], [self.B])
+
+    def test_legacy_multi_row_job_is_left_alone(self):
+        db = {"local_jobs": [{"id": 1, "source_url": self.URL}],
+              "job_work_locations": [{"job_id": 1, "raw_address": self.A}, {"job_id": 1, "raw_address": self.B}]}
+        with mock.patch.object(topcv, "supabase", _FakeSupabase(db)):
+            self.assertEqual(topcv._own_branch_rows(1, self._rows(self.A, self.B)), [], "전환 전 여러 줄 공고는 자동 작업이 안 건드림")
+
+
 class FacebookCriteriaAlignment(unittest.TestCase):
     """1-B(F2·F3): Facebook 수집기가 마감·연락처를 DB·화면과 같은 기준으로 본다(마감 당일 열림, 연락처 숫자 8자리)."""
 

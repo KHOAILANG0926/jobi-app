@@ -12,13 +12,13 @@ const rows = [
 const locations = rows.map(rowToWorkLocation)
 const job = {id:'synthetic',company:'Source',rawLocation:'KCN VSIP, Bắc Ninh',workLocations:locations} as Job
 const points = resolveMapLocations(job).points
-equal(points.length, 3, 'mixed multi-site preserves exact + area + gate')
-equal(points.map(p => p.precise), [true,false,false], 'precision stays per workplace')
-equal(points.map(p => p.workLocationId), [1,2,3], 'source row identity survives mapping')
+equal(points.length, 2, 'mixed multi-site keeps only confirmed exact + gate — area is never a pin (Lee 2026-11-23)')
+equal(points.map(p => p.precise), [true,false], 'precision stays per workplace')
+equal(points.map(p => p.workLocationId), [1,3], 'source row identity survives mapping; the approximate row is dropped')
 equal(points[0].revision,4,'revision survives mapping')
 equal(points[0].source,'admin approval','evidence survives mapping')
-equal(locationPoints(job, {synthetic:{lat:20,lng:104,kind:'area',source:'stale cache',checkedAt:'old'}}).map(p => [p.lat,p.lng,p.kind]), rows.slice(0,3).map(r=>[r.lat,r.lng,r.point_kind]),'main map ignores cache and uses source set')
-equal(resolveDistanceSearchPoints(job).map(p=>[p.lat,p.lng,p.precise]), points.map(p=>[p.lat,p.lng,p.precise]), 'distance uses same full source set')
+equal(locationPoints(job, {synthetic:{lat:20,lng:104,kind:'area',source:'stale cache',checkedAt:'old'}}).map(p => [p.lat,p.lng,p.kind]), [rows[0],rows[2]].map(r=>[r.lat,r.lng,r.point_kind]),'main map ignores cache and uses the confirmed source set')
+equal(resolveDistanceSearchPoints(job).map(p=>[p.lat,p.lng,p.precise]), points.map(p=>[p.lat,p.lng,p.precise]), 'distance uses the same confirmed source set (approximate area point excluded)')
 equal(verifiedWorkLocationPoint(locations[0]),{lat:21.1,lng:105.9},'verified exact source is precise')
 equal(verifiedWorkLocationPoint(locations[1]),null,'area remains unverified')
 equal(workLocationExternalLinks(locations[0])?.directions?.endsWith('destination=21.1,105.9'),true,'directions uses source exact point')
@@ -53,3 +53,28 @@ equal(findRegionCenter('Lạng Sơn'), { lat: 21.8537, lng: 106.761 }, 'existing
 // #728 S8 조사(규칙-코드 불일치): 11-11 절대 원칙 — 좌표 없는/미확정 근무지는 원문 지역 글자가 있어도 점을 만들지 않는다.
 equal(resolveMapLocations({ rawLocation: 'KCN VSIP, Bắc Ninh', recruitmentRegions: ['Bắc Ninh'], workLocations: [{ id: 1, rawAddress: 'KCN VSIP, Bắc Ninh', pointKind: 'unresolved' } as never] }).points, [], 'unresolved work location with a region text draws no pin')
 equal(resolveMapLocations({ rawLocation: 'Bắc Ninh', workLocations: [{ id: 2, rawAddress: 'Bắc Ninh' } as never] }).source, 'pending', 'no point at all stays pending (nothing invented)')
+
+// Lee 2026-11-23: 거리검색에는 확정 좌표(exact+확인, 공단 정문)만 — 대략 위치·확인 안 된 exact는 자격 없음.
+{
+  const approx = [
+    {id:11,raw_address:'Approx area',lat:21.2,lng:106,point_kind:'area',location_verified:false,point_precision:'ward',point_revision:1,point_evidence:{source:'Google g (company)',checkedAt:'2026-11-20'}},
+    {id:12,raw_address:'Unverified exact',lat:21.3,lng:106.1,point_kind:'exact',location_verified:false,point_precision:'site',point_revision:1,point_evidence:{source:'legacy',checkedAt:'2026-10-01'}},
+  ].map(rowToWorkLocation)
+  equal(resolveDistanceSearchPoints({workLocations:approx}), [], 'approximate area and unverified exact points never join distance search')
+  const withConfirmed = [...approx, ...rows.slice(0,1).map(rowToWorkLocation)]
+  equal(resolveDistanceSearchPoints({workLocations:withConfirmed}).map(p=>[p.lat,p.lng,p.precise]), [[21.1,105.9,true]], 'only the confirmed workplace is used for distance')
+  equal(resolveMapLocations({workLocations:approx}).source, 'pending', 'job with only approximate points has no map pin (pending)')
+}
+
+// 확정 좌표 출처별 핀(Lee 2026-11-23 「위치 확인 우선순위」): Google·VietMap·Goong이 채택한 exact+verified 좌표는 핀, 대략(area)은 제외하되 행·주소는 그대로 보존
+const providerRows = [
+  {id:21,raw_address:'Google site',lat:21.1,lng:105.9,point_kind:'exact',location_verified:true,point_precision:'site',point_revision:1,point_evidence:{source:'Google g1 (company)',checkedAt:'2026-11-23'}},
+  {id:22,raw_address:'VietMap site',lat:21.2,lng:106.0,point_kind:'exact',location_verified:true,point_precision:'site',point_revision:1,point_evidence:{source:'VietMap v1 (address)',checkedAt:'2026-11-23'}},
+  {id:23,raw_address:'Goong site',lat:21.3,lng:106.1,point_kind:'exact',location_verified:true,point_precision:'site',point_revision:1,point_evidence:{source:'Goong g2 (company)',checkedAt:'2026-11-23'}},
+  {id:24,raw_address:'Ward center',lat:21.4,lng:106.2,point_kind:'area',location_verified:false,point_precision:'ward',point_revision:1,point_evidence:{source:'ward centroid',checkedAt:'2026-11-23'}},
+]
+const providerLocs = providerRows.map(rowToWorkLocation)
+const providerJob = {id:'provider',company:'P',rawLocation:'Bắc Ninh',workLocations:providerLocs} as Job
+equal(resolveMapLocations(providerJob).points.map(p => p.workLocationId), [21,22,23], 'Google·VietMap·Goong confirmed points are pins; the ward-center area row is not')
+equal(resolveDistanceSearchPoints(providerJob).map(p => p.lat), [21.1,21.2,21.3], 'distance search uses the same confirmed set')
+equal(providerLocs.map(l => l.rawAddress ?? (l as any).raw_address ?? null).length, 4, 'area row stays on the job (data preserved, only the pin is withheld)')

@@ -35,18 +35,31 @@ def problems(before, after):
     return out
 
 
+# DB의 admin_location_key와 같은 방식(악센트·đ 제거, 구두점·공백을 한 칸으로, 소문자)으로 같은 주소를 가린다.
+def _key(a):
+    s = unicodedata.normalize("NFD", str(a or "")).replace("đ", "d").replace("Đ", "D")
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return re.sub(r"[\W_]+", " ", s.lower()).strip()
+
+
+# 같은 매장 = 한 주소가 다른 주소를 낱말 단위로 통째로 포함(addressReader.sameStore와 같은 규칙).
+# 기존 줄은 지역을 덧붙여 저장돼("…, TP. Bắc Ninh, Bắc Ninh") 글자가 완전히 같지 않다(2026-11-11 5992·5994 같은 매장 핀 2개).
+def _same(a, b):
+    return f" {a} " in f" {b} " or f" {b} " in f" {a} "
+
+
+def other_stores(existing, found):
+    """기존 근무지 줄과 같은 매장이 아닌 지점(found)만 — 지점별 독립 공고(Lee 2026-11-23)에서 따로 등록할 지점.
+    기존 줄이 비어 있으면 found 전부."""
+    have = [k for k in (_key(r.get("raw_address")) for r in (existing or [])) if k]
+    return [a for a in found if _key(a) and not any(_same(_key(a), h) for h in have)]
+
+
 def merge_store_rows(existing, found):
     """기존 근무지 줄 + 위치 확인이 찾은 매장 → DB로 보낼 근무지 줄(바꿀 게 없으면 []).
-    실제 공고(KRIK 5992·MediaMart 5994)로 test_refresh_store_rows.py에서 먼저 돌려 본다(2026-11-12)."""
-    # DB의 admin_location_key와 같은 방식(악센트·đ 제거, 구두점·공백을 한 칸으로, 소문자)으로 같은 주소를 가린다.
-    def key(a):
-        s = unicodedata.normalize("NFD", str(a or "")).replace("đ", "d").replace("Đ", "D")
-        s = "".join(c for c in s if not unicodedata.combining(c))
-        return re.sub(r"[\W_]+", " ", s.lower()).strip()
-    # 같은 매장 = 한 주소가 다른 주소를 낱말 단위로 통째로 포함(addressReader.sameStore와 같은 규칙).
-    # 기존 줄은 지역을 덧붙여 저장돼("…, TP. Bắc Ninh, Bắc Ninh") 글자가 완전히 같지 않다(2026-11-11 5992·5994 같은 매장 핀 2개).
-    def same(a, b):
-        return f" {a} " in f" {b} " or f" {b} " in f" {a} "
+    실제 공고(KRIK 5992·MediaMart 5994)로 test_refresh_store_rows.py에서 먼저 돌려 본다(2026-11-12).
+    기존 공고가 여러 지점 줄을 이미 가진 경우(전환 전 legacy)에만 쓴다 — 지점별 독립 공고는 지점 하나만 가진다."""
+    key, same = _key, _same
     # 기존 줄은 주소만 보낸다 — 확정(admin)·검증(exact) 핀은 DB 쓰기 함수가 그대로 지키고, 대략 핀은 위치 찾기가 저장된 결과로 다시 붙인다.
     # 기존 줄끼리 같은 매장이 두 번 있으면(예전 다시 처리 결과) 앞의 것만 남긴다 — DB 입구가 빠진 줄을 지운다.
     # 같은 매장이 겹치면 관리자 확정 → 검증된 줄(location_verified) → 좌표 있는 줄 → 앞 줄 순으로 남긴다(Codex #718: 검증 핀 삭제 방지).

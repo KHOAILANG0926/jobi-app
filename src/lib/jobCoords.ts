@@ -327,10 +327,16 @@ export function hasApprovedPoint(l: Partial<WorkLocationLike>): boolean { return
  */
 function resolveWorkLocationMapPoint(l: WorkLocationLike): ResolvedMapPoint | null { return canonicalWorkLocationPoint(l) }
 
+/** 지도 핀·거리검색에 쓸 수 있는 확정 좌표인가(Lee 2026-11-23 「지점별 독립 공고」): 확정된 정확한 위치(exact + location_verified)와 공단 정문(gate)만.
+ *  대략 위치(area)·확인 안 된 exact는 `area`·`chưa xác minh` 표시가 있어도 핀에도 거리검색에도 쓰지 않는다(길찾기 링크는 별도 정책 그대로). */
+export function isConfirmedMapPoint(p: Pick<ResolvedMapPoint, 'kind' | 'precise'>): boolean {
+  return p.kind === 'gate' || (p.kind === 'exact' && p.precise)
+}
+
 export function resolveMapLocations(job: {
   rawLat?: number; rawLng?: number; rawLocation?: string; workLocations?: WorkLocationLike[]; recruitmentRegions?: string[]
 }): ResolvedMapLocations {
-  const points = (job.workLocations ?? []).map(canonicalWorkLocationPoint).filter((p): p is ResolvedMapPoint => p !== null)
+  const points = (job.workLocations ?? []).map(canonicalWorkLocationPoint).filter((p): p is ResolvedMapPoint => p !== null && isConfirmedMapPoint(p))
   return { points, source: points.length ? (points.some(p => p.precise) ? 'exact' : 'address') : 'pending',
     zoom: points.length > 1 ? 12 : points[0]?.precise ? 16 : 13 }
 }
@@ -350,11 +356,9 @@ export interface DistanceSearchPoint {
  * resolveMapLocations()와는 완전히 분리된 별도 함수. 2026-09-05 정책 개정
  * (2단계 거리검색 — 이전엔 location_verified===true만 인정해 실제 지오코딩된
  * exact/ward 좌표를 가진 공고 다수가 거리검색에서 통째로 빠졌다):
- * - precise=true: location_verified===true인 실제 근무지 좌표 — 정밀
- *   거리검색.
- * - precise=false: location_verified은 없지만 coordinateAccuracy가
- *   'exact' 또는 'ward'인 실제 지오코딩된 근무지 좌표 — 근사 거리검색.
- * 'region'/'unresolved'(행정 중심/좌표 없음)는 등급과 무관하게 절대
+ * - precise=true: 확정된 정확한 근무지 좌표(exact + location_verified===true) — 정밀 거리검색.
+ * - precise=false: 공단 정문(gate) — 확정 좌표지만 근무지 그 자리는 아님(근사 표시).
+ * 2026-11-23(Lee 확정 「지점별 독립 공고」): 대략 위치(area)·확인 안 된 exact는 `area`·`chưa xác minh` 표시가 있어도 거리검색에 절대
  * 포함하지 않는다. 성·시/구·군 행정 중심(findRegionCenter)이나 모집지역
  * 중심, 회사 등록주소 좌표는 이 함수에 애초에 들어오지 않는다
  * (WorkLocationLike는 job_work_locations의 실제 근무지 좌표만 나타낸다).

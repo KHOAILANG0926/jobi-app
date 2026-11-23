@@ -7,7 +7,8 @@ export function sourcePoints(rows) {
     assert.ok(r.lat!=null && r.lng!=null && Number(r.lat)>=8 && Number(r.lat)<=24 && Number(r.lng)>=102 && Number(r.lng)<=110,'invalid resolved source coordinate')
     assert.ok(['exact','gate','area'].includes(r.point_kind),'invalid resolved source kind')
   }
-  return resolved.map(r=>({workLocationId:r.id,lat:r.lat,lng:r.lng,kind:r.point_kind,precision:r.point_precision,revision:r.point_revision}))
+  // Lee 2026-11-23: 지도 핀·거리검색은 확정 좌표(exact·gate)만 — 대략 위치(area)는 원본에 있어도 핀이 아니다(앱 jobCoords.isConfirmedMapPoint와 같은 기준을 원본 열로 따로 적음).
+  return resolved.filter(r=>r.point_kind==='exact'||r.point_kind==='gate').map(r=>({workLocationId:r.id,lat:r.lat,lng:r.lng,kind:r.point_kind,precision:r.point_precision,revision:r.point_revision}))
 }
 export function canonical(points) {
   return points.map(p=>{

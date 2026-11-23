@@ -104,28 +104,12 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
   const targets = job.targets.length ? job.targets : [{ address: job.location, workLocationId: null }]
   // Detailed street first across ALL workplaces. Max two actual requests across the whole job.
   const sorted = [...targets].sort((a,b) => Number(parseStreetAddress(b.address).searchable) - Number(parseStreetAddress(a.address).searchable))
-  // Google이 알려 준 주소를 VietMap(·Goong)으로 번지까지 확인 — 맞으면 정확한 위치(exact).
-  const verifyAddress = async (address: string, target: ResolverJob['targets'][number]): Promise<LocationDecision | null> => {
-    if (!parseStreetAddress(address).searchable || hasConflictingProvinces(address)) return null
-    const hits = await query('search', { text: ADDRESS_STRATEGY.searchText(job.company, address) })
-    const pick = pickAddressHit(address, hits)
-    if (pick.hit?.ref_id && !pick.multiple) {
-      const place = await query('place', { refid: pick.hit.ref_id }) as Record<string, unknown> | null
-      if (place && validPoint({ lat: place.lat as number, lng: place.lng as number }) && pickAddressHit(address, [{ ...place, ref_id: pick.hit.ref_id }]).hit) {
-        const poi: PoiCandidate = { name: String(place.name || ''), address: String(place.display || place.address || ''), lat: place.lat as number, lng: place.lng as number, refId: pick.hit.ref_id,
-          units: { ward: place.ward as string, district: place.district as string, province: place.city as string } }
-        if (judgeAddressPois({ address }, { hits: 1, pois: [poi] }).approvePoi) return { kind: 'exact', lat: poi.lat, lng: poi.lng, source: `VietMap ${poi.refId}`, checkedAt: at }
-      }
-    }
-    // This replay uses the same cached address question and matching rules.
-    return deps.goong ? resolveWithGoong({ ...job, location: address }, [{ ...target, address }], deps, at) : null
-  }
   try {
-    // Lee 2026-11-06 "VietMap하고 Goong 하지 말고 바로 구글로": 회사 이름이 있으면 Google(상세 Google 버튼과 같은 검색어)부터.
-    // Google이 같은 이름 1곳을 알면 그 자리 — 주소가 VietMap·Goong에서 번지까지 맞으면 exact, 아니면 Google 좌표(area·chưa xác minh).
-    // Google이 모르면 아래 기존 단계(번지·공단 입구·대략 위치)로 핀만 정한다(수집 여부는 locationPrecheck가 판정).
+    // 위치 확인 우선순위(Lee 2026-11-23 확정, CLAUDE.md 「위치 확인 우선순위」): ① Google → ② VietMap → ③ Goong → 셋 다 못 찾으면 못 찾음(기존 보류·재확인).
+    // ① 회사 이름이 있으면 Google(상세 Google 버튼과 같은 검색어)부터. Google이 같은 이름 1곳을 알면 그 좌표를 추가 검증 없이 확정(exact)으로 채택하고
+    //    VietMap·Goong은 부르지 않는다(원래 성 안 검사는 resolveMain의 기존 조건 그대로).
     if (job.company.trim() && deps.google) {
-      const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), verifyAddress, { goong: false })
+      const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), { goong: false })
       if (found) return found
     }
     for (const target of sorted) {
@@ -148,18 +132,17 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
       if (verdict.approvePoi) return {kind:'exact', lat:poi.lat, lng:poi.lng, source:`VietMap ${poi.refId}`, checkedAt:at, address, workLocationId:target.workLocationId,
         evidence:strategy.evidence({company:job.company,address,poi,distanceM:null})}
     }
-    // Goong(두 번째 자료): VietMap이 ①번지·②회사+공단을 못 찾았을 때만, 같은 판정 규칙으로.
+    // ③ Goong: Google·VietMap이 모두 못 찾았을 때만, 같은 판정 규칙으로.
     if (deps.goong) {
       const found = await resolveWithGoong(job, sorted, deps, at)
       if (found) return found
     }
     const park = findIndustrialPark(...targets.map(t => t.address), job.location)
-    // Company lookup also applies after an industrial-park lookup failed.
-    // Google supplies address text only; the existing address rules determine the pin.
+    // Goong 회사 이름 찾기(같은 이름 1곳): Google·VietMap·Goong 번지가 모두 못 찾았을 때만.
     if (job.company.trim()) {
       reasons.push(failed ? 'vietmap:provider_failed' : deferred ? 'vietmap:budget_deferred' : 'vietmap:no_verified_match', 'goong:no_verified_match')
       if (!deps.google) reasons.push('google:not_configured')
-      const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), verifyAddress, { google: false })
+      const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), { google: false })
       if (found) return found
     }
     const gate = park?.destination
@@ -212,11 +195,10 @@ async function resolveWithGoong(job: ResolverJob, targets: ResolverJob['targets'
   return null
 }
 
-/** Company-name fallback, including industrial parks. Google address text verified by VietMap/Goong → exact;
- * otherwise Google's single same-name place itself → area (Lee 2026-11-06). Google not knowing → no company pin. */
+/** 회사 이름으로 찾기. Google이 같은 이름 1곳을 알면 그 장소 좌표를 추가 검증 없이 확정(exact)으로 채택한다(Lee 2026-11-23 확정 —
+ * 예전에는 VietMap·Goong 번지 확인이 없으면 대략 위치(area)로 낮췄다). Goong 같은 이름 1곳도 같은 방식. 못 찾으면 null. */
 async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targets'], deps: ResolverDeps, at: string,
   reason: (reason: string) => void,
-  verifyAddress: (address: string, target: ResolverJob['targets'][number]) => Promise<LocationDecision | null>,
   use: { goong?: boolean; google?: boolean } = {}): Promise<LocationDecision | null> {
   // keys: 첫 열쇠에 저장, 읽을 때는 차례로(Google 열쇠는 googleCacheKeys 한 곳 — 검색 글자 완전 일치).
   const ask = async (key: unknown[] | string[], call: () => Promise<unknown>, provider = String(key[1])) => {
@@ -245,7 +227,7 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
       if (!pick.hit) reason(`goong:${pick.reason}`)
       if (pick.hit) {
         const place = goongPlace(await ask(['company-v1', 'goong-detail', pick.hit.id], () => deps.goong!('detail', { place_id: pick.hit!.id })))
-        if (place && validPoint(place)) return { kind: 'area', lat: place.lat, lng: place.lng, source: `Goong ${pick.hit.id} (company)`, checkedAt: at, address, workLocationId: target.workLocationId,
+        if (place && validPoint(place)) return { kind: 'exact', lat: place.lat, lng: place.lng, source: `Goong ${pick.hit.id} (company)`, checkedAt: at, address, workLocationId: target.workLocationId,
           evidence: [`[Tự động] Tìm theo tên công ty trên Goong: ${place.name}`, `Địa chỉ Goong: ${place.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`].join('\n') }
       }
     }
@@ -258,13 +240,8 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
       if (!pick.hit) reason(`google:${pick.reason}`)
       const hit = pick.hit ? hits.find((h) => h.id === pick.hit!.id) : null
       if (hit) {
-        const verified = await verifyAddress(hit.address, target)
-        if (verified && verified.kind === 'exact') return { ...verified, address, resolvedAddress: hit.address, workLocationId: target.workLocationId,
-          evidence: [verified.evidence, `[Tự động] Tìm địa chỉ theo tên công ty: ${hit.name}`, `Địa chỉ tìm được: ${hit.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`, 'Google: address verified by VietMap/Goong'].filter(Boolean).join('\n') }
-        // Lee 2026-11-06: when Google knows the company (one same-name place), follow Google's place itself.
-        // Unverified (area) like the Goong company step; the original-province check in resolveAutoLocation still applies
-        // (outside → administrative area + boundary mismatch, i.e. Google picked a same-name company elsewhere).
-        if (validPoint(hit)) return { kind: 'area', lat: hit.lat, lng: hit.lng, source: `Google ${hit.id} (company)`, checkedAt: at, address, resolvedAddress: hit.address, workLocationId: target.workLocationId,
+        // Lee 2026-11-23: Google이 찾은 회사·사업장 위치는 의심·추가 검증 없이 확정 좌표. 원래 성 밖(동명 다른 회사)은 resolveMain의 기존 검사가 거른다.
+        if (validPoint(hit)) return { kind: 'exact', lat: hit.lat, lng: hit.lng, source: `Google ${hit.id} (company)`, checkedAt: at, address, resolvedAddress: hit.address, workLocationId: target.workLocationId,
           evidence: [`[Tự động] Tìm theo tên công ty trên Google: ${hit.name}`, `Địa chỉ Google: ${hit.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`, 'Google: place location (same query as Google button)'].join('\n') }
         reason('google:invalid_point')
       }

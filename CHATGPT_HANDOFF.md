@@ -1,14 +1,10 @@
-# HANDOFF — 2026-11-22 (Claude) · JOBI 4단계 — 1-B·1-C Draft PR 3개
+# HANDOFF — 2026-11-23 (Claude) · 이슈 #988 지점별 독립 공고·위치 우선순위 구현
 ## 1. 현재 상태
-- 코드: master 최신(#959 병합 포함). PR 3개 — #970(1-B 코드·시험: 마감 당일 열림·베트남 날짜, 연락처 8자리, 필수 9개 일치 시험, 정책 판정기 Python·JS·SQL 일치 시험) · #971(1-B DB: 만료 cron 기준 날짜 = 베트남 날짜, migration이라 Lee 공식 Approve) · #972(1-C: Facebook이 DB 규칙 거부 공고의 원문·출처·규칙 코드·사유를 보류함에 rejected로 보존). 세 PR 모두 병합·배포·운영 DB 변경 없음, 작업 기록(WORK_LOG·HANDOFF)은 #970에만 있음.
-- 1-A 측정 [직접 확인]: 정책 평가기 3벌은 4,057건 불일치 0. 실제 불일치는 마감·연락처·직업분류/점검기(khac)·review 처리·필수 항목. 이번에 고친 것은 마감·연락처·필수 9개 일치 시험·DB 규칙 거부 보존.
-- PR #952(지도 style 사본, 브랜치 `claude/map-style-copy`): 메인·상세·관리자 지도가 우리 쪽 VietMap style 사본(public/vietmap/styles, 열쇠 값 비움)을 먼저 쓰고 실패할 때만 원본, 사본은 vercel-deploy 빌드 직전 갱신. 필수 검사 통과, Lee 공식 Approve(최신 커밋) 대기. 운영 지도는 아직 옛 코드 — VietMap style.json이 멈추면 deploy-verify 지도 실패·배포 잠금이 다시 날 수 있음(#950·#951 잠금은 f02306d deploy-verify 통과로 풀림 조건 충족).
-- 남은 결정·운영 확인 보류: 이슈 #973(F4 khac, F5 관리자 review, 작성 화면 12 vs 9, 화면 연락 버튼, Facebook 지난 마감일, rejected vs review). 운영 DB 조회 불가(프록시)라 공개 24건별 판정 분포·운영 확인은 미검증.
+- 코드: master e72d1f1(#987 규정 병합). 이 브랜치(feat/988-branch-jobs-location-order): Google→VietMap→Goong 위치 채택(Google은 추가 검증 없이 확정), 핀·거리검색은 확정 좌표(exact+확인, gate)만(`jobCoords.isConfirmedMapPoint`), 수집 입구가 한 글의 지점 A·B·C를 공고 3개로 등록(`ingest_gateway._ingest_branches`), migration `20261124000000_branch_job_identity`(같은 공고 판정=원문+지점 위치, 형제 지점 중복 면제 — Approve·병합 뒤 migrations-apply가 적용). 「자율 완주 및 승인 게이트 원칙」 문서 3개 반영.
+- 구현함: TopCV·vieclam24h 지점 분리(`_ingest_branch_jobs`·`_own_branch_rows`·`_unregistered_branch_rows`), Facebook refresh 형제 지점은 따로 등록(`pin_guard.other_stores`), 재수집에서 빠진 지점은 줄·공고를 건드리지 않음(단위 시험). 미완료: 관리자 위치 확정 대기열(#985·#986 보류), 기존 다중 근무지 공고 전환(dry-run 후 Lee 확인). 운영 DB 조회 불가라 운영 실행·기존 area 핀 영향 건수는 미검증.
 ## 2. 다음 할 일 3개
-1. Lee: #970·#971·#972 검토(#970·#971은 GitHub에서 공식 Approve, #972는 needs-lee). 병합은 승인 뒤 봇이 한다.
-2. #973의 결정 6건 확인 후 필요한 것만 별도 PR(1-C 남은 범위: 관리자·고용주 위치 공개 정책 등).
-3. Facebook 쿠키 갱신(계정 잠금 해제) 뒤 실제 dryrun→보류함·거부 보존 확인(#940), #971 적용 뒤 production_check 결과 확인.
+1. Lee: 최종 PR Approve(검사 전체 통과·Ready 후 approval-gate만 남음).
+2. 기존 다중 근무지 공고 전환 dry-run 계획 → Lee 확인.
+3. 기존 다중 근무지 공고 전환 설계(첫 지점 job_id 유지) → dry-run 결과를 Lee에게 확인 요청(허용된 승인 시점 ①).
 ## 3. 필수 규칙
-- CLAUDE.md·.claude/RULES_CORE.md 먼저. 확인한 것만 [직접 확인]/[기존 기록]/[추정], 5줄 이내.
-- 운영 DB는 migration + production_check PR로만. 새 검사·규칙·승인 절차·대기열을 덧붙이지 않는다. 필수 9개 목록·상세 구성은 Lee 지시 없이 바꾸지 않는다. 점검기 독립성 시험(R2 #753)을 약화하지 않는다.
-- 위치를 모르면 핀을 찍지 않는다·못 찾은 공고는 등록하지 않는다(보류함에 보관). 정기 수집은 승인 없이 켜지 않는다.
+- CLAUDE.md·.claude/RULES_CORE.md 먼저(「지점별 독립 공고」「위치 확인 우선순위」「기존 확정 규정 보호」「자율 완주 및 승인 게이트 원칙」). 확인한 것만 [직접 확인]/[기존 기록]/[추정], 5줄 이내. 운영 DB 직접 접근 금지.

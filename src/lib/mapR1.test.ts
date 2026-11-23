@@ -39,28 +39,30 @@ assert.deepEqual(moved.visibleEntries?.map(e => e.job.id), ['two'], 'panning cha
 assert.deepEqual(model.mapSearch([exact, far, rep], DEFAULT_FILTERS, null, null, null, reps).visibleEntries, [], 'unknown viewport does not show all jobs')
 
 const broad = {west:105,east:107,south:20,north:22}
+// Lee 2026-11-23: 대략 위치(area)는 지도 핀에도 거리검색에도 쓰지 않는다 — 반경과 무관하게 핀·목록·반경 결과 모두 없다.
 const area = {...reps.three, kind:'area' as const,lat:21.2,lng:106}
 const small = model.mapSearch([job('three', [{lat:area.lat,lng:area.lng,pointKind:'area'}])], DEFAULT_FILTERS, {lat:21.03,lng:105.85}, 1, broad, {three:area})
-assert.equal(small.markers.length, 1, 'representative pin stays on the map outside radius (Lee 10-13: pins always on main map)')
-assert.equal(small.visibleEntries.length, 0, 'list must exclude representative outside radius')
+assert.equal(small.markers.length, 0, 'approximate (area) point is never a map pin')
+assert.equal(small.visibleEntries.length, 0, 'approximate point never brings the job into the viewport list')
 const large = model.mapSearch([job('three', [{lat:area.lat,lng:area.lng,pointKind:'area'}])], DEFAULT_FILTERS, {lat:21.03,lng:105.85}, 30, broad, {three:area})
-assert.equal(large.markers.length, 1, 'representative pin still on map with large radius')
-assert.equal(large.visibleEntries.length, 1, 'expanding radius brings representative back into the list')
-assert.equal(large.radiusJobs.length, 1, 'radius results include representative without upgrading precision')
-assert.equal(large.radiusJobs[0].point?.kind, 'area')
+assert.equal(large.markers.length, 0, 'approximate point still no pin with a large radius')
+assert.equal(large.radiusJobs.length, 0, 'approximate point never joins radius (distance) results')
+assert.equal(large.unresolvedCount, 1, 'job with only an approximate point counts as unlocated')
+// 확정된 정확한 위치(exact + 확인)는 반경 안이면 핀·반경 결과에 들어간다.
+const confirmedNear = model.mapSearch([job('conf', [{lat:21.04,lng:105.86,locationVerified:true,pointKind:'exact'}])], DEFAULT_FILTERS, {lat:21.03,lng:105.85}, 5, broad, {})
+assert.equal(confirmedNear.markers.length, 1, 'confirmed exact point is a pin')
+assert.equal(confirmedNear.radiusJobs.length, 1, 'confirmed exact point joins the radius result')
 
 const tefalUnverified = job('sb-4878', [{
   rawAddress: '33 Lý Thái Tổ, P. Ninh Xá, TP. Bắc Ninh',
   lat: 21.1737775, lng: 106.0650338, geocodeStatus: 'success', locationVerified: false, pointKind: 'area',
 }])
 const t = model.locationPoints(tefalUnverified, {})
-assert.equal(t.length, 1, 'sourced address with unapproved workplace still appears on map')
-assert.equal(t[0].kind, 'area', 'approximate address can never be an approved factory pin')
-assert.equal(t[0].lat, 21.1737775, 'address map does not silently relocate to a ward center')
+assert.equal(t.length, 0, 'sourced address with unconfirmed (area) workplace is not a map point (Lee 2026-11-23)')
 const nearTefal = model.mapSearch([tefalUnverified], DEFAULT_FILTERS, null, null,
   { west: 106, east: 106.1, south: 21.1, north: 21.2 }, {})
-assert.equal(nearTefal.markers.length, 1, 'approximate address shows on main map')
-assert.equal(nearTefal.visibleCount, 1, 'approximate address contributes to map viewport list')
+assert.equal(nearTefal.markers.length, 0, 'unconfirmed address is not shown on the main map')
+assert.equal(nearTefal.visibleCount, 0, 'unconfirmed address does not count in the map viewport list')
 
 const exactNotePoint = {lat:21,lng:106,kind:'exact' as const,precise:true}
 const areaNotePoint = {lat:21.1,lng:106.1,kind:'area' as const,precise:false}

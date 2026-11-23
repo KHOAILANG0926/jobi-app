@@ -1,4 +1,4 @@
-from pin_guard import problems
+from pin_guard import other_stores, problems
 
 
 def test_lost_pin_detected():
@@ -31,3 +31,11 @@ def test_lost_pin_hidden_by_new_store_is_detected():
     before = [{"lat": 21.18, "lng": 106.06}, {"lat": 21.11, "lng": 105.96}]
     after = [{"lat": None, "lng": None}, {"lat": 21.11, "lng": 105.96}, {"lat": 21.09, "lng": 105.99}]
     assert problems(before, after) == ["pin_lost:21.18,106.06"]
+
+
+def test_other_stores_only_returns_branches_not_already_registered():
+    # 지점별 독립 공고(Lee 2026-11-23): 기존 공고의 지점은 제외, 새 지점만 새 공고 대상
+    a, b, c = "Lô A1, KCN Quế Võ, Bắc Ninh", "Lô D4, KCN Quế Võ, Bắc Ninh", "Lô E7, KCN Quế Võ, Bắc Ninh"
+    assert other_stores([{"raw_address": a}], [a, b, c]) == [b, c]
+    assert other_stores([{"raw_address": a}, {"raw_address": b}], [a, b]) == []
+    assert other_stores([], [a, b]) == [a, b]
