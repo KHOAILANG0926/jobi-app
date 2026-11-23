@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-24 01:47 (VN)**
-- 기준 커밋: `1c002cd` (Merge pull request #993 from KHOAILANG0926/fix/990-pins-ocr)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45241648133
+- 생성 시각: **2026-11-24 02:18 (VN)**
+- 기준 커밋: `f3bd111` (ci(approval): #992 대조 보완 — 재확인 상한 60분·DB 구조(DDL)·pull_request_target 수동 (#994))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45247317090
 - 검증 스크립트 지문(SHA-256): `381fdde1e2023cb4`
 
 ## 한눈에 보기
@@ -49,7 +49,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `1c002cd` · 상태 **success** · 2026-11-24 01:44 (VN)
+- 마지막 Production 배포: `f3bd111` · 상태 **success** · 2026-11-24 02:17 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -57,6 +57,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #994 | 2026-11-24 02:17 (VN) | `f3bd111` | ci(approval): #992 대조 보완 — 재확인 상한 60분·DB 구조(DDL)·pull_request_target 수동 (Draft) |
 | #993 | 2026-11-24 01:44 (VN) | `1c002cd` | fix(#990): 핀 없는 정상 보류 공고를 행정구역 검사 실패로 보지 않음 + OCR 영구 사진 접근 거부 건너뜀 + PR 단계 읽기 전용 위치 검사 (Draft) |
 | #992 | 2026-11-24 00:59 (VN) | `5aa71d7` | ci(approval): 승인 자동화 완화 — 일반 워크플로·시험 파일 자동, 경계·고권한·규칙 문서 수동, 조회 실패는 자동 재확인 (Draft) |
 | #991 | 2026-11-24 00:16 (VN) | `4c6204c` | fix(#990): 공개 위치 요약 API는 확정 좌표만 — 대략 점이 원본 대조와 어긋나던 운영 검증 실패 수정 (Draft) |
@@ -66,7 +67,6 @@
 | #952 | 2026-11-23 08:53 (VN) | `9909248` | fix(#950): 지도 스타일을 우리 쪽 사본에서 먼저 — VietMap style.json 멈춤(메인·상세·관리자) |
 | #972 | 2026-11-23 00:20 (VN) | `d5ae60b` | fix(crawler): 1-C Facebook DB 규칙 거부 원문·출처·규칙 코드·사유를 보류함에 rejected로 보존 (Draft) |
 | #970 | 2026-11-23 00:15 (VN) | `b0daf6c` | feat(criteria): 1-B 마감·연락처·필수 9개 기준 한 곳 정리 — 코드·시험 (Draft, DB 변경 없음) |
-| #971 | 2026-11-23 00:14 (VN) | `1e63441` | fix(db): 공고 만료 처리 기준 날짜를 베트남 날짜로 — deactivate_expired_jobs 함수 한 개 교체 (Draft, 운영 적용 없음) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -99,6 +99,8 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-11-24 02:18 (VN) | location_candidate.approve | job 6355 |
+| 2026-11-24 02:18 (VN) | location_candidate.add | job 6355 |
 | 2026-11-24 01:45 (VN) | location_candidate.approve | job 6351 |
 | 2026-11-24 01:45 (VN) | location_candidate.add | job 6351 |
 | 2026-11-24 01:00 (VN) | location_candidate.approve | job 6348 |
@@ -107,8 +109,6 @@
 | 2026-11-24 00:18 (VN) | location_candidate.add | job 6346 |
 | 2026-11-23 23:45 (VN) | location_candidate.approve | job 6342 |
 | 2026-11-23 23:45 (VN) | location_candidate.add | job 6342 |
-| 2026-11-23 22:00 (VN) | location_candidate.approve | job 6338 |
-| 2026-11-23 22:00 (VN) | location_candidate.add | job 6338 |
 
 ## 8. 검증 장치 변경 이력
 
