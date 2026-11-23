@@ -182,3 +182,52 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   assert(qm.kind === 'unresolved' && qm.deferred && /google:quota/.test(String(qm.evidence)), 'quota-blocked store defers whole posting: ' + JSON.stringify(qm).slice(0, 200))
   console.log('autoLocationResolver: 매장 여러 곳 — 매장마다 같은 방법으로 찾고 모르는 매장은 핀 없음 통과')
 }
+
+// ── 위치 확인 우선순위(Lee 2026-11-23 확정): ① Google → ② VietMap → ③ Goong → 셋 다 못 찾으면 못 찾음(보류) ──
+{
+  const company = 'Fixture Cafe'
+  const streetAddr = '12 Nguyễn Trãi, Phường Thanh Xuân Trung, Quận Thanh Xuân, Hà Nội'
+  const googleOk = (id: string, address: string) => ({ places: [{ id, displayName: { text: company }, formattedAddress: address, location: { latitude: 21.01, longitude: 105.81 } }] })
+  const vmHit = [{ ref_id: 'vm-1', name: '12 Nguyễn Trãi', address: streetAddr }]
+  const vmPlace = { name: '12 Nguyễn Trãi', display: streetAddr, lat: 21.0, lng: 105.8, ward: 'Thanh Xuân Trung', district: 'Thanh Xuân', city: 'Hà Nội' }
+  const run = (calls: string[], opts: { google?: unknown; vietmap?: boolean; goong?: unknown }) => resolver.resolveAutoLocation(
+    { id: 40, company, location: streetAddr, targets: [{ address: streetAddr, workLocationId: 1 }] }, {
+      ...deps, async reserve() { return true },
+      async request(action: string) { calls.push(`vietmap:${action}`); return opts.vietmap ? (action === 'search' ? vmHit : vmPlace) : [] },
+      async google() { calls.push('google'); return opts.google ?? { places: [] } },
+      async goong(action: string) { calls.push(`goong:${action}`); return typeof opts.goong === 'function' ? (opts.goong as (a: string) => unknown)(action) : null },
+    } as never)
+  // ① Google이 찾으면 추가 검증 없이 확정(exact) — VietMap·Goong은 부르지 않는다(주소가 번지까지 있어도).
+  let calls: string[] = []
+  const g = await run(calls, { google: googleOk('g-1', streetAddr), vietmap: true })
+  assert(g.kind === 'exact' && (g as { source?: string }).source === 'Google g-1 (company)', 'Google place adopted as confirmed exact: ' + JSON.stringify(g).slice(0, 160))
+  assert(calls.join(',') === 'google', 'Google success → no VietMap/Goong call: ' + calls.join(','))
+  // Google 주소 글자가 원문과 조금 달라도(같은 이름 1곳·원래 성 안이면) VietMap·Goong 번지 확인 없이 그대로 채택
+  calls = []
+  const g2 = await run(calls, { google: googleOk('g-2', '12 Nguyễn Trãi, Thanh Xuân, Hà Nội') })
+  assert(g2.kind === 'exact' && calls.join(',') === 'google', 'Google place adopted without extra address check')
+  // ② Google이 못 찾으면 VietMap
+  calls = []
+  const v = await run(calls, { google: { places: [] }, vietmap: true })
+  assert(v.kind === 'exact' && String((v as { source?: string }).source).startsWith('VietMap') && calls[0] === 'google' && calls.includes('vietmap:search'), 'Google miss → VietMap: ' + calls.join(','))
+  assert(!calls.some((c) => c.startsWith('goong')), 'VietMap success → no Goong call')
+  // ③ Google·VietMap 모두 못 찾으면 Goong
+  calls = []
+  const geocode = { results: [{ place_id: 'g-3', formatted_address: streetAddr, geometry: { location: { lat: 21.0, lng: 105.8 } }, compound: { commune: 'Thanh Xuân Trung', district: 'Thanh Xuân', province: 'Hà Nội' } }] }
+  const o = await run(calls, { google: { places: [] }, vietmap: false, goong: () => geocode })
+  assert(o.kind === 'exact' && String((o as { source?: string }).source) === 'Goong g-3', 'Google+VietMap miss → Goong: ' + JSON.stringify(o).slice(0, 160))
+  assert(calls[0] === 'google' && calls.some((c) => c.startsWith('vietmap')) && calls.some((c) => c.startsWith('goong')), 'order google → vietmap → goong: ' + calls.join(','))
+  // 셋 다 못 찾으면 좌표 없이 못 찾음(대략 위치 핀 없음) → 호출부(수집기)가 기존 보류·재확인으로 보낸다
+  calls = []
+  const none = await run(calls, { google: { places: [] }, vietmap: false })
+  assert(none.kind === 'unresolved' && !('lat' in none), 'all three miss → unresolved, no approximate pin')
+  assert(calls.includes('google') && calls.some((c) => c.startsWith('vietmap')) && calls.some((c) => c.startsWith('goong')), 'all three providers were asked: ' + calls.join(','))
+  // Google이 한도(429)에 걸리면 못 찾음이 아니라 보류(기존 규칙 그대로)
+  const quota = await resolver.resolveAutoLocation({ id: 41, company, location: streetAddr, targets: [{ address: streetAddr, workLocationId: 1 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] }, async google() { throw new Error('quota_exhausted') },
+  } as never)
+  assert(quota.kind === 'unresolved' && /google:quota/.test(String((quota as { evidence?: string }).evidence)), 'Google quota stays a hold, not not-found')
+  // 이 resolver는 대략 위치(area)를 더 이상 만들지 않는다.
+  for (const r of [g, g2, v, o, none, quota]) assert(r.kind !== 'area', 'resolver never returns an approximate (area) decision')
+  console.log('autoLocationResolver: 위치 확인 우선순위 Google → VietMap → Goong 통과')
+}

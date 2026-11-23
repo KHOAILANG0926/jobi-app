@@ -248,11 +248,6 @@ def require_location(job: dict) -> dict:
     checked = str(verdict.get("location") or "").strip()
     if checked and not _work_addresses(job):
         job["location"] = checked
-        # 원문 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 위치를 찾은 매장만 근무지 줄 — 등록 입구가 같은 위치 쓰기 함수로 넣는다(새 공고만).
-        # 못 찾은 매장은 넣지 않는다(위치를 모르면 핀을 찍지 않음, Lee 2026-11-11 절대 원칙).
-        stores = [str(x).strip() for x in (verdict.get("stores") or []) if str(x).strip()][:5]
-        if len(stores) > 1 and stores[0] == checked:
-            job["work_locations"] = [{"raw_address": a} for a in stores]
     if str(verdict.get("company") or "").strip():
         job["company"] = str(verdict["company"]).strip()
     if verdict.get("agency") is True:
@@ -480,8 +475,31 @@ def retry_held_once(client) -> dict | None:
     return retry_held(client)
 
 
+def branch_stores(verdict: dict, checked_location: str) -> list[str]:
+    """원문 매장(물리적 지점)이 여러 곳이면 위치를 찾은 지점 주소 목록(최대 5). 한 곳이면 빈 목록 — 못 찾은 지점은 넣지 않는다
+    (위치를 모르면 핀도 공고도 만들지 않음, Lee 2026-11-11 절대 원칙). 서버 응답의 첫 지점이 확인한 위치 글자와 다르면(응답 이상) 나누지 않는다."""
+    stores = [str(x).strip() for x in (verdict.get("stores") or []) if str(x).strip()][:5]
+    return stores if len(stores) > 1 and stores[0] == checked_location else []
+
+
+def _ingest_branches(client, job: dict, stores: list[str]) -> int:
+    """지점별 독립 공고(Lee 2026-11-23 확정 「지점별 독립 공고」): 한 원문의 지점 A·B·C → 정식 입구(ingest_job)를 지점마다 한 번씩 불러 공고 3개.
+    입구가 (원문 + 지점 위치 식별자 `branch_location`)의 쌍으로 같은 공고를 판정하므로 형제 지점은 서로 중복·갱신 대상이 아니다.
+    각 공고의 근무지 줄은 그 지점 하나뿐이다. 첫 지점의 공고 번호를 돌려준다."""
+    first_id = None
+    for address in stores:
+        sibling = {**job, "location": address, "work_locations": [{"raw_address": address}], "branch_location": address}
+        store_facebook_images(client, sibling)
+        job_id = _call_gateway(client, sibling)
+        first_id = job_id if first_id is None else first_id
+    return int(first_id)
+
+
 def _ingest_new(client, job: dict, work_location_rows: list[dict] | None = None) -> int:
-    require_location(job)
+    verdict = require_location(job)
+    stores = branch_stores(verdict, str(job.get("location") or ""))
+    if stores and not _work_addresses(job):
+        return _ingest_branches(client, job, stores)
     # 근무지 줄을 등록 입구가 같은 트랜잭션에서 쓰게 한다(입구의 replace_job_work_locations — 위치 쓰기 함수 한 곳).
     # 등록 뒤에 따로 다시 쓰면 위치 확인 서버가 찾는 동안 근무지가 바뀌어 그 결과를 버린다(map_r1_complete의 snapshot 대조,
     # #916 #6255 El Gaucho). 위치 확인이 매장 여러 곳 줄을 정했으면(stores) 그쪽이 먼저다.

@@ -1,5 +1,5 @@
 // 수집 첫 단계 = 위치 확인(Lee 2026-11-06 최우선 규칙). 지도와 같은 위치 찾기(resolveAutoLocation) 결과로만 판정한다.
-// "찾을 수 있음" = 번지 확인(exact) · 공단 정문(gate) · 회사 이름으로 찾은 업체 자리(Google/Goong company).
+// "찾을 수 있음" = 확정 좌표(exact: Google 같은 이름 1곳·VietMap·Goong 번지·회사 장소) · 공단 정문(gate) — 위치 확인 우선순위 Google → VietMap → Goong(Lee 2026-11-23).
 // 동·거리·공단 중심·성 대략 위치만 나오면 "못 찾음" → 수집하지 않는다.
 import { companyCore } from './jobIdentity'
 import type { LocationDecision, ResolverJob } from './autoLocationResolver'
@@ -12,14 +12,10 @@ import { readCompany, type CompanyRead } from './companyReader'
 export interface PrecheckInput { company?: unknown; location?: unknown; addresses?: unknown; source_text?: unknown; poster_text?: unknown }
 export interface PrecheckVerdict { findable: boolean; kind: string; reason: string }
 
-const COMPANY_PLACE = /^(?:Google|Goong) \S+ \(company\)$/
-
 export function precheckVerdict(decision: LocationDecision): PrecheckVerdict {
   const kind = decision.kind
   if (kind === 'exact') return { findable: true, kind, reason: 'exact_address' }
   if (kind === 'gate') return { findable: true, kind, reason: 'park_gate' }
-  const source = 'source' in decision ? String(decision.source ?? '') : ''
-  if (kind === 'area' && COMPANY_PLACE.test(source)) return { findable: true, kind, reason: source.startsWith('Google') ? 'google_company_place' : 'goong_company_place' }
   if (kind === 'area' && /google:quota/.test(String(decision.evidence ?? ''))) return { findable: false, kind, reason: 'google_quota' }
   if (kind === 'area') return { findable: false, kind, reason: /administrative/i.test(String(decision.evidence ?? '')) && /mismatch/.test(String(decision.evidence ?? '')) ? 'outside_original_province' : 'approximate_only' }
   // Google 한도로 못 물었으면 '못 찾음'이 아니라 보류(google_quota) — 수집기가 버리지 않고 나중에 다시 묻는다(#560).

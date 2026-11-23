@@ -1,3 +1,10 @@
+## 2026-11-23 — 이슈 #988: 지점별 독립 공고 + 위치 우선순위(Google→VietMap→Goong) 구현 + 자율 완주 규정 (Draft→Ready, 병합·운영 DB 없음)
+- 요청: Lee 2026-11-23 — #987 규정의 실제 구현(지점별 독립 공고, Google→VietMap→Goong, 확정 좌표만 핀·거리검색)과 「자율 완주 및 승인 게이트 원칙」 문서 반영.
+- 수정 전 실패 [직접 확인]: ① 옛 resolver는 Google이 찾아도 VietMap으로 다시 번지 확인하고 못 하면 대략(area) 위치로 낮춤(시험 'Google place adopted as confirmed exact' 실패, source=VietMap) ② 같은 글의 새 지점 find_existing이 첫 지점 공고를 돌려줌(1) ③ 같은 회사·일·공단 형제 지점 공고 중복 판정 `duplicate:1:same_company_job_location`(꺼짐) ④ 수집 입구는 지점 2곳을 공고 1개+근무지 2줄로 등록.
+- 변경: autoLocationResolver(Google 채택·VietMap·Goong 순, 번지 재확인 단계 삭제) · locationPrecheck(area 회사 장소 분기 삭제) · jobCoords.resolveMapLocations(확정 좌표 exact+확인·gate만 → 핀·거리검색 한 곳) · ingest_gateway(지점마다 ingest_job 1회, branch_location) · migration 20261124000000_branch_job_identity(ingest_job 해시·find_existing에 지점 위치, verdict 같은 글 형제 면제) · 시험 갱신.
+- 검증: tsc · npm test 125/125 · build · 크롤러 파이썬 시험 · branch_job_identity.pglite(운영 함수 본문에 줄 바꾸기 적용) · 로컬 PostgreSQL 16에서 CI와 같은 순서(fixture→setup→migration→local→production_check) 통과.
+- 미완료(이 PR 범위 밖/미검증): TopCV·vieclam24h 지점 분리(crawl_topcv.py 근무지 N행·제목+회사 매칭) · Facebook refresh가 새 지점을 같은 공고에 덧붙임(refresh_facebook_existing.py) · 재수집 지점 누락 판정 · 관리자 위치 확정 대기열(#985·#986 보류) · 기존 다중 근무지 공고 전환(dry-run·승인 필요) · 운영에서 ingest_job 전체 실행·기존 area 핀이 사라지는 건수는 운영 DB 조회 불가라 미확인.
+
 ## 2026-11-22 — JOBI 1-B(Lee 승인): 마감·연락처·필수 항목 기준 불일치 해소 — 코드·시험 Draft PR + DB cron Draft PR (병합·운영 DB 없음)
 - 실제 실패 [직접 확인, 1-A 측정]: ① 마감 당일을 크롤러는 만료·Facebook은 기한 버림(→상시 공고로 등록), 화면·알림은 열림, 공개 판정 기본 날짜는 UTC ② 연락처: DB 8자리인데 Facebook·job_quality·화면은 값이 있기만 하면 통과(`0912345`·`abc`·`---`도) ③ 필수 9개 목록이 점검 코드·작성 화면·문서에 따로 있음(점검기는 독립성 규칙상 공유 불가 → 일치 시험으로 고정). 정책 평가기 3벌은 4,057건 불일치 0(F1).
 - 변경(코드 PR): policy/job-criteria.json(마감·연락처·필수 9개 단일 원천) · crawler/job_criteria.py · src/lib/jobCriteria.mjs(+d.mts) · crawl_facebook/crawl_topcv/job_quality/finalize_reprocess_queue(베트남 날짜·마감 당일 열림·연락처 8자리) · jobInspect.ts(공개 판정 기본 날짜 = 베트남 — 검사기 독립성 시험(R2 #753) 때문에 공유 모듈을 import하지 않고 직접 계산, 필수 9개 목록은 jobCriteria.test.ts가 JSON과 일치를 고정) · 시험: 마감·연락처 경계, 정상 연락처 표기 회귀, 정책 판정기 Python·JS·SQL 일치 2,057건(job_posting_rules.pglite.test.mjs, 기존 CI 단계).
@@ -82,7 +89,3 @@
 - 변경: ingest_gateway.ingest_job(work_location_rows=) — 위치 확인 뒤 입구 payload로(서버가 매장 여러 곳을 정하면 그쪽 먼저). crawl_topcv 새 공고는 등록 뒤 근무지를 따로 다시 쓰지 않음. 기존 공고 다시 수집은 그대로.
 - 검증 [직접 확인 로컬]: test_ingest_gateway(El Gaucho 사례)·test_address_pipeline_integration(#4572 사례: 새 공고 근무지 줄 보존 — 입구 payload로)·test_job_error_isolation(근무지 실패 시 반쯤 저장 없음)·scheduled_cli·cli_safety·work_location_protection·refresh_store_rows.
 
-## 2026-11-18 — 위치 "원래 성 안" 검사: 통합 뒤 "(…, X cũ)" 주소의 옛 성 인식 (El Gaucho, #872)
-- 실측 [직접 확인]: publish_one 44299906107 not_found → 업체 검색 비교 44300276494: Google "El Gaucho Hikari Bình Dương"(11.05904,106.68454) 찾음, 성 안=아니오. 원인: 주소에 시 이름(Thủ Dầu Một, 시 경계 자료 없음)과 새 성(TP.HCM)·옛 성(Bình Dương cũ)이 같이 있어 성을 못 정함.
-- 변경: withinOriginalProvince만 — 시 단계가 모름이면 글에 적힌 원래 성 1곳(여럿이면 "cũ" 표시 1곳)으로 성 경계 검사. 시 대표점·핀 규칙 그대로.
-- 검증 [직접 확인 로컬]: npm test 123/123(administrativeArea 사례 5개 추가), tsc.

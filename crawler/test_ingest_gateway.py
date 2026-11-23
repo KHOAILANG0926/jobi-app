@@ -53,8 +53,14 @@ def run():
     g.PRECHECK = lambda j: {"findable": True, "location": first, "stores": [first, second]}
     c = Client()
     assert g.ingest_job(c, krik) == 77
-    assert c.calls[0][1]["p"]["work_locations"] == [{"raw_address": first}, {"raw_address": second}], c.calls
-    assert c.calls[0][1]["p"]["location"] == first
+    # 2026-11-23 Lee 「지점별 독립 공고」: 지점마다 공고 하나(입구 호출 지점 수만큼), 각 공고의 근무지 줄은 그 지점 하나뿐
+    assert len(c.calls) == 2, c.calls
+    assert [x[1]["p"]["location"] for x in c.calls] == [first, second], c.calls
+    assert [x[1]["p"]["work_locations"] for x in c.calls] == [[{"raw_address": first}], [{"raw_address": second}]], c.calls
+    assert [x[1]["p"]["branch_location"] for x in c.calls] == [first, second], "입구가 (원문, 지점 위치) 쌍으로 같은 공고를 판정하도록 지점 위치 식별자를 보낸다"
+    assert all(x[1]["p"]["source_text"] == krik_src["source_text"] for x in c.calls), "원문 글자는 지점마다 그대로"
+    # 같은 지점 여러 직무는 공고 1개: 직무 칸을 지점 수만큼 나누지 않는다(원문 한 번 → 지점별 공고, 각 공고가 직무 전체를 가짐)
+    assert all(x[1]["p"]["title"] == krik_src["title"] for x in c.calls)
     # 첫 매장이 위치 글자와 다르면(서버 응답 이상) 근무지 줄을 만들지 않는다
     g.PRECHECK = lambda j: {"findable": True, "location": first, "stores": [second, first]}
     c = Client()
@@ -73,7 +79,7 @@ def run():
     g.PRECHECK = lambda j: {"findable": True, "location": first, "stores": [first, second]}
     c = Client()
     assert g.ingest_job(c, dict(krik_src), work_location_rows=rows) == 77
-    assert c.calls[0][1]["p"]["work_locations"] == [{"raw_address": first}, {"raw_address": second}], c.calls
+    assert [x[1]["p"]["work_locations"] for x in c.calls] == [[{"raw_address": first}], [{"raw_address": second}]], c.calls
 
     g.PRECHECK = lambda j: {"findable": False, "reason": "approximate_only"}
     c = Client()
