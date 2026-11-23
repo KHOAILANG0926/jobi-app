@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-23 11:02 (VN)**
-- 기준 커밋: `87ece37` (refactor(crawler): 2단계 구조 정리 1묶음 — TopCV 연락처·오늘 날짜를 공통 기준 한 곳으로 + DB 하드코딩 값 고정 시험 (Draft, #978) (#981))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45109334392
+- 생성 시각: **2026-11-23 22:00 (VN)**
+- 기준 커밋: `e72d1f1` (docs(rules): 지점별 독립 공고 확정 규정 — CLAUDE.md·AGENTS.md·RULES_CORE (문서만) (#987))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45200115944
 - 검증 스크립트 지문(SHA-256): `381fdde1e2023cb4`
 
 ## 한눈에 보기
@@ -49,7 +49,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `87ece37` · 상태 **success** · 2026-11-23 09:35 (VN)
+- 마지막 Production 배포: `e72d1f1` · 상태 **success** · 2026-11-23 21:59 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -57,6 +57,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #987 | 2026-11-23 21:59 (VN) | `e72d1f1` | docs(rules): 지점별 독립 공고 확정 규정 — CLAUDE.md·AGENTS.md·RULES_CORE (문서만) |
 | #981 | 2026-11-23 09:34 (VN) | `87ece37` | refactor(crawler): 2단계 구조 정리 1묶음 — TopCV 연락처·오늘 날짜를 공통 기준 한 곳으로 + DB 하드코딩 값 고정 시험 (Draft, #978) |
 | #952 | 2026-11-23 08:53 (VN) | `9909248` | fix(#950): 지도 스타일을 우리 쪽 사본에서 먼저 — VietMap style.json 멈춤(메인·상세·관리자) |
 | #972 | 2026-11-23 00:20 (VN) | `d5ae60b` | fix(crawler): 1-C Facebook DB 규칙 거부 원문·출처·규칙 코드·사유를 보류함에 rejected로 보존 (Draft) |
@@ -66,11 +67,10 @@
 | #968 | 2026-11-22 21:09 (VN) | `dbe78b2` | fix(detail): 종류를 모르는 공장 공고 ④ 그림 = 카드와 같은 공장 사진 (Lee 11-22 sb-6309) |
 | #965 | 2026-11-22 20:51 (VN) | `757d540` | fix(detail): ④ 상세요강에 위쪽과 겹치는 줄도 원문 그대로 (Lee 11-22 "상단내용 포함") |
 | #959 | 2026-11-22 20:18 (VN) | `beed0e9` | feat(crawler): 크롤링 정상화 2~4번 그룹 — 보류함 재판정·오류 줄 처리·retry_held·crawl-guard (master 기준) |
-| #958 | 2026-11-22 16:03 (VN) | `3a3d31d` | fix(crawler): 크롤링 정상화 1번 그룹 — 수집 판정 네 갈래·review 보존·선택 저장 연결 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **26건** (전체 38건, 숨김·비활성 12건)
+- 공개 중: **26건** (전체 40건, 숨김·비활성 14건)
 - 출처별: 출처 없음 22 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -99,6 +99,7 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-11-23 22:00 (VN) | location_candidate.add | job 6338 |
 | 2026-11-23 09:36 (VN) | location_candidate.approve | job 6335 |
 | 2026-11-23 09:36 (VN) | location_candidate.add | job 6335 |
 | 2026-11-23 08:55 (VN) | location_candidate.approve | job 6332 |
@@ -108,7 +109,6 @@
 | 2026-11-23 00:18 (VN) | location_candidate.approve | job 6326 |
 | 2026-11-23 00:18 (VN) | location_candidate.add | job 6326 |
 | 2026-11-23 00:17 (VN) | location_candidate.approve | job 6323 |
-| 2026-11-23 00:17 (VN) | location_candidate.add | job 6323 |
 
 ## 8. 검증 장치 변경 이력
 
