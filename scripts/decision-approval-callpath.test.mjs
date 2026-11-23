@@ -45,7 +45,7 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '�
 // ② 실제 병합 실행기 연결: bot-pr-automerge.yml이 PR 목록에서 작성자를 받아 8번째 인자로 넘김
 { const yml = readFileSync(join(ROOT, '.github/workflows/bot-pr-automerge.yml'), 'utf8')
   assert.match(yml, /--json [^ ]*\bauthor\b/, 'PR 목록 조회에 작성자 포함')
-  assert.match(yml, /read -r num sha branch author; do/, '작성자를 변수로 읽음')
+  assert.match(yml, /read -r num sha branch author cross; do/, '작성자(·포크 여부)를 변수로 읽음')
   assert.match(yml, /decision-approval-gate\.mjs files\.json reviews\.json comments\.json "\$sha" labels\.json deps\.json "\$author"/, '작성자를 승인 판정에 넘김')
   assert.match(yml, /pulls\/\$num\/reviews\?per_page=100" --paginate --slurp/, '리뷰는 전체 쪽 조회')
   // S4 ①: 순서 = 필수 검사 → Lee 승인 판정·요청 → 병합(검증이 덜 된 PR에 승인을 요청하지 않음).

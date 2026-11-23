@@ -44,6 +44,16 @@ on:
         required: false
         type: boolean
         default: false
+      # 운영 검사 성공 뒤 다음 작업 1건(Lee 2026-11-24 1순위): deploy-verify.yml이 성공한 커밋마다 최대 1번 부른다(scripts/ci/deploy-success-pickup.sh). task-pickup만 돈다.
+      pickup:
+        description: '작업 큐에서 다음 ai-task 이슈 1건 착수 (운영 검사 성공 뒤 자동 호출용)'
+        required: false
+        type: boolean
+        default: false
+      pickup_reason:
+        description: '착수 계기(이슈 댓글에 남김)'
+        required: false
+        type: string
   pull_request_review:
     types: [submitted]
   # Codex가 줄 댓글 없이 요약 댓글로만 지적할 때도 켜지게(Codex #566 지적).
@@ -63,7 +73,7 @@ concurrency:
 jobs:
   # S5: 이슈 지시 접수(Claude 없음). 지시 글은 비신뢰 데이터로 claude-task에 넘긴다(그 잡은 쓰기 토큰·id-token·DB 키 없음, 게시는 task-publish 검증 뒤).
   task-pickup:
-    if: (github.event_name == 'issues' && github.event.label.name == 'ai-task') || github.event_name == 'schedule'
+    if: (github.event_name == 'issues' && github.event.label.name == 'ai-task') || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pickup)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # 라벨 계기와 예약 계기가 같은 이슈를 동시에 집지 않게 한 줄로 세운다(#891 검토).
@@ -78,6 +88,7 @@ jobs:
       REPO: ${{ github.repository }}
       OWNER: ${{ github.repository_owner }}
       EVENT_ISSUE: ${{ github.event.issue.number }}
+      PICKUP_REASON: ${{ inputs.pickup_reason }}
     steps:
       - name: 지시 이슈 1건 고르고 Claude 작업 시작
         run: |
@@ -106,7 +117,7 @@ jobs:
             gh api -X POST "repos/$REPO/issues/$n/comments" -f body="Claude 작업 시작 실패 — 다음 예약 실행(3시간 안)에 다시 시도합니다." >/dev/null || true
             echo "::error::이슈 #$n 작업 시작 실패"; exit 1
           fi
-          gh api -X POST "repos/$REPO/issues/$n/comments" -f body="Claude 작업 시작 — 실행 목록: https://github.com/$REPO/actions/workflows/claude-auto.yml (끝나면 PR이 이 이슈 번호를 적어 연결됩니다). 다시 시키려면 \`ai-task-running\` 라벨을 지우세요." >/dev/null
+          gh api -X POST "repos/$REPO/issues/$n/comments" -f body="Claude 작업 시작${PICKUP_REASON:+ (계기: $PICKUP_REASON)} — 실행 목록: https://github.com/$REPO/actions/workflows/claude-auto.yml (끝나면 PR이 이 이슈 번호를 적어 연결됩니다). 다시 시키려면 \`ai-task-running\` 라벨을 지우세요." >/dev/null
           echo "이슈 #$n 작업 시작"
 
   claude-task:

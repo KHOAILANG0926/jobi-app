@@ -1,7 +1,8 @@
-## 2026-11-23 — 1순위: 자동 병합 실패 복구(봇 병합 거절 사유 분류) — 영구 차단은 기록, 일시 오류만 한도 안 재시도 (Draft, 병합·운영 DB 없음)
-- 원인 [직접 확인]: 봇이 병합 API 거절을 모두 "다음 실행에서 다시 봄"으로만 처리 — 영구 차단(충돌·승인/검사 대기·보호 규칙)이 매 실행 반복(#464 'merge conflicts' 405가 실행마다 나옴)되고 사유가 요약에 안 남음. 승인 직후 approval-gate 반영 지연으로 한 번 건너뛰는 것은 기존 6분 재확인 장치가 이미 처리(#992·#994 실제 병합 확인).
-- 변경: scripts/ci/merge-reject-class.jq(거절 글 → permanent/transient/unknown) · bot-pr-automerge 거절 분기: 일시만 head 60분 안에서 6분 재확인 예약, 영구·분류 불가는 예약 없이 사유 원문을 실행 요약에 기록 · 시험 추가.
-- 작업 큐: 이미 있음(claude-auto.yml task-pickup — `ai-task` 라벨 이슈, 3시간마다 가장 오래된 1건, `ai-task-running` 중복 방지) — 새 시스템 없음. 우선순위 순서는 Lee가 라벨로 정하는 것이라 코드로 만들지 않았다.
+## 2026-11-24 — 1순위: 자동 병합 실패 복구 + 운영 성공 뒤 다음 작업 1건 연결 (#995 이어서, 병합·운영 DB 없음)
+- 원인 [직접 확인 — run 45288046609·#955 check-runs]: 포크 PR(#955·#874)은 approval-checks가 판정하지 않아 approval-gate가 없는데, 봇은 '판정 대기'로 보고 6분 재확인을 상한 없이 예약 → 11-22부터 7분 간격 무한 반복. 같은 경로에 60분 상한이 없었음. 병합 거절은 모두 같은 '다음에 다시'(11-23 #995에서 분류 추가).
+- 공통 수정: 봇 병합 — 재시도로 안 풀리는 차단(포크 PR·영구 거절·approval-gate 60분 넘게 무판정)은 재확인 예약 없이 사유를 실행 요약+PR 댓글(커밋·사유당 1번)에 기록, 일시 지연은 head 커밋/이 커밋 최신 리뷰 뒤 60분 안에서만 6분 재확인(recheck-since.jq).
+- 다음 작업 연결: deploy-verify 마지막 단계(앞 단계 모두 성공 시만) → deploy-success-pickup.sh → 기존 task-pickup(pickup=true) 1번. 재실행·같은 커밋 두 번째 성공·master 아닌 옛 커밋은 안 부름. 봇 병합이 부른 deploy-verify는 workflow_run 계기를 못 만들어(administrative-pin-check 11-23 기록) 직접 호출로 함.
+- 시험: scripts/ci/automerge-recovery.test.mjs(실제 YAML 쉘+가짜 gh, AMR_BEFORE_REF=f3bd111로 수정 전 실패 재현) + 기존 봇·승인·후속 연결 시험.
 
 ## 2026-11-23 — #992 대조 후 승인 기준 보완: 재확인 상한 60분·DB 구조(DDL)·pull_request_target 수동 (Draft, 병합·운영 DB 없음)
 - 대조 결과 [직접 확인]: #992에 이미 반영 — 규칙 문서 3개·결정 문서·CODEOWNERS·필수 검사 구성(필수 이름 잡 정의 워크플로)·워크플로 경계(on·permissions·environment·runs-on·uses·secrets)·고권한(실제 설정) 명령 변경·STRICT·화면 틀 수동, 조회 실패 자동 재확인. 빠짐: ① 재확인 상한 없음 ② DB 구조(DDL)가 권한 신호만 보아 자동 ③ pull_request_target를 고권한으로 안 봄 ④ 격리 Preview 차등 검증(미구현, 후속).

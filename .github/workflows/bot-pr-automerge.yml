@@ -67,12 +67,24 @@ jobs:
           : > codex-wait.txt
           rm -f lock-cache.json  # S1 B3: 잠금 compare 기억은 이 실행 안에서만
           : > dispatch-fail.txt
-          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName,(.author.login // "")] | @tsv' |
-          while IFS=$'\t' read -r num sha branch author; do
+          # 영구 차단 기록(Lee 2026-11-24 1순위): 재시도로 풀리지 않는 차단은 다시 확인을 예약하지 않고, 사유를 실행 요약과 PR 댓글(이 커밋·같은 사유당 한 번)에 남긴다.
+          block() {  # block <PR> <sha> <사유 열쇠> <사유 글>
+            echo "::notice::PR #$1 병합 보류(재확인 안 함): $4"
+            echo "- PR #$1 병합 보류(재확인 안 함): $4" >> "$GITHUB_STEP_SUMMARY"
+            local mark="<!-- bot-merge-block:$3:${2:0:7} -->"
+            if gh api "repos/$REPO/issues/$1/comments?per_page=100" --paginate --slurp | jq -e --arg m "$mark" 'add // [] | any(.[]; .user.login == "github-actions[bot]" and ((.body // "") | startswith($m)))' >/dev/null 2>&1; then return 0; fi
+            gh api -X POST "repos/$REPO/issues/$1/comments" -f body="$mark
+          봇 병합 보류(커밋 ${2:0:7}): $4" >/dev/null || echo "::warning::PR #$1 보류 사유 댓글 실패"
+          }
+          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author,isCrossRepository --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName,(.author.login // ""),(.isCrossRepository|tostring)] | @tsv' |
+          while IFS=$'\t' read -r num sha branch author cross; do
             [ -n "$num" ] || continue
             # 기존 미완료 PR을 소급 자동병합하지 않음; 새 규정 시행 이후 PR만.
             [ "$num" -ge 251 ] || continue
             echo "검사: PR #$num ($sha)"
+            # 포크 PR은 병합 조건 검사(approval-checks.mjs: 같은 저장소 PR만 판정)가 approval-gate를 올리지 않는다 → 봇이 '판정 대기'로 6분마다 무기한 다시 불렀다
+            # (#955: 2026-11-22부터 7분 간격 반복, run 45288046609). 두 곳의 대상을 같게 맞춘다 — 포크 허용 여부(#956)는 대표 결정이라 여기서 바꾸지 않는다.
+            if [ "$cross" != false ]; then block "$num" "$sha" fork "포크 저장소에서 온 PR이라 병합 조건 검사(approval-gate) 판정 대상이 아님 — 같은 저장소 브랜치로 다시 올려야 병합 가능(포크 허용은 #956 대표 결정)"; continue; fi
             # github-actions[bot]이 임의 외부 fork 소스를 실행하지 않는다: API 데이터만 검사.
             gh api "repos/$REPO/pulls/$num/files?per_page=100" --paginate --slurp | jq 'add' > files.json
             node scripts/approved-migrations.mjs files.json > approved-migrations.json
@@ -181,8 +193,14 @@ jobs:
             gate=$(gh api --paginate --slurp "repos/$REPO/commits/$sha/check-runs?per_page=100" | jq -r -f scripts/ci/merge-gate-ready.jq) || gate=pending
             if [ "$gate" != ok ]; then
               # 진행 중·승인 반영 전 옛 값이면 6분 뒤 다시(곧 바뀜, 판정은 merge-gate-ready.jq). 실패면 다시 부르지 않는다(새 커밋·댓글·예약이 봇을 부른다).
+              # 재확인 상한(Lee 2026-11-24): head 커밋 또는 이 커밋에 대한 최신 리뷰 뒤 60분까지만(판정기 RETRY_LIMIT_MINUTES와 같은 60분). 넘으면 '판정 불가'로 기록하고 대표 판단에 넘긴다 — 자동 승인·병합 없음.
               echo "::notice::PR #$num 병합 조건 검사(approval-gate) $gate — 병합 시도 안 함"
-              [ "$gate" = pending ] && echo 6 >> codex-wait.txt
+              if [ "$gate" = pending ]; then
+                since=$(jq -r --arg sha "$sha" --arg head "$head_date" -f scripts/ci/recheck-since.jq reviews.json 2>/dev/null) || since=""
+                wait_age=""; [ -n "$since" ] && wait_age=$(( ($(date -u +%s) - $(date -u -d "$since" +%s)) / 60 )) || true
+                if [ -n "$wait_age" ] && [ "$wait_age" -le 60 ]; then echo 6 >> codex-wait.txt
+                else block "$num" "$sha" gate-timeout "병합 조건 검사(approval-gate) 판정이 60분 넘게 나오지 않음(기준 시각 ${since:-모름}) — 판정 불가, 대표 판단 필요(자동 승인·병합 안 함)"; fi
+              fi
               continue
             fi
             # S1 B3(#808): 병합 직전 운영 배포 잠금 재확인. approval-gate는 approval-checks가 다시 판정할 때만 잠금을 반영해
@@ -240,7 +258,8 @@ jobs:
               elif [ "$rclass" = permanent ]; then note="영구 차단 — 재시도 안 함(새 커밋·승인·검사 결과가 바뀌면 정기 실행이 다시 판정)"
               else note="분류 불가 — 재시도 예약 안 함(정기 실행에 맡김)"; fi
               echo "::warning::PR #$num 병합 거절(서버, $rclass): $reject — $note"
-              echo "- PR #$num 병합 거절 [$rclass] $note: $reject" >> "$GITHUB_STEP_SUMMARY"
+              if [ "$rclass" = permanent ]; then block "$num" "$sha" reject "GitHub 병합 거절(영구): $reject"
+              else echo "- PR #$num 병합 거절 [$rclass] $note: $reject" >> "$GITHUB_STEP_SUMMARY"; fi
             fi
           done
           # Codex를 기다리는 PR이 있으면 가장 먼저 대기가 끝나는 시각에 다시 부른다(예약 실행이 빠져도 멈추지 않게, #574).

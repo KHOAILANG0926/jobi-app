@@ -64,6 +64,7 @@ AI_DISCOVERY_STRATEGY.md는 참고용 배경 문서다. 이 문서를 근거로 
 - 이슈 의견 교환(Lee 2026-11-09 #594): 이슈·PR 댓글에 `@claude`를 쓰면(저장소 주인·협업자 계정만) claude-auto.yml issue-mention이 읽기 전용으로 확인하고 댓글로 답한다(첫 줄 `<!-- claude-issue-reply -->`, 코드·DB·PR 변경 없음). GPT 쪽 자동 수신은 아직 없음: 이슈의 `@codex`는 Codex 환경 미설정으로 거절됨(#594), Claude 답을 GPT가 읽으려면 Lee가 GPT에 이슈 확인을 시켜야 한다.
 - 할 일 목록: GitHub 이슈 라벨 `ai-team`(알아서) / `needs-lee`(Lee 결정). 작업 중 발견한 문제는 스스로 이슈로 올린다.
 - 밤 근무: 예약 작업이 몇 시간마다 `ai-team` 이슈를 우선순위대로 하나씩 처리. 아침 보고: 밤에 한 일·합친 것·Lee 결정 필요한 것을 5줄로.
+- 운영 성공 뒤 다음 작업(Lee 2026-11-24 1순위): 병합 성공만으로 완료가 아니다 — master 맨 위 커밋의 deploy-verify가 성공하면 그 실행이 기존 작업 큐(claude-auto.yml task-pickup, `ai-task` 이슈 중 가장 오래된 1건·`ai-task-running` 중복 방지, 결과는 Draft PR)를 성공 1건당 최대 1번 부른다(`scripts/ci/deploy-success-pickup.sh`, 재실행·같은 커밋 두 번째 성공·옛 커밋은 부르지 않음). 운영 검사가 실패하면 부르지 않는다(S6 잠금 그대로). 봇 병합은 재시도로 풀리지 않는 차단(포크 PR·영구 거절·approval-gate 60분 넘게 판정 없음)을 다시 확인하지 않고 사유를 실행 요약·PR 댓글(커밋·사유당 한 번)에 남긴다.
 - 공고가 적은 지금 고치는 게 낫다(Lee 2026-11-08): 큰 수정·구조 변경을 "나중에"로 미루지 않는다. 단 위 "준비만" 항목은 Lee 한마디를 받는다.
 
 ## 승인된 데모 운영 반영 — MANDATORY (2026-10-22 Lee 지시)

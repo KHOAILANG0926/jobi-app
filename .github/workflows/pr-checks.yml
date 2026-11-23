@@ -76,6 +76,8 @@ jobs:
       # 위 단계가 PyYAML을 설치하므로 그 뒤에 둔다(이 시험이 실제 워크플로 YAML을 읽는다).
       - name: 병합 뒤 후속 검사 연결 시험 (봇 병합·deploy-verify 성공 뒤 핀 검사 1회, 결함 주입 31개가 잡히는지)
         run: node scripts/ci/post-merge-chain.test.mjs
+      - name: 자동 병합 실패 복구·운영 성공 뒤 다음 작업 1건 연결 시험 (영구 차단 재확인 중단·60분 상한·중복 착수 방지, Lee 2026-11-24 1순위)
+        run: node scripts/ci/automerge-recovery.test.mjs
       - name: artifact 출처 확인 시험 (가짜 실행·브랜치·포크·이력 밖 커밋 거절)
         run: bash scripts/ci/verify-artifact-run.test.sh
       - name: master 직접 push 경보 시험 (병합 직후 PR 연결 지연은 경보 안 함, 진짜 직접 push는 경보)
