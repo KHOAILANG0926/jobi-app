@@ -132,8 +132,11 @@ jobs:
               done < wf-list.txt
               jq --slurpfile w wf.json '.workflows=$w[0]' deps.json > deps.next && mv deps.next deps.json
             fi
+            # 조회 실패 재확인 상한(Lee 2026-11-23): head 커밋이 만들어진 뒤 지난 분을 넘긴다. 못 읽으면 빈 값(상한 없이 재확인만).
+            head_date=$(gh api "repos/$REPO/commits/$sha" --jq .commit.committer.date 2>/dev/null) || head_date=""
+            head_age=""; [ -n "$head_date" ] && head_age=$(( ($(date -u +%s) - $(date -u -d "$head_date" +%s)) / 60 )) || true
             gate_rc=0
-            node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt || gate_rc=$?
+            node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" "$head_age" > approval-request.txt || gate_rc=$?
             if [ "$gate_rc" = 4 ]; then
               # 정보 조회 실패(Lee 2026-11-23): 위험 판정이 아니라 조회 오류 — 대표 승인을 요청하지 않고 병합만 보류, 6분 뒤 자동 재확인
               echo "::notice::PR #$num 정보 조회 실패: 병합 보류·자동 재확인(대표 승인 요청 아님) — $(head -1 approval-request.txt)"

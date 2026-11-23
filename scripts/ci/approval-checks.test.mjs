@@ -28,6 +28,10 @@ assert.equal(v({ files: [f('newdir/x.js')], body }).approval.state, 'blocked', '
 assert.equal(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body }).approval.state, 'pending', '코드 patch 없음 → 자동 재확인')
 assert.match(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body }).approval.summary, /자동 재확인.*Lee 승인 요청 아님/)
 assert.equal(v({ files: [] }).approval.state, 'pending', '파일 목록 비어 있음 → 조회 실패 → 자동 재확인(닫힌 실패)')
+// 재확인 상한(Lee 2026-11-23): head 커밋이 60분보다 오래됐는데도 조회 실패면 pending이 아니라 '판정 불가' blocked(대표 판단), 사유 기록
+assert.equal(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body, headDate: '2026-11-23T00:00:00Z', now: new Date('2026-11-23T02:00:00Z') }).approval.state, 'blocked', '60분 넘게 조회 실패 → 대표 판단')
+assert.match(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body, headDate: '2026-11-23T00:00:00Z', now: new Date('2026-11-23T02:00:00Z') }).approval.summary, /판정 불가/)
+assert.equal(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body, headDate: '2026-11-23T01:50:00Z', now: new Date('2026-11-23T02:00:00Z') }).approval.state, 'pending', '상한 안은 계속 재확인')
 // 분석 오류도 닫힌 실패: 입력이 깨져도 success가 되지 않는다
 assert.notEqual(verdicts({ files: null, reviews: [], reviewComments: [], comments: [], labels: [], sha, headDate, body, author: 'x', repo, framePaths }).approval?.state, 'success')
 // 워크플로가 PR 코드를 받거나 실행하지 않음, 필요한 권한만

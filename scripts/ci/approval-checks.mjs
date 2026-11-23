@@ -80,7 +80,8 @@ export async function mergeLockCli(a, opts = {}) {
 export function verdicts({ files, reviews, reviewComments, comments, labels, deps = {}, sha, headDate, body, author, repo, framePaths, locks = [], now = new Date() }) {
   let approval
   try {
-    const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps, author, body, repo })
+    const headAgeMinutes = headDate ? (now.getTime() - new Date(headDate).getTime()) / 60000 : undefined
+    const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps, author, body, repo, headAgeMinutes })
     const lock = locks.length ? `운영 배포 검증 실패 이슈 ${locks.map((l) => `#${l.number}(${l.sha.slice(0, 7)})`).join('·')} 열림` : ''
     if (!r.required && lock) approval = leeApprovedAt(reviews, sha, author)
       ? { state: 'success', summary: `${lock} — 일반 PR 자동 병합 잠금 중, Lee 승인(최신 커밋)이 있어 통과(복구 PR)` }

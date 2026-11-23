@@ -166,6 +166,7 @@ const hostsOf = (text) => {
   }
   return { hosts, tricky }
 }
+const DDL_STRUCTURE = /\b(?:create|alter|drop)\s+(?:unlogged\s+|temporary\s+|temp\s+|materialized\s+)?(?:table|schema|type|domain|index|trigger|view|sequence|policy)\b|\b(?:add|drop|rename)\s+(?:column|constraint)\b|\balter\s+column\b/i
 export function contentRisks(files) {
   const out = []
   for (const f of files) {
@@ -180,6 +181,8 @@ export function contentRisks(files) {
     const lines = f.patch.split('\n').filter((l) => /^[+-]/.test(l) && !/^(?:\+\+\+|---)/.test(l))
     const text = lines.map((l) => l.slice(1)).join('\n')
     for (const [label, re] of CONTENT_SIGNALS) if (re.test(text)) out.push(`${name}: ${label}`)
+    // DB 구조 변경(Lee 2026-11-23 지시: DB 구조는 수동 Approve 유지): 새 표·칸·색인·트리거·뷰 등 구조를 바꾸는 migration. 함수 본문 교체(create or replace function)는 구조가 아니라 제외 — 권한 신호는 위 목록이 따로 본다.
+    if (/^supabase\/migrations\//.test(name) && DDL_STRUCTURE.test(text)) out.push(`${name}: DB 구조 변경(DDL)`)
     const added = hostsOf(lines.filter((l) => l[0] === '+').join('\n')), before = new Set(hostsOf(lines.filter((l) => l[0] === '-').join('\n')).hosts)
     for (const t of new Set(added.tricky)) out.push(`${name}: 주소에 @ 포함(접속지 위장 가능·판단 불가) ${t}`)
     for (const h of new Set(added.hosts)) if (h && !KNOWN_HOSTS.test(h) && !before.has(h)) out.push(`${name}: 새 외부 주소 ${h}`)
@@ -260,7 +263,8 @@ export function workflowSafeChange(f) {
 const stripComments = (t) => String(t ?? '').split('\n').filter((l) => !/^\s*#/.test(l)).join('\n')
 export function workflowPrivileged(text) {
   const t = stripComments(text)
-  return /^\s*environment\s*:/m.test(t) || /^\s*permissions\s*:\s*write-all\b/m.test(t) || /^\s*[A-Za-z-]+\s*:\s*write\b/m.test(t)
+  // pull_request_target(Lee 2026-11-23 지시): 기준 저장소 권한·열쇠 맥락에서 도는 트리거라 권한 설정과 상관없이 고권한으로 본다.
+  return /\bpull_request_target\b/.test(t) || /^\s*environment\s*:/m.test(t) || /^\s*permissions\s*:\s*write-all\b/m.test(t) || /^\s*[A-Za-z-]+\s*:\s*write\b/m.test(t)
     || /\bsecrets\.(?!GITHUB_TOKEN\b)[A-Za-z0-9_]+/.test(t) || /\bsecrets\s*:\s*inherit\b/.test(t) || /self-hosted/.test(t)
 }
 function indentOf(l) { return l.length - l.trimStart().length }
@@ -310,7 +314,10 @@ export function workflowGeneralChange(f, wf) {
   return 'safe'
 }
 
-export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {}, author, body = '', repo = '' }) {
+// 정보 조회 실패 자동 재확인의 상한(Lee 2026-11-23): head 커밋이 이 분 수보다 오래됐는데도 조회가 안 되면 재확인을 멈추고 '판정 불가'로 사유를 기록해 대표 판단에 넘긴다(무한 재시도 금지).
+// 재확인 주기는 봇 6분 타이머·approval-checks 5분이라 60분이면 여러 번 다시 본 뒤다.
+export const RETRY_LIMIT_MINUTES = 60
+export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {}, author, body = '', repo = '', headAgeMinutes }) {
   const wfContents = depFiles?.workflows ?? {}
   // 이름이 바뀐 파일은 새 경로와 옛 경로(previous_filename) 둘 다 판정한다(검토 지적: 워크플로·검사 스크립트·CODEOWNERS·결정 문서·화면 틀 파일을 일반 경로로 옮겨 우회 불가)
   const names = [...new Set(files.flatMap((f) => [f.filename ?? f, f.previous_filename].filter(Boolean)))]
@@ -337,8 +344,11 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
   const touched = [...manualTouched, ...lookup]
   if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [], risk: 'normal' }
   const ok = leeApprovedAt(reviews, sha, author)
-  if (!manualTouched.length && !labeled) return { required: true, approved: ok, retry: !ok, touched, reasons: ['정보 조회 실패(자동 재확인)'], changed: names, leeApproved: ok, risk: 'unknown' }
-  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(strict.length ? ['STRICT 보안 경로(인증·권한·결제·계정·저장소·Edge 함수·배포)'] : []), ...(depReal.length ? ['의존성·검증 약화'] : []), ...(realContent.length ? ['변경 내용 위험(DB 권한·인증·실행·외부 주소)'] : []), ...(unknown.length ? ['위험도 판단 불가'] : []), ...(lookup.length ? ['정보 조회 실패(자동 재확인)'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
+  if (!manualTouched.length && !labeled) {
+    if (!ok && Number(headAgeMinutes) > RETRY_LIMIT_MINUTES) return { required: true, approved: false, touched, reasons: [`판정 불가(정보 조회 실패가 ${RETRY_LIMIT_MINUTES}분 재확인 뒤에도 계속됨)`], changed: names, leeApproved: false, risk: 'unknown' }
+    return { required: true, approved: ok, retry: !ok, touched, reasons: ['정보 조회 실패(자동 재확인)'], changed: names, leeApproved: ok, risk: 'unknown' }
+  }
+  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(strict.length ? ['STRICT 보안 경로(인증·권한·결제·계정·저장소·Edge 함수·배포)'] : []), ...(depReal.length ? ['의존성·검증 약화'] : []), ...(realContent.length ? ['변경 내용 위험(DB 구조·권한·인증·실행·외부 주소)'] : []), ...(unknown.length ? ['위험도 판단 불가'] : []), ...(lookup.length ? ['정보 조회 실패(자동 재확인)'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
   return { required: true, approved: ok, touched, reasons, changed: names, leeApproved: leeApprovedAt(reviews, sha, author), risk: decision.length || frame.length || gate.length || strict.length || depReal.length || realContent.length || labeled ? 'high' : 'unknown' }
 }
 
@@ -374,7 +384,9 @@ if (process.argv[1]?.endsWith('decision-approval-gate.mjs')) {
   // 인자 9: PR 본문 파일, 인자 10: owner/repo — 입력 형식 유지(4대 보고 강제는 Lee 2026-11-21 폐지, 판정에 쓰지 않음).
   let body = ''
   try { if (process.argv[9]) body = readFileSync(process.argv[9], 'utf8') } catch { body = '' }
-  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles, author, body, repo: process.argv[10] ?? '' })
+  // 인자 11: head 커밋이 만들어진 뒤 지난 분(병합 실행기가 넘김, 없으면 상한 없이 재확인만 — 조회 실패 재확인 상한 RETRY_LIMIT_MINUTES).
+  const headAgeMinutes = process.argv[11] ? Number(process.argv[11]) : undefined
+  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles, author, body, repo: process.argv[10] ?? '', headAgeMinutes })
   if (r.retry) { console.log('정보 조회 실패 — 자동 재확인(대표 승인 요청 아님): ' + r.touched.slice(0, 5).join(', ')); process.exit(4) }
   if (!r.approved) console.log(requestText(sha, r.touched, r.reasons, r.changed))
   process.exit(r.approved ? 0 : 3)
