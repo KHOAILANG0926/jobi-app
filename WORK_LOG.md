@@ -1,3 +1,8 @@
+## 2026-11-23 — 1순위: 자동 병합 실패 복구(봇 병합 거절 사유 분류) — 영구 차단은 기록, 일시 오류만 한도 안 재시도 (Draft, 병합·운영 DB 없음)
+- 원인 [직접 확인]: 봇이 병합 API 거절을 모두 "다음 실행에서 다시 봄"으로만 처리 — 영구 차단(충돌·승인/검사 대기·보호 규칙)이 매 실행 반복(#464 'merge conflicts' 405가 실행마다 나옴)되고 사유가 요약에 안 남음. 승인 직후 approval-gate 반영 지연으로 한 번 건너뛰는 것은 기존 6분 재확인 장치가 이미 처리(#992·#994 실제 병합 확인).
+- 변경: scripts/ci/merge-reject-class.jq(거절 글 → permanent/transient/unknown) · bot-pr-automerge 거절 분기: 일시만 head 60분 안에서 6분 재확인 예약, 영구·분류 불가는 예약 없이 사유 원문을 실행 요약에 기록 · 시험 추가.
+- 작업 큐: 이미 있음(claude-auto.yml task-pickup — `ai-task` 라벨 이슈, 3시간마다 가장 오래된 1건, `ai-task-running` 중복 방지) — 새 시스템 없음. 우선순위 순서는 Lee가 라벨로 정하는 것이라 코드로 만들지 않았다.
+
 ## 2026-11-23 — #992 대조 후 승인 기준 보완: 재확인 상한 60분·DB 구조(DDL)·pull_request_target 수동 (Draft, 병합·운영 DB 없음)
 - 대조 결과 [직접 확인]: #992에 이미 반영 — 규칙 문서 3개·결정 문서·CODEOWNERS·필수 검사 구성(필수 이름 잡 정의 워크플로)·워크플로 경계(on·permissions·environment·runs-on·uses·secrets)·고권한(실제 설정) 명령 변경·STRICT·화면 틀 수동, 조회 실패 자동 재확인. 빠짐: ① 재확인 상한 없음 ② DB 구조(DDL)가 권한 신호만 보아 자동 ③ pull_request_target를 고권한으로 안 봄 ④ 격리 Preview 차등 검증(미구현, 후속).
 - 변경: decision-approval-gate(RETRY_LIMIT_MINUTES=60 초과 시 '판정 불가' 사유 기록·대표 판단, DDL 신호는 supabase/migrations만, pull_request_target 고권한) · approval-checks·bot-pr-automerge가 head 나이를 넘김 · 규칙 문서 3개.
@@ -81,8 +86,3 @@
 - 11-09 오전 구조 단순화(Lee "덧붙이기 전에 고치기·합치기·지우기", CLAUDE.md 우선 원칙 8): 상세 틀 2개(KDA·4칸)로 합침, 안 쓰는 파일·자동화 정리, DB 검사 이름 규칙, 규칙 문서 축약. Lee 결정 대기: 운영 SQL 실행 작업 제한안, 동영상 저장 칸. CSS 대규모 정리는 보류(관련 기능 고칠 때 확실한 중복만).
 - 11-09 밤 근무: 테마 채용관 모르는 주소 → 첫 테마로 바꿔 보냄·지역 칸 34개 성(#623). #594 P1 교대 누락은 #622(needs-lee).
 - 그 외 이전 상태(회사 이름 읽기·카드 상호·급여 읽기·소개소 표시 등)는 WORK_LOG.md.
-
-## 2026-11-19 — S7 완료: 필수 아닌 시험 필수화·중복 워크플로 정리·71개 처리 기록 (#808, #920)
-- 변경(#920): pr-checks.yml checks에 crawler-cli-tests(offline)·job-policy-tests·reprocess-queue-ci 시험 그대로 옮김, 제거 3개(job-policy-tests·reprocess-queue-ci·r7-source-aware-unit, 참조 0), map-pin-fit-check 손으로만, SAFE_TEST_WORKFLOWS 정리, 라벨 regression.
-- 기록: docs/system-redesign/S7-workflow-results.md(71줄). RULES_CORE 자동 생성은 보류(요약본 문장 훼손 위험).
-- 검증: PR 실행에서 옮긴 시험 단계 success, 독립 검토 0, 병합 뒤 master 배포·운영 화면 검사 통과. 남은 일: S8.

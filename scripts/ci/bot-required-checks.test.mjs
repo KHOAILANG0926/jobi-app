@@ -102,3 +102,14 @@ console.log('bot-required-checks.test.mjs: 이름 충돌·100개 초과 가림 �
   assert.equal(g([{ total_count: 101, check_runs: [...filler, okBoth[0]] }]), 'pending', '조회 잘림 → pending')
 }
 console.log('merge-gate-ready.jq: ok·pending·blocked·다른 앱·최신 1개·여러 쪽 시험 통과')
+
+// 봇 병합 거절 사유 분류(Lee 2026-11-23 1순위): 수정 전에는 모든 거절을 "다음 실행에서 다시 봄"으로 같게 취급해 영구 차단(충돌·승인/검사 대기)도 무기한 반복됐다(#464 'merge conflicts' 405가 매 실행 반복).
+{
+  const cls = (msg) => jq(['-R', '-r', '-f', 'scripts/ci/merge-reject-class.jq'], msg).trim()
+  for (const m of ['{"message":"Pull Request has merge conflicts","status":"405"}', 'At least 1 approving review is required by reviewers with write access.', 'Required status check "checks" is expected.', 'Pull Request is not mergeable', 'Waiting on code owner review', 'Pull request is a draft', 'Base branch policy prohibits the merge'])
+    assert.equal(cls(m), 'permanent', `영구: ${m}`)
+  for (const m of ['Head branch was modified. Review and try the merge again.', 'Base branch was modified. Review and try the merge again.', 'gh: Server Error (HTTP 502)', 'HTTP 503 Service Unavailable', 'request timed out', 'You have exceeded a secondary rate limit'])
+    assert.equal(cls(m), 'transient', `일시: ${m}`)
+  assert.equal(cls('something unexpected'), 'unknown', '분류 불가는 원문 기록·재시도 예약 없음')
+  console.log('merge-reject-class.jq: 영구·일시·분류 불가 시험 통과')
+}

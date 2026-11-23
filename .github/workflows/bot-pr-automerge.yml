@@ -230,7 +230,17 @@ jobs:
               done
               # 관리자 E2E 두 개는 vercel-deploy가 migration 성공·운영 배포 뒤에 부른다(예전 봇 대기 반복문 뒤 순서 유지, #812 검토관 지적).
             else
-              echo "::warning::PR #$num 병합 거절(서버): $(printf '%s' "$merge_out" | tr '\n' ' ' | cut -c1-300) — 다음 실행에서 다시 봄"
+              # 병합 거절 사유 분류(Lee 2026-11-23): 일시 오류만 한도(head 커밋 60분, 판정기 RETRY_LIMIT_MINUTES와 같은 기준) 안에서 6분 뒤 다시 확인하고,
+              # 영구(충돌·필수 검사/승인 대기·보호 규칙)·분류 불가는 재시도를 예약하지 않고 사유 원문을 실행 요약에 남긴다. 병합 성공은 위 API 성공(merged)일 때만 센다.
+              reject=$(printf '%s' "$merge_out" | tr '\n' ' ' | cut -c1-300)
+              rclass=$(printf '%s' "$reject" | jq -R -r -f scripts/ci/merge-reject-class.jq 2>/dev/null) || rclass=unknown
+              if [ "$rclass" = transient ] && [ -n "${head_age:-}" ] && [ "$head_age" -le 60 ]; then
+                echo 6 >> codex-wait.txt; note="일시 오류 — 6분 뒤 다시 확인"
+              elif [ "$rclass" = transient ]; then note="일시 오류지만 재확인 상한(60분) 초과 — 재시도 예약 안 함"
+              elif [ "$rclass" = permanent ]; then note="영구 차단 — 재시도 안 함(새 커밋·승인·검사 결과가 바뀌면 정기 실행이 다시 판정)"
+              else note="분류 불가 — 재시도 예약 안 함(정기 실행에 맡김)"; fi
+              echo "::warning::PR #$num 병합 거절(서버, $rclass): $reject — $note"
+              echo "- PR #$num 병합 거절 [$rclass] $note: $reject" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
           # Codex를 기다리는 PR이 있으면 가장 먼저 대기가 끝나는 시각에 다시 부른다(예약 실행이 빠져도 멈추지 않게, #574).
