@@ -1,3 +1,9 @@
+## 2026-11-23 — 지도 정상화 2번: 자체 위치 DB(관리자 확정 기억) 축적·재사용 검증 + 매장별 확정 결함 수정 (Draft, 병합·운영 DB 없음)
+- 검증 [직접 확인, 실제 PostgreSQL 16+PostGIS에 운영 migration 체인 적용한 폐기용 DB]: ① Google/VietMap 결과·research_artifacts 캐시·pending 후보·승인 없는 memory 줄은 확정 기억이 되지 않음 ② 관리자 승인은 주소마다 기억표에 쌓임 ③ 같은 회사+같은 주소 새 공고는 확정 위치를 씀(지도 결과를 먼저 받았어도 확정이 이김) ④ 같은 회사 다른 주소·같은 주소 다른 회사·같은 공단 다른 공장은 맞지 않음. DB 쪽 결함 없음 → 시험만 20-integration-tests.sql에 추가.
+- 실제 결함(2번 축적 누락): api/_lib/admin-location-review.js — ① 대기열: 매장이 여러 곳인 공고는 한 매장이 확정·검증되면 공고 전체가 목록에서 빠져 나머지 매장을 확정할 수 없음(대기열 항목도 첫 줄 주소) ② confirm: 공고에 확정이 하나라도 있으면 다른 주소도 409. 수정: unresolvedLocations(매장마다 판정) 한 곳 + confirm은 같은 주소 열쇠일 때만 거부.
+- 시험: 수정 전 confirm 시험 실패(기대 200·실제 409)·대기열 old=false 재현 → 수정 후 통과. npm test 125/125·tsc·PG 통합 시험 전부 통과(로컬).
+- 남은(범위 밖, 후속): origin 공고 삭제 시 후보 cascade로 확정 기억이 같이 꺼짐(내구성) · 주소 열쇠는 성조·구두점 무시(다른 매장이 글자만 다른 경우 구분 못 함) · 확정 기억이 company_identity를 별도 칸으로 갖지 않음.
+
 ## 2026-11-22 — JOBI 1-B(Lee 승인): 마감·연락처·필수 항목 기준 불일치 해소 — 코드·시험 Draft PR + DB cron Draft PR (병합·운영 DB 없음)
 - 실제 실패 [직접 확인, 1-A 측정]: ① 마감 당일을 크롤러는 만료·Facebook은 기한 버림(→상시 공고로 등록), 화면·알림은 열림, 공개 판정 기본 날짜는 UTC ② 연락처: DB 8자리인데 Facebook·job_quality·화면은 값이 있기만 하면 통과(`0912345`·`abc`·`---`도) ③ 필수 9개 목록이 점검 코드·작성 화면·문서에 따로 있음(점검기는 독립성 규칙상 공유 불가 → 일치 시험으로 고정). 정책 평가기 3벌은 4,057건 불일치 0(F1).
 - 변경(코드 PR): policy/job-criteria.json(마감·연락처·필수 9개 단일 원천) · crawler/job_criteria.py · src/lib/jobCriteria.mjs(+d.mts) · crawl_facebook/crawl_topcv/job_quality/finalize_reprocess_queue(베트남 날짜·마감 당일 열림·연락처 8자리) · jobInspect.ts(공개 판정 기본 날짜 = 베트남 — 검사기 독립성 시험(R2 #753) 때문에 공유 모듈을 import하지 않고 직접 계산, 필수 9개 목록은 jobCriteria.test.ts가 JSON과 일치를 고정) · 시험: 마감·연락처 경계, 정상 연락처 표기 회귀, 정책 판정기 Python·JS·SQL 일치 2,057건(job_posting_rules.pglite.test.mjs, 기존 CI 단계).

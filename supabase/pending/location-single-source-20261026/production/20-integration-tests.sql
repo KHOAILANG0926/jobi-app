@@ -130,3 +130,50 @@ update public.map_r1_location_jobs set state='processing',snapshot='{}',lease=ge
 select pg_temp.assert_ok(not public.map_r1_complete(:other_job,:'stale_snapshot_lease','{"kind":"area","address":"Address A","lat":22,"lng":105,"source":"provider","checkedAt":"2026-10-01T00:00:00Z"}'),'stale snapshot rejected');
 select pg_temp.assert_ok(not exists(select 1 from public.location_integrity_issues()),'extended invalidation integrity clean');
 select 'PASS: new poster source memory reuse, approved candidate deletion, stale snapshot' result;
+
+-- 2번 지도 정상화(2026-11-23): 자체 위치 기억(관리자 확정)의 축적·재사용·오매칭 회귀. 외부 지도 결과·캐시는 확정 기억이 되지 않는다.
+insert into public.local_jobs(title,company,location,origin,active,admin_hidden)
+ values('private fixture','Memory Co','Lot A1 Park X','crawler',false,true) returning id as mem_origin \gset
+select public.replace_job_work_locations(:mem_origin,'[{"raw_address":"Lot A1 Park X","industrial_park":"Park X"},{"raw_address":"Lot C3 Park X","sort_order":1}]');
+-- (1) 외부 지도(Google·VietMap) 결과가 원본에 들어와도, 승인 없이는 확정 기억이 되지 않고 같은 주소 새 공고에도 번지지 않는다.
+select count(*) as mem_before from public.admin_confirmed_location_memory \gset
+select location_private.write_location(:mem_origin,'upsert',jsonb_build_object('address','Lot A1 Park X','authority','source_verified','lat',21.31,'lng',106.31,'precision','building','evidence',jsonb_build_object('source','Google place fixture','checkedAt',now(),'evidence','provider result')));
+select pg_temp.assert_ok((select count(*)=:mem_before from public.admin_confirmed_location_memory),'provider result does not enter confirmed memory');
+insert into public.job_location_candidates(job_id,company_snapshot,address_snapshot,lat,lng,place_precision,source,evidence)
+ values(:mem_origin,'Memory Co','Lot A1 Park X',21.32,106.32,'building','other','Google result, not yet reviewed');
+select pg_temp.assert_ok((select count(*)=:mem_before from public.admin_confirmed_location_memory),'pending candidate is not memory');
+insert into public.local_jobs(title,company,location,origin,active,admin_hidden) values('private fixture','Memory Co','Lot A1 Park X','crawler',false,true) returning id as mem_new0 \gset
+select public.replace_job_work_locations(:mem_new0,'[{"raw_address":"Lot A1 Park X"}]');
+select pg_temp.assert_ok(not exists(select 1 from public.job_work_locations where job_id=:mem_new0 and lat is not null),'unreviewed provider result is not reused');
+-- memory 줄을 직접 만들어도 승인된 후보가 없으면 재사용 자격이 없다.
+select id as mem_pending from public.job_location_candidates where job_id=:mem_origin and address_snapshot='Lot A1 Park X' and status='pending' \gset
+insert into public.admin_confirmed_location_memory(source_candidate_id,address_key,company_key,lat,lng,place_precision,approved_by,approved_at,source_address)
+ values(:mem_pending,'lot a1 park x','memory co',21.32,106.32,'building',:'admin_user',now(),'Lot A1 Park X');
+select pg_temp.assert_ok(not exists(select 1 from location_private.eligible_memory where source_candidate_id=:mem_pending),'memory row without approved candidate is ineligible');
+select pg_temp.assert_ok(not exists(select 1 from public.location_memory_point('Memory Co',array['Lot A1 Park X'])),'precheck lookup ignores ineligible memory');
+delete from public.admin_confirmed_location_memory where source_candidate_id=:mem_pending;
+-- (2) 관리자 확정은 주소마다 기억표에 쌓인다(같은 공고의 두 번째 매장 포함).
+set role authenticated;
+select public.admin_review_location_candidate(:mem_pending,'approve','store 1');
+reset role;
+insert into public.job_location_candidates(job_id,company_snapshot,address_snapshot,lat,lng,place_precision,source,evidence)
+ values(:mem_origin,'Memory Co','Lot C3 Park X',21.34,106.34,'site','company_official','Official second store') returning id as mem_second \gset
+set role authenticated;
+select public.admin_review_location_candidate(:mem_second,'approve','store 2');
+reset role;
+select pg_temp.assert_ok((select count(*)=2 from public.admin_confirmed_location_memory m where m.active and m.source_candidate_id in (:mem_pending,:mem_second)),'both stores of one job accumulate in memory');
+-- (3) 같은 사업장(같은 회사+같은 주소) 새 공고는 확정 위치를 쓴다. 지도 결과를 먼저 받았어도 확정 위치가 이긴다.
+insert into public.local_jobs(title,company,location,origin,active,admin_hidden) values('private fixture','Memory Co','Lot A1, Park X','crawler',false,true) returning id as mem_new1 \gset
+select public.replace_job_work_locations(:mem_new1,'[{"raw_address":"Lot A1, Park X","lat":21.9,"lng":106.9,"location_verified":true,"geocode_source":"vietmap","address_evidence":"provider"}]');
+select pg_temp.assert_ok((select lat=21.32 and point_authority='auto_reuse' from public.job_work_locations where job_id=:mem_new1),'same company+address new job reuses confirmed point over provider point');
+-- (4) 같은 회사의 다른 주소·다른 공장, 같은 주소의 다른 회사에는 쓰지 않는다. 확정된 두 번째 매장은 그 주소에만.
+insert into public.local_jobs(title,company,location,origin,active,admin_hidden) values('private fixture','Memory Co','Lot B2 Park X','crawler',false,true) returning id as mem_other_addr \gset
+select public.replace_job_work_locations(:mem_other_addr,'[{"raw_address":"Lot B2 Park X","industrial_park":"Park X"}]');
+insert into public.local_jobs(title,company,location,origin,active,admin_hidden) values('private fixture','Other Co','Lot A1 Park X','crawler',false,true) returning id as mem_other_co \gset
+select public.replace_job_work_locations(:mem_other_co,'[{"raw_address":"Lot A1 Park X","industrial_park":"Park X"}]');
+insert into public.local_jobs(title,company,location,origin,active,admin_hidden) values('private fixture','Memory Co','Lot A1 Park X','crawler',false,true) returning id as mem_two_stores \gset
+select public.replace_job_work_locations(:mem_two_stores,'[{"raw_address":"Lot A1 Park X"},{"raw_address":"Lot D4 Park X","sort_order":1}]');
+select pg_temp.assert_ok(not exists(select 1 from public.job_work_locations where job_id in (:mem_other_addr,:mem_other_co) and lat is not null),'same company other address / same address other company are not matched');
+select pg_temp.assert_ok((select count(*)=1 and bool_and(raw_address='Lot A1 Park X' and lat=21.32) from public.job_work_locations where job_id=:mem_two_stores and lat is not null),'only the confirmed store of a multi-store job gets the point');
+select pg_temp.assert_ok(not exists(select 1 from public.location_integrity_issues()),'memory regression integrity clean');
+select 'PASS: provider results never become memory; approved stores accumulate per address; same company+address reused first; other address/company not matched' result;

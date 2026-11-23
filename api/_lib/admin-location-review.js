@@ -46,13 +46,24 @@ export async function resolveGoogleShareLink(input, fetcher = fetch) {
   throw new Error('Too many Google redirects')
 }
 function validPoint(lat,lng) {return typeof lat==='number' && typeof lng==='number' && vietnamPoint(lat,lng)}
+// 매장(근무지)마다 확정 여부를 본다(2번 지도 정상화 2026-11-23): 한 매장이 확정·검증됐다고 공고 전체를 목록에서 빼지 않는다.
+// 근무지 줄이 하나 이하면 예전과 같다(공고 주소 글자도 그 근무지의 주소로 본다). 근무지 줄이 없으면 공고 주소 하나.
+export function unresolvedLocations(job, workLocations=[], candidates=[]) {
+  const company=addressKey(job.company)
+  const approvedKeys=new Set(candidates.filter(c=>c.status==='approved' && addressKey(c.company_snapshot)===company)
+    .map(c=>addressKey(c.address_snapshot)))
+  const rows=workLocations.filter(w=>addressKey(w.raw_address))
+  const stores=rows.length ? rows : [{raw_address:job.location}]
+  return stores.filter(w=>{
+    const keys=[w.raw_address,...(rows.length<=1 ? [job.location] : [])].map(addressKey).filter(Boolean)
+    if (!keys.length) return false
+    if (keys.some(k=>approvedKeys.has(k))) return false
+    return !(w.location_verified===true && validPoint(w.lat,w.lng))
+  })
+}
 export function missingVerifiedCoordinate(job, workLocations=[], candidates=[], hasLocationClue=()=>true) {
   if (job.active !== true || job.admin_hidden === true) return false
-  const keys=[job.location,...workLocations.map(w=>w.raw_address)].map(addressKey).filter(Boolean)
-  if (candidates.some(c=>c.status==='approved' &&
-    addressKey(c.company_snapshot)===addressKey(job.company) &&
-    keys.includes(addressKey(c.address_snapshot)))) return false
-  if (workLocations.some(w=>w.location_verified===true && validPoint(w.lat,w.lng))) return false
+  if (!unresolvedLocations(job, workLocations, candidates).length) return false
   // Lee 2026-10-30: 회사명·번지 단서가 없으면 관리자도 고칠 근거가 없다 → 목록에 올리지 않는다.
   return hasLocationClue(job.company, [job.location,...workLocations.map(w=>w.raw_address)])
 }
@@ -84,7 +95,7 @@ export function createAdminLocationReviewHandler(deps) {
         const {hasLocationClue}=deps?.hasLocationClue?deps:await loadRuntime()
         const pending=(jobs||[]).filter(job=>missingVerifiedCoordinate(job, groups.get(job.id)||[], approvalsByJob.get(job.id)||[], hasLocationClue)).map(job=>{
           const locs=groups.get(job.id)||[]
-          const w=locs.find(w=>w.raw_address)||locs[0]
+          const w=unresolvedLocations(job,locs,approvalsByJob.get(job.id)||[]).find(w=>w.id)||locs.find(w=>w.raw_address)||locs[0]
           const approximate=locs.find(w=>validPoint(w.lat,w.lng))
           return {jobId:job.id,title:job.title,company:job.company,address:w?.raw_address||job.location||'',
             workLocationId:w?.id||null,createdAt:job.created_at,
@@ -111,9 +122,10 @@ export function createAdminLocationReviewHandler(deps) {
         const source=(locations||[]).find(w=>w.raw_address===address)
         if(job.location!==address && !source)return res.status(409).json({error:'Address differs from job source'})
         if(workLocationId && source?.id!==workLocationId)return res.status(409).json({error:'Work location mismatch'})
-        const {data:already,error:ae}=await service.from('job_location_candidates').select('id').eq('job_id',jobId).eq('status','approved').limit(1)
+        // 같은 공고라도 다른 매장(주소)은 따로 확정한다 — 같은 주소(글자 열쇠)가 이미 확정된 경우만 막는다.
+        const {data:already,error:ae}=await service.from('job_location_candidates').select('id,address_snapshot').eq('job_id',jobId).eq('status','approved').limit(200)
         if(ae)throw Error('Cannot inspect existing approval')
-        if(already?.length)return res.status(409).json({error:'Job already has a confirmed location'})
+        if((already||[]).some(c=>addressKey(c.address_snapshot)===addressKey(address)))return res.status(409).json({error:'Job already has a confirmed location'})
         const hasShareLink=typeof googleLink==='string' && googleLink.length>0
         if(hasShareLink) {
           const shared=coordinatesFromGoogleUrl(googleLink)
@@ -122,7 +134,7 @@ export function createAdminLocationReviewHandler(deps) {
         }
         const evidence=hasShareLink ? 'Lee confirmed Google Maps location' : 'Lee picked the point on VietMap'
         // Server calls existing admin-only RPC using caller JWT, preserving reviewed_by and audit trail.
-        const caller=createClient(SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{global:{headers:{Authorization:auth}},auth:{persistSession:false,autoRefreshToken:false}})
+        const caller=deps?.caller ? deps.caller(auth) : createClient(SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{global:{headers:{Authorization:auth}},auth:{persistSession:false,autoRefreshToken:false}})
         // RPC must run with the *user's* JWT. Service key is not used for approval writes.
         const {data:candidate,error:ce}=await caller.rpc('admin_add_location_candidate',{
           p_job_id:jobId,p_address:address,p_lat:lat,p_lng:lng,p_precision:'building',

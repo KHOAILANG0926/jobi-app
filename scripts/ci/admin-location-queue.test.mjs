@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { missingVerifiedCoordinate } from '../../api/_lib/admin-location-review.js'
+import { missingVerifiedCoordinate, unresolvedLocations } from '../../api/_lib/admin-location-review.js'
 import { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
 const pending=(job,w,c)=>missingVerifiedCoordinate(job,w,c,hasLocationClue)
 const job={id:4824,active:true,admin_hidden:false,company:'CTY KDA',location:'Bac Ninh'}
@@ -22,4 +22,20 @@ test('api js files never statically import src .ts',()=>{
     const src=readFileSync(`${dir}/${f}`,'utf8')
     assert.doesNotMatch(src,/^\s*(?:import|export)\s[^\n]*from\s+['"][^'"]*src\/[^'"]*\.ts['"]/m,`${dir}/${f}`)
   }
+})
+
+// 2번 지도 정상화(2026-11-23): 매장이 여러 곳인 공고는 매장마다 확정 — 한 매장이 확정·검증됐다고 공고 전체를 목록에서 빼지 않는다.
+const multi={...job,company:'CTY KDA',location:'Lô A1 KCN Quế Võ, Bắc Ninh'}
+const storeA={id:1,raw_address:'Lô A1 KCN Quế Võ, Bắc Ninh',lat:21.1,lng:106.1,location_verified:true}
+const storeB={id:2,raw_address:'Lô D4 KCN Quế Võ, Bắc Ninh',lat:null,lng:null,location_verified:false}
+const approvedA={status:'approved',company_snapshot:'CTY KDA',address_snapshot:'Lô A1 KCN Quế Võ, Bắc Ninh'}
+test('multi-store: first store verified, second store unresolved → stays listed',()=>assert.equal(pending(multi,[storeA,storeB]),true))
+test('multi-store: first store approved by admin, second unresolved → stays listed',()=>assert.equal(pending(multi,[{...storeA,lat:null,lng:null,location_verified:false},storeB],[approvedA]),true))
+test('multi-store: every store verified or approved → not listed',()=>{
+  const approvedB={status:'approved',company_snapshot:'CTY KDA',address_snapshot:'Lô D4 KCN Quế Võ, Bắc Ninh'}
+  assert.equal(pending(multi,[storeA,storeB],[approvedB]),false)
+  assert.equal(pending(multi,[{...storeA,location_verified:false,lat:null,lng:null},storeB],[approvedA,approvedB]),false)
+})
+test('multi-store: the unresolved store is the one offered, not the first row',()=>{
+  assert.deepEqual(unresolvedLocations(multi,[storeA,storeB],[]).map(w=>w.id),[2])
 })

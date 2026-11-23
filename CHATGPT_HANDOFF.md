@@ -4,6 +4,7 @@
 - 1-A 측정 [직접 확인]: 정책 평가기 3벌은 4,057건 불일치 0. 실제 불일치는 마감·연락처·직업분류/점검기(khac)·review 처리·필수 항목. 이번에 고친 것은 마감·연락처·필수 9개 일치 시험·DB 규칙 거부 보존.
 - PR #952(지도 style 사본, 브랜치 `claude/map-style-copy`): 메인·상세·관리자 지도가 우리 쪽 VietMap style 사본(public/vietmap/styles, 열쇠 값 비움)을 먼저 쓰고 실패할 때만 원본, 사본은 vercel-deploy 빌드 직전 갱신. 필수 검사 통과, Lee 공식 Approve(최신 커밋) 대기. 운영 지도는 아직 옛 코드 — VietMap style.json이 멈추면 deploy-verify 지도 실패·배포 잠금이 다시 날 수 있음(#950·#951 잠금은 f02306d deploy-verify 통과로 풀림 조건 충족).
 - 남은 결정·운영 확인 보류: 이슈 #973(F4 khac, F5 관리자 review, 작성 화면 12 vs 9, 화면 연락 버튼, Facebook 지난 마감일, rejected vs review). 운영 DB 조회 불가(프록시)라 공개 24건별 판정 분포·운영 확인은 미검증.
+- 지도 정상화 2번(2026-11-23, Draft): 자체 위치 기억 검증 — DB 정상, 매장별 확정(대기열·confirm) 결함 수정. 상세 WORK_LOG 맨 위.
 ## 2. 다음 할 일 3개
 1. Lee: #970·#971·#972 검토(#970·#971은 GitHub에서 공식 Approve, #972는 needs-lee). 병합은 승인 뒤 봇이 한다.
 2. #973의 결정 6건 확인 후 필요한 것만 별도 PR(1-C 남은 범위: 관리자·고용주 위치 공개 정책 등).
