@@ -9,3 +9,5 @@
 /scripts/*-gate.mjs                 @KHOAILANG0926
 /scripts/approved-migrations.mjs    @KHOAILANG0926
 /AGENTS.md                          @KHOAILANG0926
+/CLAUDE.md                          @KHOAILANG0926
+/.claude/RULES_CORE.md              @KHOAILANG0926

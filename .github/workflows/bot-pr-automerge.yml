@@ -120,7 +120,27 @@ jobs:
             # 8번째 = PR 작성자(자기 승인 무효 — Lee 계정이 쓴 PR의 Lee 승인은 인정 안 함, 작성자를 모르면 승인 없음으로 봄, S4-4)
             # 9·10번째 = PR 본문 파일·저장소(판정기 입력 형식 유지 — 고위험 4대 보고 강제는 Lee 2026-11-21 폐지). 본문을 못 읽으면 병합하지 않는다(닫힌 실패).
             gh api "repos/$REPO/pulls/$num" --jq '.body // ""' > pr-body.txt || { echo "::warning::PR #$num 본문 조회 실패: 병합 안 함"; continue; }
-            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt; then
+            # 일반 워크플로 수정 판정(Lee 2026-11-23): 바뀐 워크플로(수정만)의 기준·head 전체 내용을 넘긴다 — 환경·권한·비밀값·트리거 경계가 실제로 바뀌었는지 판정기가 본다. 못 받은 파일은 빠뜨려 판정기가 '조회 실패(자동 재확인)'로 본다.
+            jq -r '.[] | select(.status=="modified" and (.filename|test("^\\.github/workflows/[^/]+\\.ya?ml$"))) | .filename' files.json > wf-list.txt
+            if [ -s wf-list.txt ]; then
+              wf_base=$(gh api "repos/$REPO/pulls/$num" --jq .base.sha) || wf_base=""
+              echo '{}' > wf.json
+              while IFS= read -r wf; do
+                if [ -n "$wf_base" ] && gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/$wf?ref=$wf_base" > wf-base.txt && gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/$wf?ref=$sha" > wf-head.txt; then
+                  jq --arg p "$wf" --rawfile b wf-base.txt --rawfile h wf-head.txt '.[$p]={base:$b,head:$h}' wf.json > wf.next && mv wf.next wf.json
+                fi
+              done < wf-list.txt
+              jq --slurpfile w wf.json '.workflows=$w[0]' deps.json > deps.next && mv deps.next deps.json
+            fi
+            gate_rc=0
+            node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt || gate_rc=$?
+            if [ "$gate_rc" = 4 ]; then
+              # 정보 조회 실패(Lee 2026-11-23): 위험 판정이 아니라 조회 오류 — 대표 승인을 요청하지 않고 병합만 보류, 6분 뒤 자동 재확인
+              echo "::notice::PR #$num 정보 조회 실패: 병합 보류·자동 재확인(대표 승인 요청 아님) — $(head -1 approval-request.txt)"
+              echo 6 >> codex-wait.txt
+              continue
+            fi
+            if [ "$gate_rc" != 0 ]; then
               echo "::notice::PR #$num Lee 승인 대상(고위험·위험도 판단 불가): 승인 대기 — 병합 안 함"
               # 요청 표시(승인 요청 또는 보고 요청)는 이 봇이 단 것·첫머리 표시·이 커밋 7자리만 인정한다. 출력이 비면(판정기 오류) 댓글 없이 보류만 한다.
               first=$(head -1 approval-request.txt)

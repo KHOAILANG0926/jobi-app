@@ -14,6 +14,8 @@ export const OWNER_PATHS = [
   '/scripts/*-gate.mjs',
   '/scripts/approved-migrations.mjs',
   '/AGENTS.md',
+  '/CLAUDE.md',
+  '/.claude/RULES_CORE.md',
 ]
 
 // CODEOWNERS 모양의 단순 패턴: '/폴더/'는 그 아래 전부, '*'는 한 칸(슬래시 없이 1글자 이상), 그 밖은 정확히 같은 파일.

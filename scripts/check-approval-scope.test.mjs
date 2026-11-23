@@ -20,7 +20,9 @@ for (const f of ['.github/workflows/pr-checks.yml', '.github/CODEOWNERS', 'scrip
   assert.ok(GATE_CODE(f) || PROTECTED(f), `검사 장치 목록에 있음: ${f}`); assert.ok(owned(f), `CODEOWNERS가 덮음: ${f}`)
 }
 // 일반 PR 자동 병합 유지: 일반 경로는 소유자 없음
-for (const f of ['src/pages/Home.tsx', 'api/x.mjs', 'crawler/x.py', 'docs/ops/a.md', 'scripts/ops/x.mjs', 'supabase/migrations/20261201000000_x.sql', 'CLAUDE.md', 'package.json']) assert.ok(!owned(f), `일반 경로는 Lee 승인 불필요: ${f}`)
+for (const f of ['src/pages/Home.tsx', 'api/x.mjs', 'crawler/x.py', 'docs/ops/a.md', 'scripts/ops/x.mjs', 'supabase/migrations/20261201000000_x.sql', 'package.json']) assert.ok(!owned(f), `일반 경로는 Lee 승인 불필요: ${f}`)
+// Lee 2026-11-23 최종 지시: 규칙 문서 3개(AGENTS.md·CLAUDE.md·.claude/RULES_CORE.md)는 전체가 수동 Approve 대상
+for (const f of ['AGENTS.md', 'CLAUDE.md', '.claude/RULES_CORE.md']) assert.ok(owned(f), `규칙 문서는 Lee 승인: ${f}`)
 console.log('check-approval-scope 시험 통과(허용 범위·일반 경로 제외·핵심 경로 포함)')
 // Lee 2026-11-15 결정 4: 보호 설정 검증 전에는 봇 자동 병합이 켜져 있어도 돌지 않는다(저장소 변수 S4_PROTECTION_VERIFIED가 'true'일 때만)
 { const bot = readFileSync(new URL('../.github/workflows/bot-pr-automerge.yml', import.meta.url), 'utf8')
@@ -37,7 +39,7 @@ console.log('봇 활성화 변수 시험 통과')
   // GATE_CODE 동작 보존(예전 정규식과 같은 결과): 경계 사례
   for (const [f, want] of [['.github/workflows/a.yml', true], ['.github/ISSUE_TEMPLATE/x.md', true], ['scripts/ci/protected-paths.mjs', true], ['scripts/status/x.mjs', true], ['scripts/check-x.mjs', true], ['scripts/codex-review-gate.mjs', true],
     ['scripts/approved-migrations.mjs', true], ['AGENTS.md', true], ['scripts/-gate.mjs', false], ['scripts/check-.mjs', false], ['scripts/ops/check-x.mjs', false], ['scripts/a/b-gate.mjs', false], ['scripts/check-x.mjs.bak', false],
-    ['docs/AGENTS.md', false], ['src/a.ts', false], ['package.json', false], ['CLAUDE.md', false], ['docs/decisions/ko/0003-x.md', false]]) assert.equal(GATE_CODE(f), want, `GATE_CODE(${f})`)
+    ['docs/AGENTS.md', false], ['src/a.ts', false], ['package.json', false], ['CLAUDE.md', true], ['.claude/RULES_CORE.md', true], ['docs/decisions/ko/0003-x.md', false]]) assert.equal(GATE_CODE(f), want, `GATE_CODE(${f})`)
   assert.equal(PROTECTED('docs/decisions/ko/0003-x.md'), true)
   // 판정: 보호 대상 파일 = 승인 필요(승인 전 막힘·Lee Approve 뒤 통과), 일반 파일 = 승인 불필요
   const sha = 'd'.repeat(40), lee = [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: sha, submitted_at: '2026-11-15T10:00:00Z' }]
@@ -47,7 +49,7 @@ console.log('봇 활성화 변수 시험 통과')
     assert.ok(matchesOwnerPath(f), `CODEOWNERS 보호 대상: ${f}`)
     assert.equal(run(f).required, true, `승인 필요 판정: ${f}`); assert.equal(run(f).approved, false, `승인 전 막힘: ${f}`); assert.equal(run(f, lee).approved, true, `Lee Approve 뒤 통과: ${f}`)
   }
-  for (const f of ['src/pages/Home.tsx', 'api/_lib/x.mjs', 'crawler/x.py', 'docs/ops/a.md', 'scripts/ops/x.mjs', 'CLAUDE.md', 'WORK_LOG.md']) {
+  for (const f of ['src/pages/Home.tsx', 'api/_lib/x.mjs', 'crawler/x.py', 'docs/ops/a.md', 'scripts/ops/x.mjs', 'WORK_LOG.md']) {
     assert.ok(!matchesOwnerPath(f), `CODEOWNERS 밖(일반): ${f}`)
     assert.equal(run(f).required, false, `승인 불필요 판정: ${f}`); assert.equal(run(f).approved, true, `일반 PR은 바로 통과: ${f}`)
   }

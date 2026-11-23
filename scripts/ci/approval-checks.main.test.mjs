@@ -21,7 +21,7 @@ function world({ prs, reviews, comments, existing = {}, failFiles = false, gate 
       if (/^repos\/[^/]+\/[^/]+\/issues\?state=open/.test(path)) return res(path.includes('page=1') ? issues : [])
       if (/actions\/workflows\/deploy-verify\.yml\/runs\?branch=master&status=success/.test(path)) return res({ workflow_runs: deployOk ? [{ head_sha: deployOk }] : [] })
       if ((m = path.match(/compare\/([0-9a-f]+)\.\.\.([0-9a-f]+)/))) { compareCalls.push(path); return res({ status: compare[m[1]] ?? 'diverged' }) }
-      if ((m = path.match(/pulls\/(\d+)\/files/))) return failFiles ? res({ message: 'unavailable' }, 503) : res(path.includes('page=1') ? (files ?? [{ filename: '.github/workflows/x.yml', status: 'modified', patch: '@@\n+x' }]) : [])
+      if ((m = path.match(/pulls\/(\d+)\/files/))) return failFiles ? res({ message: 'unavailable' }, 503) : res(path.includes('page=1') ? (files ?? [{ filename: 'scripts/ci/x.mjs', status: 'modified', patch: '@@\n+x' }]) : [])
       if ((m = path.match(/pulls\/(\d+)\/reviews/))) return res(path.includes('page=1') ? (reviews[m[1]] ?? []) : [])
       if (/pulls\/\d+\/comments/.test(path)) return res([])
       if ((m = path.match(/issues\/(\d+)\/comments/))) {

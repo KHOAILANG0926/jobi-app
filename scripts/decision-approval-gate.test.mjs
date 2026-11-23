@@ -53,7 +53,8 @@ for (const f of ['.github/workflows/pr-checks.yml', '.github/approved-migrations
   assert.deepEqual(gate({ files: [{ filename: f }] }).reasons, ['검사·보호 장치'])
   assert.equal(gate({ files: [{ filename: f }], reviews: leeReview }).approved, true, `${f} with Lee review passes`)
 }
-for (const f of ['scripts/ops/x.mjs', 'supabase/migrations/20261114_x.sql', 'CLAUDE.md', 'src/lib/a.ts', 'scripts/checkpoint.mjs']) assert.ok(!GATE_CODE(f), `${f} is not gate code`)
+for (const f of ['scripts/ops/x.mjs', 'supabase/migrations/20261114_x.sql', 'src/lib/a.ts', 'scripts/checkpoint.mjs']) assert.ok(!GATE_CODE(f), `${f} is not gate code`)
+for (const f of ['AGENTS.md', 'CLAUDE.md', '.claude/RULES_CORE.md']) assert.ok(GATE_CODE(f), `${f} is gate code (규칙 문서 전체 수동 Approve, Lee 2026-11-23)`)
 assert.equal(gate({ labels: ['ai-team'] }).required, false, '다른 라벨은 영향 없음')
 assert.equal(gate({ labels: [NEEDS_LEE_LABEL], files: frame }).reasons.length, 2, '둘 다 해당하면 이유 두 가지')
 assert.match(requestText(sha, ['src/pages/JobDetail.tsx'], ['승인된 화면 틀']), /승인된 화면 틀/)
@@ -162,11 +163,11 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   const run = (paths, reviews = []) => da({ files: paths.map((filename) => ({ filename, status: 'modified', patch: '+x' })), reviews, comments: [], sha: h, author: 'viecganban-bot' })
   // 정상: Lee 승인 없이 통과(일일이 승인으로 되돌아가지 않음)
   for (const p of ['src/lib/salaryReader.ts', 'api/_lib/auto-location-runtime.mjs', 'crawler/ingest_gateway.py', 'scripts/ops/app-smoke.mjs', 'policy/job-posting-rules.json',
-    'supabase/migrations/20261115000000_x.sql', 'supabase/tests/x.local.sql', 'docs/ops/note.md', 'public/images/a.png', 'CLAUDE.md', 'WORK_LOG.md', '.claude/RULES_CORE.md', 'test-fixtures/ocr/a.png']) {
+    'supabase/migrations/20261115000000_x.sql', 'supabase/tests/x.local.sql', 'docs/ops/note.md', 'public/images/a.png', 'WORK_LOG.md', 'test-fixtures/ocr/a.png']) {
     const r = run([p]); assert.equal(r.approved, true, `정상 통과: ${p}`); assert.equal(r.risk, 'normal', p)
   }
   // 고위험: Lee 승인 전 막힘, 승인 뒤 통과
-  for (const p of ['.github/workflows/x.yml', 'scripts/ci/claude-publish.mjs', 'docs/decisions/ko/0009-x.md', 'AGENTS.md', 'scripts/check-repository-policy.mjs']) {
+  for (const p of ['.github/workflows/status-x.yml', 'scripts/ci/claude-publish.mjs', 'docs/decisions/ko/0009-x.md', 'AGENTS.md', 'CLAUDE.md', '.claude/RULES_CORE.md', 'scripts/check-repository-policy.mjs']) {
     const r = run([p]); assert.equal(r.approved, false, `고위험 막힘: ${p}`); assert.equal(r.risk, 'high', p)
     assert.equal(run([p], lee).approved, true, `고위험 Lee 승인 뒤 통과: ${p}`)
   }
@@ -225,10 +226,11 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.ok(contentRisks([mk('supabase/migrations/20261201000003_x.sql', '@@\n-drop policy "p" on t;')]).length, '삭제된 policy 줄도 위험')
   // 같은 주소를 그대로 두고 옮기는 변경은 새 주소가 아님
   assert.deepEqual(contentRisks([mk('src/c.ts', '@@\n-fetch("https://api.old-vendor.io/v1")\n+fetch("https://api.old-vendor.io/v2")')]), [], '이전에도 쓰던 주소')
-  // 분석 실패는 고위험(닫힌 실패): 코드 파일 patch 없음·변경 파일 목록 비어 있음
-  { const r = run([{ filename: 'src/big.ts', status: 'modified' }]); assert.equal(r.approved, false, 'patch 없음 → 판단 불가 보류'); assert.equal(r.risk, 'unknown'); assert.ok(r.reasons.includes('위험도 판단 불가')) }
-  { const r = run([]); assert.equal(r.approved, false, '변경 파일 목록이 비면 보류'); assert.ok(r.reasons.includes('위험도 판단 불가')) }
-  assert.equal(run([{ filename: 'src/big.ts', status: 'modified' }], { reviews: leeOk }).approved, true, '판단 불가도 승인 뒤 통과')
+  // 정보 조회 실패(Lee 2026-11-23): 코드 파일 patch 없음·변경 파일 목록 비어 있음은 위험 판정이 아니라 조회 오류 → 병합 보류 + 자동 재확인(대표 승인 요청 아님, retry)
+  { const r = run([{ filename: 'src/big.ts', status: 'modified' }]); assert.equal(r.approved, false, 'patch 없음 → 보류'); assert.equal(r.retry, true, '자동 재확인'); assert.ok(r.reasons.includes('정보 조회 실패(자동 재확인)')); assert.ok(!r.reasons.includes('위험도 판단 불가')) }
+  { const r = run([]); assert.equal(r.approved, false, '변경 파일 목록이 비면 보류'); assert.equal(r.retry, true) }
+  { const r = run([{ filename: 'src/big.ts', status: 'modified' }, { filename: 'AGENTS.md', status: 'modified', patch: '+x' }]); assert.equal(r.retry, undefined, '다른 승인 사유가 있으면 그대로 대표 승인'); assert.ok(r.reasons.includes('검사·보호 장치')) }
+  assert.equal(run([{ filename: 'src/big.ts', status: 'modified' }], { reviews: leeOk }).approved, true, '조회 실패도 대표가 승인하면 통과')
   // 검토 지적 1: 운영 DB에서 실행되는 supabase/tests/*_production_check.sql은 내용 검사 대상, 로컬 전용만 제외
   assert.equal(run([mk('supabase/tests/x_production_check.sql', '@@\n+grant all on t to anon;')]).approved, false, 'production_check.sql 권한 변경은 승인 대상')
   assert.equal(run([mk('supabase/tests/x.local.sql', '@@\n+grant all on t to anon;')]).approved, true, '로컬 전용 시험 SQL은 제외')
@@ -240,9 +242,10 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.equal(run([mk('src/e.ts', '@@\n+const u = "//evil.io/x.js"')]).approved, false, '//host 형태')
   assert.equal(run([mk('src/e.ts', '@@\n+// 설명 주석입니다 https://www.google.com/maps 참고')]).approved, true, '허용 주소 주석은 통과')
   assert.equal(run([mk('src/e.ts', '@@\n+const a = x // note\n+const b = "https://www.google.com:443/q"')]).approved, true, '주석 //·포트는 오탐 아님')
-  // 검토관 지적(2차): 운영에서 실행되는 api/·crawler/는 시험 이름·폴더여도 내용 검사
-  for (const f of ['api/test/x.mjs', 'api/x.test.mjs', 'api/fixtures/y.mjs', 'crawler/test_a.py', 'crawler/tests/b.py']) assert.equal(run([mk(f, '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY')]).approved, false, `배포 폴더는 시험 이름이어도 검사: ${f}`)
-  assert.equal(run([mk('src/a.test.ts', '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY')]).approved, true, '배포 밖 시험 파일은 제외')
+  // 검토관 지적(2차) + Lee 2026-11-23: Vercel이 함수로 배포하는 api/ 파일(밑줄 시작 제외)은 시험 이름이어도 내용 검사 — 밑줄 파일·crawler/ 시험은 단순 문자열(exec·KEY·fetch)이 사유가 아님
+  for (const f of ['api/test/x.mjs', 'api/x.test.mjs', 'api/fixtures/y.mjs']) assert.equal(run([mk(f, '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY')]).approved, false, `배포되는 api 파일은 시험 이름이어도 검사: ${f}`)
+  for (const f of ['api/_x.test.ts', 'api/_lib/a.test.ts', 'crawler/test_a.py', 'crawler/tests/b.py', 'src/a.test.ts']) assert.equal(run([mk(f, '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY; exec("x"); fetch("https://new-host.example.io/a")')]).approved, true, `시험 파일의 단순 문자열은 승인 사유 아님: ${f}`)
+  assert.equal(run([mk('supabase/tests/x_production_check.sql', '@@\n+grant all on t to anon;')]).approved, false, 'production_check는 시험 파일이 아니다')
   // 검토관 지적(이름 변경 우회): 고위험 경로의 파일을 일반 경로로 옮겨도 옛 경로(previous_filename)로 고위험 판정
   const mv = (from, to) => ({ filename: to, previous_filename: from, status: 'renamed', changes: 0 })
   for (const [from, to, why] of [['.github/workflows/pr-checks.yml', 'docs/ops/pr-checks.txt', '워크플로'], ['scripts/check-repository-policy.mjs', 'scripts/ops/x.mjs', '검사 스크립트'],
@@ -273,7 +276,11 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   const P876_CRAWL = "@@ -17,13 +17,16 @@ jobs:\n     # 사용자 지시: 필터 검증·별도 재개 승인 전에는 예약/수동 모두 실행 금지.\n     # 인자는 정합화하되 실제 수집 재개는 별도 승인 PR에서 결정한다.\n     if: ${{ false }}\n-    runs-on: ubuntu-latest\n+    # 재개 승인 전 실행 환경만 맞춤(#872): 마지막 실제 실행 5건(2026-08-24~28)이 모두 의존성 설치에서 실패 —\n+    # ubuntu-latest(24.04)에는 libasound2가 없는데 playwright 1.44 설치 목록에 24.04 항목이 없어 옛 이름을 설치함.\n+    # 같은 crawler/requirements.txt를 쓰는 refresh-facebook-existing.yml과 같은 ubuntu-22.04·Python 3.12로 맞춘다.\n+    runs-on: ubuntu-22.04\n     steps:\n       - uses: actions/checkout@v4\n \n       - uses: actions/setup-python@v5\n         with:\n-          python-version: '3.11'\n+          python-version: '3.12'  # vietnam-provinces==2026.9.0은 Python 3.12 이상(3.11이면 설치 실패)\n \n       - name: 의존성 설치\n         run: |\n"
   const P876_CLI = "@@ -24,3 +24,28 @@ jobs:\n       - run: python -I crawler/test_ingest_gateway.py\n       - run: python -I crawler/test_korea_fb_survey.py\n       - run: python -I crawler/test_finalize_reprocess_queue.py\n+      # 공고 하나의 오류가 전체 수집을 멈추지 않는지(#872 ②). 브라우저·DB·네트워크 모듈은 시험 안에서 가짜로 바꿔 넣는다(열쇠 없음).\n+      - run: python -I crawler/test_job_error_isolation.py\n+\n+  # 재개 전 설치 확인(#872·#876): crawl.yml과 같은 실행 환경(ubuntu-22.04·Python 3.12)·같은 설치 명령으로 실제 설치가 되는지 본다.\n+  # 2026-08-24~28 crawl.yml 실제 실행 5건이 모두 설치 단계에서 실패(ubuntu-latest + playwright 1.44 → libasound2 없음).\n+  # 열쇠 없음·수집 실행 없음 — 설치 뒤 모듈 불러오기와 오류 격리 시험만 실제 패키지로 돌린다.\n+  crawl-install:\n+    runs-on: ubuntu-22.04\n+    timeout-minutes: 15\n+    steps:\n+      - uses: actions/checkout@v4\n+        with:\n+          persist-credentials: false\n+      - uses: actions/setup-python@v5\n+        with:\n+          python-version: '3.12'\n+      - name: 의존성 설치 (crawl.yml과 같은 명령)\n+        run: |\n+          python -m pip install -r crawler/requirements.txt\n+          python -m playwright install --with-deps chromium\n+      - name: 수집기 모듈 불러오기 (실제 패키지, 열쇠 없음)\n+        working-directory: crawler\n+        run: python -c \"import crawl_topcv, crawl_facebook, ingest_gateway; print('import ok')\"\n+      - name: 오류 격리 시험 (실제 패키지 위에서)\n+        run: python crawler/test_job_error_isolation.py\n"
   const wf = (filename, patch, status = 'modified', extra = {}) => ({ filename, patch, status, ...extra })
-  const run = (files) => rawDecisionApproval({ files, reviews: [], comments: [], author: 'viecganban-bot', sha, body: '' })
+  // Lee 2026-11-23: 일반 워크플로 판정은 기준·head 전체 내용이 필요하다 — 실제 저장소 워크플로 파일을 그대로 넣는다(없는 파일은 내용 없음 = 조회 실패)
+  const { readFileSync, existsSync } = await import('node:fs')
+  const real = (f) => (existsSync(f) ? readFileSync(f, 'utf8') : undefined)
+  const withContents = (files) => ({ workflows: Object.fromEntries(files.filter((f) => f.filename.startsWith('.github/workflows/') && real(f.filename) !== undefined).map((f) => [f.filename, { base: real(f.filename), head: real(f.filename) }])) })
+  const run = (files) => rawDecisionApproval({ files, reviews: [], comments: [], author: 'viecganban-bot', sha, body: '', deps: withContents(files) })
   // 정상: #876의 실제 변경(실행 서버·Python 판 + 시험 전용 워크플로에 시험 잡 추가)은 Lee 승인 대상이 아님
   assert.equal(workflowSafeChange(wf('.github/workflows/crawl.yml', P876_CRAWL)), true, '#876 crawl.yml 실행 환경 수정은 안전')
   assert.equal(workflowSafeChange(wf('.github/workflows/crawler-cli-tests.yml', P876_CLI)), true, '#876 시험 잡 추가는 안전')
@@ -478,4 +485,54 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   }
   assert.equal(decisionApproval({ files: [{ filename: '.github/workflows/crawl.yml', status: 'modified', patch: '@@ -1,3 +1,3 @@\n-# a\n+# b' }], reviews: [], comments: [], author: bot, sha: hv }).approved, true, '대조: status 외 워크플로의 안전 줄(주석)은 기존대로 자동')
   console.log('S1 STRICT 보안 분류 복구 시험 통과 — 인증 우회·결제 권한 등 7경로 × 승인 조건 9종')
+}
+
+// 승인 자동화 완화(Lee 2026-11-23 최종 지시): 일반 워크플로·시험 파일·조회 실패 + 보호 유지 — S4 우회 핵심 사례(권한·비밀값·트리거·고권한 명령 변경)는 그대로 승인 대상
+{
+  const { workflowGeneralChange, workflowPrivileged, workflowDefinesRequiredCheck } = await import('./decision-approval-gate.mjs')
+  const bot = 'viecganban-bot', hv = 'c'.repeat(40)
+  const GENERAL = 'name: dup\non:\n  workflow_dispatch:\npermissions:\n  contents: read\njobs:\n  scan:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - run: node scripts/ops/dup-count.mjs\n'
+  const PRIV = GENERAL.replace('contents: read', 'contents: write')
+  const REQ = GENERAL.replace('  scan:', '  checks:')
+  const ENVD = GENERAL.replace('    runs-on: ubuntu-latest', '    runs-on: ubuntu-latest\n    environment: ops-keys')
+  const wfFile = (filename, patch) => ({ filename, status: 'modified', patch })
+  const judge = (files, workflows) => rawDecisionApproval({ files, reviews: [], comments: [], author: bot, sha: hv, body: '', deps: workflows ? { workflows } : {} })
+  const cmd = '@@ -10,3 +10,3 @@ jobs:\n-      - run: node scripts/ops/dup-count.mjs\n+      - run: node scripts/ops/dup-count.mjs --limit 5'
+  const W = '.github/workflows/dup-count.yml'
+  // 고권한 판정은 이름이 아니라 실제 설정
+  assert.equal(workflowPrivileged(GENERAL), false); assert.equal(workflowPrivileged(PRIV), true, 'permissions write'); assert.equal(workflowPrivileged(ENVD), true, 'environment')
+  assert.equal(workflowPrivileged(GENERAL + '      - run: echo ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}'), true, 'GITHUB_TOKEN 아닌 secrets'); assert.equal(workflowPrivileged(GENERAL + '      env: { T: "${{ secrets.GITHUB_TOKEN }}" }'), false, 'GITHUB_TOKEN만은 고권한 아님')
+  assert.equal(workflowDefinesRequiredCheck(REQ), true, '필수 검사 이름 잡'); assert.equal(workflowDefinesRequiredCheck(GENERAL), false)
+  // 일반 워크플로의 실행 명령 수정 = 자동 병합
+  assert.equal(judge([wfFile(W, cmd)], { [W]: { base: GENERAL, head: GENERAL.replace('dup-count.mjs', 'dup-count.mjs --limit 5') } }).required, false, '일반 워크플로 명령 수정은 자동')
+  // 경계(트리거·권한·비밀값·환경·외부 액션) 변경 = 승인
+  for (const [why, head, patch] of [
+    ['트리거 추가', GENERAL.replace('  workflow_dispatch:', '  workflow_dispatch:\n  schedule:\n    - cron: "0 * * * *"'), '+  schedule:\n+    - cron: "0 * * * *"'],
+    ['권한 write', PRIV, '-  contents: read\n+  contents: write'],
+    ['환경 추가', ENVD, '+    environment: ops-keys'],
+    ['비밀값 사용', GENERAL.replace('dup-count.mjs', 'dup-count.mjs ${{ secrets.X }}'), '-      - run: node scripts/ops/dup-count.mjs\n+      - run: node scripts/ops/dup-count.mjs ${{ secrets.X }}'],
+    ['새 외부 액션', GENERAL + '      - uses: evil/steal@v1\n', '+      - uses: evil/steal@v1'],
+    ['실행기 변경', GENERAL.replace('ubuntu-latest', 'self-hosted'), '-    runs-on: ubuntu-latest\n+    runs-on: self-hosted'],
+    ['바깥 입력 식', GENERAL.replace('dup-count.mjs', 'x "${{ github.event.pull_request.title }}"'), '-      - run: node scripts/ops/dup-count.mjs\n+      - run: node scripts/ops/x "${{ github.event.pull_request.title }}"'],
+  ]) { const r = judge([wfFile(W, patch)], { [W]: { base: GENERAL, head } }); assert.equal(r.required && r.approved === false && !r.retry, true, `경계 변경은 Lee 승인: ${why}`) }
+  // 이미 고권한·필수 검사 구성인 워크플로는 명령 수정도 승인(파일 이름이 아니라 실제 설정으로)
+  assert.equal(judge([wfFile(W, cmd)], { [W]: { base: PRIV, head: PRIV.replace('dup-count.mjs', 'dup-count.mjs --limit 5') } }).required, true, '쓰기 권한 있는 워크플로 명령 변경')
+  assert.equal(judge([wfFile(W, cmd)], { [W]: { base: ENVD, head: ENVD.replace('dup-count.mjs', 'dup-count.mjs --limit 5') } }).required, true, 'ops-keys 환경 워크플로 명령 변경')
+  assert.equal(judge([wfFile(W, cmd)], { [W]: { base: REQ, head: REQ.replace('dup-count.mjs', 'dup-count.mjs --limit 5') } }).required, true, '필수 검사 구성 워크플로 변경')
+  // 새·삭제·이름 바꿈 워크플로는 일반 수정이 아니다
+  assert.equal(workflowGeneralChange({ ...wfFile(W, '+x'), status: 'added' }, { base: '', head: GENERAL }), 'manual'); assert.equal(workflowGeneralChange({ ...wfFile(W, '-x'), status: 'removed' }, {}), 'manual')
+  // 조회 실패(워크플로 내용·patch 없음)는 대표 승인 요청이 아니라 자동 재확인
+  { const r = judge([wfFile(W, cmd)]); assert.equal(r.retry, true, '워크플로 내용 못 받음 → 재확인'); assert.equal(r.approved, false); assert.ok(r.reasons.includes('정보 조회 실패(자동 재확인)')) }
+  { const r = judge([{ filename: W, status: 'modified' }], { [W]: { base: GENERAL, head: GENERAL } }); assert.equal(r.retry, true, 'patch 없음 → 재확인') }
+  // 내용을 못 받아도 바뀐 줄이 경계를 건드리면 바로 승인 대상(재확인으로 넘기지 않음)
+  { const r = judge([wfFile(W, '+  contents: write')]); assert.equal(r.retry, undefined); assert.equal(r.required && !r.approved, true) }
+  // 시험 파일의 단순 문자열(exec·KEY·fetch)은 승인 사유 아님 — 같은 줄이 운영 코드에 있으면 그대로 승인 대상
+  const risky = '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY; exec("x"); fetch("https://new-host.example.io/a")'
+  assert.equal(judge([{ filename: 'src/lib/a.test.ts', status: 'modified', patch: risky }]).required, false, '시험 파일 단순 문자열')
+  assert.equal(judge([{ filename: 'src/lib/a.ts', status: 'modified', patch: risky }]).required, true, '운영 코드는 그대로 승인')
+  // 시험 삭제·이름 바꿈(검증 약화)은 시험 파일이어도 그대로 승인
+  assert.equal(judge([{ filename: 'src/lib/a.test.ts', status: 'removed' }]).required, true, '시험 파일 삭제는 승인')
+  // 규칙 문서 3개는 전체가 수동 Approve
+  for (const f of ['AGENTS.md', 'CLAUDE.md', '.claude/RULES_CORE.md']) { const r = judge([{ filename: f, status: 'modified', patch: '+x' }]); assert.equal(r.required && !r.approved, true, `규칙 문서 수동 Approve: ${f}`) }
+  console.log('승인 자동화 완화 시험 통과 — 일반 워크플로 자동·경계/고권한/필수 검사 구성 승인·조회 실패 재확인·시험 파일 단순 문자열 제외·규칙 문서 수동')
 }
