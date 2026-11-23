@@ -1,3 +1,8 @@
+## 2026-11-23 — 이슈 #990 후속: 행정구역 핀 검사 6건·OCR 검사 2회 실패 원인별 수정 + PR 단계 읽기 전용 검사 (Draft→Ready, 병합·운영 DB 없음)
+- 원인(공개 캐시·원본 불일치): #991이 공개 위치 요약 API를 확정 좌표만으로 맞춰 해결, 병합 커밋 deploy-verify 성공이 증거. 원인(핀 6건 5599·5876·5993·6043·6255·6309): #989 규칙(대략 area는 핀 아님) 뒤 확정 좌표가 없는 공개 공고를 행정구역 검사가 아직 '핀 없음 = 실패'로 봄. 원인(OCR 2회 실패): 공고 6311의 외부 사진 주소 HTTP 403(영구 접근 거부)이 매 실행 exit 2.
+- 변경: oracle — 근무지 줄이 있으나 확정 좌표 없는 공고는 실패가 아니라 `unconfirmedLocationJobs`로 출력(줄 없는 공고·확정 좌표의 성 밖은 그대로 실패) / ocr-compare `imageFetchPermanent`(외부 주소 403·404·410만 건너뜀, 일시 오류·우리 저장소 오류는 실패 유지) + ocr-check 사용 / app-screen-check에 읽기 전용 운영 위치 검사 단계(PR 단계).
+- 검증: 신규 시험 3종(수정 전 import 실패·수정 후 통과), 운영 읽기는 CI에서만(이 환경 운영 접근 없음). 미검증: 6건이 실제로 area/unresolved 줄만 가지는지는 CI 출력의 unconfirmedLocationJobs로 확인.
+
 ## 2026-11-23 — 이슈 #990: 공개 위치 요약(/api/map-locations)이 대략(area) 점을 내보내 운영 검증 실패(공고 5599) 수정 (Draft→Ready, 병합·운영 DB 없음)
 - 원인 [직접 확인 — 코드]: #989가 핀 원천을 확정 좌표(exact·gate)로 좁히면서 원본 대조(oracle sourcePoints)와 화면 코드는 맞췄지만, 공개 캐시 읽기 `api/map-locations.js`의 허용 종류가 아직 exact·gate·area라 5599의 대략 줄이 응답에 남아 deploy-verify '지도 요약'(map-summary-check) 대조가 어긋남. 5599만의 문제가 아니라 area 줄이 있는 모든 공고.
 - 변경: `api/map-locations.js` 허용 종류 exact·gate만(캐시 표·DB 줄은 그대로 보존), `api/map-locations.test.ts`·`api/_map-r1.test.ts` 기대값을 확정 좌표만으로(수정 전 실패 재현: area 포함 → 1 !== 2).
@@ -82,8 +87,3 @@
 - 원인: ① 공통 번호 읽기 extract_phones가 0으로 시작하는 10자리 모두를 번호로 봄(01x 없는 번호도) ② 저장 단계가 detailPhone 출처(phoneProbe)를 보지 않아 #907 뒤에도 옛 결과가 숨긴 번호를 넘김.
 - 변경: extract_phones = 베트남 휴대폰 03·05·07·08·09(Facebook·vieclam24h 공통), build_job_record 전화 = screen_phone(revealed·description_text만), 숨긴 자료 번호·이메일 읽기(#904)·진단 줄 지움. #6255 전화 칸 정정 SQL(scripts/ops/jobs/fix-6255-fake-phone.sql, 입구 update_fields만).
 - 검증 [직접 확인 로컬]: 회귀 시험 2개 수정 전 실패 → 수정 뒤 통과, 크롤러 시험 11개 통과.
-
-## 2026-11-18 — S6 완료: 운영 배포 실패 시 일반 PR 자동 병합 잠금 + 병합 기록에 병합 조건 검사 대조 (#808, #913)
-- 변경(#913): approval-checks.mjs — 열린 '운영 배포 검증 실패' 이슈(github-actions[bot])가 있으면 일반 PR approval-gate를 Lee 승인 필요로. 풀림 = master 최근 성공 deploy-verify 커밋이 실패 커밋 포함·이슈 닫기·복구 PR Lee Approve. deploy-verify.yml(STRICT)은 그대로. merge-provenance.mjs — 검사 전용 앱 ai-review·approval-gate 병합 시점 대조.
-- 모의 시험: s6/deploy-fail-mock(빈 커밋 47fc051) deploy-verify run 44313174748 실패 → 이슈 #918 → 일반 PR 5건 잠금 → #918 닫음 → 풀림. 운영 배포 영향 없음.
-- VPS 러너 crawler 정상(run 44277027923). 남은 일: S7.

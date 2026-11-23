@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { compareWithOcr } from './ocr-compare.mjs'
+import { compareWithOcr, imageFetchPermanent } from './ocr-compare.mjs'
 import { ocrCheckUpdateSql } from './ocr-check-write.mjs'
 import { fillSalary } from './salary-fill.mjs'
 import { readImageAI, READER_ID } from './ai-reader.mjs'
@@ -26,7 +26,7 @@ function imageUrls(images) {
 async function download(url) {
   const headers = SUPABASE_SERVICE_ROLE_KEY && url.startsWith(SUPABASE_URL) ? { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } : {}
   const r = await fetch(url, { headers })
-  if (!r.ok) throw new Error(`이미지 다운로드 HTTP ${r.status}`)
+  if (!r.ok) { const e = new Error(`이미지 다운로드 HTTP ${r.status}`); e.permanent = imageFetchPermanent(r.status, url, SUPABASE_URL); throw e }
   return Buffer.from(await r.arrayBuffer())
 }
 
@@ -61,9 +61,12 @@ try {
   for (const job of rows) {
     try {
       const texts = []
+      let gone = 0   // 영구 접근 거부(만료·삭제)로 읽을 수 없는 사진 수
       for (const [i, url] of imageUrls(job.images).entries()) {
         const f = join(dir, `${job.id}-${i}`)
-        writeFileSync(f, await download(url))
+        let bytes
+        try { bytes = await download(url) } catch (e) { if (e.permanent) { gone++; console.log(`사진 읽을 수 없음 #${job.id}[${i}]: ${e.message} — 영구 접근 거부라 건너뜀`); continue } throw e }
+        writeFileSync(f, bytes)
         texts.push(await readImageAI(f))   // 독립 AI 판독(결정 0004). 입력값은 보내지 않는다
       }
       const text = texts.join('\n')
@@ -74,7 +77,7 @@ try {
       const filled = await fillSalary(client, job, text, 'empty')   // 급여 확정·저장은 salary-fill 한 곳(R2 #753)
       if (filled) { checkedJob = { ...job, salary: filled.salary }; console.log('급여 칸 채움 #' + job.id + ': ' + filled.salary) }
       const res = compareWithOcr(checkedJob, text)
-      const check = { status: res.status, reader: READER_ID, compare_version: 'source-aware-v3', checked_at: new Date().toISOString(), images_hash: createHash('md5').update(JSON.stringify(job.images)).digest('hex'), mismatches: res.mismatches }
+      const check = { status: res.status, reader: READER_ID, compare_version: 'source-aware-v3', checked_at: new Date().toISOString(), ...(gone ? { unavailable_images: gone } : {}), images_hash: createHash('md5').update(JSON.stringify(job.images)).digest('hex'), mismatches: res.mismatches }
       // images_hash는 DB의 md5(images::text)와 같아야 재처리 루프가 생기지 않으므로 DB에서 계산한다.
       const hold = res.status === 'mismatch'
       await client.query(
