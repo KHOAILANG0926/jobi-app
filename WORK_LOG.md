@@ -1,3 +1,9 @@
+## 2026-11-24 — 1순위: 자동 병합 실패 복구 + 운영 성공 뒤 다음 작업 1건 연결 (#995 이어서, 병합·운영 DB 없음)
+- 원인 [직접 확인 — run 45288046609·#955 check-runs]: 포크 PR(#955·#874)은 approval-checks가 판정하지 않아 approval-gate가 없는데, 봇은 '판정 대기'로 보고 6분 재확인을 상한 없이 예약 → 11-22부터 7분 간격 무한 반복. 같은 경로에 60분 상한이 없었음. 병합 거절은 모두 같은 '다음에 다시'(11-23 #995에서 분류 추가).
+- 공통 수정: 봇 병합 — 재시도로 안 풀리는 차단(포크 PR·영구 거절·approval-gate 60분 넘게 무판정)은 재확인 예약 없이 사유를 실행 요약+PR 댓글(커밋·사유당 1번)에 기록, 일시 지연은 head 커밋/이 커밋 최신 리뷰 뒤 60분 안에서만 6분 재확인(recheck-since.jq).
+- 다음 작업 연결: deploy-verify 마지막 단계(앞 단계 모두 성공 시만) → deploy-success-pickup.sh → 기존 task-pickup(pickup=true) 1번. 재실행·같은 커밋 두 번째 성공·master 아닌 옛 커밋은 안 부름. 봇 병합이 부른 deploy-verify는 workflow_run 계기를 못 만들어(administrative-pin-check 11-23 기록) 직접 호출로 함.
+- 시험: scripts/ci/automerge-recovery.test.mjs(실제 YAML 쉘+가짜 gh, AMR_BEFORE_REF=f3bd111로 수정 전 실패 재현) + 기존 봇·승인·후속 연결 시험.
+
 ## 2026-11-23 — #992 대조 후 승인 기준 보완: 재확인 상한 60분·DB 구조(DDL)·pull_request_target 수동 (Draft, 병합·운영 DB 없음)
 - 대조 결과 [직접 확인]: #992에 이미 반영 — 규칙 문서 3개·결정 문서·CODEOWNERS·필수 검사 구성(필수 이름 잡 정의 워크플로)·워크플로 경계(on·permissions·environment·runs-on·uses·secrets)·고권한(실제 설정) 명령 변경·STRICT·화면 틀 수동, 조회 실패 자동 재확인. 빠짐: ① 재확인 상한 없음 ② DB 구조(DDL)가 권한 신호만 보아 자동 ③ pull_request_target를 고권한으로 안 봄 ④ 격리 Preview 차등 검증(미구현, 후속).
 - 변경: decision-approval-gate(RETRY_LIMIT_MINUTES=60 초과 시 '판정 불가' 사유 기록·대표 판단, DDL 신호는 supabase/migrations만, pull_request_target 고권한) · approval-checks·bot-pr-automerge가 head 나이를 넘김 · 규칙 문서 3개.
@@ -81,8 +87,3 @@
 - 11-09 오전 구조 단순화(Lee "덧붙이기 전에 고치기·합치기·지우기", CLAUDE.md 우선 원칙 8): 상세 틀 2개(KDA·4칸)로 합침, 안 쓰는 파일·자동화 정리, DB 검사 이름 규칙, 규칙 문서 축약. Lee 결정 대기: 운영 SQL 실행 작업 제한안, 동영상 저장 칸. CSS 대규모 정리는 보류(관련 기능 고칠 때 확실한 중복만).
 - 11-09 밤 근무: 테마 채용관 모르는 주소 → 첫 테마로 바꿔 보냄·지역 칸 34개 성(#623). #594 P1 교대 누락은 #622(needs-lee).
 - 그 외 이전 상태(회사 이름 읽기·카드 상호·급여 읽기·소개소 표시 등)는 WORK_LOG.md.
-
-## 2026-11-19 — S7 완료: 필수 아닌 시험 필수화·중복 워크플로 정리·71개 처리 기록 (#808, #920)
-- 변경(#920): pr-checks.yml checks에 crawler-cli-tests(offline)·job-policy-tests·reprocess-queue-ci 시험 그대로 옮김, 제거 3개(job-policy-tests·reprocess-queue-ci·r7-source-aware-unit, 참조 0), map-pin-fit-check 손으로만, SAFE_TEST_WORKFLOWS 정리, 라벨 regression.
-- 기록: docs/system-redesign/S7-workflow-results.md(71줄). RULES_CORE 자동 생성은 보류(요약본 문장 훼손 위험).
-- 검증: PR 실행에서 옮긴 시험 단계 success, 독립 검토 0, 병합 뒤 master 배포·운영 화면 검사 통과. 남은 일: S8.
