@@ -1407,6 +1407,16 @@ class RecollectKeepsConfirmedLocationText(unittest.TestCase):
         self.assertEqual(self._run("152 Trần Hưng Đạo", unconfirmed)["location"], "152 Trần Hưng Đạo")
         self.assertEqual(self._run("152 Trần Hưng Đạo", [])["location"], "152 Trần Hưng Đạo")
 
+    def test_other_branch_job_keeps_its_branch_location(self):
+        # 지점별 독립 공고(운영 #5992 2026-11-24 pin_lost): 이 공고가 글의 둘째 매장 지점이면 첫 매장 주소로 위치 글자를 바꾸지 않는다.
+        rows = [{"raw_address": "148 Trần Phú, Từ Sơn, Bắc Ninh", "lat": 21.1187, "lng": 105.9608, "location_verified": True}]
+        found = ["152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", "148 Trần Phú, Từ Sơn, Bắc Ninh"]
+        with mock.patch.object(topcv, "supabase", self._db(rows)):
+            out = topcv._keep_confirmed_location_text({"id": 7, "location": "148 Trần Phú, Từ Sơn, Bắc Ninh"},
+                                                     {"location": found[0], "salary": "9tr"}, found)
+        self.assertNotIn("location", out)
+        self.assertEqual(out["salary"], "9tr", "다른 칸은 그대로 고친다")
+
     def test_no_location_change_does_not_query(self):
         with mock.patch.object(topcv, "supabase", None):  # 위치 칸이 안 바뀌면 DB를 묻지 않는다
             self.assertEqual(topcv._keep_confirmed_location_text({"id": 7, "location": self.OLD}, {"salary": "9tr"}), {"salary": "9tr"})
