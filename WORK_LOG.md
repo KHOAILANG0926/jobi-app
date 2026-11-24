@@ -2,7 +2,7 @@
 - 요청(Lee): 봇 PR에 Codex 자동 검토가 실제로 달리는지 모르므로 15분 무응답을 감지해 라벨·알림.
 - 변경: scripts/ci/codex-silent.sh 신설 + bot-pr-automerge.yml 병합 루프에 호출 1줄. 기준 = Ready 전환 시각(Draft는 Codex가 검토 안 함). Codex 리뷰·줄 댓글·댓글·반응 중 하나라도 있으면 정상, 없으면 `codex-silent` 라벨 + Lee 멘션 댓글 1번. 15분 전이면 기존 codex-wait.txt→codex-wait-timer로 재확인(새 타이머 없음). 조회 실패는 알림 없이 건너뜀, 병합 판정과 무관.
 - 검증 [직접 확인]: automerge-recovery.test.mjs 7번 사례 통과(무응답·15분 전·Draft 기간·Codex 흔적 4종·봇 아님·조회 실패), tsc·build 통과.
-- 미완료: 운영 실제 동작 확인(병합 뒤 다음 봇 PR), 반응(👀)이 API에 실제로 보이는지 실증.
+- 결과(Lee 결정, 2026-11-24): #1018은 병합하지 않고 닫음. 원인 [직접 확인 — Lee가 Codex 설정 저장 시 받은 OpenAI 서버 응답]: "Reviewing all PRs is not available on this plan" — 현재 요금제로는 봇 PR 자동 검토 불가(개인 '자동 검토'로는 #1018에 Codex 리뷰·댓글 0건, 17분). 병합하면 모든 봇 PR에 codex-silent 알림이 붙어 잡음이라 접음. 브랜치 claude/festive-cori-n5tzh4는 나중에 요금제가 바뀌면 다시 쓰려고 남김(codex-silent.sh·시험 7번 그대로 유효). Codex 검토는 원래 병합 조건이 아님(11-21).
 
 ## 2026-11-24 — R #872 1단계: 공고 6337 빈 이름표 'VỊ TRÍ:' 원문 재현·공통 수정 + W7 dry-run 결과 기록
 - 원문 [직접 확인 — Lee 실행 45412211405 로그]: "VỊ TRÍ:" 줄 아래 글머리 없는 직무 줄("3 Nam & Nữ Phục Vụ : 7tr5~ 12tr" …). 저장된 상세요강은 업무 칸에 "VỊ TRÍ:"만, 직무 줄은 급여 칸.
