@@ -196,10 +196,12 @@ jobs:
               # 재확인 상한(Lee 2026-11-24): head 커밋 또는 이 커밋에 대한 최신 리뷰 뒤 60분까지만(판정기 RETRY_LIMIT_MINUTES와 같은 60분). 넘으면 '판정 불가'로 기록하고 대표 판단에 넘긴다 — 자동 승인·병합 없음.
               echo "::notice::PR #$num 병합 조건 검사(approval-gate) $gate — 병합 시도 안 함"
               if [ "$gate" = pending ]; then
-                since=$(jq -r --arg sha "$sha" --arg head "$head_date" -f scripts/ci/recheck-since.jq reviews.json 2>/dev/null) || since=""
+                # 기준 시각을 못 구한 것(판정 파일 없음·jq 오류·커밋 시각 조회 실패)은 '60분 초과'가 아니라 조회 실패다 — head 커밋 시각으로 대신하고, 그것도 없으면 6분 뒤 다시 확인한다
+                # (실행 45293080396: pull_request_review 실행은 PR 브랜치의 이 파일로 돌고 scripts는 master 사본이라 새 판정 파일이 없어 빈 값 → 방금 Approve한 #995를 '판정 불가'로 보류함).
+                since=$(jq -r --arg sha "$sha" --arg head "$head_date" -f scripts/ci/recheck-since.jq reviews.json 2>/dev/null) || since="$head_date"
                 wait_age=""; [ -n "$since" ] && wait_age=$(( ($(date -u +%s) - $(date -u -d "$since" +%s)) / 60 )) || true
-                if [ -n "$wait_age" ] && [ "$wait_age" -le 60 ]; then echo 6 >> codex-wait.txt
-                else block "$num" "$sha" gate-timeout "병합 조건 검사(approval-gate) 판정이 60분 넘게 나오지 않음(기준 시각 ${since:-모름}) — 판정 불가, 대표 판단 필요(자동 승인·병합 안 함)"; fi
+                if [ -z "$wait_age" ] || [ "$wait_age" -le 60 ]; then echo 6 >> codex-wait.txt
+                else block "$num" "$sha" gate-timeout "병합 조건 검사(approval-gate) 판정이 60분 넘게 나오지 않음(기준 시각 $since) — 판정 불가, 대표 판단 필요(자동 승인·병합 안 함)"; fi
               fi
               continue
             fi

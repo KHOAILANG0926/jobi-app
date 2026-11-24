@@ -1,6 +1,6 @@
 // 자동 병합 실패 복구 + 운영 검사 성공 뒤 다음 작업 1건 착수(Lee 2026-11-24 1순위) 시험.
 // 실제 워크플로 YAML에서 쉘을 꺼내 가짜 gh로 돌린다(네트워크·열쇠 없음). 수정 전(master 사본)은 실패를 재현하고, 수정 후는 통과해야 한다.
-// 사용: node scripts/ci/automerge-recovery.test.mjs  (수정 전 재현까지: AMR_BEFORE_REF=<수정 전 커밋> — 그 커밋의 워크플로로 같은 사례가 실패하는지 확인. CI는 수정 후 시험만)
+// 사용: node scripts/ci/automerge-recovery.test.mjs  (수정 전 재현까지: AMR_BEFORE_REF=<수정 전 커밋>, 기준 시각 조회 실패 사례는 AMR_BEFORE_FALLBACK_REF=41fb3f8 — 그 커밋의 워크플로로 같은 사례가 실패하는지 확인. CI는 수정 후 시험만)
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
@@ -86,6 +86,8 @@ const BOT_STEP = 'GitHub Actions bot 인증으로 안전 병합'
 const botNew = step(wf('bot-pr-automerge'), 'merge', BOT_STEP).run
 const BEFORE = process.env.AMR_BEFORE_REF
 const botOld = BEFORE ? step(wf('bot-pr-automerge', BEFORE), 'merge', BOT_STEP).run : null
+// 기준 시각 조회 실패 사례는 #995 병합본(41fb3f8)부터 있는 코드라, 수정 전 재현은 AMR_BEFORE_FALLBACK_REF(예: 41fb3f8)로 따로 준다
+const BEFORE_FALLBACK = process.env.AMR_BEFORE_FALLBACK_REF ? step(wf('bot-pr-automerge', process.env.AMR_BEFORE_FALLBACK_REF), 'merge', BOT_STEP).run : null
 
 // ── 1. approval-gate가 오지 않는 PR(포크 #955 사례) — 수정 전: 6분 재확인을 무기한 예약 / 수정 후: 재확인 없음 + 사유 기록 1번
 {
@@ -124,7 +126,22 @@ const botOld = BEFORE ? step(wf('bot-pr-automerge', BEFORE), 'merge', BOT_STEP).
   const approvedNow = { ...stale, pr: { 996: { ...prData, reviews: [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: SHA, submitted_at: iso(2) }] } } }
   const c = exec(botNew, approvedNow)
   assert.match(c.calls, /codex-wait-timer\.yml .*minutes=6/, '방금 승인: 6분 재확인 유지')
-  console.log('2 approval-gate 대기: 60분 안 재확인·60분 초과 중단(대표 판단)·방금 승인 재확인 통과')
+  // 실행 45293080396 재현: 판정 파일(recheck-since.jq)을 못 읽으면(PR 브랜치 워크플로 + master scripts) 기준 시각이 비었다 → 방금 승인한 PR을 '60분 초과 판정 불가'로 보류함
+  //   수정 후: 조회 실패는 head 커밋 시각으로 대신(이 사례는 head 2분 → 재확인), 그것도 없으면 재확인(판정 불가로 보지 않음). 승인 판정·approval-gate 확인은 그대로.
+  const noFile = (script) => script.replaceAll('scripts/ci/recheck-since.jq', 'scripts/ci/__missing__.jq')
+  const justApproved = { ...fresh, headDate: iso(2), pr: { 996: { ...prData, reviews: [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: SHA, submitted_at: iso(1) }] } } }
+  if (BEFORE_FALLBACK) { const old = exec(noFile(BEFORE_FALLBACK), justApproved)
+    assert.match(old.calls, /comment #996 <!-- bot-merge-block:gate-timeout:/, '수정 전 재현: 판정 파일 없음 → 방금 승인한 PR을 판정 불가로 보류')
+    assert.doesNotMatch(old.calls, /codex-wait-timer/); console.log(`  수정 전(${process.env.AMR_BEFORE_FALLBACK_REF}) 재현: 판정 파일 없음 → 방금 승인 PR 판정 불가 보류`) }
+  const d = exec(noFile(botNew), justApproved)
+  assert.match(d.calls, /codex-wait-timer\.yml .*minutes=6/, '판정 파일 없음 → head 시각으로 대신해 6분 재확인')
+  assert.doesNotMatch(d.calls, /comment #996/, '판정 파일 없음 → 판정 불가 보류 안 함')
+  const e = exec(noFile(botNew), { ...justApproved, headDate: '' })
+  assert.match(e.calls, /codex-wait-timer\.yml .*minutes=6/, '기준 시각 전혀 없음 → 조회 실패로 재확인')
+  assert.doesNotMatch(e.calls, /comment #996|MERGE/, '기준 시각 없음 → 보류 기록·병합 없음(approval-gate pending)')
+  const f = exec(noFile(botNew), { ...stale })
+  assert.match(f.calls, /comment #996 <!-- bot-merge-block:gate-timeout:/, '판정 파일 없어도 head 3시간 → 60분 상한 그대로')
+  console.log('2 approval-gate 대기: 60분 안 재확인·60분 초과 중단(대표 판단)·방금 승인 재확인·기준 시각 조회 실패는 재확인 통과')
 }
 
 // ── 3. 병합 거절 사유 분류(영구는 재시도 안 함) — 판정 파일 단위 시험은 bot-required-checks.test.mjs, 여기서는 재확인 기준 시각 파일
