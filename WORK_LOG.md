@@ -1,3 +1,9 @@
+## 2026-11-24 — 지도 정상화 A(확정 위치 유실 방지)·C(API 오류 구분) + B dry-run 준비 (운영 변경 없음)
+- 원인 [직접 확인]: write_location이 기존 줄을 admin_location_key 완전 일치로만 찾아, 지역을 덧붙여 저장된 기존 확정 줄("…, TP. Bắc Ninh")과 재수집 글자가 다르면 새 줄 취급 → replace가 확정 줄을 지움(retained_rows에만 남음). C: Google·Goong 장애(provider_failed)·VietMap 월 한도(deferred)가 '못 찾음(not_found)'으로 기록돼 7일 뒤 재확인·최대 2번 경로로 감.
+- 변경: supabase/migrations/20261124130000_location_same_store_keep.sql(+tests setup·local·production_check) — 완전 일치 줄이 없을 때만 기존 같은 매장 규칙(addressReader.sameStore·pin_guard._same)을 '지역 덧붙임' 모양(한쪽이 다른 쪽의 낱말 단위 앞부분 + 짧은 쪽에 번지 숫자)으로 좁혀, 그리고 후보 1줄·확정 줄일 때만 그 줄 사용·주소 글자 유지(거리 이름만·12≠112·앞에 글자가 붙은 포함은 다른 지점, 시험 6~8번). src/lib/locationPrecheck.ts checkBlocked/providerErrorKind 한 곳(precheckVerdict·autoLocationResolver 공용), Goong 오류 기록, 매장 여러 곳 보류 일반화, crawler DEFERRED_REASONS에 provider_quota. B: scripts/ops/jobs/location-keep-recovery-preview.sql(읽기 전용).
+- 검증 [직접 확인]: 로컬 PostgreSQL 16 fixture→setup→migration→local→production_check 통과, autoLocationResolver·googleQuotaCache·locationPrecheck·location-hook 시험·crawler test_ingest_gateway·tsc 통과, dry-run SQL은 run-sql-plan 검증 + 시험 DB 실행.
+- 남은 것: A 병합·운영 적용 뒤 Lee가 ops-run-sql(name=location-keep-recovery-preview)로 dry-run 실행 → 결과 보고. 복구 migration은 대표 승인 뒤 별도.
+
 ## 2026-11-24 — 3순위 2차: DB 변경 PR의 격리 DB 전후 대조 (기존 migration-postgres 재사용)
 - 변경: scripts/ci/public-location-snapshot.sql(읽기만)·public-location-diff.sh(+시험)를 check-postgres-migrations.sh의 migration 적용 전후에 연결, pr-checks 시험 1단계, 규칙 문서 3개 현재 구현 줄, 계획 문서 3·4절.
 - 화면 연결(Lee 11-24): 적용 뒤 결과를 JSON으로 내 기존 격리 핀 검사(location-canonical-browser-fixtures, LOCATION_FIXTURE_DIR)에 넣음 — 공개 위치 응답(HEAD api 처리 코드)→메인 지도 점별 핀→상세→PC·모바일. migration-postgres 잡에서 결과가 있을 때만 빌드·실행.

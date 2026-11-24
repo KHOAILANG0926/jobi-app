@@ -69,7 +69,7 @@ class LocationDeferred(LocationNotFound):
 
 
 # 지금 확인 못 함 = 보류 후 다음 수집 때 바로 재시도(status held).
-DEFERRED_REASONS = {"google_quota", "precheck_unavailable", "precheck_not_configured", "provider_failed", "poster_read_failed",
+DEFERRED_REASONS = {"google_quota", "provider_quota", "precheck_unavailable", "precheck_not_configured", "provider_failed", "poster_read_failed",
                     "company_ai_unavailable"}
 # 그 공고만의 문제(포스터 그림을 못 읽음) — 보류 대기열을 다시 확인할 때 다른 공고까지 멈추지 않는다(Codex #619).
 # 나머지 보류 사유(한도 초과·확인 서버 문제)는 모든 공고에 같으므로 그 자리에서 멈춘다(한도를 헛되이 쓰지 않게).

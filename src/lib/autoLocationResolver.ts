@@ -5,7 +5,7 @@ import { goongAddressHits, goongPlace, insideParkOutline, pickGoongCompany } fro
 import { findIndustrialPark } from './industrialPark'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
-import { precheckVerdict } from './locationPrecheck'
+import { precheckVerdict, checkBlocked, providerErrorKind } from './locationPrecheck'
 import { hasProvince } from './addressReader'
 import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys } from './companyPlaceSearch'
 
@@ -44,9 +44,12 @@ async function resolveAllStores(job: ResolverJob, providedDeps: ResolverDeps): P
     results.push(await resolveStore({ ...job, location: hasProvince(t.address) ? t.address : [t.address, job.location].filter(Boolean).join(', '), targets: [t] }, providedDeps))
   }
   const found = results.filter((r) => r.kind !== 'unresolved' && precheckVerdict(r).findable)
-  // 한 매장이라도 Google 한도에 걸렸으면 공고 전체를 기존 보류(한도 초과 → 다음에 다시)로 — 매장을 빠뜨린 채 등록하지 않는다(Codex #697).
-  const quota = results.find((r) => !found.includes(r) && /google:quota/.test(String(r.evidence ?? '')))
-  if (quota) return { kind: 'unresolved', failed: false, deferred: true, evidence: [quota.evidence, 'stores:quota_retry'].filter(Boolean).join('\n') }
+  // 한 매장이라도 한도·장애로 확인 못 했으면 공고 전체를 기존 보류(다음에 다시)로 — 매장을 빠뜨린 채 등록하지 않는다(Codex #697).
+  const blocked = results.find((r) => !found.includes(r) && checkBlocked(r))
+  if (blocked) {
+    const why = checkBlocked(blocked)
+    return { kind: 'unresolved', failed: why === 'provider_failed', deferred: why !== 'provider_failed', evidence: [blocked.evidence, 'stores:quota_retry'].filter(Boolean).join('\n') }
+  }
   // 찾은 매장이 없으면 좌표 없이 '못 찾음'(대략 위치 핀 금지, Lee 2026-11-11 절대 원칙) — 실패 기록은 남긴다.
   if (!found.length) {
     return { kind: 'unresolved', failed: results.some((r) => r.failed), deferred: results.some((r) => r.deferred),
@@ -134,7 +137,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
     }
     // ③ Goong: Google·VietMap이 모두 못 찾았을 때만, 같은 판정 규칙으로.
     if (deps.goong) {
-      const found = await resolveWithGoong(job, sorted, deps, at)
+      const found = await resolveWithGoong(job, sorted, deps, at, r => reasons.push(r))
       if (found) return found
     }
     const park = findIndustrialPark(...targets.map(t => t.address), job.location)
@@ -153,7 +156,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
 }
 
 /** ① 번지: 번지·도로명이 결과에 그대로 + 원문 동/구 일치 / ② 회사+공단: 회사명 정확 일치 1곳 + 공단 경계 안. 실패는 조용히 다음 단계로. */
-async function resolveWithGoong(job: ResolverJob, targets: ResolverJob['targets'], deps: ResolverDeps, at: string): Promise<LocationDecision | null> {
+async function resolveWithGoong(job: ResolverJob, targets: ResolverJob['targets'], deps: ResolverDeps, at: string, reason: (reason: string) => void = () => {}): Promise<LocationDecision | null> {
   let calls = 0
   const ask = async (action: 'geocode' | 'autocomplete' | 'detail', params: Record<string, string>) => {
     const key = JSON.stringify(['goong-v1', action, params])
@@ -165,7 +168,7 @@ async function resolveWithGoong(job: ResolverJob, targets: ResolverJob['targets'
       const data = await deps.goong!(action, params)
       await deps.cache(key, data)
       return data
-    } catch { return null }
+    } catch (e) { reason(`goong:${providerErrorKind(e)}`); return null } // 장애·한도는 '결과 없음'과 구분해 기록
   }
   for (const target of targets) {
     const address = target.address.trim()
@@ -213,7 +216,7 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
       return data
     } catch (e) {
       // 한도(우리 월 한도 또는 Google 429)는 '못 찾음'이 아니다 → 따로 표시해 공고를 버리지 않고 보류한다(#560).
-      reason(`${provider}:${/quota_exhausted|upstream_failed_429/.test(String((e as Error)?.message)) ? 'quota' : 'provider_failed'}`)
+      reason(`${provider}:${providerErrorKind(e)}`)
       return null
     }
   }
