@@ -49,7 +49,7 @@ from job_quality import (
 from job_posting_policy import crawler_policy_errors
 from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 from ingest_gateway import ingest_job, retry_held_once
-from pin_guard import other_stores
+from pin_guard import keeps_confirmed_location, other_stores
 from job_criteria import deadline_passed, has_enough_contact, today_vn
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -2334,6 +2334,21 @@ def _ingest_branch_jobs(payload: dict, rows: list[dict]) -> list[int]:
     return ids
 
 
+def _keep_confirmed_location_text(existing: dict, field_updates: dict) -> dict:
+    """다시 수집에서 위치 글자(location)를 고칠지(지도 정상화 W4a, Facebook 다시 수집 W4b와 같은 판정 한 곳 pin_guard.keeps_confirmed_location).
+    위치 글자가 바뀌면 DB가 그 글자의 근무지 줄 좌표를 지우고 다시 찾는다 — 같은 지점인데 표기만 다르고 그 줄이 확정 좌표이면 위치 글자는 그대로 둔다.
+    그 밖(다른 지점·이전·확정 아님·조회 실패)은 예전처럼 고친다."""
+    new_location = field_updates.get("location")
+    if not new_location or not existing.get("location"):
+        return field_updates
+    rows = (supabase.table("job_work_locations").select("raw_address,lat,lng,location_verified,point_authority")
+            .eq("job_id", existing["id"]).execute().data or [])
+    if not keeps_confirmed_location(existing["location"], new_location, rows):
+        return field_updates
+    print(f"    📌 id={existing['id']}: 같은 지점·표기만 다른 주소 — 확정 위치 글자 유지")
+    return {k: v for k, v in field_updates.items() if k != "location"}
+
+
 def _own_branch_rows(job_id: int, resolved: list[dict]) -> list[dict]:
     """다시 수집한 근무지 줄 중 이 공고(지점)의 것만 — 형제 지점 줄을 이 공고에 섞지 않는다. 이번 글에서 이 지점이 안 보이면 빈 목록(기존 줄을 그대로 둔다:
     글에서 빠졌다는 것만으로 줄도 공고도 지우지 않는다). 전환 전 여러 지점 줄을 가진 기존 공고는 자동 작업이 건드리지 않는다."""
@@ -2489,6 +2504,7 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
         action = "inserted"
     else:
         field_updates = compute_job_updates(existing, job)
+        field_updates = _keep_confirmed_location_text(existing, field_updates)
         # 공개 게이트/버전 필드는 이 공고가 실제로 크롤러가 만든 것일 때만,
         # 그리고 이번 판정이 geocode API 일시 오류 없이 완전했을 때만 건드린다
         # — 기업이 직접 등록한 공고(origin != 'crawler')는 이 매칭에 걸릴 일이

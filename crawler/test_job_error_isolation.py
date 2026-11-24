@@ -1371,5 +1371,41 @@ class FacebookCriteriaAlignment(unittest.TestCase):
         for value in ["", "0912345", "abc", "---"]:
             self.assertIn("연락처 없음", self._problems(value, ""), repr(value))
 
+class RecollectKeepsConfirmedLocationText(unittest.TestCase):
+    """지도 정상화 W4a: vieclam24h 다시 수집이 같은 지점의 표기만 다른 주소로 위치 글자를 바꿔 확정 좌표를 지우지 않는다
+    (DB는 위치 글자가 바뀌면 그 줄 좌표를 지움). 판정은 Facebook 다시 수집과 같은 pin_guard.keeps_confirmed_location 한 곳."""
+    OLD = "152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh"
+
+    def _db(self, rows):
+        class Q:
+            def __getattr__(q, _):
+                return lambda *a, **k: q
+            def execute(q):
+                return types.SimpleNamespace(data=rows)
+        return types.SimpleNamespace(table=lambda name: Q())
+
+    def _run(self, new_location, rows, extra=None):
+        updates = {"location": new_location, "salary": "9tr", **(extra or {})}
+        with mock.patch.object(topcv, "supabase", self._db(rows)):
+            return topcv._keep_confirmed_location_text({"id": 7, "location": self.OLD}, updates)
+
+    def test_notation_only_change_on_confirmed_row_keeps_text(self):
+        rows = [{"raw_address": self.OLD, "lat": 21.18, "lng": 106.07, "point_authority": "admin_confirmed"}]
+        out = self._run("152 Trần Hưng Đạo", rows)
+        self.assertNotIn("location", out)
+        self.assertEqual(out["salary"], "9tr", "다른 칸은 그대로 고친다")
+
+    def test_other_branch_or_unconfirmed_updates_as_before(self):
+        confirmed = [{"raw_address": self.OLD, "lat": 21.18, "lng": 106.07, "location_verified": True}]
+        self.assertEqual(self._run("340 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", confirmed)["location"], "340 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh")
+        unconfirmed = [{"raw_address": self.OLD, "lat": 21.18, "lng": 106.07}]
+        self.assertEqual(self._run("152 Trần Hưng Đạo", unconfirmed)["location"], "152 Trần Hưng Đạo")
+        self.assertEqual(self._run("152 Trần Hưng Đạo", [])["location"], "152 Trần Hưng Đạo")
+
+    def test_no_location_change_does_not_query(self):
+        with mock.patch.object(topcv, "supabase", None):  # 위치 칸이 안 바뀌면 DB를 묻지 않는다
+            self.assertEqual(topcv._keep_confirmed_location_text({"id": 7, "location": self.OLD}, {"salary": "9tr"}), {"salary": "9tr"})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
