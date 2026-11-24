@@ -60,3 +60,11 @@ eq(s('Tuyển công nhân\nPhụ cấp xăng xe 500.000đ/tháng'), null, 'allow
 eq(s('Tuyển công nhân\nPhụ cấp ngoài lương 500.000đ/tháng\n310k/11h ca ngày')?.salary, '310k/11h', 'Codex #641: allowance outside salary is not salary')
 eq(s('Tuyển công nhân\nTiền lương làm thêm tăng ca 30.000đ/giờ'), null, 'Codex #641: overtime pay is not salary')
 console.log('salaryReader: all assertions passed')
+
+// 2026-11-24 R #872(운영 공고 6337 원문 그대로): "7tr5"(= 7,5 triệu) 소수 표기를 금액 중간("5~ 12tr")부터 읽지 않는다.
+eq(s('MỲ CAY YAGAMI ĐANG TUYỂN NHÂN VIÊN \n VỊ TRÍ: \n 3 Nam & Nữ Phục Vụ : 7tr5~ 12tr \n 2 Nữ oder : 8tr~11tr + tip\n 1 Nam Làm Bếp : 8tr5 ~ 14tr\n 2 Cô Tạp Vụ : 7 - 8tr')?.salary, '7tr5~ 12tr', '#6337: tr 뒤 소수 표기를 금액 처음부터 읽음')
+eq(s('Lương 8tr5 ~ 14tr')?.salary, '8tr5 ~ 14tr', 'tr 소수 표기 범위')
+eq(s('Lương 8tr~11tr')?.salary, '8tr~11tr', '양쪽 단위 범위')
+eq(s('Lương 7 - 8tr')?.salary, '7 - 8tr', '왼쪽 단위 없는 범위(기존)')
+eq(s('Lương từ 9tr5')?.salary, 'từ 9tr5', 'từ + tr 소수 표기')
+console.log('salaryReader: tr 소수 표기(7tr5·8tr5) 통과')
