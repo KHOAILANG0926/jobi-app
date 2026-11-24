@@ -51,8 +51,11 @@ if ((r = m(/^repos\/[^/]+\/[^/]+\/issues\/(\d+)\/comments$/))) {
   v = (fx.issues || []).map((it) => ({ ...it, labels: [...it.labels, ...((st.labels[it.number] || []).map((name) => ({ name })))] }))
 } else if ((r = m(/^repos\/[^/]+\/[^/]+\/pulls\/(\d+)\/files$/))) v = fx.pr[r[1]].files
 else if ((r = m(/^repos\/[^/]+\/[^/]+\/pulls\/(\d+)\/reviews$/))) v = fx.pr[r[1]].reviews || []
+else if ((r = m(/^repos\/[^/]+\/[^/]+\/pulls\/(\d+)\/comments$/))) v = fx.pr[r[1]].reviewComments || []
+else if ((r = m(/^repos\/[^/]+\/[^/]+\/issues\/(\d+)\/reactions$/))) v = (fx.reactions || {})[r[1]] || []
+else if ((r = m(/^repos\/[^/]+\/[^/]+\/issues\/(\d+)\/events$/))) v = (fx.events || {})[r[1]] || []
 else if ((r = m(/^repos\/[^/]+\/[^/]+\/pulls\/(\d+)\/merge$/))) { log('MERGE #' + r[1]); out({ merged: true }); process.exit(0) }
-else if ((r = m(/^repos\/[^/]+\/[^/]+\/pulls\/(\d+)$/))) { const x = fx.pr[r[1]]; v = { body: x.body || '', title: 'T', draft: false, mergeable_state: 'clean', head: { sha: x.sha }, base: { sha: 'b'.repeat(40) } } }
+else if ((r = m(/^repos\/[^/]+\/[^/]+\/pulls\/(\d+)$/))) { const x = fx.pr[r[1]]; v = { body: x.body || '', title: 'T', draft: false, created_at: x.createdAt, mergeable_state: 'clean', head: { sha: x.sha }, base: { sha: 'b'.repeat(40) } } }
 else if ((r = m(/^repos\/[^/]+\/[^/]+\/commits\/([^/]+)\/check-runs$/))) v = { total_count: fx.checks.length, check_runs: fx.checks }
 else if ((r = m(/^repos\/[^/]+\/[^/]+\/commits\/master$/))) v = { sha: fx.masterHead }
 else if ((r = m(/^repos\/[^/]+\/[^/]+\/commits\/([^/]+)$/))) v = { sha: r[1], commit: { committer: { date: fx.headDate } } }
@@ -220,5 +223,39 @@ const pick = (fx, env) => exec(PICK, fx, { SHA, RUN_ID: '100', RUN_ATTEMPT: '1',
     assert.ok(botNew.includes(must), `봇 병합 보호 단계 유지: ${must}`)
   assert.ok(existsSync(join(ROOT, 'scripts/ci/merge-reject-class.jq')))
   console.log('6 대표 승인·운영 잠금·필수 검사 보호 단계 유지 통과')
+}
+// ── 7. Codex 무응답 감지(Lee 2026-11-24): Ready 후 15분 안에 Codex 흔적(리뷰·댓글·반응)이 없으면 라벨+알림 1번, 병합은 막지 않음
+{
+  const bot = (n, extra = {}) => ({ prs: [prRow(n, false)], pr: { [n]: { ...prData, createdAt: iso(300) } }, checks: green, headDate: iso(10), ...extra })
+  const evReady = (n, min) => ({ [n]: [{ event: 'ready_for_review', created_at: iso(min) }] })
+  const cx = { user: { login: 'chatgpt-codex-connector[bot]' }, body: 'x', content: 'eyes' }
+  // 15분 넘게 무응답 → 라벨 + 댓글(표시 1번)
+  const a = exec(botNew, bot(1001, { events: evReady(1001, 20) }))
+  assert.equal(a.status, 0, a.stderr)
+  assert.match(a.calls, /label POST #1001 codex-silent/, '무응답 → codex-silent 라벨')
+  assert.match(a.calls, /comment #1001 <!-- codex-silent -->/, '무응답 → 알림 댓글')
+  writeFileSync(join(a.dir, 'calls.log'), '')
+  const again = runShell(botNew, a.dir)
+  assert.doesNotMatch(again.calls, /comment #1001 <!-- codex-silent -->|label POST #1001/, '이미 라벨이 있으면 다시 알리지 않음')
+  // Ready 5분 전 → 알리지 않고 11분 뒤 다시 확인 예약
+  const b = exec(botNew, bot(1002, { events: evReady(1002, 5) }))
+  assert.doesNotMatch(b.calls, /codex-silent/, '15분 전에는 알리지 않음')
+  assert.match(b.stdout, /PR #1002 Codex 반응 아직 없음\(Ready 후 5분\) — 11분 뒤 다시 확인/, '남은 시간을 기존 대기 파일에 올림')
+  assert.match(b.calls, /codex-wait-timer\.yml/, '기존 타이머로 다시 확인(가장 이른 시각 기준)')
+  // PR은 오래됐어도 Ready 전환이 방금이면(Draft 기간 제외) 알리지 않음
+  assert.doesNotMatch(exec(botNew, bot(1003, { events: evReady(1003, 2) })).calls, /codex-silent/, 'Draft 기간은 세지 않음')
+  // Codex 흔적(👀 반응·댓글·리뷰·줄 댓글) 중 하나라도 있으면 알리지 않음
+  for (const [name, fx] of [['반응', { reactions: { 1004: [cx] } }], ['댓글', { comments: { 1004: [cx] } }]])
+    assert.doesNotMatch(exec(botNew, bot(1004, { events: evReady(1004, 20), ...fx })).calls, /codex-silent/, `Codex ${name}이 있으면 알리지 않음`)
+  for (const [name, key] of [['리뷰', 'reviews'], ['줄 댓글', 'reviewComments']]) {
+    const fx = bot(1004, { events: evReady(1004, 20) }); fx.pr[1004] = { ...fx.pr[1004], [key]: [{ ...cx, state: 'COMMENTED', commit_id: SHA, submitted_at: iso(1) }] }
+    assert.doesNotMatch(exec(botNew, fx).calls, /codex-silent/, `Codex ${name}이 있으면 알리지 않음`)
+  }
+  // 봇 PR이 아니면 대상 아님 / 조회 실패는 거짓 경보 없이 건너뜀 / 무응답이어도 병합 판정은 그대로(알림은 병합 조건 아님)
+  const human = bot(1005, { events: evReady(1005, 20) }); human.prs[0].author.login = 'someone'
+  assert.doesNotMatch(exec(botNew, human).calls, /codex-silent/, '봇 PR 아닌 PR은 대상 아님')
+  assert.doesNotMatch(exec(botNew, bot(1006, { events: evReady(1006, 20), failPaths: ['/reactions'] })).calls, /codex-silent/, '조회 실패는 알림 없이 건너뜀')
+  assert.ok(botNew.indexOf('codex-silent.sh') < botNew.indexOf('node scripts/decision-approval-gate.mjs'), '감지는 병합 판정보다 앞에서 돌고 판정 결과와 무관')
+  console.log('7 Codex 무응답 감지: 15분 넘으면 라벨·알림 1번, Draft 기간·Codex 흔적·봇 아님·조회 실패는 알리지 않음 통과')
 }
 console.log('automerge-recovery.test.mjs: 전부 통과')

@@ -85,6 +85,8 @@ jobs:
             # 포크 PR은 병합 조건 검사(approval-checks.mjs: 같은 저장소 PR만 판정)가 approval-gate를 올리지 않는다 → 봇이 '판정 대기'로 6분마다 무기한 다시 불렀다
             # (#955: 2026-11-22부터 7분 간격 반복, run 45288046609). 두 곳의 대상을 같게 맞춘다 — 포크 허용 여부(#956)는 대표 결정이라 여기서 바꾸지 않는다.
             if [ "$cross" != false ]; then block "$num" "$sha" fork "포크 저장소에서 온 PR이라 병합 조건 검사(approval-gate) 판정 대상이 아님 — 같은 저장소 브랜치로 다시 올려야 병합 가능(포크 허용은 #956 대표 결정)"; continue; fi
+            # Codex 무응답 감지(Lee 2026-11-24): 병합 조건이 아니라 알림 — 병합 판정과 무관하게 먼저 돌고 실패해도 계속한다. 아직 15분 전이면 기존 codex-wait.txt → codex-wait-timer로 다시 부른다.
+            CODEX_WAIT_FILE="$PWD/codex-wait.txt" bash scripts/ci/codex-silent.sh "$num" "$author" || echo "::warning::PR #$num Codex 무응답 확인 실패(병합 판정에는 영향 없음)"
             # github-actions[bot]이 임의 외부 fork 소스를 실행하지 않는다: API 데이터만 검사.
             gh api "repos/$REPO/pulls/$num/files?per_page=100" --paginate --slurp | jq 'add' > files.json
             node scripts/approved-migrations.mjs files.json > approved-migrations.json
