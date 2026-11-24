@@ -1,0 +1,32 @@
+# 기존 다중 지점 공고 전환 — dry-run 검토안 (2순위, Lee 2026-11-24)
+
+규정: CLAUDE.md 「지점별 독립 공고」(Lee 2026-11-23 확정). 새 공고는 #989(`20261124000000_branch_job_identity`)부터 지점별로 등록된다. 이 문서는 **그 전에 등록된 공고** 중 근무지 줄이 2개 지점 이상인 것을 지점별 독립 공고로 바꾸는 계획이다. 운영 변경은 아직 0회다.
+
+## 1. 대상 (dry-run이 세는 것)
+- 지점 식별자 = `admin_location_key(원문 주소)`(근무지 줄의 `normalized_address`, 비면 `raw_address`에서 계산) — #989 입구와 같은 값.
+- 대상 = 서로 다른 지점 식별자가 2개 이상인 공고. 공개·비공개 모두 센다.
+- 첫 지점 = `sort_order, id` 순 첫 줄. 이 줄은 **기존 공고 번호에 남는다**(지원·대화·면접·위치 후보·저장 기록이 그대로 붙어 있게).
+- 나머지 지점 = 지점마다 같은 원문의 독립 공고 1개.
+
+## 2. 전환 방법 (기존 장치만 사용, 새 표·새 경로 없음)
+1. 새 공고 만들기: 기존 입구 `ingest_job`(공개 게이트·규칙·직업분류 트리거를 그대로 통과)에 원래 공고 칸을 그대로 넘기고 `branch_location`=그 지점 주소를 준다.
+   입구의 같은 공고 찾기(`find_existing`, #989)는 같은 원문(`source_url`)·같은 지점 식별자의 공고가 이미 있으면 새로 만들지 않고 그 공고를 돌려준다 → **중복 전환 방지·다시 실행해도 같은 결과**.
+2. 위치 옮기기: 위치 원본 쓰기 함수 `location_private.write_location`만 쓴다(직접 UPDATE 금지 규칙 그대로).
+   - 새 공고에 그 지점 줄을 원래 근거 그대로 쓴다(`source_verified`·`poster_pin`·`auto_gate`는 근거 그대로).
+   - `admin_confirmed`는 승인 후보가 원래 공고 소속이라 그대로 옮길 수 없다 → 관리자 확정 기억표(같은 회사 + 같은 주소)로 `auto_reuse`. 기억이 없으면 핀 없이(`unresolved`) 두고 관리자 위치 확정 대기(대략 위치로 채우지 않음 — 지도 위치 절대 원칙).
+   - `auto_area` 등 대략 위치는 지금 규정상 핀·거리검색에 쓰지 않으므로 `unresolved`로 옮기고 기존 재확인 절차를 탄다.
+   - 원래 공고에서는 그 줄을 `write_location(... 'delete')`로 지운다 — 지우기 전 줄 전체가 `location_private.retained_rows`·`write_log`에 남는다(기존 이력 장치).
+3. 공개: 새 공고는 입구·DB 공개 게이트·검사표를 그대로 거친다. 원래 공고가 공개 중이어도 새 공고를 자동 공개하지 않는다(11-01 "새 공고는 검사를 통과해야만 공개").
+4. 기록: 원래 공고의 `source_text`·`source_url`은 그대로. 새 공고는 입구 원문 보관(`job_ingest_raw`)에 남는다.
+
+## 3. 복구
+- 되돌리기 migration: `write_log`의 (원래 공고 delete ↔ 새 공고 upsert) 짝으로 줄을 원래 공고에 다시 쓰고(`retained_rows`의 원래 줄), 새 공고는 비공개·관리자 숨김(데이터 삭제 금지 규칙). 전환 migration과 같은 PR에 시험으로 묶는다.
+
+## 4. 실행 순서
+1. **dry-run(지금)**: `scripts/ops/jobs/multi-branch-conversion-preview.sql` — 읽기 전용(run-sql-plan이 처음부터 `set transaction read only`). 실행은 기존 `ops-run-sql.yml`(master, Lee 계정 수동, `name=multi-branch-conversion-preview`). 출력: 전체·대상 건수, 지점별 위치 근거 분포, 대상 공고·지점마다 전환 전→후(기존 번호 유지 / 새 독립 공고 / 이미 있는 같은 지점 공고), 대상 공고에 걸린 지원·대화·면접·위치 후보 건수.
+2. dry-run 결과를 Lee에게 보고(허용 승인 시점 ①).
+3. Lee 확인 뒤 전환 migration + `supabase/tests/<이름>_production_check.sql`(전환 뒤 지점 2곳 이상 공고 0건, 옮긴 줄 수 = dry-run 수, 이력 줄 수) 같은 PR → Lee Approve → 봇 병합 → `migrations-apply` 자동 적용. 실패하면 원문 오류 그대로 보고하고 멈춘다(우회 없음).
+
+## 5. 검증한 것 / 못 한 것
+- [직접 확인] 미리 보기 SQL: `run-sql-plan` 통과(허용 문장만), 로컬 폐기용 PostgreSQL 16에서 합성 자료(지점 3곳·2곳·1곳, 이미 있는 같은 지점 공고 1건)로 실행 — 대상 2건·새 공고 3건·충돌 1건을 맞게 표시.
+- [미확인] 운영 실제 대상 건수 — 이 세션은 운영 DB 읽기 권한이 없다(직접 접근 금지 규칙). 위 1번 실행 결과로만 확인한다.

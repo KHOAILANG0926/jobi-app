@@ -1,11 +1,12 @@
-# HANDOFF — 2026-11-23 (Claude) · 이슈 #988 지점별 독립 공고·위치 우선순위 구현
+# HANDOFF — 2026-11-24 (Claude) · 확정 순위와 2순위(기존 다중 지점 공고 전환) dry-run 준비
 ## 1. 현재 상태
-- 코드: master e72d1f1(#987 규정 병합). 이 브랜치(feat/988-branch-jobs-location-order): Google→VietMap→Goong 위치 채택(Google은 추가 검증 없이 확정), 핀·거리검색은 확정 좌표(exact+확인, gate)만(`jobCoords.isConfirmedMapPoint`), 수집 입구가 한 글의 지점 A·B·C를 공고 3개로 등록(`ingest_gateway._ingest_branches`), migration `20261124000000_branch_job_identity`(같은 공고 판정=원문+지점 위치, 형제 지점 중복 면제 — Approve·병합 뒤 migrations-apply가 적용). 「자율 완주 및 승인 게이트 원칙」 문서 3개 반영.
-- 구현함: TopCV·vieclam24h 지점 분리(`_ingest_branch_jobs`·`_own_branch_rows`·`_unregistered_branch_rows`), Facebook refresh 형제 지점은 따로 등록(`pin_guard.other_stores`), 재수집에서 빠진 지점은 줄·공고를 건드리지 않음(단위 시험). 미완료: 관리자 위치 확정 대기열(#985·#986 보류), 기존 다중 근무지 공고 전환(dry-run 후 Lee 확인). 운영 DB 조회 불가라 운영 실행·기존 area 핀 영향 건수는 미검증.
+- 대표 확정 순위(Lee 2026-11-24): **1순위** 자동 병합 실패 복구·기존 ai-team 작업 큐 연결 — 완료(#995·#996 병합, 운영 검사 45305371229 성공 → 작업 큐 45305670499 → #940 착수 45305695231). **2순위** 기존 운영 DB 다중 지점 공고 전환(규칙·PR·구현 확인 → 전수 집계 → 원본·이력 보존 → 중복 전환 방지·복구 확인 → dry-run·전후 샘플 대조 → 결과·대상 건수 보고 → 대표 승인 후 실제 전환). **3순위** 격리 Preview 데이터·화면 차등 검증(기존 1~11단계 기준을 변경 영향 범위에 따라 적용).
+- 2순위 진행: 계획 `docs/plans/2026-11-24-multi-branch-conversion.md`, 읽기 전용 dry-run `scripts/ops/jobs/multi-branch-conversion-preview.sql`(기존 ops-run-sql, Lee 계정 수동). 운영 변경 0회.
+- R 트랙(#940·#872): 수집·저장 성공(45105178271, 공고 6337), 게시는 빈 이름표 'VỊ TRÍ:'로 비공개 보류 — 같은 유형 전체를 R 트랙에서 근본 해결(개별 수정 안 함). 최종 완료 조건 = 실제 수집·저장·게시·운영 화면 대조.
 ## 2. 다음 할 일 3개
-1. Lee: 최종 PR Approve(검사 전체 통과·Ready 후 approval-gate만 남음).
-2. 기존 다중 근무지 공고 전환 dry-run 계획 → Lee 확인.
-3. 기존 다중 근무지 공고 전환 설계(첫 지점 job_id 유지) → dry-run 결과를 Lee에게 확인 요청(허용된 승인 시점 ①).
+1. Lee: ops-run-sql `name=multi-branch-conversion-preview` 실행 → 결과로 전환 대상 건수 확정·보고.
+2. dry-run 결과 확인 뒤 전환 migration + production_check + 되돌리기 시험(같은 PR) → Lee Approve → 봇 병합 → migrations-apply.
+3. 3순위(격리 Preview 차등 검증)는 2순위 완료 뒤.
 ## 3. 필수 규칙
-- CLAUDE.md·.claude/RULES_CORE.md 먼저(「지점별 독립 공고」「위치 확인 우선순위」「기존 확정 규정 보호」「자율 완주 및 승인 게이트 원칙」). 확인한 것만 [직접 확인]/[기존 기록]/[추정], 5줄 이내. 운영 DB 직접 접근 금지.
-- #990(운영 검증 실패 5599): 공개 위치 요약 API가 area를 내보내던 것 수정 PR. 병합·배포 뒤 deploy-verify·행정구역 핀 검사 성공 확인 필요.
+- CLAUDE.md·.claude/RULES_CORE.md 먼저(「지점별 독립 공고」「위치 확인 우선순위」「지도 위치 절대 원칙」「운영 DB 직접 접근 금지」「자율 완주 및 승인 게이트 원칙」). 확인한 것만 [직접 확인]/[기존 기록]/[추정].
+- 운영 DB 변경은 migration + production_check 경로만, 위치 줄은 write_location만, 새 공고는 ingest_job만. 데이터 삭제 금지.
