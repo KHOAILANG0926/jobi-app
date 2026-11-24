@@ -994,6 +994,11 @@ class _FakeSupabase:
                 fields = p.get("update_fields")
                 payload = {k: v for k, v in p.items() if fields is None or k in fields}
                 self.calls.append({"kind": "table", "table_or_rpc": "local_jobs", "op": "update", "payload": payload, "filters": {"id": job_id}})
+                # 입구는 받은 근무지 줄(work_locations)을 같은 트랜잭션에서 replace_job_work_locations로 쓴다(20261029010000_ingest_one_door.sql ④).
+                # 다시 수집도 근무지 줄을 입구에 실어 보내므로(지도 정상화 W4a 2차) 그 DB 동작을 같은 모양의 기록으로 남긴다(새 공고 기록은 그대로).
+                if isinstance(p.get("work_locations"), list):
+                    self.calls.append({"kind": "rpc", "table_or_rpc": "replace_job_work_locations",
+                                       "payload": {"p_job_id": job_id, "p_rows": p["work_locations"]}, "filters": {}})
             else:
                 payload = {k: v for k, v in p.items() if k != "channel"}
                 self.calls.append({"kind": "table", "table_or_rpc": "local_jobs", "op": "insert", "payload": payload, "filters": {}})

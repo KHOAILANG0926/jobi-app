@@ -399,6 +399,8 @@ class TopcvRetryNextRun(unittest.TestCase):
                     {topcv.canonical_job_key(r["title"], r["company"]): r for r in rows})
 
         def ingest(sb, payload, hold=True, job_id=None, update_fields=None, work_location_rows=None):
+            if job_id is not None and payload.get("work_locations") is not None:
+                replace_locations(job_id, payload["work_locations"])  # 다시 수집 근무지 줄은 입구가 같은 트랜잭션에서 쓴다(W4a 2차)
             if job_id is not None:
                 return job_id
             url = payload["source_url"]
@@ -432,6 +434,9 @@ class TopcvRetryNextRun(unittest.TestCase):
             mock.patch.object(topcv, "ingest_job", ingest),
             mock.patch.object(topcv, "_replace_job_work_locations", replace_locations),
             mock.patch.object(topcv, "_has_existing_work_locations", has_locations),
+            # W4a 2차: 다시 수집 근무지 줄 판단이 읽는 DB(사람 확인 줄·지금 줄)는 이 가짜 DB에 없다 — 줄이 아직 없을 때만 '달라짐'
+            mock.patch.object(topcv, "_fetch_protected_work_locations", lambda job_id: []),
+            mock.patch.object(topcv, "_work_locations_changed", lambda job_id, rows: not has_locations(job_id)),
         ]
         for p in self.patches:
             p.start()
@@ -1405,6 +1410,57 @@ class RecollectKeepsConfirmedLocationText(unittest.TestCase):
     def test_no_location_change_does_not_query(self):
         with mock.patch.object(topcv, "supabase", None):  # 위치 칸이 안 바뀌면 DB를 묻지 않는다
             self.assertEqual(topcv._keep_confirmed_location_text({"id": 7, "location": self.OLD}, {"salary": "9tr"}), {"salary": "9tr"})
+
+
+class RecollectRowsThroughEntry(unittest.TestCase):
+    """지도 정상화 W4a 2차: 기존 공고 다시 수집의 근무지 줄은 입구(ingest_job)에 실어 한 트랜잭션으로 쓰고,
+    달라진 것이 없으면 입구를 부르지 않는다(입구는 호출마다 원문을 기록하므로)."""
+    ADDR = "12 Nguyễn Trãi, Thanh Xuân, Hà Nội"
+
+    def _db(self, rows):
+        class Q:
+            def __getattr__(q, _):
+                return lambda *a, **k: q
+            def execute(q):
+                return types.SimpleNamespace(data=rows)
+        return types.SimpleNamespace(table=lambda name: Q())
+
+    def _changed(self, current, new):
+        with mock.patch.object(topcv, "supabase", self._db(current)):
+            return topcv._work_locations_changed(7, new)
+
+    def test_same_rows_are_not_a_change(self):
+        cur = [{"raw_address": self.ADDR, "lat": 21.0, "lng": 105.8, "address_accuracy": "exact_text", "matched_recruitment_regions": ["Hà Nội"]}]
+        new = [{"raw_address": "12 nguyễn trãi,  thanh xuân, hà nội", "lat": 21.0000001, "lng": 105.8, "address_accuracy": "exact_text", "matched_recruitment_regions": ["Hà Nội"]}]
+        self.assertFalse(self._changed(cur, new), "표기(대소문자·공백)만 다른 같은 줄은 변화가 아니다")
+
+    def test_new_address_or_coordinates_are_a_change(self):
+        cur = [{"raw_address": self.ADDR, "lat": None, "lng": None}]
+        self.assertTrue(self._changed(cur, [{"raw_address": self.ADDR, "lat": 21.0, "lng": 105.8}]), "좌표가 새로 생김")
+        self.assertTrue(self._changed(cur, [{"raw_address": "99 Lê Lợi, Hà Nội", "lat": None, "lng": None}]), "다른 주소")
+        self.assertTrue(self._changed([], [{"raw_address": self.ADDR, "lat": None, "lng": None}]), "줄이 없던 공고")
+
+    def test_confirmed_row_coordinates_do_not_force_a_call(self):
+        # 확정 줄 좌표는 DB 쓰기 함수가 지킨다 — 수집기 좌표가 달라도 매번 입구를 부르지 않는다
+        for cur in ([{"raw_address": self.ADDR, "lat": 21.5, "lng": 105.1, "location_verified": True}],
+                    [{"raw_address": self.ADDR, "lat": 21.5, "lng": 105.1, "point_authority": "admin_confirmed"}]):
+            self.assertFalse(self._changed(cur, [{"raw_address": self.ADDR, "lat": None, "lng": None}]))
+
+    def _rows(self, *, had_existing, had_transient, own, changed=True):
+        with mock.patch.object(topcv, "_has_existing_work_locations", lambda job_id: had_existing), \
+                mock.patch.object(topcv, "_own_branch_rows", lambda job_id, resolved: own), \
+                mock.patch.object(topcv, "_fetch_protected_work_locations", lambda job_id: []), \
+                mock.patch.object(topcv, "_work_location_rpc_rows", lambda rows: [dict(r) for r in rows]), \
+                mock.patch.object(topcv, "_work_locations_changed", lambda job_id, rows: changed):
+            return topcv._recollect_rows_for_entry(7, own, had_transient)
+
+    def test_existing_rules_kept(self):
+        own = [{"raw_address": self.ADDR}]
+        self.assertIsNone(self._rows(had_existing=True, had_transient=True, own=own), "geocode 일시 오류 + 지킬 줄 있음 → 쓰지 않음")
+        self.assertEqual(len(self._rows(had_existing=False, had_transient=True, own=own)), 1, "일시 오류라도 줄이 0건이면 저장")
+        self.assertIsNone(self._rows(had_existing=True, had_transient=False, own=[]), "이 지점 줄이 안 보이면 쓰지 않음")
+        self.assertIsNone(self._rows(had_existing=True, had_transient=False, own=own, changed=False), "달라진 것 없음 → 입구를 부르지 않음")
+        self.assertEqual(self._rows(had_existing=True, had_transient=False, own=own)[0]["sort_order"], 0, "보호 줄 합치기(merge_protected_work_locations)를 그대로 거친다")
 
 
 if __name__ == "__main__":
