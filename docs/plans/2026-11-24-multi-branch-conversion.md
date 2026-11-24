@@ -20,7 +20,9 @@
 4. 기록: 원래 공고의 `source_text`·`source_url`은 그대로. 새 공고는 입구 원문 보관(`job_ingest_raw`)에 남는다.
 
 ## 3. 복구
-- 되돌리기 migration: `write_log`의 (원래 공고 delete ↔ 새 공고 upsert) 짝으로 줄을 원래 공고에 다시 쓰고(`retained_rows`의 원래 줄), 새 공고는 비공개·관리자 숨김(데이터 삭제 금지 규칙). 전환 migration과 같은 PR에 시험으로 묶는다.
+- 되돌리기 SQL: `supabase/pending/20261124_multi_branch_conversion_revert.sql`(대기 — 쓸 때 대표 승인 뒤 migrations/로 옮겨 정상 경로로 적용). 보류함 meta(from_job_id·work_location_id·from_location)로 `retained_rows`의 원래 줄을 같은 쓰기 함수(write_location 'upsert')로 원래 공고에 다시 쓰고, 위치 글자는 정식 입구로 되돌리고, 보류함 줄은 지우지 않고 rejected/conversion_reverted로 닫는다. 이미 새 공고로 등록된 지점이 있으면 자동 되돌리기를 멈춘다(대표 판단).
+- 시험 DB에서 실제로 되돌려 원래 줄(주소·순서·좌표·위치 근거·정확도)과 위치 글자가 모두 돌아오는 것을 확인한다(운영 본문 그대로의 write_location 사용).
+- dry-run 뒤 변경 시 중단: 전환 직전 대상 계획(공고·줄 번호·위치 근거·공개 상태·처리)과 대상 공고의 지원·대화·면접·위치 후보 건수를 다시 계산해 dry-run과 다르면 전체 취소.
 
 ## 4. 실행 순서
 1. **dry-run(지금)**: `scripts/ops/jobs/multi-branch-conversion-preview.sql` — 읽기 전용(run-sql-plan이 처음부터 `set transaction read only`). 실행은 기존 `ops-run-sql.yml`(master, Lee 계정 수동, `name=multi-branch-conversion-preview`). 출력: 전체·대상 건수, 지점별 위치 근거 분포, 대상 공고·지점마다 전환 전→후(기존 번호 유지 / 새 독립 공고 / 이미 있는 같은 지점 공고), 대상 공고에 걸린 지원·대화·면접·위치 후보 건수.

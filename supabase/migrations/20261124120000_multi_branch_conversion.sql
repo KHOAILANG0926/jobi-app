@@ -8,9 +8,13 @@
 --      같은 입구(ingest_job, 지점 위치 branch_location)로 독립 공고를 만든다. 위치 검색 순서·확정 기준·재확인 정책은 바꾸지 않는다.
 --   ④ 기존 공고에서 그 지점 줄은 위치 원본 쓰기 함수로만 지운다(write_location 'delete' — 지우기 전 줄 전체가 location_private.retained_rows·write_log에 남음).
 --   ⑤ 기존 공고의 위치 글자(local_jobs.location)가 남는 지점과 다르면 정식 입구(ingest_job, sql_file, update_fields=location)로만 고친다.
--- 중복 전환 방지: 보류함 줄 이름 = 'branch-split:<공고>:<지점 식별자>'의 md5(같은 지점은 한 줄, on conflict do nothing) + 다시 실행하면 대상이 없다(남는 지점 1곳).
+-- 중복 전환 방지: 보류함 줄 이름 = 'branch-split:<공고>:<지점 식별자>'의 md5(같은 지점은 한 줄) + 이미 전환된 상태면 아무것도 하지 않음(아래 대조).
 -- 범위 밖(확정 위치 지점이 2곳 이상인 공고)은 dry-run에 없던 경우라 RAISE로 전체 취소한다(승인 범위 밖 전환 금지).
--- 복구: retained_rows(원래 줄 전체) + 보류함 meta(from_job_id·work_location_id·branch_key)로 원래 공고에 줄을 다시 쓸 수 있다(docs/plans/2026-11-24-multi-branch-conversion.md 3절).
+-- 복구: retained_rows(원래 줄 전체) + 보류함 meta(from_job_id·work_location_id·branch_key·from_location)로 원래 공고에 줄과 위치 글자를 다시 쓴다
+--   — supabase/pending/20261124_multi_branch_conversion_revert.sql(같은 쓰기 함수·같은 입구, 시험 DB에서 실제 복원 확인).
+-- dry-run 뒤 변경 시 중단(Lee 2026-11-24): 전환 직전에 대상 계획(공고·근무지 줄·위치 근거·공개 상태·처리)과 대상 공고에 걸린 기록(지원·대화·면접·위치 후보)을
+--   다시 계산해 dry-run(45314812701)에서 대표가 본 것과 한 글자라도 다르면 RAISE로 전체 취소한다. 이미 전환된 상태(옮길 지점 없음 + 전환 기록 있음)면 아무것도 하지 않는다.
+--   아래 목록은 공고를 고치는 조건이 아니라 승인 범위를 잠그는 대조표다(dry-run 출력 그대로).
 do $pre$
 begin
   if to_regprocedure('location_private.write_location(bigint,text,jsonb)') is null then raise exception 'multi-branch: 위치 원본 쓰기 함수 없음'; end if;
@@ -25,8 +29,33 @@ end $pre$;
 do $conv$
 declare
   tr record; wr record; j public.local_jobs; keep_key text; keep_addr text; n_keep int; hold_name text; payload jsonb; stamp text;
+  approved text := '4825:1118:unresolved/unresolved:private:skip,4825:1119:unresolved/unresolved:private:skip,4825:1120:unresolved/unresolved:private:skip,'
+                || '4825:1121:unresolved/unresolved:private:skip,5992:1776:area/auto_area:public:hold,5992:1798:exact/source_verified:public:keep,'
+                || '5994:1778:exact/source_verified:public:keep,5994:1800:area/auto_area:public:hold|records:0';
+  plan text;
 begin
   stamp := to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"+00:00"');
+  -- 전환 직전 계획 다시 계산(위 기준 ①~③과 같은 규칙)
+  with b as (select w.id, w.job_id, w.point_kind, w.point_authority, w.lat, w.lng, w.location_verified,
+                    coalesce(nullif(w.normalized_address, ''), public.admin_location_key(w.raw_address)) as k from public.job_work_locations w),
+  t as (select job_id from b group by job_id having count(distinct k) > 1),
+  c as (select b.job_id, count(distinct b.k) as n, min(b.k) as keep_k from b join t using (job_id)
+         where b.lat is not null and b.lng is not null and (b.point_kind = 'gate' or (b.point_kind = 'exact' and b.location_verified)) group by b.job_id)
+  select coalesce(string_agg(b.job_id || ':' || b.id || ':' || coalesce(b.point_kind, '-') || '/' || coalesce(b.point_authority, '-') || ':'
+           || case when lj.active and not coalesce(lj.admin_hidden, false) then 'public' else 'private' end || ':'
+           || case when c.job_id is null then 'skip' when c.n > 1 then 'over' when b.k = c.keep_k then 'keep' else 'hold' end, ',' order by b.job_id, b.id), '')
+         || '|records:' || ((select count(*) from public.applications x join t using (job_id)) + (select count(*) from public.message_threads x join t using (job_id))
+                          + (select count(*) from public.interviews x join t using (job_id)) + (select count(*) from public.job_location_candidates x join t using (job_id)))
+    into plan
+    from b join t using (job_id) join public.local_jobs lj on lj.id = b.job_id left join c using (job_id);
+  if plan is distinct from approved then
+    if position(':hold' in plan) = 0 and position(':keep' in plan) = 0 and position(':over' in plan) = 0
+       and exists (select 1 from public.research_artifacts r where r.kind = 'location-hold' and r.meta->>'reason' = 'branch_split') then
+      raise notice 'multi-branch: 이미 전환됨 — 아무것도 하지 않음(지금 계획 %)', plan;
+      return;
+    end if;
+    raise exception 'multi-branch: dry-run(45314812701) 이후 대상 또는 관련 기록이 바뀜 — 전환 중단. 승인된 계획 % / 지금 %', approved, plan;
+  end if;
   for tr in
     select x.job_id from (
       select w.job_id, coalesce(nullif(w.normalized_address, ''), public.admin_location_key(w.raw_address)) as k from public.job_work_locations w) x
@@ -62,7 +91,7 @@ begin
       insert into public.research_artifacts(kind, name, payload, meta)
       values ('location-hold', hold_name, payload,
               jsonb_build_object('status', 'held', 'reason', 'branch_split', 'held_at', stamp, 'attempts', 0, 'next_at', stamp,
-                                 'from_job_id', j.id, 'work_location_id', wr.id, 'branch_key', wr.k))
+                                 'from_job_id', j.id, 'work_location_id', wr.id, 'branch_key', wr.k, 'from_location', j.location))
       on conflict (kind, name) do nothing;
       if not exists (select 1 from public.research_artifacts r where r.kind = 'location-hold' and r.name = hold_name) then
         raise exception 'multi-branch: #% 지점 % 보류함 보관 실패 — 줄을 지우지 않고 전체 취소', j.id, wr.id;
