@@ -9,7 +9,7 @@ import re
 import unicodedata
 from crawl_facebook import is_facebook_row, parse_post, supabase
 import ingest_gateway
-from pin_guard import merge_store_rows, other_stores
+from pin_guard import keeps_confirmed_location, merge_store_rows, other_stores
 from ingest_gateway import ingest_job
 
 # 급여는 다시 수집이 쓰지 않는다(2026-11-01 Lee "읽는 규칙을 하나로" — src/lib/salaryReader.ts 한 곳).
@@ -58,6 +58,13 @@ def refresh_existing(job_id: int):
     # 원문에서 주소를 못 읽으면(예: sb-5942 HAIDILAO — 원문에 번지 없이 '[ HAIDILAO VINCOM BẮC NINH ]'만, 위치는 관리자 확정)
     # 위치 칸은 고치지 않고 기존 값을 그대로 둔다. 원문 근거 없는 위치를 쓰지 않는 원칙은 같고, 공고 하나 때문에 대기열 전체가 실패하지 않게 한다.
     parsed["location"] = str((ingest_gateway.READ_LOCATION(text, parsed.get("location") or "") or {}).get("location") or "").strip()
+    # 같은 지점인데 표기만 다른 주소로 위치 글자를 바꾸면 DB가 그 줄의 확정 좌표를 지운다 — 그 경우에만 기존 글자를 둔다(W4b, pin_guard.keeps_confirmed_location).
+    kept_confirmed = False
+    if parsed["location"] and old.get("location") and parsed["location"] != old["location"]:
+        current = (supabase.table("job_work_locations").select("raw_address,lat,lng,location_verified,point_authority")
+                   .eq("job_id", job_id).execute()).data or []
+        if keeps_confirmed_location(old["location"], parsed["location"], current):
+            kept_confirmed, parsed["location"] = True, ""
     # 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 새 공고와 같은 위치 확인으로 '찾은 매장'을 더한다(못 찾은 매장은 안 넣음, 절대 원칙).
     # 기존 근무지 줄은 그대로 둔다(Codex #705): DB 입구는 받은 목록으로 근무지를 바꾸고 빠진 줄은 지우므로, 기존 줄을 앞에 넣고
     # 새로 찾은 매장만 뒤에 붙인다. 확인 실패면 예전 동작(위치 글자만).
@@ -84,7 +91,7 @@ def refresh_existing(job_id: int):
         print(f"store precheck skipped: {type(exc).__name__}")
     fields = refresh_fields(parsed)
     if "location" not in fields:
-        print("source has no readable address: existing location kept")
+        print("same branch, address notation differs: confirmed location kept" if kept_confirmed else "source has no readable address: existing location kept")
     # Source text is preserved. No user-written field value is applied.
     payload = {
         "channel": "crawler_facebook",
