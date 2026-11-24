@@ -1,7 +1,13 @@
+## 2026-11-24 — 지도 W3a: 지도 처리 경로의 외부 API 장애·한도 오판 수정 + #1004 종료
+- #1004 [직접 확인]: #1006 병합(ec35de6) 뒤 deploy-verify 45379834976 성공, #1006에 완료 댓글 실제 발송(7129560415), 승인 요청 댓글에 멘션·직접 링크(7129266251). 실패 알림 실제 발송·Lee 단말 수신은 미확인으로 분리 표기하고 이슈 종료.
+- W3a 원인 [직접 확인 — 코드]: Google·Goong 장애·한도가 근거 문자열에만 남고 failed/deferred가 안 서서 map_r1에 done/unresolved로 저장 → applyLocationVerdict가 our_miss(비공개·저녁 목록)로 처리.
+- 변경: autoLocationResolver 마지막 결과에서 checkBlocked로 failed/deferred 플래그, locationVerdict에 blocked(보류), applyLocationVerdict가 저장된 근거로 blocked 판정. 새 장치 없음(#1002의 checkBlocked 재사용). DB 변경 없음.
+- 검증 [직접 확인]: 새 시험 3곳은 수정 전 실패·수정 후 통과, npm test 125/125·tsc·build 통과. 미완료: map_r1 failed 상태의 영구 스킵(calls/failures 기준, W3b DB)·운영 실제 건수는 이번 범위 아님.
+
 ## 2026-11-24 — #1004 실제 발송 검증 결함(완료 댓글 403) 보완 + W2 dry-run 결과 기록
 - 검증 [직접 확인]: #1005 병합(12f5795) 뒤 deploy-verify 실행 45377084519 성공, 그러나 완료 댓글 단계가 `gh: Resource not accessible by integration (HTTP 403)`로 발송 실패(경고만, 운영 검사 결과는 성공 유지). 원인 = deploy-verify.yml 권한에 pull-requests: write 없음(issues: write만으로는 PR 댓글 403). #1005의 gh 대역 시험은 권한을 못 봄.
 - 변경: deploy-verify.yml permissions에 pull-requests: write 한 줄 + deploy-notify.test.mjs에 권한 단언 추가(수정 전 실패·수정 후 통과 확인). 다른 변경 없음.
-- W2 dry-run(Lee 실행, ops-run-sql 45344520708 성공) [Lee 보고 — 내가 실행하지 않음]: 삭제 이력 있는 확정 위치 1건(이미 확정 있음)·복구 대상 0·재판정 19 = 지점 분리 보류 2 + 회사명 AI 확인 불가 5 + 회사명 미확정 1 + 위치 원문 없음 2 + 위치 검색 실패 9. 의미: A가 막으려던 '확정 위치 유실'은 운영 데이터에서 복구가 필요한 건 0 → W7 대상 없음, W6는 실제 유실 증거 없이 조건 확대 금지.
+- W2 dry-run(Lee 실행, ops-run-sql 45344520708 성공) [Lee 보고 — 내가 실행하지 않음]: 삭제 이력 있는 확정 위치 1건(이미 확정 있음)·복구 대상 0·재판정 19 = 지점 분리 보류 2 + 회사명 AI 확인 불가 5 + 회사명 미확정 1 + 위치 원문 없음 2 + 위치 검색 실패 9. 복구 대상 0건은 이 dry-run 기준의 결과이며, W6·W7의 기존 작업 범위는 이것만으로 줄이지 않는다(Lee 2026-11-24 지시 — W6는 사전 보고·승인 뒤, W7은 복구 dry-run 검토·승인 뒤 기존 계획대로).
 - 남은 것: 이 PR 병합 뒤 deploy-verify의 완료 댓글이 실제로 달리는지 확인 → #1004 종료. 실패 알림 실제 발송·Lee 단말 수신은 확인 불가(분리 표기).
 
 ## 2026-11-24 — #1004 승인·완료·장애 알림 경로 정상화 (기존 경로만 수정, 새 알림 장치 없음)
