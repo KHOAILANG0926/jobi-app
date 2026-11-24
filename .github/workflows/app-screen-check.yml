@@ -171,7 +171,7 @@ jobs:
 
       - name: 지도 요약 실제 공고 검사 (위치·핀·지도 캐시·공개 위치 응답 영향 PR — 병합 뒤 deploy-verify와 같은 검사)
         if: steps.impact.outputs.map == 'true'
-        run: BASE_URL=http://localhost:4173 node scripts/ops/map-summary-check.mjs
+        run: BASE_URL=http://localhost:4173 MAP_API_BASE=https://www.viecganban.vn node scripts/ops/map-summary-check.mjs
       - name: 지도 요약 검사 화면 보존
         if: always() && steps.impact.outputs.map == 'true'
         uses: actions/upload-artifact@v4

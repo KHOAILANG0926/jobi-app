@@ -6,6 +6,8 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import {hasExcludedMoneyRole} from '../../src/lib/jobPostingPolicy.mjs'
 import {sourcePoints,assertPoints,pointsForJob,settleChange} from './location-point-oracle.mjs'
 const base=process.env.BASE_URL||'http://localhost:4173'
+// PR 단계(vite preview)에는 /api가 없다 — 공개 위치 응답은 운영 주소로 대조한다(PR의 api 코드는 api/map-locations.test.ts·병합 뒤 deploy-verify가 본다).
+const apiBase=process.env.MAP_API_BASE||base
 const out=process.env.SCREENSHOT_DIR||'map-summary-proof'
 const config=await readFile(new URL('../../src/lib/supabase.ts',import.meta.url),'utf8')
 const literals=[...config.matchAll(/'([^']+)'/g)].map(m=>m[1])
@@ -39,7 +41,7 @@ for(const job of jobs) snapshot.push({...job,points:sourcePoints(await allRows('
 // Audit the public cache projection separately from the rendered map.
 for(let from=0;from<snapshot.length;from+=100) {
  const batch=snapshot.slice(from,from+100)
- const response=await fetch(`${base}/api/map-locations?ids=${batch.map(j=>j.id).join(',')}`)
+ const response=await fetch(`${apiBase}/api/map-locations?ids=${batch.map(j=>j.id).join(',')}`)
  assert.equal(response.status,200,'public location projection unavailable')
  const payload=await response.json()
  for(const job of batch) {
