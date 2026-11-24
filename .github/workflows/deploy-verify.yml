@@ -16,6 +16,7 @@ permissions:
   contents: read
   deployments: read
   issues: write
+  pull-requests: write  # #1004: 병합 PR에 완료 댓글(issues: write만으로는 PR 댓글이 403 — 실행 45377084519 확인). 쓰기는 이 댓글 한 가지, 이 워크플로는 master 푸시에서만 돈다
   actions: write  # 운영 검사 성공 뒤 다음 작업 1건 착수(claude-auto.yml task-pickup 호출·같은 커밋 이전 성공 조회, Lee 2026-11-24 1순위)
 
 concurrency:

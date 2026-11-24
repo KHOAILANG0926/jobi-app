@@ -83,4 +83,8 @@ const bot = (body) => ({ user: { login: 'github-actions[bot]' }, body })
 { const o = run('failure', { failOn: 'issue create' })
   assert.equal(o.r.status, 0); assert.match(o.r.stdout, /::error::/, '이슈 생성 실패는 오류로 보임') }
 { const o = run('weird'); assert.equal(o.r.status, 2, '모르는 모드는 실패') }
+// 실제 발송 확인(#1004, 실행 45377084519): issues: write만으로는 PR 댓글이 403이었다 — 완료 댓글을 쓰는 워크플로에는 pull-requests: write가 있어야 한다(gh 대역 시험은 권한을 못 본다)
+{ const wf = readFileSync(join(process.cwd(), '.github/workflows/deploy-verify.yml'), 'utf8')
+  assert.match(wf, /^permissions:[\s\S]*?^  pull-requests: write/m, 'deploy-verify.yml 권한에 pull-requests: write')
+  assert.match(wf, /deploy-notify\.sh success/, '완료 댓글 단계가 이 워크플로에 있음') }
 console.log('deploy-notify.test.mjs: 통과')
