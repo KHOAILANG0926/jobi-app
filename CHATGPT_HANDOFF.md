@@ -1,11 +1,14 @@
-# HANDOFF — 2026-11-23 (Claude) · 이슈 #988 지점별 독립 공고·위치 우선순위 구현
-## 1. 현재 상태
-- 코드: master e72d1f1(#987 규정 병합). 이 브랜치(feat/988-branch-jobs-location-order): Google→VietMap→Goong 위치 채택(Google은 추가 검증 없이 확정), 핀·거리검색은 확정 좌표(exact+확인, gate)만(`jobCoords.isConfirmedMapPoint`), 수집 입구가 한 글의 지점 A·B·C를 공고 3개로 등록(`ingest_gateway._ingest_branches`), migration `20261124000000_branch_job_identity`(같은 공고 판정=원문+지점 위치, 형제 지점 중복 면제 — Approve·병합 뒤 migrations-apply가 적용). 「자율 완주 및 승인 게이트 원칙」 문서 3개 반영.
-- 구현함: TopCV·vieclam24h 지점 분리(`_ingest_branch_jobs`·`_own_branch_rows`·`_unregistered_branch_rows`), Facebook refresh 형제 지점은 따로 등록(`pin_guard.other_stores`), 재수집에서 빠진 지점은 줄·공고를 건드리지 않음(단위 시험). 미완료: 관리자 위치 확정 대기열(#985·#986 보류), 기존 다중 근무지 공고 전환(dry-run 후 Lee 확인). 운영 DB 조회 불가라 운영 실행·기존 area 핀 영향 건수는 미검증.
-## 2. 다음 할 일 3개
-1. Lee: 최종 PR Approve(검사 전체 통과·Ready 후 approval-gate만 남음).
-2. 기존 다중 근무지 공고 전환 dry-run 계획 → Lee 확인.
-3. 기존 다중 근무지 공고 전환 설계(첫 지점 job_id 유지) → dry-run 결과를 Lee에게 확인 요청(허용된 승인 시점 ①).
-## 3. 필수 규칙
-- CLAUDE.md·.claude/RULES_CORE.md 먼저(「지점별 독립 공고」「위치 확인 우선순위」「기존 확정 규정 보호」「자율 완주 및 승인 게이트 원칙」). 확인한 것만 [직접 확인]/[기존 기록]/[추정], 5줄 이내. 운영 DB 직접 접근 금지.
-- #990(운영 검증 실패 5599): 공개 위치 요약 API가 area를 내보내던 것 수정 PR. 병합·배포 뒤 deploy-verify·행정구역 핀 검사 성공 확인 필요.
+# HANDOFF — 2026-11-24 (Claude) · 이슈 #940 수집→DB 저장→공개→운영 화면 1건 실증
+## 1. 현재 작업
+- 이슈 #940: 정상 공고 1건을 수집, 위치 확인, 중복 판정, 저장, 공개 게이트, 운영 PC·모바일 화면까지 실제 연결해 증명하는 일. 이번 실행은 파일 수정 전용 세션이다.
+## 2. 변경 내용
+- 코드 변경 없음. 이 HANDOFF만 갱신. 재현된 버그를 확인하지 못해 PR로 올릴 수정이 없다.
+## 3. 테스트 결과
+- 실행 못 함. gh 호출이 승인 대기로 막혀 Actions 기록·로그 조회와 기존 Actions 실행이 불가능했다. 코드 변경이 없어 tsc·test·build도 돌리지 않았다.
+- Run ID, 저장 ID, 공개 판정, 운영 URL 증거는 없다. 저장·게시 실제 결과가 없으므로 미완료다.
+## 4. 발견된 문제
+- [기존 기록] 이슈 본문 기준: Facebook session_expired와 계정 잠금으로 후보 0, 저장 시험 location_precheck_failed로 저장 0, vieclam24h dry_run은 verify-save skipped라 DB 공개 판정이 아니다. 이번 세션에서 직접 재확인하지 못했고 첫 차단 지점·사용자 조치 필요 여부는 미판정이다.
+## 5. 다음 결정사항
+1. Actions 조회·실행 권한이 있는 세션에서 최신 Run 로그를 순서대로 재확인한다(쿠키·잠금, 위치 검사, 연락처 출처, 저장, 공개 게이트).
+2. Facebook 쿠키 갱신은 Lee 조치가 필요할 수 있다. 잠금 삭제·재시도로 우회하지 않는다.
+3. 재현되는 버그가 확인되면 회귀 시험과 함께 Draft PR을 올린다.
