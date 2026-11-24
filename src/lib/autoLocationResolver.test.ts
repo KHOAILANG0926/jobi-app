@@ -227,6 +227,37 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
     ...deps, async reserve() { return true }, async request() { return [] }, async google() { throw new Error('quota_exhausted') },
   } as never)
   assert(quota.kind === 'unresolved' && /google:quota/.test(String((quota as { evidence?: string }).evidence)), 'Google quota stays a hold, not not-found')
+  // 지도 정상화 C(Lee 2026-11-24): API 장애·한도 초과는 정상 '검색 결과 없음'과 구분 — 앞의 둘은 보류(다시 확인), 뒤는 못 찾음. 순서(Google → VietMap → Goong)는 그대로.
+  {
+    const { precheckVerdict } = await import('./locationPrecheck.ts')
+    const reasonOf = async (opts: { google?: () => unknown; vietmap?: 'ok' | 'throw' | 'budget'; goong?: () => unknown }) => {
+      const calls: string[] = []
+      const d = await resolver.resolveAutoLocation({ id: 42, company, location: streetAddr, targets: [{ address: streetAddr, workLocationId: 1 }] }, {
+        ...deps, async reserve() { return opts.vietmap !== 'budget' },
+        async request(a: string) { calls.push('vietmap'); if (opts.vietmap === 'throw') throw new Error('upstream_failed'); return a === 'search' ? [] : null },
+        async google() { calls.push('google'); return opts.google ? opts.google() : { places: [] } },
+        async goong() { calls.push('goong'); return opts.goong ? opts.goong() : null },
+      } as never)
+      return { reason: precheckVerdict(d).reason, order: calls.filter((c, i) => calls.indexOf(c) === i).join('>') }
+    }
+    const nf = await reasonOf({})
+    assert(nf.reason === 'not_found' && nf.order === 'google>vietmap>goong', 'normal empty results → not_found, same order: ' + JSON.stringify(nf))
+    const gf = await reasonOf({ google: () => { throw new Error('upstream_failed') } })
+    assert(gf.reason === 'provider_failed' && gf.order === 'google>vietmap>goong', 'Google outage → provider_failed (held), others still asked: ' + JSON.stringify(gf))
+    const g429 = await reasonOf({ google: () => { throw new Error('upstream_failed_429') } })
+    assert(g429.reason === 'google_quota', 'Google 429 → google_quota (unchanged): ' + JSON.stringify(g429))
+    const vf = await reasonOf({ vietmap: 'throw' })
+    assert(vf.reason === 'provider_failed', 'VietMap outage → provider_failed: ' + JSON.stringify(vf))
+    const vb = await reasonOf({ vietmap: 'budget' })
+    assert(vb.reason === 'provider_quota', 'VietMap monthly budget → provider_quota (held): ' + JSON.stringify(vb))
+    const gg = await reasonOf({ goong: () => { throw new Error('upstream_failed') } })
+    assert(gg.reason === 'provider_failed', 'Goong outage → provider_failed: ' + JSON.stringify(gg))
+    const gq = await reasonOf({ goong: () => { throw new Error('upstream_failed_429') } })
+    assert(gq.reason === 'provider_quota', 'Goong 429 → provider_quota: ' + JSON.stringify(gq))
+    // 한 곳이 장애여도 다른 경로가 찾으면 찾음(보류 아님)
+    const rescued = await reasonOf({ google: () => { throw new Error('upstream_failed') }, goong: () => geocode })
+    assert(rescued.reason === 'exact_address', 'outage then another provider finds → found: ' + JSON.stringify(rescued))
+  }
   // 이 resolver는 대략 위치(area)를 더 이상 만들지 않는다.
   for (const r of [g, g2, v, o, none, quota]) assert(r.kind !== 'area', 'resolver never returns an approximate (area) decision')
   console.log('autoLocationResolver: 위치 확인 우선순위 Google → VietMap → Goong 통과')

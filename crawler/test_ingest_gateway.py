@@ -456,7 +456,7 @@ def run_unfound_recheck_fresh():
         assert rule_code(exc) is None, exc
     # Codex #619: hold=False(TopCV 계열, 등록 뒤 근무지 따로 씀)는 보류함에 넣지 않고 예전처럼 거부만
     hc = HoldClient()
-    for reason, err in (("google_quota", g.LocationDeferred), ("not_found", g.LocationNotFound)):
+    for reason, err in (("google_quota", g.LocationDeferred), ("provider_quota", g.LocationDeferred), ("provider_failed", g.LocationDeferred), ("not_found", g.LocationNotFound)):
         g.PRECHECK = lambda j, r=reason: {"findable": False, "reason": r}
         try:
             g.ingest_job(hc, {"title": reason, "company": "Cty t", "location": "Bắc Ninh", "source_url": f"https://example.invalid/t/{reason}"}, hold=False)

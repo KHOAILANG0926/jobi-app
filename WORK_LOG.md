@@ -1,3 +1,9 @@
+## 2026-11-24 — 지도 정상화 A(확정 위치 유실 방지)·C(API 오류 구분) + B dry-run 준비 (운영 변경 없음)
+- 원인 [직접 확인]: write_location이 기존 줄을 admin_location_key 완전 일치로만 찾아, 지역을 덧붙여 저장된 기존 확정 줄("…, TP. Bắc Ninh")과 재수집 글자가 다르면 새 줄 취급 → replace가 확정 줄을 지움(retained_rows에만 남음). C: Google·Goong 장애(provider_failed)·VietMap 월 한도(deferred)가 '못 찾음(not_found)'으로 기록돼 7일 뒤 재확인·최대 2번 경로로 감.
+- 변경: supabase/migrations/20261124130000_location_same_store_keep.sql(+tests setup·local·production_check) — 완전 일치 줄이 없을 때만 기존 같은 매장 규칙(낱말 단위 포함, addressReader.sameStore·pin_guard._same)으로 후보 1줄·확정 줄일 때 그 줄 사용·주소 글자 유지. src/lib/locationPrecheck.ts checkBlocked/providerErrorKind 한 곳(precheckVerdict·autoLocationResolver 공용), Goong 오류 기록, 매장 여러 곳 보류 일반화, crawler DEFERRED_REASONS에 provider_quota. B: scripts/ops/jobs/location-keep-recovery-preview.sql(읽기 전용).
+- 검증 [직접 확인]: 로컬 PostgreSQL 16 fixture→setup→migration→local→production_check 통과, autoLocationResolver·googleQuotaCache·locationPrecheck·location-hook 시험·crawler test_ingest_gateway·tsc 통과, dry-run SQL은 run-sql-plan 검증 + 시험 DB 실행.
+- 남은 것: A 병합·운영 적용 뒤 Lee가 ops-run-sql(name=location-keep-recovery-preview)로 dry-run 실행 → 결과 보고. 복구 migration은 대표 승인 뒤 별도.
+
 ## 2026-11-24 — 2순위 다중 지점 공고 전환 최종 확인(운영 적용 뒤 대조, 코드·DB 변경 없음)
 - 요청: #999 병합·운영 적용 뒤 #4825·#5992·#5994 실제 결과를 dry-run 예상(계획 문서 7절)과 대조, 원본 보존·보류함·공개 상태·지도 핀 확인.
 - 결과 [직접 확인]: migrations-apply 45320415496 NOTICE — #4825 그대로, #5992 줄 1776→보류함·위치 글자 맞춤, #5994 줄 1800→보류함(위치 글자는 이미 남는 지점과 같아 그대로) / 같은 실행의 multi_branch_conversion_production_check 통과(보류 지점마다 원래 줄 이력 1개·위치 글자 일치) / /api/map-locations: 5992=줄 1798, 5994=줄 1778 핀 1개씩, 4825 없음 / 상세 sb-4825=404(비공개 유지), sb-5992·5994=200, 상세 주소 5992 148 Trần Phú·5994 Số 37 Lý Thái Tổ. 예상과 다른 점 0.

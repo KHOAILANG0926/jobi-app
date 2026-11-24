@@ -12,15 +12,29 @@ import { readCompany, type CompanyRead } from './companyReader'
 export interface PrecheckInput { company?: unknown; location?: unknown; addresses?: unknown; source_text?: unknown; poster_text?: unknown }
 export interface PrecheckVerdict { findable: boolean; kind: string; reason: string }
 
+/** API 오류의 종류(한 곳): 한도 초과(우리 월 한도·429)와 그 밖의 장애를 가른다. 둘 다 '못 찾음'이 아니다. */
+export const providerErrorKind = (e: unknown): 'quota' | 'provider_failed' =>
+  /quota_exhausted|upstream_failed_429/.test(String((e as Error)?.message)) ? 'quota' : 'provider_failed'
+
+/** 위치 확인이 '지금 확인 못 함'(한도·장애)으로 막혔는지 — 정상 '검색 결과 없음'(null)과 구분한다(지도 정상화 C, Lee 2026-11-24).
+ *  막혔으면 수집기가 버리지 않고 보류함에 두고 다음에 다시 묻는다(기존 보류·재확인 정책 그대로). 순서·판정 기준은 바꾸지 않는다. */
+export function checkBlocked(d: Pick<LocationDecision, 'failed' | 'deferred' | 'evidence'>): 'google_quota' | 'provider_quota' | 'provider_failed' | null {
+  const ev = String(d.evidence ?? '')
+  if (/google:quota/.test(ev)) return 'google_quota'
+  if (d.deferred || /(vietmap|goong):quota/.test(ev)) return 'provider_quota'
+  if (d.failed || /(google|vietmap|goong):provider_failed/.test(ev)) return 'provider_failed'
+  return null
+}
+
 export function precheckVerdict(decision: LocationDecision): PrecheckVerdict {
   const kind = decision.kind
   if (kind === 'exact') return { findable: true, kind, reason: 'exact_address' }
   if (kind === 'gate') return { findable: true, kind, reason: 'park_gate' }
-  if (kind === 'area' && /google:quota/.test(String(decision.evidence ?? ''))) return { findable: false, kind, reason: 'google_quota' }
+  // 한도 초과·API 장애는 '못 찾음'이 아니라 보류(다음에 다시) — 정상 '결과 없음'만 not_found(7일 뒤 다시, 최대 2번). 구분은 checkBlocked 한 곳(#560, 지도 정상화 C).
+  const blocked = checkBlocked(decision)
+  if (blocked) return { findable: false, kind, reason: blocked }
   if (kind === 'area') return { findable: false, kind, reason: /administrative/i.test(String(decision.evidence ?? '')) && /mismatch/.test(String(decision.evidence ?? '')) ? 'outside_original_province' : 'approximate_only' }
-  // Google 한도로 못 물었으면 '못 찾음'이 아니라 보류(google_quota) — 수집기가 버리지 않고 나중에 다시 묻는다(#560).
-  if (/google:quota/.test(String(decision.evidence ?? ''))) return { findable: false, kind, reason: 'google_quota' }
-  return { findable: false, kind, reason: decision.failed ? 'provider_failed' : 'not_found' }
+  return { findable: false, kind, reason: 'not_found' }
 }
 
 const FALLBACK_COMPANY = /^nhà tuyển dụng facebook$/i
