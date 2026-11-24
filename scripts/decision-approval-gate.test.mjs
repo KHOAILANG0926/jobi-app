@@ -562,3 +562,18 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.equal(workflowGeneralChange({ filename: '.github/workflows/zz.yml', status: 'modified', patch: '@@\n-      - run: echo hi\n+      - run: echo bye' }, { base: PRT, head: PRT.replace('hi', 'bye') }), 'manual', 'pull_request_target 워크플로의 run 변경은 수동')
   console.log('승인 기준 보완 시험 통과 — 재확인 상한 60분·DB 구조(DDL) 수동·pull_request_target 고권한')
 }
+
+// #1004(Lee 2026-11-24): 승인 안내에 Lee 멘션 + 직접 링크 — 기존 승인 요청 댓글에 얹을 뿐, 첫머리 표시·커밋 7자리·파일 이름 코드 칸 규칙은 그대로
+{ const { approvalLinks, REQUEST_MARKER } = await import('./decision-approval-gate.mjs')
+  const links = approvalLinks('KHOAILANG0926/jobi-app', '1002')
+  assert.match(links, /@KHOAILANG0926 직접 링크: https:\/\/github\.com\/KHOAILANG0926\/jobi-app\/pull\/1002\/files/, '주인 멘션과 Review 화면 직접 링크')
+  const t = requestText(sha, ['docs/decisions/ko/0006-x.md'], ['결정 문서'], ['a.md'], links)
+  assert.ok(t.startsWith(REQUEST_MARKER + '\n'), '첫머리 표시 그대로(봇이 같은 커밋에 한 번만 남기는 기준)')
+  assert.ok(t.includes(sha.slice(0, 7)), '커밋 7자리 그대로')
+  assert.equal((t.match(/<!--/g) || []).length, 1, '표시는 하나뿐')
+  assert.ok(!/(^|[^`])@someone/.test(t.replace(/`[^`]*`/g, '')), '파일 이름으로 다른 멘션을 만들 수 없음(코드 칸)')
+  assert.equal(approvalLinks('KHOAILANG0926/jobi-app', ''), '', 'PR 번호가 없으면 링크·멘션 없음(예전 문구)')
+  assert.equal(approvalLinks('bad repo/x y', '12'), '', '저장소 형식이 틀리면 링크·멘션 없음')
+  assert.equal(approvalLinks('o/r', '12; rm -rf'), '', 'PR 번호는 숫자만')
+  assert.equal(requestText(sha, [], ['x']), requestText(sha, [], ['x'], [], ''), '링크 없으면 예전 문구와 같음') }
+console.log('decision-approval-gate: #1004 승인 안내 링크·멘션 시험 통과')

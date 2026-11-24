@@ -1,3 +1,8 @@
+## 2026-11-24 — #1004 승인·완료·장애 알림 경로 정상화 (기존 경로만 수정, 새 알림 장치 없음)
+- 원인 [직접 확인 — 코드·실행 이력]: 승인 안내(github-actions[bot] 댓글)는 검사 통과 12~20초 뒤 발송됐지만(#1002: 05:26:03→05:26:23, 06:07:29→06:07:41) 본문에 멘션·직접 링크가 없었다. 운영 검사 성공 알림 경로는 없었고(다음 작업 큐 호출뿐), 실패 이슈는 중복 방지가 없어 고유 커밋 18개에 이슈 24건(같은 커밋 최대 3건).
+- 변경: decision-approval-gate.mjs(approvalLinks — 저장소 주인 멘션+Files/PR 직접 링크, 형식 틀리면 예전 문구)·bot-pr-automerge.yml(PR_NUMBER 한 줄), scripts/ci/deploy-notify.sh 신규 1개(success: 병합 PR에 완료 댓글 1번·Lee 승인 요청 PR만 멘션·같은 커밋 표시로 중복 방지 / failure: 같은 제목 열린 이슈 있으면 안 만듦·실패 단계·조치·멘션, 이슈 조회 실패는 누락 방지로 생성), deploy-verify.yml 두 단계를 이 스크립트 호출로 교체, 시험 deploy-notify.test.mjs·gate 시험 추가, pr-checks.yml 연결.
+- 검증 [직접 확인]: 신규 시험·기존 승인·병합 관련 시험 통과. 미확인: Lee 단말 수신(GitHub 알림 설정 의존), 실제 실패 알림(운영 실패를 일부러 만들지 않음 — 시험 대역으로만).
+
 ## 2026-11-24 — 지도 정상화 A(확정 위치 유실 방지)·C(API 오류 구분) + B dry-run 준비 (운영 변경 없음)
 - 원인 [직접 확인]: write_location이 기존 줄을 admin_location_key 완전 일치로만 찾아, 지역을 덧붙여 저장된 기존 확정 줄("…, TP. Bắc Ninh")과 재수집 글자가 다르면 새 줄 취급 → replace가 확정 줄을 지움(retained_rows에만 남음). C: Google·Goong 장애(provider_failed)·VietMap 월 한도(deferred)가 '못 찾음(not_found)'으로 기록돼 7일 뒤 재확인·최대 2번 경로로 감.
 - 변경: supabase/migrations/20261124130000_location_same_store_keep.sql(+tests setup·local·production_check) — 완전 일치 줄이 없을 때만 기존 같은 매장 규칙(addressReader.sameStore·pin_guard._same)을 '지역 덧붙임' 모양(한쪽이 다른 쪽의 낱말 단위 앞부분 + 짧은 쪽에 번지 숫자)으로 좁혀, 그리고 후보 1줄·확정 줄일 때만 그 줄 사용·주소 글자 유지(거리 이름만·12≠112·앞에 글자가 붙은 포함은 다른 지점, 시험 6~8번). src/lib/locationPrecheck.ts checkBlocked/providerErrorKind 한 곳(precheckVerdict·autoLocationResolver 공용), Goong 오류 기록, 매장 여러 곳 보류 일반화, crawler DEFERRED_REASONS에 provider_quota. B: scripts/ops/jobs/location-keep-recovery-preview.sql(읽기 전용).
