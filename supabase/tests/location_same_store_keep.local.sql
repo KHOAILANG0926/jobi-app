@@ -14,6 +14,15 @@ do $$declare n bigint; a text; c int;begin
  -- 4) 후보가 2줄이면 모호 → 새 줄(회사 이름·부분 일치만으로 합치지 않음)
  n:=location_private.write_location(990103,'upsert','{"address":"12 Nguyễn Trãi"}');
  if n in (9901031,9901032) then raise exception 'ambiguous match must not pick a row';end if;
+ -- 6) 거리 이름만(번지 없음)은 번지 있는 확정 줄과 같은 지점이 아님(같은 거리의 다른 지점일 수 있음)
+ n:=location_private.write_location(990104,'upsert','{"address":"Lê Lợi, Hà Nội"}');
+ if n=9901041 then raise exception 'street-only address matched a numbered confirmed row';end if;
+ -- 7) 번지 숫자가 다르면(12 vs 112) 다른 지점
+ n:=location_private.write_location(990104,'upsert','{"address":"112 Lê Lợi, Hà Nội"}');
+ if n=9901041 then raise exception '112 matched 12';end if;
+ -- 8) 앞부분 일치가 아닌 포함(앞에 글자가 더 붙은 주소)은 다른 지점
+ n:=location_private.write_location(990104,'upsert','{"address":"Tòa B, Số 12 Lê Lợi, Hà Nội"}');
+ if n=9901041 then raise exception 'non-prefix containment matched';end if;
  -- 5) 줄 지정 쓰기(work_location_id)는 그대로 검사
  begin perform location_private.write_location(990101,'upsert','{"address":"152 Trần Hưng Đạo","work_location_id":1}');raise exception 'stale target not checked';
  exception when others then if sqlerrm<>'stale target' then raise; end if; end;

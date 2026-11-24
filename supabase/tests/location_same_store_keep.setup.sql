@@ -22,10 +22,11 @@ grant usage on schema location_private to location_writer;
 grant select,insert,update on public.job_work_locations to location_writer;
 grant execute on function public.admin_location_key(text) to location_writer;
 grant execute on function public.unaccent(text) to location_writer;
-insert into public.local_jobs(id,company,location) values (990101,'Shop','x'),(990102,'Shop','y'),(990103,'Shop','z') on conflict (id) do nothing;
+insert into public.local_jobs(id,company,location) values (990101,'Shop','x'),(990102,'Shop','y'),(990103,'Shop','z'),(990104,'Shop','w') on conflict (id) do nothing;
 insert into public.job_work_locations(id,job_id,raw_address,location_verified,point_authority,lat,lng,sort_order) values
  (9901011,990101,'152 Trần Hưng Đạo, TP. Bắc Ninh, Bắc Ninh',true,'admin_confirmed',21.18,106.07,0),
  (9901021,990102,'Số 1 Lê Lợi, Hà Nội',false,null,null,null,0),
  (9901031,990103,'12 Nguyễn Trãi, Hà Nội',true,'auto_reuse',21.0,105.8,0),
- (9901032,990103,'12 Nguyễn Trãi, Hà Nội, Việt Nam',true,'auto_reuse',21.0,105.8,1)
+ (9901032,990103,'12 Nguyễn Trãi, Hà Nội, Việt Nam',true,'auto_reuse',21.0,105.8,1),
+ (9901041,990104,'Số 12 Lê Lợi, Hà Nội',true,'admin_confirmed',21.0,105.8,0)
 on conflict (id) do nothing;
