@@ -361,11 +361,19 @@ export function changedList(changed = []) {
   const shown = changed.slice(0, 40).map((f) => `- \`${safeName(f)}\``).join('\n')
   return `\n바뀐 파일 ${changed.length}개:\n${shown}${changed.length > 40 ? `\n- …그 밖 ${changed.length - 40}개` : ''}`
 }
-export function requestText(sha, touched, reasons = ['결정 문서'], changed = []) {
+// #1004(Lee 2026-11-24): 승인 안내가 Lee에게 실제로 닿고 바로 누를 수 있게 — 저장소 주인(Lee) 멘션 + 직접 링크(PR·Files changed의 Review 화면).
+// 이 봇이 같은 커밋에 한 번만 남기는 기존 승인 요청 댓글을 그대로 쓴다(새 알림 장치 없음). 멘션은 저장소 주인 로그인(신뢰 입력)만, 파일 이름은 코드 칸이라 멘션 위조 불가.
+// repo(owner/name)·PR 번호 형식이 틀리면 링크·멘션 없이 예전 문구 그대로(닫힌 방향).
+export function approvalLinks(repo, pr) {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(String(repo ?? '')) || !/^[0-9]{1,9}$/.test(String(pr ?? ''))) return ''
+  const url = `https://github.com/${repo}/pull/${pr}`
+  return `\n@${repo.split('/')[0]} 직접 링크: ${url}/files (Review changes → Approve) · PR: ${url}`
+}
+export function requestText(sha, touched, reasons = ['결정 문서'], changed = [], links = '') {
   return `${REQUEST_MARKER}\nLee 승인 필요: 이 PR은 ${reasons.join('·')} 대상입니다${touched.length ? `(${touched.slice(0, 20).map((f) => `\`${safeName(f)}\``).join(', ')}${touched.length > 20 ? ' 등' : ''})` : ''}. ` +
     `내용을 확인하고 승인하시면 병합됩니다. 승인 전에는 자동 병합하지 않습니다.\n` +
     `승인 방법: GitHub 앱에서 이 PR을 열고 이 커밋(${sha.slice(0, 7)})에 "Approve" 리뷰. 댓글 승인은 인정하지 않습니다.` +
-    changedList(changed)
+    links + changedList(changed)
 }
 
 // CLI (trusted master checkout in bot-pr-automerge.yml): files.json reviews.json comments.json sha
@@ -388,6 +396,6 @@ if (process.argv[1]?.endsWith('decision-approval-gate.mjs')) {
   const headAgeMinutes = process.argv[11] ? Number(process.argv[11]) : undefined
   const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles, author, body, repo: process.argv[10] ?? '', headAgeMinutes })
   if (r.retry) { console.log('정보 조회 실패 — 자동 재확인(대표 승인 요청 아님): ' + r.touched.slice(0, 5).join(', ')); process.exit(4) }
-  if (!r.approved) console.log(requestText(sha, r.touched, r.reasons, r.changed))
+  if (!r.approved) console.log(requestText(sha, r.touched, r.reasons, r.changed, approvalLinks(process.argv[10], process.env.PR_NUMBER)))
   process.exit(r.approved ? 0 : 3)
 }

@@ -148,7 +148,7 @@ jobs:
             head_date=$(gh api "repos/$REPO/commits/$sha" --jq .commit.committer.date 2>/dev/null) || head_date=""
             head_age=""; [ -n "$head_date" ] && head_age=$(( ($(date -u +%s) - $(date -u -d "$head_date" +%s)) / 60 )) || true
             gate_rc=0
-            node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" "$head_age" > approval-request.txt || gate_rc=$?
+            PR_NUMBER="$num" node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" "$head_age" > approval-request.txt || gate_rc=$?
             if [ "$gate_rc" = 4 ]; then
               # 정보 조회 실패(Lee 2026-11-23): 위험 판정이 아니라 조회 오류 — 대표 승인을 요청하지 않고 병합만 보류, 6분 뒤 자동 재확인
               echo "::notice::PR #$num 정보 조회 실패: 병합 보류·자동 재확인(대표 승인 요청 아님) — $(head -1 approval-request.txt)"
