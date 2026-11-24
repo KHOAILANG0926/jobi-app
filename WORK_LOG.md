@@ -1,3 +1,11 @@
+## 2026-11-24 — 지도 W6: 같은 사업장의 확정 좌표는 주소·회사명 표기 변경으로 초기화하지 않음 (DB, 대표 Approve 대상)
+- 요청(Lee): 확정 출처와 관계없이 같은 사업장 확정 좌표 보호 / 단순 주소·회사명 표기 변경으로 초기화 금지 / 실제 이전·다른 지점은 기존 절차 / 번지 없는 공단 주소도 범위(공단명·행정구역 일치만으로 같은 사업장 판정 금지) / Google 확정 정책 변경 없음. W3b와 별도 PR.
+- 원인 [직접 확인 — 코드]: 트리거 job_identity_changed(20261026231445)가 공고 위치 글자가 바뀌면 그 줄을, 회사 이름이 조금이라도 바뀌면 모든 줄을 invalidate — 확정 줄 보호를 거치지 않는다. Facebook 다시 처리는 회사 이름도 고치는 칸이라 실제 자동 경로다.
+- 변경(migration 20261124150000_location_same_site_keep): ⓐ 판정 한 곳 location_private.same_site_address — 열쇠 같음 / 앞부분 일치+번지 숫자(기존 규칙) / 번지 없으면 덧붙은 꼬리가 그 줄에 저장된 행정구역 이름 전체·단위 낱말뿐이고 숫자 없음(로트·번호·mở rộng이 다르면 같지 않음, 지역 정보가 줄에 없으면 추정하지 않음) ⓑ write_location의 같은 지점 줄 찾기(#1002)가 이 함수를 씀 → 다시 수집(replace)도 같은 판정 ⓒ 트리거가 같은 사업장 확정 줄(검증 좌표·관리자 확정·재사용)을 건너뜀, 줄 주소 글자는 그대로 ⓓ 관리자 확정 자격 view 두 개 — 이미 그 확정을 가진 줄은 회사 이름 표기(성조·대소문자·문장부호·띄어쓰기)만 바뀌어도 유지. 다른 공고로 새로 재사용하는 열쇠(같은 회사 이름+같은 주소 글자)는 그대로.
+- 다루지 않은 것(보고): 법인 형태 줄임말(CTY↔Công ty) 같은 회사 이름 차이는 표기 변경으로 보지 않는다(DB에 회사 이름 정규화 함수가 없어 새 정규화를 만들지 않음) / 공단 정문(auto_gate)·대략 줄은 대상 아님 / 기존 보호 장치(pin_guard·merge_protected_work_locations) 제거 없음 / 기존 데이터 복구는 W7.
+- 검증 [직접 확인]: 로컬 폐기용 PostgreSQL 16, 운영 본문(write_location + #1002 패치·자격 view·reconcile_company·트리거 글자 그대로) 위에서 적용 전 시험 실패 → 적용 뒤 local(판정 10건 + 공고 11경우)·production_check 통과, 적용 전후 대조(public-location-diff) 통과.
+- 미완료: 대표 Approve·운영 적용·운영 확인, W4 운영 다시 수집 실증, W5·W7 범위 유지, R 1단계(#6337 원문 재현).
+
 ## 2026-11-24 — 지도 W3b: 장애로 실패 상한에 닿은 위치 찾기를 영구 제외하지 않고 하루 뒤 다시 확인 (DB 함수 조건만)
 - 요청(Lee): 일시 장애·한도 초과로 영구 재확인 제외가 생기는 문제 해결, 실제 검색 실패와 구분, 기존 재시도 상한 유지. W6과 별도 PR.
 - 원인 [직접 확인 — 코드]: 위치 찾기 'failed'는 외부 API 장애·저장소 오류뿐이다(실제 '결과 없음'은 done). 처리권(map_r1_claim_job_v2)·매시 재시도(map_r1_retry_pending)는 같은 내용으로 실패 2번 또는 VietMap 호출 2번이면 다시 확인하지 않는다. W3a(#1007)로 장애 건은 '못 찾음'이 아닌 보류(pending)가 되어 매일 재판정(map_r1_retry_unlocated) 대상에도 없다 → 영구히 빠짐. 한도 초과는 deferred(1시간 간격, 상한 없음)라 원래 영구 제외가 아니다.
@@ -50,9 +58,3 @@
 - 변경: supabase/migrations/20261124130000_location_same_store_keep.sql(+tests setup·local·production_check) — 완전 일치 줄이 없을 때만 기존 같은 매장 규칙(addressReader.sameStore·pin_guard._same)을 '지역 덧붙임' 모양(한쪽이 다른 쪽의 낱말 단위 앞부분 + 짧은 쪽에 번지 숫자)으로 좁혀, 그리고 후보 1줄·확정 줄일 때만 그 줄 사용·주소 글자 유지(거리 이름만·12≠112·앞에 글자가 붙은 포함은 다른 지점, 시험 6~8번). src/lib/locationPrecheck.ts checkBlocked/providerErrorKind 한 곳(precheckVerdict·autoLocationResolver 공용), Goong 오류 기록, 매장 여러 곳 보류 일반화, crawler DEFERRED_REASONS에 provider_quota. B: scripts/ops/jobs/location-keep-recovery-preview.sql(읽기 전용).
 - 검증 [직접 확인]: 로컬 PostgreSQL 16 fixture→setup→migration→local→production_check 통과, autoLocationResolver·googleQuotaCache·locationPrecheck·location-hook 시험·crawler test_ingest_gateway·tsc 통과, dry-run SQL은 run-sql-plan 검증 + 시험 DB 실행.
 - 남은 것: A 병합·운영 적용 뒤 Lee가 ops-run-sql(name=location-keep-recovery-preview)로 dry-run 실행 → 결과 보고. 복구 migration은 대표 승인 뒤 별도.
-
-## 2026-11-24 — 3순위 2차: DB 변경 PR의 격리 DB 전후 대조 (기존 migration-postgres 재사용)
-- 변경: scripts/ci/public-location-snapshot.sql(읽기만)·public-location-diff.sh(+시험)를 check-postgres-migrations.sh의 migration 적용 전후에 연결, pr-checks 시험 1단계, 규칙 문서 3개 현재 구현 줄, 계획 문서 3·4절.
-- 화면 연결(Lee 11-24): 적용 뒤 결과를 JSON으로 내 기존 격리 핀 검사(location-canonical-browser-fixtures, LOCATION_FIXTURE_DIR)에 넣음 — 공개 위치 응답(HEAD api 처리 코드)→메인 지도 점별 핀→상세→PC·모바일. migration-postgres 잡에서 결과가 있을 때만 빌드·실행.
-- 화면 연결 검증 [직접 확인]: #999 → 공개 3건·핀 3개 PC·모바일 통과, 합성 0·1·여러 곳 그대로 통과, #1002 → 차이 6줄·화면 대상 0건(시험 공고 비공개).
-- 검증 [직접 확인]: 로컬 PostgreSQL 16에서 #999 전환 migration 재적용 → 차이 6줄(#5992 위치 글자, 1776·1800 → 보류함) = 운영 결과와 같음, 판정 시험(변화 없음·조용히 잃음·보류함·비공개) 통과.
