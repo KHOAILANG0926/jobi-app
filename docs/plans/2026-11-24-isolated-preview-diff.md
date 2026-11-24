@@ -25,7 +25,10 @@
 - 무엇을: 적용 바로 전·후에 `scripts/ci/public-location-snapshot.sql`(읽기만)로 공고 공개 상태·위치 원본 줄(핀 되는 확정 좌표 exact·gate+좌표 / 안 되는 줄 — api/map-locations와 같은 기준)·위치 보류함을 찍고, `public-location-diff.sh`가 차이를 실행 요약에 남긴다.
 - 실패 조건 하나: 적용 전 핀이 있던 공고가 적용 뒤에도 공개인데 핀 0개이고 보류함에도 없음(지도 위치 절대 원칙·지점별 독립 공고 전환에서 위치를 조용히 잃음). 나머지 차이는 기록만.
 - 실측: #999 전환 migration을 다시 적용하면 운영 결과와 같은 차이(#5992 위치 글자, 1776·1800 줄 → 보류함)가 나옴(로컬 PostgreSQL 16).
-- 한계: 시험 DB에는 그 migration의 setup 파일이 만든 자료만 있다(setup 없는 migration은 찍을 것이 없음). 핀 → 화면은 1차의 격리 핀 검사, 실제 운영 공고 화면은 병합 뒤 deploy-verify.
+- 화면 연결: 같은 잡이 적용 뒤 공개 공고·위치 원본 줄을 JSON으로 내고(`scripts/ci/isolated-db-fixture.sql`), 기존 격리 핀 검사(`location-canonical-browser-fixtures.mjs`, LOCATION_FIXTURE_DIR)를 그 자료로 돌린다: ① 공개 위치 응답 = HEAD `api/map-locations.js` 처리 코드에 원본 줄을 넣은 결과가 원본 확정 좌표와 같음 ② 메인 지도: 점마다 그 자리로 지도를 옮겨 그 공고·근무지 줄의 핀이 나옴(map-summary-check와 같은 방식), 확정 아닌 줄은 핀으로 안 나옴 ③ 상세: 공고마다 원본 확정 좌표 전체 ④ PC 1440·모바일 390. 근거(자료·화면)는 실행 기록에 보관.
+- '적용 뒤'는 migration과 그 시험 파일(local·production_check)까지 끝난 상태 — 함수 본문만 바꾸는 migration은 시험 파일이 실제로 쓰기를 해야 차이가 보인다.
+- 실측(로컬): #999 → 공개 3건·핀 3개 PC·모바일 통과(상세 위치 글자 '148 Trần Phú, Từ Sơn' = 전환 결과). #1002(같은 매장 확정 위치 유지) → 차이 6줄(시험 공고들의 새 줄, 공고가 비공개라 화면 대상 0건).
+- 한계: 시험 DB에는 그 migration의 setup·시험 파일이 만든 자료만 있다. 시험 DB에 없는 화면용 칸(제목·연락처 등)과 0/빈 정확도·revision은 합성 기본값으로 채운다. 운영 DB 함수(expected_points) 대신 원본 줄을 HEAD 처리 코드에 넣는다. 실제 운영 공고 화면은 병합 뒤 deploy-verify.
 
 ## 4. 확인하지 못한 기준
 - "기존 1~11단계 검증 기준"의 원래 목록은 저장소·기록에서 찾지 못함 → CLAUDE.md 확정 기준(필수 기계 검사·DR3 화면 검사·지도 위치 원칙·지점별 독립 공고)만 근거로 함.

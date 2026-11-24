@@ -173,7 +173,7 @@ jobs:
   migration-postgres:
     name: migration-postgres
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16
@@ -198,7 +198,42 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
       - name: 변경된 migration을 깨끗한 PostgreSQL에 실제 적용
         if: github.event_name == 'pull_request'
-        run: bash scripts/ci/check-postgres-migrations.sh
+        env:
+          ISOLATED_FIXTURE_DIR: isolated-db-fixtures
+        run: |
+          bash scripts/ci/check-postgres-migrations.sh
+          if compgen -G 'isolated-db-fixtures/*.json' >/dev/null; then echo "screen=true" >> "$GITHUB_OUTPUT"; fi
+        id: migrate
+      # 3순위 2차: 위 격리 DB 적용 결과 → 공개 위치 응답(HEAD api/map-locations) → 지도 핀 → PC·모바일 화면. 기존 격리 핀 검사를 그 결과로 돌린다.
+      - uses: actions/setup-node@v4
+        if: steps.migrate.outputs.screen == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: 격리 DB 결과 화면 빌드 (지도 열쇠 가짜)
+        if: steps.migrate.outputs.screen == 'true'
+        env:
+          VITE_VIETMAP_TILEMAP_KEY: fixture-browser
+        run: |
+          npm ci
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: 격리 DB 결과 → 공개 위치 응답 → 지도 핀 → PC·모바일 화면
+        if: steps.migrate.outputs.screen == 'true'
+        run: |
+          npx vite preview --host 127.0.0.1 --port 4174 --strictPort > isolated-db-preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4174/ >/dev/null && break; sleep 1; done
+          BASE_URL=http://localhost:4174 SCREENSHOT_DIR=isolated-db-proof LOCATION_FIXTURE_DIR=isolated-db-fixtures node scripts/ops/location-canonical-browser-fixtures.mjs
+      - name: 격리 DB 화면 검사 근거 보존
+        if: always() && steps.migrate.outputs.screen == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-db-proof-${{ github.sha }}
+          path: |
+            isolated-db-fixtures/
+            isolated-db-proof/
+            isolated-db-preview.log
+          retention-days: 14
 
   # S4(#808) 권한 시험: Claude 잡(codex-response·fallback-review·issue-mention)과 같은 권한 선언으로 실제 GitHub에서
   # 쓰기(댓글·라벨·push)·앱 토큰 발급(id-token)이 모두 막히는지 본다. 하나라도 되면 실패(=구조가 약속과 다름).

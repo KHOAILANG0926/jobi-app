@@ -30,11 +30,18 @@ for file in "${changed[@]}"; do
   # 3순위 2차: 적용 전후 공고 공개 상태·위치 원본(핀 되는 줄/안 되는 줄)·위치 보류함을 찍어 차이를 요약에 남긴다(읽기만, 같은 폐기용 DB).
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/public-location-snapshot.sql > /tmp/loc-before.txt
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
-  psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/public-location-snapshot.sql > /tmp/loc-after.txt
-  bash scripts/ci/public-location-diff.sh "$file" /tmp/loc-before.txt /tmp/loc-after.txt
   [[ -f "$local_check" ]] && psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f "$local_check"
   if [[ -f "$prod_check" ]] && { [[ -f "$setup" ]] || [[ -f "$local_check" ]]; }; then
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f "$prod_check"
+  fi
+  # 적용 뒤 = migration과 그 시험 파일(local·production_check)까지 끝난 상태 — 함수 본문만 바꾸는 migration은 시험 파일이 실제 쓰기를 해야 차이가 보인다.
+  psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/public-location-snapshot.sql > /tmp/loc-after.txt
+  bash scripts/ci/public-location-diff.sh "$file" /tmp/loc-before.txt /tmp/loc-after.txt
+  # 같은 적용 결과를 기존 격리 화면 검사(location-canonical-browser-fixtures)에 넘긴다 — 공개 API 응답 → 지도 핀 → PC·모바일 화면.
+  if [[ -n "${ISOLATED_FIXTURE_DIR:-}" ]]; then
+    mkdir -p "$ISOLATED_FIXTURE_DIR"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/isolated-db-fixture.sql > "$ISOLATED_FIXTURE_DIR/$stem.json"
+    [[ -s "$ISOLATED_FIXTURE_DIR/$stem.json" ]] || rm -f "$ISOLATED_FIXTURE_DIR/$stem.json"
   fi
 done
 # 입구 전환: 공고 내용 파일 변환기·파일이 바뀌면 실제 PostgreSQL에서 ingest_job 경로를 시험한다.
