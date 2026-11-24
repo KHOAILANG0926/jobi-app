@@ -49,7 +49,7 @@ from job_quality import (
 from job_posting_policy import crawler_policy_errors
 from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 from ingest_gateway import ingest_job, retry_held_once
-from pin_guard import keeps_confirmed_location, other_stores
+from pin_guard import _key as _address_key, keeps_confirmed_location, other_stores
 from job_criteria import deadline_passed, has_enough_contact, today_vn
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -2349,6 +2349,50 @@ def _keep_confirmed_location_text(existing: dict, field_updates: dict) -> dict:
     return {k: v for k, v in field_updates.items() if k != "location"}
 
 
+def _work_locations_changed(job_id: int, rows: list[dict]) -> bool:
+    """다시 수집한 근무지 줄이 지금 DB의 줄과 실제로 다른지(지도 정상화 W4a 2차).
+    다를 때만 입구(ingest_job)를 부른다 — 입구는 호출마다 원문을 원문 기록에 남기므로, 바뀐 것 없는 다시 수집으로 기록을 늘리지 않는다.
+    확정 줄(관리자 확정·재사용·검증 좌표)의 좌표는 DB 쓰기 함수가 그대로 지키므로 좌표 차이를 변화로 세지 않는다(매번 부르게 되지 않게)."""
+    current = (supabase.table("job_work_locations")
+               .select("raw_address,lat,lng,location_verified,point_authority,address_accuracy,matched_recruitment_regions")
+               .eq("job_id", job_id).execute().data or [])
+    have = {_address_key(r.get("raw_address")): r for r in current}
+    want = {_address_key(r.get("raw_address")): r for r in rows}
+    if set(have) != set(want):
+        return True
+
+    def num(v):
+        return None if v is None else round(float(v), 6)
+    for key, new in want.items():
+        old = have[key]
+        if old.get("location_verified") is True or old.get("point_authority") in ("admin_confirmed", "auto_reuse"):
+            continue
+        if (num(old.get("lat")), num(old.get("lng"))) != (num(new.get("lat")), num(new.get("lng"))):
+            return True
+        if (old.get("address_accuracy") or None) != (new.get("address_accuracy") or None):
+            return True
+        if list(old.get("matched_recruitment_regions") or []) != list(new.get("matched_recruitment_regions") or []):
+            return True
+    return False
+
+
+def _recollect_rows_for_entry(job_id: int, resolved: list[dict], had_transient: bool) -> list[dict] | None:
+    """기존 공고 다시 수집에서 입구에 실을 근무지 줄(None = 쓸 것 없음). 기존 규칙 그대로:
+    geocode 일시 오류가 있었고 지킬 줄이 있으면 쓰지 않고, 이 공고(지점)의 줄만(_own_branch_rows), 사람이 확인한 줄은 그대로 다시 넣는다
+    (merge_protected_work_locations). 달라진 것이 없으면 None."""
+    had_existing = _has_existing_work_locations(job_id)
+    if had_transient and had_existing:
+        print(f"    ⚠️  job_id={job_id}: geocode 일시 오류 — 근무지 동기화 보류(기존 데이터 유지)")
+        return None
+    own_rows = _own_branch_rows(job_id, resolved)
+    if not own_rows:
+        return None
+    if had_transient:
+        print(f"    ⚠️  job_id={job_id}: geocode 일시 오류가 있었지만 기존 근무지 행이 0건(지킬 데이터 없음) — 이번 판정 그대로 저장")
+    rows = merge_protected_work_locations(_fetch_protected_work_locations(job_id), _work_location_rpc_rows(own_rows))
+    return rows if _work_locations_changed(job_id, rows) else None
+
+
 def _own_branch_rows(job_id: int, resolved: list[dict]) -> list[dict]:
     """다시 수집한 근무지 줄 중 이 공고(지점)의 것만 — 형제 지점 줄을 이 공고에 섞지 않는다. 이번 글에서 이 지점이 안 보이면 빈 목록(기존 줄을 그대로 둔다:
     글에서 빠졌다는 것만으로 줄도 공고도 지우지 않는다). 전환 전 여러 지점 줄을 가진 기존 공고는 자동 작업이 건드리지 않는다."""
@@ -2539,11 +2583,15 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             field_updates["last_verified_at"] = datetime.now(timezone.utc).isoformat()
         elif existing.get("origin") == "crawler" and had_transient:
             print(f"    ⚠️  id={existing['id']}: geocode 일시 오류 — 공개 상태/게이트 사유 갱신 보류(기존 값 유지)")
-        if field_updates:
+        # 다시 수집 근무지 줄도 입구로(W4a 2차): 바뀐 칸과 근무지 줄을 입구 한 번(한 트랜잭션)으로 쓴다. 입구는 받은 근무지 줄을 같은 위치 쓰기 함수로 쓴다.
+        # 바뀐 칸도 없고 근무지 줄도 그대로면 입구를 부르지 않는다(원문 기록을 늘리지 않음).
+        entry_rows = _recollect_rows_for_entry(existing["id"], resolved, had_transient)
+        if field_updates or entry_rows is not None:
             try:
                 # 다시 수집도 입구로: 크롤러가 계산한 바뀐 칸만 고친다(원문은 입구의 원문 기록에 보존).
                 ingest_job(supabase, {**field_updates, "source": job.get("source"), "source_url": job.get("source_url"),
-                                      "source_text": job.get("source_text") or job.get("description") or ""},
+                                      "source_text": job.get("source_text") or job.get("description") or "",
+                                      **({"work_locations": entry_rows} if entry_rows is not None else {})},
                            job_id=existing["id"], update_fields=sorted(field_updates))
             except Exception as exc:  # noqa: BLE001
                 code = rule_code(exc)
@@ -2552,7 +2600,7 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
                 REJECTIONS.add(code, job.get("title", ""))
                 print(f"    🚧 규칙 거부({code}): id={existing['id']} 갱신 안 함(기존 값 유지)")
                 return {"action": "rule_rejected", "id": existing["id"], "rule": code}
-            action = "updated"
+            action = "updated" if field_updates else "unchanged"
         else:
             action = "unchanged"
         job_id = existing["id"]
@@ -2572,8 +2620,10 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     # 판단해야 해서 _has_existing_work_locations()로 교체했다 — 신규
     # INSERT든 기존 job 재처리든, job_work_locations가 이미 0건이면 지킬
     # 데이터가 없으므로 transient 오류와 무관하게 이번 판정을 저장한다.
-    had_existing_work_locations = _has_existing_work_locations(job_id) if job_id else False
-    if existing is None and rows_written_by_ingest:
+    had_existing_work_locations = _has_existing_work_locations(job_id) if job_id and existing is None else False
+    if existing is not None:
+        pass  # 기존 공고 다시 수집: 근무지 줄은 위에서 입구가 같은 트랜잭션으로 썼거나 바뀐 것이 없다(W4a 2차)
+    elif existing is None and rows_written_by_ingest:
         pass  # 새 공고: 근무지 줄은 등록 입구가 이미 썼다(#916) — 다시 쓰면 위치 확인 결과를 버린다
     elif job_id and (not had_transient or not had_existing_work_locations):
         own_rows = _own_branch_rows(job_id, resolved)
