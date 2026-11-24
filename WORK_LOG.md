@@ -1,3 +1,9 @@
+## 2026-11-24 — #1004 실제 발송 검증 결함(완료 댓글 403) 보완 + W2 dry-run 결과 기록
+- 검증 [직접 확인]: #1005 병합(12f5795) 뒤 deploy-verify 실행 45377084519 성공, 그러나 완료 댓글 단계가 `gh: Resource not accessible by integration (HTTP 403)`로 발송 실패(경고만, 운영 검사 결과는 성공 유지). 원인 = deploy-verify.yml 권한에 pull-requests: write 없음(issues: write만으로는 PR 댓글 403). #1005의 gh 대역 시험은 권한을 못 봄.
+- 변경: deploy-verify.yml permissions에 pull-requests: write 한 줄 + deploy-notify.test.mjs에 권한 단언 추가(수정 전 실패·수정 후 통과 확인). 다른 변경 없음.
+- W2 dry-run(Lee 실행, ops-run-sql 45344520708 성공) [Lee 보고 — 내가 실행하지 않음]: 삭제 이력 있는 확정 위치 1건(이미 확정 있음)·복구 대상 0·재판정 19 = 지점 분리 보류 2 + 회사명 AI 확인 불가 5 + 회사명 미확정 1 + 위치 원문 없음 2 + 위치 검색 실패 9. 의미: A가 막으려던 '확정 위치 유실'은 운영 데이터에서 복구가 필요한 건 0 → W7 대상 없음, W6는 실제 유실 증거 없이 조건 확대 금지.
+- 남은 것: 이 PR 병합 뒤 deploy-verify의 완료 댓글이 실제로 달리는지 확인 → #1004 종료. 실패 알림 실제 발송·Lee 단말 수신은 확인 불가(분리 표기).
+
 ## 2026-11-24 — #1004 승인·완료·장애 알림 경로 정상화 (기존 경로만 수정, 새 알림 장치 없음)
 - 원인 [직접 확인 — 코드·실행 이력]: 승인 안내(github-actions[bot] 댓글)는 검사 통과 12~20초 뒤 발송됐지만(#1002: 05:26:03→05:26:23, 06:07:29→06:07:41) 본문에 멘션·직접 링크가 없었다. 운영 검사 성공 알림 경로는 없었고(다음 작업 큐 호출뿐), 실패 이슈는 중복 방지가 없어 고유 커밋 18개에 이슈 24건(같은 커밋 최대 3건).
 - 변경: decision-approval-gate.mjs(approvalLinks — 저장소 주인 멘션+Files/PR 직접 링크, 형식 틀리면 예전 문구)·bot-pr-automerge.yml(PR_NUMBER 한 줄), scripts/ci/deploy-notify.sh 신규 1개(success: 병합 PR에 완료 댓글 1번·Lee 승인 요청 PR만 멘션·같은 커밋 표시로 중복 방지 / failure: 같은 제목 열린 이슈 있으면 안 만듦·실패 단계·조치·멘션, 이슈 조회 실패는 누락 방지로 생성), deploy-verify.yml 두 단계를 이 스크립트 호출로 교체, 시험 deploy-notify.test.mjs·gate 시험 추가, pr-checks.yml 연결.
