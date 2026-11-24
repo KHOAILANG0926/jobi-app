@@ -11,6 +11,7 @@ import {
   stripSourceTags,
   toPublicJobs,
 } from '../dist/server/entry-server.js'
+import { ssrCacheControl } from './_lib/ssr-cache.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -251,6 +252,7 @@ export default async function handler(req, res) {
   // 전체를 다시 훑지 않게 한다 — 크롤링 갱신은 "몇 분 내 반영"이면 충분
   // (초 단위 실시간 반영이 요구사항이 아니었음). stale-while-revalidate로
   // 캐시 만료 직후에도 옛 응답을 즉시 내려주고 백그라운드에서 새로 받는다.
-  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=120, stale-while-revalidate=600')
+  // 없는 공고(404)는 캐시하지 않는다 — 이유는 _lib/ssr-cache.mjs.
+  res.setHeader('Cache-Control', ssrCacheControl(notFound))
   res.end(finalHtml)
 }

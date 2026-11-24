@@ -1,3 +1,9 @@
+## 2026-11-24 — 운영 배포 검증 실패 #1016(d357eb8) 원인 수정: 상세 SSR이 404를 공유 캐시에 남김
+- 실패 [직접 확인 — deploy-verify 45417799995, 1차·재실행 모두]: 실제 화면 검사가 고른 최신 공개 공고 sb-6337 상세가 PC·모바일 HTTP 404.
+- 원인 [직접 확인 — 실행 기록 시각]: #1015 병합 뒤 OCR 대조(R7, 45417524853)가 6337을 원문에서 다시 만들고, 화면 대조(14:46:14)가 비공개 상태의 상세 주소를 열어 404 → api/ssr.js가 404도 공유 캐시(s-maxage 120 + stale-while-revalidate 600)에 남김 → 재검사가 공개(14:46:32) → 운영 검사(14:46:45·재실행 14:50:14)가 캐시된 404를 받음. 운영 사용자에게도 공개 직후 최대 12분 404가 나가는 결함.
+- 변경: 캐시 머리글을 한 곳(api/_lib/ssr-cache.mjs)으로 — 404는 no-store(DB 조회 실패 503과 같은 방식), 있는 화면은 기존 공유 캐시 그대로. 시험 api/_ssr-cache.test.ts(빌드 결과 없이 돎).
+- 검증 [직접 확인]: npm test 126/126, tsc·build 통과. 운영 확인은 병합 뒤 deploy-verify(새 커밋이 d357eb8을 포함해 성공하면 S6 잠금 해제).
+
 ## 2026-11-24 — 지도 W7 복구 dry-run SQL(location-w7-restore-preview, 읽기 전용) — 복구 migration과 같은 규칙
 - 요청(Lee): #6309는 기존 확정 근거·사업장 동일성 확인 뒤 공통 복구 조건, #6043은 전체 주소 대조, 나머지 미확정은 기존 Google → VietMap → Goong, 보류 19건은 기존 재확인 정책, #1015 병합 뒤 migration·검증·Approve 절차.
 - 복구 규칙(공통): 확정 좌표를 잃은 줄이 지금도 확정 없음 + 같은 사업장(운영 판정 same_site_address, 잃기 전·지금 줄의 저장된 행정구역) + 같은 회사(표기만 다름) + 그 좌표를 확정으로 만든 쓰기 기록 요청이 좌표를 가진 확정 출처(source_verified·poster_pin·legacy_verified)·같은 좌표·출처·확인 시각·근거 글 있음 → 같은 좌표·근거를 지금 주소 줄에 다시 쓴다(write_location). 관리자 확정·재사용은 기억표 자격으로만(기존).
@@ -56,9 +62,3 @@
 - 원인 [직접 확인 — 코드]: 공고 location 글자가 바뀌면 DB 트리거 location_private.job_identity_changed가 그 글자의 근무지 줄을 invalidate(확정 좌표 포함, 확정 보호를 거치지 않음)한다. Facebook 다시 수집은 원문에서 다시 읽은 주소로 location을 고치므로 표기(지역 덧붙임)만 달라도 확정 좌표가 지워진다 — #1002 A(쓰기 함수 줄 찾기)가 막지 못하는 경로.
 - 변경: crawler/pin_guard.keeps_confirmed_location(같은 지점 조건은 DB 쓰기 함수와 같게: 낱말 단위 앞부분 + 짧은 쪽 번지 숫자, 그 글자의 줄이 확정 좌표일 때만) + refresh_facebook_existing이 그 경우 location 칸을 고치지 않음. DB 변경 없음. 다른 지점·이전·확정 아님은 예전 동작.
 - 검증 [직접 확인]: test_refresh_store_rows 새 사례 통과(다른 번지·거리 이름만·앞 글자·확정 아님은 유지 안 함). 미해결(W6, 사전 보고·승인 대상): DB 트리거의 invalidate 자체, 번지 없는 공단 주소, vieclam24h 경로(W4a).
-
-## 2026-11-24 — 지도 W3a: 지도 처리 경로의 외부 API 장애·한도 오판 수정 + #1004 종료
-- #1004 [직접 확인]: #1006 병합(ec35de6) 뒤 deploy-verify 45379834976 성공, #1006에 완료 댓글 실제 발송(7129560415), 승인 요청 댓글에 멘션·직접 링크(7129266251). 실패 알림 실제 발송·Lee 단말 수신은 미확인으로 분리 표기하고 이슈 종료.
-- W3a 원인 [직접 확인 — 코드]: Google·Goong 장애·한도가 근거 문자열에만 남고 failed/deferred가 안 서서 map_r1에 done/unresolved로 저장 → applyLocationVerdict가 our_miss(비공개·저녁 목록)로 처리.
-- 변경: autoLocationResolver 마지막 결과에서 checkBlocked로 failed/deferred 플래그, locationVerdict에 blocked(보류), applyLocationVerdict가 저장된 근거로 blocked 판정. 새 장치 없음(#1002의 checkBlocked 재사용). DB 변경 없음.
-- 검증 [직접 확인]: 새 시험 3곳은 수정 전 실패·수정 후 통과, npm test 125/125·tsc·build 통과. 미완료: map_r1 failed 상태의 영구 스킵(calls/failures 기준, W3b DB)·운영 실제 건수는 이번 범위 아님.
