@@ -29,10 +29,15 @@ export function posterSalaryEvidence(text: string | null | undefined): string[] 
 
 // ② 이름표 없는 금액(옛 수집기 규칙을 옮김). "tr" 뒤에 글자가 이어지면(예: "trên") 금액이 아니다.
 const TR = '(?:triệu|trieu|tr(?![\\p{L}]))'
+// 2026-11-24 R #872(#6337 원문 "7tr5~ 12tr"): 'tr' 바로 뒤 한두 자리 숫자는 같은 금액의 소수 표기(7tr5 = 7,5 triệu)다.
+//  예전 규칙은 이 표기를 몰라 "5~ 12tr"처럼 금액 중간부터 읽었다. 금액은 숫자 낱말 처음부터만 읽는다(앞이 글자·숫자면 안 됨).
+const NUM = '\\d+(?:[.,]\\d+)?'
+const VAL = `${NUM}\\s*${TR}(?:\\d{1,2}(?![\\p{L}\\p{N}]))?`
+const START = '(?<![\\p{L}\\p{N}.,])'
 const UNLABELED = [
-  new RegExp(`\\d+[.,]?\\d*\\s*[-–~]\\s*\\d+[.,]?\\d*\\s*${TR}(?:\\s*\\/\\s*\\p{L}+|\\s*tháng|\\s*month)?`, 'iu'),
-  new RegExp(`(?:từ|from)\\s*\\d+[.,]?\\d*\\s*${TR}`, 'iu'),
-  new RegExp(`\\d+[.,]?\\d*\\s*${TR}(?:\\s*\\/\\s*\\p{L}+|\\s*tháng|\\s*month)?`, 'iu'),
+  new RegExp(`${START}(?:${VAL}|${NUM})\\s*[-–~]\\s*${VAL}(?:\\s*\\/\\s*\\p{L}+|\\s*tháng|\\s*month)?`, 'iu'),
+  new RegExp(`(?:từ|from)\\s*${VAL}`, 'iu'),
+  new RegExp(`${START}${VAL}(?:\\s*\\/\\s*\\p{L}+|\\s*tháng|\\s*month)?`, 'iu'),
   /\d+\s*[-–]\s*\d+\s*\$/u,
 ]
 // ②-2 동(đ) 전체 금액·k 금액(Lee 2026-11-07 #5633 "Ca ngày: 320.000đ/12 tiếng", "310k/11h"): 지급 단위("/giờ·/h·/N tiếng·/ngày·/ca·/tháng")가
