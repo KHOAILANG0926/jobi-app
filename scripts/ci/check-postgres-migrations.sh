@@ -27,7 +27,11 @@ for file in "${changed[@]}"; do
   setup="supabase/tests/$stem.setup.sql"; local_check="supabase/tests/$stem.local.sql"; prod_check="supabase/tests/${stem}_production_check.sql"
   echo "PostgreSQL migration: $file (시험 이름 $stem)"
   [[ -f "$setup" ]] && psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f "$setup"
+  # 3순위 2차: 적용 전후 공고 공개 상태·위치 원본(핀 되는 줄/안 되는 줄)·위치 보류함을 찍어 차이를 요약에 남긴다(읽기만, 같은 폐기용 DB).
+  psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/public-location-snapshot.sql > /tmp/loc-before.txt
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+  psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/public-location-snapshot.sql > /tmp/loc-after.txt
+  bash scripts/ci/public-location-diff.sh "$file" /tmp/loc-before.txt /tmp/loc-after.txt
   [[ -f "$local_check" ]] && psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f "$local_check"
   if [[ -f "$prod_check" ]] && { [[ -f "$setup" ]] || [[ -f "$local_check" ]]; }; then
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f "$prod_check"

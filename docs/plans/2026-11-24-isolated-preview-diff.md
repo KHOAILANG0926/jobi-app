@@ -20,6 +20,12 @@
 - map=true → 기존 HEAD 격리 핀 검사(location-canonical-browser-fixtures: 지도 열쇠 가짜·DB 응답 가짜 0·1·여러 곳, PC·모바일)를 PR 단계에서. 실제 공고 지도 요약(map-summary-check)은 PR 빌드에 지도 열쇠가 없어 지도가 안 그려지므로(#1000 첫 실행에서 확인) 병합 뒤 deploy-verify 그대로. menu=true → 메뉴 검색 검사. 브랜치 이름 조건은 지움(같은 일을 한 곳으로).
 - 최근 병합 PR로 본 효과: #995(병합 봇·CI·규칙 문서) 화면 검사 생략 / #999(migration) 화면+지도 요약 / #991(api/map-locations) 화면+지도 요약.
 
-## 3. 다음 단계(설계만, 구현 전 확인 필요)
-- DB 변경 PR의 격리 대조: migration-postgres의 폐기용 DB에 migration을 적용한 뒤, 그 결과를 기존 격리 응답 방식(location-canonical-browser-fixtures.mjs·real-jobs-area-check.mjs의 응답 가로채기)으로 HEAD 화면에 넣어 원본(DB 줄) → 공개 응답 → 지도 핀 → 화면을 대조. 새 서버·새 DB 없음.
-- Lee 확인 필요: "기존 1~11단계 검증 기준"의 원래 목록(저장소·지난 대화에서 못 찾음). 받으면 각 단계를 위 영향 범위(screen·map·menu·db)에 짝지어 적용한다.
+## 3. 2차: DB 변경 PR의 격리 DB 전후 대조 (구현)
+- 어디서: 기존 migration-postgres(폐기용 PostgreSQL, 바뀐 migration마다 setup → 적용 → local → production_check). 새 서버·새 DB 없음.
+- 무엇을: 적용 바로 전·후에 `scripts/ci/public-location-snapshot.sql`(읽기만)로 공고 공개 상태·위치 원본 줄(핀 되는 확정 좌표 exact·gate+좌표 / 안 되는 줄 — api/map-locations와 같은 기준)·위치 보류함을 찍고, `public-location-diff.sh`가 차이를 실행 요약에 남긴다.
+- 실패 조건 하나: 적용 전 핀이 있던 공고가 적용 뒤에도 공개인데 핀 0개이고 보류함에도 없음(지도 위치 절대 원칙·지점별 독립 공고 전환에서 위치를 조용히 잃음). 나머지 차이는 기록만.
+- 실측: #999 전환 migration을 다시 적용하면 운영 결과와 같은 차이(#5992 위치 글자, 1776·1800 줄 → 보류함)가 나옴(로컬 PostgreSQL 16).
+- 한계: 시험 DB에는 그 migration의 setup 파일이 만든 자료만 있다(setup 없는 migration은 찍을 것이 없음). 핀 → 화면은 1차의 격리 핀 검사, 실제 운영 공고 화면은 병합 뒤 deploy-verify.
+
+## 4. 확인하지 못한 기준
+- "기존 1~11단계 검증 기준"의 원래 목록은 저장소·기록에서 찾지 못함 → CLAUDE.md 확정 기준(필수 기계 검사·DR3 화면 검사·지도 위치 원칙·지점별 독립 공고)만 근거로 함.

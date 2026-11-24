@@ -80,6 +80,8 @@ jobs:
         run: node scripts/ci/automerge-recovery.test.mjs
       - name: 변경 영향 범위 판정 시험 (화면·지도·메뉴 검사 선택, 닫힌 방향, 3순위)
         run: node scripts/ci/change-impact.test.mjs
+      - name: 격리 DB 전후 차이 판정 시험 (위치를 조용히 잃으면 실패, 3순위 2차)
+        run: bash scripts/ci/public-location-diff.test.sh
       - name: artifact 출처 확인 시험 (가짜 실행·브랜치·포크·이력 밖 커밋 거절)
         run: bash scripts/ci/verify-artifact-run.test.sh
       - name: master 직접 push 경보 시험 (병합 직후 PR 연결 지연은 경보 안 함, 진짜 직접 push는 경보)
