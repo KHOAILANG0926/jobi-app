@@ -1,3 +1,8 @@
+## 2026-11-24 — 2순위 다중 지점 공고 전환 migration(승인용, 운영 적용 전)
+- 요청: dry-run(45314812701) 뒤 Lee 확정 기준 5개로 승인용 PR.
+- 변경: supabase/migrations/20261124120000_multi_branch_conversion.sql, supabase/tests/multi_branch_conversion.{setup,local}.sql·_production_check.sql, 계획 문서 6·7절, HANDOFF.
+- 검증 [직접 확인]: 로컬 PostgreSQL 16(CI와 같은 순서 fixture→setup→migration→local→production_check) 통과, 다시 실행해도 변화 없음, 지운 줄 원래 그대로 보관, 전환 전 자료에는 production_check가 실패(검사 의미 확인).
+
 ## 2026-11-24 — 확정 순위 기록 + 2순위(기존 다중 지점 공고 전환) dry-run 준비 (운영 변경 없음)
 - 요청: Lee 확정 순위 저장(1순위 완료·2순위 다중 지점 전환·3순위 격리 Preview 차등 검증), 2순위 착수.
 - 변경: docs/plans/2026-11-24-multi-branch-conversion.md(대상 정의·기존 장치로 전환·복구·순서), scripts/ops/jobs/multi-branch-conversion-preview.sql(읽기 전용 집계, ops-run-sql), CHATGPT_HANDOFF.md.
@@ -51,10 +56,3 @@
 - 변경: crawler/crawl_facebook.py(판정 네 갈래 정상/인식 실패 review/명백한 제외+근거 기록/파서·수집기 오류 parser_error→JOB_ERRORS · 연락처 없음 → review · not_job 약한 근거(보수 문구)는 직무 낱말 없을 때만·모집 인원 문구 구인 인정 · office는 모집 직무 줄(앞 두 줄)의 낱말+직무 낱말 없을 때만 · early_verdict·judge_read 공용(evaluate_post·judge_text) · evaluate_post_isolated · hold_review_posts(보관 성공 뒤에만 '본 글') · dry-run 아티팩트 review_jobs · 선택 저장: 정상=등록 / review=보류함 보관(성공 확인 뒤에만 완료) / 명백한 제외=종결 / 오류·만료·없는 키=미완료(종료 1), 본 글 기록 안 만듦) · crawler/ingest_gateway.py(REVIEW_STATUS 상태 값만) · 결정 문서(CLAUDE.md·RULES_CORE) 한 줄: 연락처 미기재=review 결정 기록(Lee 11-22, check-repository-policy가 정답 파일 변경 근거로 읽는 정식 기록).
 - 검증 [직접 확인]: 수정 전(3742c14 기준) 새 시험 20건 실패·오류 → 수정 후 통과. 운영 DB·수집·병합 없음. 실제 GitHub dryrun→save는 아직 실행·검증하지 않음.
 - 분리: 보류함 재판정·오류 줄 처리·`--retry-held`·workflow 변경·crawl-guard(2~4번 그룹)는 `claude/crawl-group2-4-preserved` Draft PR에 그대로 보존(유실 없음).
-
-## 2026-11-21 — VietMap 지도 스타일 사본 먼저(메인·상세·관리자), 배포 빌드 때 사본 갱신 (#950, #946 MAP-1)
-- 요청(Lee 11-21): style.json 멈춤은 실제 사용자 화면 문제 — 대기 시간을 더 늘리지 않고(같은 종류 두 번째), 약관 확인 뒤 사본을 우리 쪽에서 제공, 사본 없거나 실패할 때만 원본. 갱신은 기존 예약 작업에, 새 워크플로 없음. 검사 기준 그대로, deploy-verify 통과가 완료.
-- 약관 [직접 확인]: VietMap 개발 문서 map-api overview "You may implement caching or response filtering as appropriate."(베트남어판 같은 뜻). 금지 조항 못 찾음(사이트 '약관' 링크는 개인정보 정책뿐).
-- 변경: vietMapStyle.loadVietMapStyle(사본 4초 1번 → 실패·형식 오류면 원본, 기존 재시도 그대로)·stripStyleKey·withStyleKey 한 곳 — 메인·상세·관리자 처음 지도와 일반↔위성 교체 모두 사용. 사본 public/vietmap/styles/{tm,hm}.json(열쇠 값 비움 — 원본에서 열쇠는 타일 주소에만). scripts/ops/vietmap-style-copy.mjs를 vercel-deploy 빌드 직전에 실행(못 받으면 저장소 사본 그대로). map-summary-check는 사본 요청도 증거에 기록(판정 그대로).
-- 검증 [직접 확인]: 운영 deploy-verify 44886908964 실패 2번(상세 sb-5876 지도 실패 / 재실행은 메인 핀 화면 밖 — 여기서 재현하니 메인 style 5·6초 두 번 멈춤 → 예비 지도). 같은 순서 20번: 운영(옛 코드) 실패 7·원본 요청 멈춤 17 → 새 코드(로컬 빌드) 실패 0·사본 20·원본 0. tsc·npm test 124/124·build 통과.
-- 남은 것: PR 병합(Lee Approve) → 배포 → deploy-verify 통과로 #950 잠금 풀림 확인. 사본 갱신은 배포할 때만(배포가 없으면 갱신도 없음) — 타일 판 번호가 바뀌어도 옛 판이 계속 제공되는지는 미확인(hm은 2026-01 판 사용 중).
