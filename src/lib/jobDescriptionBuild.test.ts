@@ -113,3 +113,29 @@ console.log('jobDescriptionBuild.test.ts: 실제 원문 #4878·#4879 + 글자 �
   assert(!r2.items.find((i) => i.key === 'junk')!.ok, '아래가 목록이 아니면 계속 빈 이름표')
   console.log('jobDescriptionBuild.test.ts: 제목 줄+글머리 목록 한 덩어리 검사 통과')
 }
+
+// 2026-11-24 R #872(원문 재현 — 운영 공고 6337 원문 그대로): "VỊ TRÍ:"만 있는 줄도 모집 소개 줄이다(기존 규칙 hiring_intro_heading — "… ĐANG TUYỂN:"·"Vị trí tuyển dụng:"과 같은 종류).
+// 규칙에 이 낱말이 없어 제목은 미분류 → AI 줄 칸이 제목을 업무 칸(01), 아래 직무 줄을 급여 칸(04)으로 나눠 업무 칸에 빈 이름표만 남았다(검사기 '빈 이름표' → 비공개 보류).
+// 이제 제목과 아래 직무 줄이 규칙으로 같은 업무 칸에 들어가 AI 줄 칸이 가르지 못한다.
+{
+  const { lineKey } = await import('./aiClassifyGuard.ts')
+  const { inspectJob } = await import('./jobInspect.ts')
+  const post = 'MỲ CAY YAGAMI ĐANG TUYỂN NHÂN VIÊN \n VỊ TRÍ: \n 3 Nam & Nữ Phục Vụ : 7tr5~ 12tr \n 2 Nữ oder : 8tr~11tr + tip\n 1 Nam Làm Bếp : 8tr5 ~ 14tr\n 2 Cô Tạp Vụ : 7 - 8tr\n+500k phụ cấp\nHỖ TRỢ ĂN Ở ( phòng riêng,đầy đủ điều hòa nóng lạnh)\nĐịa chỉ : Lê Đức Thọ - Nam Từ Liêm - Hà Nội\nSdt: 0833.210.308'
+  const ai = (section: '01' | '04' | '06') => ({ section, by: 'ai' as const })
+  const lineKinds = {
+    [lineKey('VỊ TRÍ:')]: ai('01'),
+    [lineKey('3 Nam & Nữ Phục Vụ : 7tr5~ 12tr')]: ai('04'), [lineKey('2 Nữ oder : 8tr~11tr + tip')]: ai('04'),
+    [lineKey('1 Nam Làm Bếp : 8tr5 ~ 14tr')]: ai('04'), [lineKey('2 Cô Tạp Vụ : 7 - 8tr')]: ai('04'), [lineKey('+500k phụ cấp')]: ai('04'),
+    [lineKey('Sdt: 0833.210.308')]: ai('06'),
+  }
+  const d = buildDescriptionFromSources([{ name: 'source_text', text: post }], { lineKinds }).description.split('\n')
+  const h = d.indexOf('VỊ TRÍ:')
+  assert(h >= 0 && d[h + 1] === '3 Nam & Nữ Phục Vụ : 7tr5~ 12tr' && d[h + 2].startsWith('2 Nữ oder'), '제목 줄 바로 아래 직무 줄이 그대로 이어짐: ' + d.join(' | '))
+  const r = inspectJob({ id: 21, description: d.join('\n'), source_text: post, pin: 'area', category: 'nha_hang', occupation_code: '5', active: true })
+  assert(r.items.find((i) => i.key === 'junk')!.ok, '검사기 예외 없이 빈 이름표 아님: ' + JSON.stringify(r.items.find((i) => i.key === 'junk')))
+  // Lee가 칸을 정한 줄은 그대로다
+  const lee = buildDescriptionFromSources([{ name: 'source_text', text: post }], { lineKinds: { ...lineKinds, [lineKey('VỊ TRÍ:')]: { section: '01', by: 'lee' } } }).description.split('\n')
+  assert(lee[lee.indexOf('VỊ TRÍ:') - 1] === 'Công việc', 'Lee가 정한 칸은 그대로: ' + lee.join(' | '))
+  console.log('jobDescriptionBuild.test.ts: "VỊ TRÍ:" 제목 줄 + 글머리 없는 직무 줄(운영 6337 원문) 검사 통과')
+}
+
