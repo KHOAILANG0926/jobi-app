@@ -1,3 +1,9 @@
+## 2026-11-24 — 지도 W4a 2차: vieclam24h 다시 수집 근무지 줄을 입구(ingest_job)로 — 원문 기록 중복 없이
+- 요청(Lee): 입구 경유 통일을 제외·완료 처리하지 말고, 원문 중복 저장 없이 공통 저장·트랜잭션 일관성을 확보하는 기존 구조 활용.
+- 변경: crawl_topcv 다시 수집이 바뀐 칸 + 근무지 줄을 ingest_job 한 번(한 트랜잭션)으로 보냄(_recollect_rows_for_entry). 근무지 줄이 지금 DB와 실제로 다를 때만 부름(_work_locations_changed — 주소 열쇠 집합·미확정 줄의 좌표·주소 정확도·모집지역, 확정 줄 좌표는 DB가 지키므로 변화로 세지 않음) → 바뀐 것 없는 다시 수집은 입구를 부르지 않아 job_ingest_raw가 늘지 않는다. 기존 규칙(일시 오류 시 보류·이 지점 줄만·사람 확인 줄 다시 넣기 merge_protected_work_locations) 그대로, DB 변경 없음. 새 공고의 등록 뒤 근무지 쓰기(_replace_job_work_locations)는 그대로.
+- 검증 [직접 확인]: test_job_error_isolation 93건 통과(새 4건 + 기존 다시 수집 시험이 입구 경로로 통과), CI 밖 통합 시험 test_address_pipeline_integration은 수정 전과 같은 53개 통과 뒤 같은 기존 실패(무관한 fetchJobsData 단언)에서 멈춤.
+- 기록(누락 방지): W3b 미착수(지도 처리 failed 영구 건너뜀 기준 — DB 함수, W4 잔여 뒤 W6 사전 보고와 함께) / W6 사전 보고 준비(트리거 invalidate·번지 없는 공단 주소) / W7 범위 유지 / #1008·#1009·이 PR의 운영 다시 수집 검증 미완료 / W4 완료 시 R 1단계 충돌 확인, #6337 원인은 원문 재현 전 미확정.
+
 ## 2026-11-24 — 지도 W4a(1차): vieclam24h 다시 수집도 표기만 다른 주소로 확정 좌표를 지우지 않게
 - 원인 [직접 확인 — 코드]: vieclam24h 다시 수집은 location을 바뀐 칸으로 고친다(UPDATE_TRACKED_FIELDS) → W4b와 같은 DB 트리거 invalidate 경로.
 - 변경: crawl_topcv._keep_confirmed_location_text — Facebook과 같은 판정 한 곳(pin_guard.keeps_confirmed_location)으로 같은 지점·확정 줄이면 location 칸만 고칠 칸에서 뺌. DB 변경 없음, 기존 보호(merge_protected_work_locations) 그대로.
