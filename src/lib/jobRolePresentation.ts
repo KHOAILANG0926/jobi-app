@@ -64,8 +64,30 @@ export interface RoleConditionSummary {
 export const shortRole=(role:string)=>role.replace(/^\d+[.)]\s*/,'').replace(/\s*:\s*\d+\s*nhân viên$/iu,'').replace(/\s+(?:full|part)[ -]?time$/i,'').replace(/^(?:cô\s+|nhân viên\s+(?:nam\s*\/\s*nữ\s+)?)/iu,'').toLocaleLowerCase('vi')
 export const capitalize=(text:string)=>text.charAt(0).toLocaleUpperCase('vi')+text.slice(1)
 /** Values approved by Lee, derived from role-labelled text rather than a job ID. */
+/** 2026-11-24 R #872(#6337 원문): "3 Nam & Nữ Phục Vụ : 7tr5~ 12tr"처럼 인원 + 직무 + ':' + 금액이 한 줄인 직무 줄.
+ *  직무 제목 줄이 없는 여러 직무 공고도 같은 여러 직무 표시(상단 Theo vị trí·직무별 급여)를 쓰게 한다. 급여 판정·표시만 쓴다 —
+ *  상세요강 묶음 표시(descriptionRoleGroups, 승인된 틀)는 이 줄을 직무 묶음으로 바꾸지 않는다. 교대·기간 낱말("2 ca : 600k")은 직무가 아니다. */
+const ROLE_AMOUNT_LINE = /^\s*[•·*\-–]?\s*(\d{1,3})\s+([^\d:：][^:：]{1,40}?)\s*[:：]\s*(\d.*)$/u
+const ROLE_AMOUNT_MONEY = /\d\s*(?:triệu|trieu|tr(?![\p{L}])|k(?![\p{L}])|đ|vn[dđ]|đồng)/iu
+const NOT_ROLE_WORD = /^(?:ca|kíp|tháng|ngày|giờ|tuần|năm|buổi|h|lương|mức lương|thu nhập)(?![\p{L}])/iu
+export function roleAmountLine(line: string): { role: string; amount: string; count: number } | null {
+  const m = String(line ?? '').trim().match(ROLE_AMOUNT_LINE)
+  if (!m || !ROLE_AMOUNT_MONEY.test(m[3]) || NOT_ROLE_WORD.test(m[2].trim())) return null
+  return { role: m[2].trim(), amount: m[3].trim(), count: Number(m[1]) }
+}
+type RoleRecord = { role?: string; line: string; inline?: boolean; count?: number }
+/** 급여 판정·표시가 읽는 직무 기록: 직무 제목 줄(기존)이 2개 이상이면 그대로, 아니면 '인원 + 직무 : 금액' 줄이 서로 다른 직무 2개 이상일 때 그 줄들. */
+function salaryRoleRecords(description: string | null | undefined): RoleRecord[] {
+  const lines = String(description ?? '').split(/\r?\n/)
+  const records: RoleRecord[] = lines.map(splitRoleLine)
+  if (new Set(records.map((r) => r.role).filter(Boolean)).size >= 2) return records
+  const inline = lines.map(roleAmountLine).filter((r): r is NonNullable<ReturnType<typeof roleAmountLine>> => !!r)
+  if (new Set(inline.map((r) => r.role)).size >= 2) return inline.map((r) => ({ role: r.role, line: r.amount, inline: true, count: r.count }))
+  return records
+}
+
 export function roleConditionSummary(description:string|null|undefined):RoleConditionSummary|null {
-  const records=String(description??'').split(/\r?\n/).map(splitRoleLine)
+  const records=salaryRoleRecords(description)
   const roles=[...new Set(records.map(r=>r.role).filter((r):r is string=>!!r))]
   if (roles.length<2) return null
   // 직무 제목에 근무 형태가 적힌 경우만(대문자 직무 제목 "NHÂN VIÊN PHỤC VỤ"에는 없음 → 공고 칸 값 사용).
@@ -85,19 +107,20 @@ export function roleConditionSummary(description:string|null|undefined):RoleCond
     roleCount:roles.length, salary:`Theo từng vị trí (${roles.length} vị trí) — xem chi tiết`,
     hours:anyHours?`Khác nhau theo ${roles.length} vị trí — xem chi tiết`:undefined,
     workPeriod:kinds.length?kinds.join(' / '):undefined,workDays:anyDay?capitalize(days):undefined,
-    numHires:`${roles.length} vị trí; số người chưa nêu`,
+    // 인원 + 직무 줄(#6337)은 원문에 직무별 인원이 있다 — 근무일과 같은 '직무: 값' 표기로(합치지 않음). 없으면 기존 'số người chưa nêu'.
+    numHires:records.some(r=>r.inline)?capitalize(roles.map(role=>`${shortRole(role)}: ${records.find(r=>r.role===role)?.count} người`).join('; ')):`${roles.length} vị trí; số người chưa nêu`,
     mealBenefit:mealOwners.length?`Ăn ca: chỉ ${mealOwners.map(shortRole).join(', ')}${meals?`, ${meals} bữa`:''}`:undefined,
   }
 }
 
 /** Lee 2026-10-30: 여러 직무 공고의 메인 카드 급여 — 직무별 급여 줄을 원문 글자 그대로(숫자 합치지 않음). 직무 2개 미만이면 빈 배열. */
 export function roleSalaryLines(description:string|null|undefined):string[] {
-  const records=String(description??'').split(/\r?\n/).map(splitRoleLine)
+  const records=salaryRoleRecords(description)
   const roles=[...new Set(records.map(r=>r.role).filter((r):r is string=>!!r))]
   if (roles.length<2) return []
   return roles.flatMap(role=> {
     // 2026-11-03: "Full-time: 8.974.000 – 10.490.000đ/tháng"처럼 'lương' 글자 없이 금액만 있는 줄도 급여 줄.
-    const line=records.find(r=>r.role===role&&(/\b(?:lương|luong)\b|\d+\s*k\s*\/|triệu/iu.test(r.line)||/\d[\d.,]{4,}\s*(?:đ|vn[dđ]|đồng)\s*\//iu.test(r.line)))?.line
+    const line=records.find(r=>r.role===role&&(r.inline||/\b(?:lương|luong)\b|\d+\s*k\s*\/|triệu/iu.test(r.line)||/\d[\d.,]{4,}\s*(?:đ|vn[dđ]|đồng)\s*\//iu.test(r.line)))?.line
     return line ? [`${capitalize(shortRole(role))}: ${line.replace(/^\s*[•·*-]\s*/u,'').replace(/^\s*(?:mức\s+)?lương\s*[:：]\s*/iu,'').trim()}`] : []
   })
 }
@@ -116,12 +139,12 @@ export function shortAmount(text: string): string {
   return `${nums.map(fmt).join(' – ')} triệu/tháng`
 }
 export function roleSalaryRows(description: string | null | undefined): RoleSalaryRow[] {
-  const records = String(description ?? '').split(/\r?\n/).map(splitRoleLine)
+  const records = salaryRoleRecords(description)
   const roles = [...new Set(records.map((r) => r.role).filter((r): r is string => !!r))]
   if (roles.length < 2) return []
   const rows: RoleSalaryRow[] = []
   for (const role of roles) {
-    const line = records.find((r) => r.role === role && MONEY.test(r.line))?.line
+    const line = records.find((r) => r.role === role && (r.inline || MONEY.test(r.line)))?.line
     if (!line) continue
     const body = line.replace(/^\s*[•·*-]\s*/u, '').trim()
     const m = body.match(/^([^:：]{1,40})[:：]\s*(.+)$/u)
