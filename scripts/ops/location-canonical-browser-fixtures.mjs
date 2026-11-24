@@ -37,7 +37,9 @@ try {
   })
   const style={version:8,sources:{},layers:[{id:'background',type:'background',paint:{'background-color':'#eef2f6'}}]}
   await context.route('https://maps.geoapify.com/**',route=>route.fulfill({json:style}))
-  await context.route('https://maps.vietmap.vn/**',route=>route.fulfill({json:style}))
+  // 11-21부터 화면이 우리 쪽 스타일 사본(/vietmap/styles/*.json)을 먼저 받아 그 안의 실제 타일·그림 주소로 간다 — 그림 요청에 JSON을 주면 지도 실패로 넘어가므로 그림은 빈 1×1 그림으로.
+  const blankPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=','base64')
+  await context.route('https://maps.vietmap.vn/**',route=>route.request().resourceType()==='image'||/\.(png|jpe?g|webp)(\?|$)/.test(route.request().url())?route.fulfill({status:200,contentType:'image/png',body:blankPng}):route.fulfill({json:style}))
   await context.route('**/api/map-locations?**',route=>route.fulfill({json:{points:Object.fromEntries(fixture.jobs.map(j=>[`sb-${j.id}`,sourcePoints(fixture.locations.filter(w=>w.job_id===j.id))]))}}))
   const page=await context.newPage()
   page.on('pageerror',e=>errors.push(e.message))

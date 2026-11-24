@@ -24,7 +24,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: 변경 영향 범위 (BASE 판정기 — PR이 판정기를 고쳐 자기 검사를 끄지 못하게)
+        id: impact
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # 3순위(Lee 2026-11-24): 기존 검사를 변경 영향 범위에 필요한 것만 — 판정은 scripts/ci/change-impact.mjs 한 곳(BASE 사본). BASE에 없으면 전부 실행(닫힌 방향).
+          if git show "$BASE_SHA:scripts/ci/change-impact.mjs" > "$RUNNER_TEMP/change-impact.mjs" 2>/dev/null; then
+            node "$RUNNER_TEMP/change-impact.mjs" "$BASE_SHA" "$HEAD_SHA"
+          else
+            printf 'screen=true\nmap=true\nmenu=true\n' >> "$GITHUB_OUTPUT"
+            printf '### 변경 영향 범위\n- 판정기가 BASE에 아직 없음 — 화면·지도·메뉴 검사 전부 실행\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: 이관 전 화면 검사 소스 구분
+        if: steps.impact.outputs.screen == 'true'
         id: schema-mode
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -42,85 +57,111 @@ jobs:
             printf '### 실제 화면 검사 소스\n- HEAD `%s` + 운영 공개 데이터 (읽기 전용)\n' "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: 운영 스키마 호환 화면 소스 선택 (이관 PR만 BASE)
+        if: steps.impact.outputs.screen == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.schema-mode.outputs.screen_sha }}
       - uses: actions/setup-node@v4
+        if: steps.impact.outputs.screen == 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.impact.outputs.screen == 'true'
       - run: npm run build
+        if: steps.impact.outputs.screen == 'true'
       - name: 브라우저 설치
+        if: steps.impact.outputs.screen == 'true'
         run: npx playwright install --with-deps chromium
       - name: 공고 사진 완료 주장 실제 검증 (원본·저장·연결·PC/모바일)
+        if: steps.impact.outputs.screen == 'true'
         run: |
           node scripts/ops/photo-process-verify-browser.mjs
           node scripts/ops/photo-process-acceptance.mjs
       - name: 사진 처리 검증 근거 보존
-        if: always()
+        if: always() && steps.impact.outputs.screen == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: photo-process-proof
           path: photo-process-proof/
           retention-days: 14
       - name: 반경 프리셋·미터 입력 동일 DOM 반영 회귀 (격리 컴포넌트)
+        if: steps.impact.outputs.screen == 'true'
         run: node scripts/ops/search-radius-commit-check.mjs
       - name: 공고 이미지 유무별 틀 동일성 검사
+        if: steps.impact.outputs.screen == 'true'
         run: node scripts/test-job-card-layout.mjs
       - name: 앱 띄우기
+        if: steps.impact.outputs.screen == 'true'
         run: |
           npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && exit 0; sleep 1; done
           cat preview.log; exit 1
       - name: WebGL 없는 PC·모바일 지도 및 필터 회귀 (격리 데이터)
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=map-no-webgl-proof node scripts/ops/map-webgl-fallback-check.mjs
       - name: 공고 원문 조건 요약 연결 검사 (PC·모바일, 운영 쓰기 없음)
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=job-process-proof node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-process-preview-browser.mjs
       - name: 대표 공고 항목이 승인된 4영역 중 맞는 칸에 나오는지 (PC·모바일, 격리 응답, R2 #753)
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/real-jobs-area-check.mjs
       - name: 상세 지도 코드가 늦어도 화면 수집기가 핀을 기다려 읽는지 (격리 응답, sb-5438 모바일 핀 빔 R3)
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/screen-collect-async-check.mjs
       - name: 공고 조건 요약 확인 화면 보존
-        if: always()
+        if: always() && steps.impact.outputs.screen == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: job-process-proof
           path: job-process-proof/
           retention-days: 14
       - name: WebGL 대체 지도 검증 화면 보존
-        if: always()
+        if: always() && steps.impact.outputs.screen == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: map-no-webgl-proof
           path: map-no-webgl-proof/
           retention-days: 14
       - name: PC 헤더·기업 메뉴·로그인 복귀·모바일 유지 회귀
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 node scripts/ops/desktop-header-check.mjs
       - name: 공고 등록 미리보기(저장 전 입력값 → 상세 틀, 단추 막힘) PC·모바일
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 node scripts/layout/job-preview-check.mjs
       - name: 관리자 URL 탭·뒤로가기·목록 스크롤·새 탭 링크 회귀 (PC·모바일, 격리 데이터)
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 node scripts/ops/admin-navigation-check.mjs
       - name: 공고 목록 검사 회귀 (추천만·일반만·혼합·중복·빈 목록)
+        if: steps.impact.outputs.screen == 'true'
         run: node scripts/test-jobcard-integrity.mjs --self-test
       - name: 실제 공고 목록 중복·링크 검사
+        if: steps.impact.outputs.screen == 'true'
         run: node scripts/test-jobcard-integrity.mjs http://localhost:4173
       - name: 현재 위치 표시 정책 회귀 검사
+        if: steps.impact.outputs.screen == 'true'
         run: node scripts/test-job-location-detail.mjs --self-test
       - name: 실제 공고 상세 위치 검사
+        if: steps.impact.outputs.screen == 'true'
         run: node scripts/test-job-location-detail.mjs http://localhost:4173
       - name: CTY KDA 기준 PC·모바일 신규 공고 비교
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 node scripts/ops/cty-kda-comparison.mjs
       - name: TEFAL 실제 공고 내용·간격·지도 검증
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 node scripts/ops/tefal-content-acceptance.mjs
       - name: 좌표 검사 실행 명령 검증
+        if: steps.impact.outputs.screen == 'true'
         run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts
       # #990(2026-11-23): 운영 행정구역 핀 검사(병합 뒤 deploy-verify 뒤에만 돌던 것)를 PR 단계에서도 — 공개 REST 읽기만(열쇠·SQL·쓰기 없음). 확정 좌표의 원래 성 안 검사 + 핀 없는 정상 보류 목록 출력.
       - name: 운영 공개 원본 위치 읽기 전용 검사 (행정구역·핀 없는 공고 근거)
+        if: steps.impact.outputs.screen == 'true'
         run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-administrative-public-check.mjs
       - name: PC·모바일 화면 검사
+        if: steps.impact.outputs.screen == 'true'
         run: BASE_URL=http://localhost:4173 node scripts/ops/app-smoke.mjs
       - name: 공고 화면 도면 대조 (결정 0005, 치수 측정)
+        if: steps.impact.outputs.screen == 'true'
         run: |
           if [ -f docs/decisions/drawings/job-detail-layout.json ]; then
             BASE_URL=http://localhost:4173 node scripts/layout/measure.mjs check 4824 5157
@@ -128,22 +169,11 @@ jobs:
             echo "도면 등록 전(결정 0005 승인 대기) — 대조 생략"
           fi
 
-      - name: 지도 요약 데모 실제 공고 검사
-        if: startsWith(github.head_ref, 'demo/map-summary')
-        run: BASE_URL=http://localhost:4173 node scripts/ops/map-summary-check.mjs
-      - name: 지도 요약 데모 화면 보존
-        if: always() && startsWith(github.head_ref, 'demo/map-summary')
-        uses: actions/upload-artifact@v4
-        with:
-          name: map-summary-demo-proof
-          path: map-summary-proof/
-          retention-days: 14
-
-      - name: 기간·계약 메뉴 메인 목록 상단 구성 검사
-        if: (startsWith(github.head_ref, 'fix/menu-full-search') || github.head_ref == 'demo/home-job-filters')
+      - name: 기간·계약 메뉴 메인 목록 상단 구성 검사 (메인 목록·메뉴 검색 영향 PR)
+        if: steps.impact.outputs.menu == 'true'
         run: BASE_URL=http://localhost:4173 node scripts/ops/menu-search-check.mjs
       - name: 기간·계약 검색 확인 화면 보존
-        if: always() && (startsWith(github.head_ref, 'fix/menu-full-search') || github.head_ref == 'demo/home-job-filters')
+        if: always() && steps.impact.outputs.menu == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: menu-search-proof
@@ -151,7 +181,7 @@ jobs:
           retention-days: 14
 
       - name: BASE 운영 스키마 실제 화면 근거 보존 (신규 HEAD 검증 아님)
-        if: always() && steps.schema-mode.outputs.canonical == 'true'
+        if: always() && steps.impact.outputs.screen == 'true' && steps.schema-mode.outputs.canonical == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: prerelease-base-live-layout-${{ github.event.pull_request.base.sha }}
@@ -165,33 +195,33 @@ jobs:
       # The preceding live-data checks execute BASE code and BASE check scripts
       # only for this schema-transition PR. Always restore HEAD before its checks.
       - name: 이관 PR 신규 HEAD 소스 복원
-        if: steps.schema-mode.outputs.canonical == 'true'
+        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
       - name: HEAD 격리 화면 의존성·빌드
-        if: steps.schema-mode.outputs.canonical == 'true'
+        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         env:
           VITE_VIETMAP_TILEMAP_KEY: fixture-browser
         run: |
           npm ci
           npm run build
       - name: HEAD 격리 서버 시작 (BASE 서버와 별도 포트)
-        if: steps.schema-mode.outputs.canonical == 'true'
+        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         run: |
           npx vite preview --host 127.0.0.1 --port 4174 --strictPort > canonical-preview.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://localhost:4174/ >/dev/null && exit 0; sleep 1; done
           cat canonical-preview.log; exit 1
       - name: HEAD canonical 원본 0·1·여러 곳 실제 핀 (격리 PC·모바일)
-        if: steps.schema-mode.outputs.canonical == 'true'
+        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         run: BASE_URL=http://localhost:4174 SCREENSHOT_DIR=canonical-pr-proof node scripts/ops/location-canonical-browser-fixtures.mjs
       - name: HEAD 헤더·관리자 이동 (격리 데이터)
-        if: steps.schema-mode.outputs.canonical == 'true'
+        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true')
         run: |
           BASE_URL=http://localhost:4174 node scripts/ops/desktop-header-check.mjs
           BASE_URL=http://localhost:4174 node scripts/ops/admin-navigation-check.mjs
       - name: HEAD 격리 canonical 검사 근거 보존 (운영 검증 아님)
-        if: always() && steps.schema-mode.outputs.canonical == 'true'
+        if: always() && steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: prerelease-head-canonical-proof-${{ github.sha }}
