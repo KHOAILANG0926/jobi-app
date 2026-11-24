@@ -4,6 +4,12 @@
 - 검증 [직접 확인]: 로컬 PostgreSQL 16 fixture→setup→migration→local→production_check 통과, autoLocationResolver·googleQuotaCache·locationPrecheck·location-hook 시험·crawler test_ingest_gateway·tsc 통과, dry-run SQL은 run-sql-plan 검증 + 시험 DB 실행.
 - 남은 것: A 병합·운영 적용 뒤 Lee가 ops-run-sql(name=location-keep-recovery-preview)로 dry-run 실행 → 결과 보고. 복구 migration은 대표 승인 뒤 별도.
 
+## 2026-11-24 — 3순위 2차: DB 변경 PR의 격리 DB 전후 대조 (기존 migration-postgres 재사용)
+- 변경: scripts/ci/public-location-snapshot.sql(읽기만)·public-location-diff.sh(+시험)를 check-postgres-migrations.sh의 migration 적용 전후에 연결, pr-checks 시험 1단계, 규칙 문서 3개 현재 구현 줄, 계획 문서 3·4절.
+- 화면 연결(Lee 11-24): 적용 뒤 결과를 JSON으로 내 기존 격리 핀 검사(location-canonical-browser-fixtures, LOCATION_FIXTURE_DIR)에 넣음 — 공개 위치 응답(HEAD api 처리 코드)→메인 지도 점별 핀→상세→PC·모바일. migration-postgres 잡에서 결과가 있을 때만 빌드·실행.
+- 화면 연결 검증 [직접 확인]: #999 → 공개 3건·핀 3개 PC·모바일 통과, 합성 0·1·여러 곳 그대로 통과, #1002 → 차이 6줄·화면 대상 0건(시험 공고 비공개).
+- 검증 [직접 확인]: 로컬 PostgreSQL 16에서 #999 전환 migration 재적용 → 차이 6줄(#5992 위치 글자, 1776·1800 → 보류함) = 운영 결과와 같음, 판정 시험(변화 없음·조용히 잃음·보류함·비공개) 통과.
+
 ## 2026-11-24 — 3순위 1차: 변경 영향 범위로 기존 화면 검사 고르기 (병합은 2순위 운영 검증 뒤)
 - 변경: scripts/ci/change-impact.mjs(+시험), app-screen-check(BASE 판정기로 screen·map·menu, 브랜치 이름 조건 대체), pr-checks 시험 1단계, 규칙 문서 3개 현재 구현 줄, 계획 문서.
 - 위치 영향 PR: 실제 공고 지도 요약(map-summary-check)은 PR 빌드에 지도 열쇠가 없어 안 그려짐(첫 실행 실패로 확인) → 이관 PR용 기존 HEAD 격리 핀 검사(location-canonical-browser-fixtures)를 재사용, 실제 공고 대조는 병합 뒤 deploy-verify 그대로. 이 격리 검사는 11-21 스타일 사본 도입 뒤 가짜 응답(JSON)을 그림으로 읽어 지도 실패로 넘어가 묶음 핀 선택이 깨져 있었음(첫 실행 실패·로컬 재현) → 그림 요청만 빈 1×1 그림으로 주게 고침, 로컬 PC·모바일 0·1·여러 곳 통과.
