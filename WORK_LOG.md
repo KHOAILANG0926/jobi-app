@@ -1,3 +1,8 @@
+## 2026-11-24 — 2순위 다중 지점 공고 전환 최종 확인(운영 적용 뒤 대조, 코드·DB 변경 없음)
+- 요청: #999 병합·운영 적용 뒤 #4825·#5992·#5994 실제 결과를 dry-run 예상(계획 문서 7절)과 대조, 원본 보존·보류함·공개 상태·지도 핀 확인.
+- 결과 [직접 확인]: migrations-apply 45320415496 NOTICE — #4825 그대로, #5992 줄 1776→보류함·위치 글자 맞춤, #5994 줄 1800→보류함(위치 글자는 이미 남는 지점과 같아 그대로) / 같은 실행의 multi_branch_conversion_production_check 통과(보류 지점마다 원래 줄 이력 1개·위치 글자 일치) / /api/map-locations: 5992=줄 1798, 5994=줄 1778 핀 1개씩, 4825 없음 / 상세 sb-4825=404(비공개 유지), sb-5992·5994=200, 상세 주소 5992 148 Trần Phú·5994 Số 37 Lý Thái Tổ. 예상과 다른 점 0.
+- 남은 것(2순위 범위 밖): 보류함 두 지점은 다음 보류 다시 확인(retry_held) 때 기존 위치 정책대로.
+
 ## 2026-11-24 — 2순위 다중 지점 공고 전환 migration(승인용, 운영 적용 전)
 - 요청: dry-run(45314812701) 뒤 Lee 확정 기준 5개로 승인용 PR.
 - 변경: supabase/migrations/20261124120000_multi_branch_conversion.sql, supabase/tests/multi_branch_conversion.{setup,local}.sql·_production_check.sql, 계획 문서 6·7절, HANDOFF.
@@ -50,9 +55,3 @@
 - DB PR(별도 Draft): deactivate_expired_jobs 만료 기준 = 베트남 날짜(함수 한 개 교체, 되돌리기 = 이전 본문 복원 migration).
 - 1-C(별도 Draft PR #972, Lee 승인): Facebook이 DB 규칙(job_rule_R*·정책 제외)으로 거부된 공고의 원문·출처·규칙 코드·사유를 기존 보류함에 rejected(종결, 자동 재시도 없음)로 보존 — crawler/ingest_gateway.py 포장(hold=True)만 변경. 보관 실패는 HoldStoreError → JOB_ERRORS → '본 글' 기록 안 됨. hold=False(TopCV·vieclam24h)·관리자·고용주 위치·DB ingest_job·공개 정책 변경 없음. 세 PR의 작업 기록은 이 PR에만 둠(병합 충돌 방지).
 - 남은 결정·운영 확인 보류: 이슈 #973.
-
-## 2026-11-22 — 크롤링 정상화 1번 그룹(Lee PR #958 최종 지시): 수집·인식·제외 규칙, 미리 보기 → 선택 저장 연결 (Draft, 2~4번 그룹은 별도 Draft로 분리)
-- 실제 원인 [직접 확인]: ① 연락처 미기재가 FINAL(영구 제외, missing_required) ② not_job·office 사전 거름이 정상 구인 글을 영구 제외 — "Quán trả 8 triệu…"처럼 보수 문구가 든 구인 글(not_job), 본문에 kỹ sư·trưởng phòng을 언급한 공장 모집글(office) ③ 파서 예외가 `evaluate_post` 밖으로 나가 글 한 건에 가두지 못함 ④ 선택 저장(`save_selected_from_dryrun`)이 `is_ambiguous_job`만 직접 써서 일반 수집과 판정이 다르고, 미리 보기 아티팩트에는 review 후보가 없어 보류함에 보관 불가, 아티팩트 없음·고른 글 없음이 조용히 성공(종료 0)이었음.
-- 변경: crawler/crawl_facebook.py(판정 네 갈래 정상/인식 실패 review/명백한 제외+근거 기록/파서·수집기 오류 parser_error→JOB_ERRORS · 연락처 없음 → review · not_job 약한 근거(보수 문구)는 직무 낱말 없을 때만·모집 인원 문구 구인 인정 · office는 모집 직무 줄(앞 두 줄)의 낱말+직무 낱말 없을 때만 · early_verdict·judge_read 공용(evaluate_post·judge_text) · evaluate_post_isolated · hold_review_posts(보관 성공 뒤에만 '본 글') · dry-run 아티팩트 review_jobs · 선택 저장: 정상=등록 / review=보류함 보관(성공 확인 뒤에만 완료) / 명백한 제외=종결 / 오류·만료·없는 키=미완료(종료 1), 본 글 기록 안 만듦) · crawler/ingest_gateway.py(REVIEW_STATUS 상태 값만) · 결정 문서(CLAUDE.md·RULES_CORE) 한 줄: 연락처 미기재=review 결정 기록(Lee 11-22, check-repository-policy가 정답 파일 변경 근거로 읽는 정식 기록).
-- 검증 [직접 확인]: 수정 전(3742c14 기준) 새 시험 20건 실패·오류 → 수정 후 통과. 운영 DB·수집·병합 없음. 실제 GitHub dryrun→save는 아직 실행·검증하지 않음.
-- 분리: 보류함 재판정·오류 줄 처리·`--retry-held`·workflow 변경·crawl-guard(2~4번 그룹)는 `claude/crawl-group2-4-preserved` Draft PR에 그대로 보존(유실 없음).
