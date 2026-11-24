@@ -1,3 +1,9 @@
+## 2026-11-24 — 지도 W4a(1차): vieclam24h 다시 수집도 표기만 다른 주소로 확정 좌표를 지우지 않게
+- 원인 [직접 확인 — 코드]: vieclam24h 다시 수집은 location을 바뀐 칸으로 고친다(UPDATE_TRACKED_FIELDS) → W4b와 같은 DB 트리거 invalidate 경로.
+- 변경: crawl_topcv._keep_confirmed_location_text — Facebook과 같은 판정 한 곳(pin_guard.keeps_confirmed_location)으로 같은 지점·확정 줄이면 location 칸만 고칠 칸에서 뺌. DB 변경 없음, 기존 보호(merge_protected_work_locations) 그대로.
+- 하지 않은 것(보고 대상): '다시 수집 근무지 쓰기를 ingest_job 경유로 통일'은 입구가 호출마다 원문 전체를 job_ingest_raw에 새 줄로 남겨(open_raw) 바뀐 것 없는 다시 수집까지 저장량이 늘어난다 — 같은 DB 함수(replace_job_work_locations)를 이미 쓰고 있어 이득은 한 트랜잭션뿐. Lee 판단 전까지 현행 유지.
+- 검증 [직접 확인]: test_job_error_isolation 89건 통과(새 3건은 수정 전 실패). W3a #1007·W4b #1008은 병합·deploy-verify 성공(45384560861·45386872801).
+
 ## 2026-11-24 — 지도 W4b: Facebook 다시 수집이 표기만 다른 주소로 확정 좌표를 지우지 않게
 - 원인 [직접 확인 — 코드]: 공고 location 글자가 바뀌면 DB 트리거 location_private.job_identity_changed가 그 글자의 근무지 줄을 invalidate(확정 좌표 포함, 확정 보호를 거치지 않음)한다. Facebook 다시 수집은 원문에서 다시 읽은 주소로 location을 고치므로 표기(지역 덧붙임)만 달라도 확정 좌표가 지워진다 — #1002 A(쓰기 함수 줄 찾기)가 막지 못하는 경로.
 - 변경: crawler/pin_guard.keeps_confirmed_location(같은 지점 조건은 DB 쓰기 함수와 같게: 낱말 단위 앞부분 + 짧은 쪽 번지 숫자, 그 글자의 줄이 확정 좌표일 때만) + refresh_facebook_existing이 그 경우 location 칸을 고치지 않음. DB 변경 없음. 다른 지점·이전·확정 아님은 예전 동작.
