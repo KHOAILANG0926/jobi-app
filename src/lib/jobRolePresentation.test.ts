@@ -67,3 +67,21 @@ console.log('jobRolePresentation #5247 numbered role headings passed')
   assert(!isRoleHeading('TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH') && !isRoleHeading('Nhân viên phục vụ'), 'title line and normal-case text are not role headings')
   console.log('jobRolePresentation: caps role headings (Joy Thái form) pass')
 }
+
+// 2026-11-24 R #872(운영 공고 6337 원문 그대로): 직무 제목 줄 없이 "인원 + 직무 : 금액" 줄로 직무 4개 — 같은 여러 직무 표시(상단 Theo vị trí·직무별 급여)를 쓴다.
+{
+  const { roleSalaryRows, roleAmountLine } = await import('./jobRolePresentation.ts')
+  const post = 'MỲ CAY YAGAMI ĐANG TUYỂN NHÂN VIÊN \n VỊ TRÍ: \n 3 Nam & Nữ Phục Vụ : 7tr5~ 12tr \n 2 Nữ oder : 8tr~11tr + tip\n 1 Nam Làm Bếp : 8tr5 ~ 14tr\n 2 Cô Tạp Vụ : 7 - 8tr\n+500k phụ cấp\nHỖ TRỢ ĂN Ở ( phòng riêng,đầy đủ điều hòa nóng lạnh)\nĐịa chỉ : Lê Đức Thọ - Nam Từ Liêm - Hà Nội\nSdt: 0833.210.308'
+  const d = buildDescriptionFromSources([{ name: 'source_text', text: post }], {}).description
+  const sum = roleConditionSummary(d)
+  assert(sum?.roleCount === 4 && sum.salary === 'Theo từng vị trí (4 vị trí) — xem chi tiết', 'inline role lines → multi-role summary: ' + JSON.stringify(sum))
+  assert(sum?.numHires === 'Nam & nữ phục vụ: 3 người; nữ oder: 2 người; nam làm bếp: 1 người; tạp vụ: 2 người', 'per-role hire counts from source (not summed): ' + sum?.numHires)
+  assert(JSON.stringify(roleSalaryLines(d)) === JSON.stringify(['Nam & nữ phục vụ: 7tr5~ 12tr', 'Nữ oder: 8tr~11tr + tip', 'Nam làm bếp: 8tr5 ~ 14tr', 'Tạp vụ: 7 - 8tr']), 'card role lines: ' + JSON.stringify(roleSalaryLines(d)))
+  assert(roleSalaryRows(d).map((r) => `${r.label}|${r.amount}`).join(' / ') === 'Nam & nữ phục vụ|7tr5~ 12tr / Nữ oder|8tr~11tr + tip / Nam làm bếp|8tr5 ~ 14tr / Tạp vụ|7 - 8tr', 'detail role rows: ' + JSON.stringify(roleSalaryRows(d)))
+  // 상세요강 묶음 표시(승인된 틀)는 그대로 — 이 줄들을 직무 묶음으로 바꾸지 않는다
+  assert(descriptionRoleGroups(detailSections(d, {}).sections).every((s) => s.groups.every((g) => !g.role)), 'description grouping unchanged (no inline role groups)')
+  // 교대·기간 낱말과 직무 하나뿐인 줄은 여러 직무가 아니다
+  assert(!roleAmountLine('1 ca : 300k') && !roleAmountLine('2 tháng : 8tr') && roleConditionSummary('1 ca : 300k\n2 ca : 600k') === null, 'shift/period words are not roles')
+  assert(roleConditionSummary('3 Nam & Nữ Phục Vụ : 7tr5~ 12tr\nSdt: 0833.210.308') === null, 'single inline role is not multi-role')
+  console.log('jobRolePresentation: inline count + role : amount lines (6337) pass')
+}

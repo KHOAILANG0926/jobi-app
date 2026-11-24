@@ -62,9 +62,12 @@ eq(s('Tuyển công nhân\nTiền lương làm thêm tăng ca 30.000đ/giờ'), 
 console.log('salaryReader: all assertions passed')
 
 // 2026-11-24 R #872(운영 공고 6337 원문 그대로): "7tr5"(= 7,5 triệu) 소수 표기를 금액 중간("5~ 12tr")부터 읽지 않는다.
-eq(s('MỲ CAY YAGAMI ĐANG TUYỂN NHÂN VIÊN \n VỊ TRÍ: \n 3 Nam & Nữ Phục Vụ : 7tr5~ 12tr \n 2 Nữ oder : 8tr~11tr + tip\n 1 Nam Làm Bếp : 8tr5 ~ 14tr\n 2 Cô Tạp Vụ : 7 - 8tr')?.salary, '7tr5~ 12tr', '#6337: tr 뒤 소수 표기를 금액 처음부터 읽음')
+eq(s('MỲ CAY YAGAMI ĐANG TUYỂN NHÂN VIÊN \n VỊ TRÍ: \n 3 Nam & Nữ Phục Vụ : 7tr5~ 12tr \n 2 Nữ oder : 8tr~11tr + tip\n 1 Nam Làm Bếp : 8tr5 ~ 14tr\n 2 Cô Tạp Vụ : 7 - 8tr')?.salary, 'Theo vị trí — xem chi tiết', '#6337: 원문 전체는 직무 4개 — 여러 직무(소수 표기 자체는 아래 직무 하나 사례)')
 eq(s('Lương 8tr5 ~ 14tr')?.salary, '8tr5 ~ 14tr', 'tr 소수 표기 범위')
 eq(s('Lương 8tr~11tr')?.salary, '8tr~11tr', '양쪽 단위 범위')
 eq(s('Lương 7 - 8tr')?.salary, '7 - 8tr', '왼쪽 단위 없는 범위(기존)')
 eq(s('Lương từ 9tr5')?.salary, 'từ 9tr5', 'từ + tr 소수 표기')
 console.log('salaryReader: tr 소수 표기(7tr5·8tr5) 통과')
+// 2026-11-24 R #872(#6337): 직무 제목 없이 인원 + 직무 : 금액 줄이 직무 2개 이상이면 상단은 여러 직무(Theo vị trí), 직무 하나·교대 낱말은 아님.
+eq(s('Tuyển gấp\n3 Nam & Nữ Phục Vụ : 7tr5~ 12tr')?.salary, '7tr5~ 12tr', '#6337 직무 하나: tr 뒤 소수 표기를 금액 처음부터 읽음')
+eq(s('Tuyển công nhân\n1 ca : 300k\n2 ca : 600k')?.salary === 'Theo vị trí — xem chi tiết', false, '교대 낱말은 직무가 아님')

@@ -10,6 +10,7 @@
 import { salaryFromSource, type SourceSalary } from './sourceSalary.ts'
 import { cleanSourceText } from './jobDescriptionBuild.ts'
 import { bare } from './jobDetailSections.ts'
+import { roleAmountLine } from './jobRolePresentation.ts'
 
 /** 포스터 사진 글자에서 급여 금액만 원문 그대로 고른다(주소·전화번호에서 추정하지 않음). */
 export function posterSalaryEvidence(text: string | null | undefined): string[] {
@@ -87,6 +88,9 @@ export function readSalary(sourceText: string | null | undefined, ocrText?: stri
   const all = cleanSourceText(sourceText).text.normalize('NFC').split('\n').map((l) => l.trim()).filter(Boolean)
   const roleLines = perRoleSalaryLines(all)
   if (roleLines.length >= 2) return { salary: MULTI_ROLE_SALARY, period: null, evidence: roleLines }
+  // 2026-11-24 R #872(#6337): 직무 제목 없이 "3 Nam & Nữ Phục Vụ : 7tr5~ 12tr"처럼 인원 + 직무 : 금액 줄이 서로 다른 직무로 2개 이상이어도 여러 직무(같은 판정 roleAmountLine).
+  const inlineRoles = all.filter((l) => roleAmountLine(l))
+  if (new Set(inlineRoles.map((l) => roleAmountLine(l)!.role)).size >= 2) return { salary: MULTI_ROLE_SALARY, period: null, evidence: inlineRoles }
   const labeled = salaryFromSource(sourceText)
   if (labeled) return labeled
   const lines = cleanSourceText(sourceText).text.normalize('NFC').split('\n').map((l) => l.trim()).filter(Boolean)

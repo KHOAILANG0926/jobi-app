@@ -1,3 +1,10 @@
+## 2026-11-24 — 여러 직무 판정이 '인원 + 직무 : 금액' 줄을 인식(6337) + W7 위치 다시 확인 migration
+- 요청(Lee): 기존 여러 직무 판정 함수 보완(인원 + 직무 + 급여 형태 인식, 기존 Theo vị trí·직무별 급여 표시 재사용) / W7은 조회 결과 확인 뒤 기존 복구 절차.
+- 여러 직무: 판정 한 곳 roleAmountLine(jobRolePresentation)을 급여 읽기(readSalary → 상단 "Theo vị trí — xem chi tiết")와 표시(roleConditionSummary·roleSalaryLines·roleSalaryRows — 상세 머리·근무조건 직무|금액·메인 카드)가 같이 쓴다. 직무 제목 줄이 2개 이상이면 기존 그대로, 아니면 인원 + 직무 : 금액 줄이 서로 다른 직무 2개 이상일 때. 모집인원은 원문 직무별 인원(합치지 않음). 상세요강 묶음 표시(승인된 틀)는 그대로. 교대·기간 낱말은 직무 아님.
+- W7 [직접 확인 — Lee 실행 45438989778]: 되돌릴 후보 #6309의 잃기 전 좌표 근거는 다른 회사(Goong 주소 검색 결과 "Công ty S&S MED VINA") → 되돌리지 않음. #6043 전체 주소 = 끝의 성 이름만 빠짐, 줄에 저장된 행정구역이 없어 W6 규칙으로는 같은 사업장 판정 안 함 → 위치 찾기 다시. 확정 없는 공개 공고 6건(#5599·#5876·#5993·#6043·#6255·#6309) 모두 Google/Goong 같은 이름 결과가 대략으로 저장돼 있음 → migration 20261124160000_location_w7_recheck가 규칙으로 고른 공고에 기존 위치 찾기를 다시 부름(20261112020000과 같은 방식). 보류 19건은 대상 아님.
+- 검증 [직접 확인]: npm test 126/126, tsc·build, 로컬 폐기용 PostgreSQL에서 migration 시험 적용 전 실패 → 적용 뒤 통과.
+- 미완료: 교정 실행·대표 Approve·운영 적용·6건 결과 확인, 6337 다시 판정·화면 대조, W4·W6 실제 다시 수집 실증.
+
 ## 2026-11-24 — R #872: 급여 읽기가 "7tr5"(7,5 triệu) 소수 표기를 금액 중간("5~ 12tr")부터 읽던 것 수정
 - 근거 [직접 확인 — OCR 대조 45417524853 화면 대조]: 6337 상단 급여 "5~ 12tr"(원문 "3 Nam & Nữ Phục Vụ : 7tr5~ 12tr") — 판정 불명확(5.000.000이 원문에 없음).
 - 원인 [직접 확인 — 재현]: salaryReader의 이름표 없는 금액 규칙(UNLABELED)이 'tr' 뒤 소수 자리를 몰랐고, 금액을 숫자 낱말 처음부터 읽지 않았다. 이름표 있는 줄("Lương: 7tr5 - 12tr")은 원래 맞게 읽었다.
@@ -58,9 +65,3 @@
 - 변경: crawl_topcv 다시 수집이 바뀐 칸 + 근무지 줄을 ingest_job 한 번(한 트랜잭션)으로 보냄(_recollect_rows_for_entry). 근무지 줄이 지금 DB와 실제로 다를 때만 부름(_work_locations_changed — 주소 열쇠 집합·미확정 줄의 좌표·주소 정확도·모집지역, 확정 줄 좌표는 DB가 지키므로 변화로 세지 않음) → 바뀐 것 없는 다시 수집은 입구를 부르지 않아 job_ingest_raw가 늘지 않는다. 기존 규칙(일시 오류 시 보류·이 지점 줄만·사람 확인 줄 다시 넣기 merge_protected_work_locations) 그대로, DB 변경 없음. 새 공고의 등록 뒤 근무지 쓰기(_replace_job_work_locations)는 그대로.
 - 검증 [직접 확인]: test_job_error_isolation 93건 통과(새 4건 + 기존 다시 수집 시험이 입구 경로로 통과), CI 밖 통합 시험 test_address_pipeline_integration은 수정 전과 같은 53개 통과 뒤 같은 기존 실패(무관한 fetchJobsData 단언)에서 멈춤.
 - 기록(누락 방지): W3b 미착수(지도 처리 failed 영구 건너뜀 기준 — DB 함수, W4 잔여 뒤 W6 사전 보고와 함께) / W6 사전 보고 준비(트리거 invalidate·번지 없는 공단 주소) / W7 범위 유지 / #1008·#1009·이 PR의 운영 다시 수집 검증 미완료 / W4 완료 시 R 1단계 충돌 확인, #6337 원인은 원문 재현 전 미확정.
-
-## 2026-11-24 — 지도 W4a(1차): vieclam24h 다시 수집도 표기만 다른 주소로 확정 좌표를 지우지 않게
-- 원인 [직접 확인 — 코드]: vieclam24h 다시 수집은 location을 바뀐 칸으로 고친다(UPDATE_TRACKED_FIELDS) → W4b와 같은 DB 트리거 invalidate 경로.
-- 변경: crawl_topcv._keep_confirmed_location_text — Facebook과 같은 판정 한 곳(pin_guard.keeps_confirmed_location)으로 같은 지점·확정 줄이면 location 칸만 고칠 칸에서 뺌. DB 변경 없음, 기존 보호(merge_protected_work_locations) 그대로.
-- 하지 않은 것(보고 대상): '다시 수집 근무지 쓰기를 ingest_job 경유로 통일'은 입구가 호출마다 원문 전체를 job_ingest_raw에 새 줄로 남겨(open_raw) 바뀐 것 없는 다시 수집까지 저장량이 늘어난다 — 같은 DB 함수(replace_job_work_locations)를 이미 쓰고 있어 이득은 한 트랜잭션뿐. Lee 판단 전까지 현행 유지.
-- 검증 [직접 확인]: test_job_error_isolation 89건 통과(새 3건은 수정 전 실패). W3a #1007·W4b #1008은 병합·deploy-verify 성공(45384560861·45386872801).
