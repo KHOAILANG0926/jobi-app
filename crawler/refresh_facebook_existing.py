@@ -9,7 +9,7 @@ import re
 import unicodedata
 from crawl_facebook import is_facebook_row, parse_post, supabase
 import ingest_gateway
-from pin_guard import keeps_confirmed_location, merge_store_rows, other_stores
+from pin_guard import keeps_branch_location, keeps_confirmed_location, merge_store_rows, other_stores
 from ingest_gateway import ingest_job
 
 # 급여는 다시 수집이 쓰지 않는다(2026-11-01 Lee "읽는 규칙을 하나로" — src/lib/salaryReader.ts 한 곳).
@@ -68,7 +68,7 @@ def refresh_existing(job_id: int):
     # 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 새 공고와 같은 위치 확인으로 '찾은 매장'을 더한다(못 찾은 매장은 안 넣음, 절대 원칙).
     # 기존 근무지 줄은 그대로 둔다(Codex #705): DB 입구는 받은 목록으로 근무지를 바꾸고 빠진 줄은 지우므로, 기존 줄을 앞에 넣고
     # 새로 찾은 매장만 뒤에 붙인다. 확인 실패면 예전 동작(위치 글자만).
-    rows, siblings = [], []
+    rows, siblings, kept_branch = [], [], False
     try:
         verdict = ingest_gateway.PRECHECK({"company": parsed.get("company") or "", "location": "", "source_text": text}) or {}
         found = [str(x).strip() for x in (verdict.get("stores") or []) if str(x).strip()][:5]
@@ -87,11 +87,16 @@ def refresh_existing(job_id: int):
                 else:
                     others = other_stores(existing, found)
                     siblings = others if len(others) < len(found) else []
+                    # 이 공고가 이번 글의 다른 지점이면(줄이 첫 매장이 아닌 매장과 같음) 위치 글자를 첫 매장 주소로 바꾸지 않는다(pin_guard.keeps_branch_location).
+                    if keeps_branch_location(existing, found, parsed["location"]):
+                        kept_branch, parsed["location"] = True, ""
     except Exception as exc:  # 위치 확인 서버 오류로 다시 처리를 막지 않는다(예전 동작 그대로)
         print(f"store precheck skipped: {type(exc).__name__}")
     fields = refresh_fields(parsed)
     if "location" not in fields:
-        print("same branch, address notation differs: confirmed location kept" if kept_confirmed else "source has no readable address: existing location kept")
+        print("same branch, address notation differs: confirmed location kept" if kept_confirmed
+              else "this job is another branch of the post: branch location kept" if kept_branch
+              else "source has no readable address: existing location kept")
     # Source text is preserved. No user-written field value is applied.
     payload = {
         "channel": "crawler_facebook",

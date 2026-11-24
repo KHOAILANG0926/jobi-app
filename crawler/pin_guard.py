@@ -73,6 +73,19 @@ def other_stores(existing, found):
     return [a for a in found if _key(a) and not any(_same(_key(a), h) for h in have)]
 
 
+def keeps_branch_location(existing, found, new_location):
+    """다시 처리에서 위치 글자를 원문의 다른 지점 주소로 바꾸지 않을지(지점별 독립 공고, Lee 2026-11-23 — 같은 글의 다른 지점을 서로의 갱신 대상으로 보지 않는다).
+    원문 위치 글자(new_location)는 글의 첫 매장이다. 이 공고가 지점 하나(existing 1줄)만 가지고 그 줄이 이번 글의 한 매장(found)과 같은데
+    new_location이 그 줄과 다른 매장이면 이 공고는 다른 지점이다 — 위치 글자를 바꾸면 DB가 이 지점의 확정 좌표를 지운다(2026-11-24 운영 #5992:
+    148 Trần Phú 지점 공고가 첫 매장 152 Trần Hưng Đạo로 바뀌어 pin_lost). 같은 매장 판정은 other_stores와 같은 규칙(_same)."""
+    rows = existing or []
+    if len(rows) != 1 or not new_location or not found:
+        return False
+    if len(other_stores(rows, found)) == len(found):
+        return False  # 이 공고 줄이 이번 글의 어느 매장과도 안 맞음 — 어느 지점인지 모름(기존 동작)
+    return bool(other_stores(rows, [new_location]))
+
+
 def merge_store_rows(existing, found):
     """기존 근무지 줄 + 위치 확인이 찾은 매장 → DB로 보낼 근무지 줄(바꿀 게 없으면 []).
     실제 공고(KRIK 5992·MediaMart 5994)로 test_refresh_store_rows.py에서 먼저 돌려 본다(2026-11-12).

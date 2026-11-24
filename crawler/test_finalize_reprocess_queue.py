@@ -250,3 +250,15 @@ assert not _keep(_old, "152 Trần Hưng Đạo", [{"raw_address": _old, "lat": 
 assert not _keep(_old, "152 Trần Hưng Đạo", []) and not _keep(_old, _old, _conf), "줄 없음·같은 글자"
 print("finalize_reprocess_queue: W4b 표기만 다른 주소의 확정 좌표 보존 판정 시험 통과")
 
+# 지점별 독립 공고(Lee 2026-11-23): 다시 처리가 이 공고(지점 하나)의 위치 글자를 원문의 다른 지점(첫 매장) 주소로 바꾸지 않게(pin_guard.keeps_branch_location).
+# 운영 #5992(2026-11-24 18:20 다시 처리 pin_lost): 148 Trần Phú 지점 공고가 원문 첫 매장 152 Trần Hưng Đạo로 바뀌어 확정 좌표를 잃었다.
+_branch = f.pin_guard.keeps_branch_location
+_krik = [{"raw_address": "148 Trần Phú, Từ Sơn, Bắc Ninh", "lat": 21.118684128, "lng": 105.960786663, "location_verified": True}]
+_found = ["152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh", "148 Trần Phú, Từ Sơn, Bắc Ninh"]
+assert _branch(_krik, _found, "152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh"), "#5992: 이 공고는 둘째 매장 지점 — 첫 매장 주소로 바꾸지 않음"
+assert not _branch([{"raw_address": _found[0]}], _found, _found[0]), "이 공고가 첫 매장 지점이면 예전 동작"
+assert not _branch(_krik, ["99 Lý Thái Tổ, Bắc Ninh"], "99 Lý Thái Tổ, Bắc Ninh"), "이 공고 줄이 글의 어느 매장과도 안 맞으면 예전 동작(어느 지점인지 모름)"
+assert not _branch(_krik + [{"raw_address": "Số 37 Lý Thái Tổ"}], _found, _found[0]), "여러 줄을 가진 전환 전 공고는 예전 방식(merge_store_rows)"
+assert not _branch(_krik, _found, "") and not _branch(_krik, [], _found[0]), "위치 글자 없음·매장 확인 실패 = 예전 동작"
+print("finalize_reprocess_queue: 지점별 공고의 다른 지점 주소 덮어쓰기 방지 시험 통과")
+
