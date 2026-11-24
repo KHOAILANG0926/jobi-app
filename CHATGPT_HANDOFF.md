@@ -1,11 +1,11 @@
 # HANDOFF — 2026-11-24 (Claude) · 확정 순위와 2순위(기존 다중 지점 공고 전환) dry-run 준비
 ## 1. 현재 상태
 - 대표 확정 순위(Lee 2026-11-24): **1순위** 자동 병합 실패 복구·기존 ai-team 작업 큐 연결 — 완료(#995·#996 병합, 운영 검사 45305371229 성공 → 작업 큐 45305670499 → #940 착수 45305695231). **2순위** 기존 운영 DB 다중 지점 공고 전환(규칙·PR·구현 확인 → 전수 집계 → 원본·이력 보존 → 중복 전환 방지·복구 확인 → dry-run·전후 샘플 대조 → 결과·대상 건수 보고 → 대표 승인 후 실제 전환). **3순위** 격리 Preview 데이터·화면 차등 검증(기존 1~11단계 기준을 변경 영향 범위에 따라 적용).
-- 2순위 진행: 계획 `docs/plans/2026-11-24-multi-branch-conversion.md`, 읽기 전용 dry-run `scripts/ops/jobs/multi-branch-conversion-preview.sql`(기존 ops-run-sql, Lee 계정 수동). 운영 변경 0회.
+- 2순위 진행: dry-run 45314812701(대상 3건) → Lee 확정 기준 5개 → 전환 migration `20261124120000_multi_branch_conversion`(확정 지점 유지·나머지는 위치 보류함·#4825류 그대로) 승인용 PR. 운영 변경 0회(Lee Approve 전).
 - R 트랙(#940·#872): 수집·저장 성공(45105178271, 공고 6337), 게시는 빈 이름표 'VỊ TRÍ:'로 비공개 보류 — 같은 유형 전체를 R 트랙에서 근본 해결(개별 수정 안 함). 최종 완료 조건 = 실제 수집·저장·게시·운영 화면 대조.
 ## 2. 다음 할 일 3개
-1. Lee: ops-run-sql `name=multi-branch-conversion-preview` 실행 → 결과로 전환 대상 건수 확정·보고.
-2. dry-run 결과 확인 뒤 전환 migration + production_check + 되돌리기 시험(같은 PR) → Lee Approve → 봇 병합 → migrations-apply.
+1. Lee: 전환 PR Approve → 봇 병합 → migrations-apply·production_check 결과 확인.
+2. 보류함 두 지점은 다음 보류 다시 확인(수집 실행) 때 기존 정책대로 처리 — 결과 확인.
 3. 3순위(격리 Preview 차등 검증)는 2순위 완료 뒤.
 ## 3. 필수 규칙
 - CLAUDE.md·.claude/RULES_CORE.md 먼저(「지점별 독립 공고」「위치 확인 우선순위」「지도 위치 절대 원칙」「운영 DB 직접 접근 금지」「자율 완주 및 승인 게이트 원칙」). 확인한 것만 [직접 확인]/[기존 기록]/[추정].

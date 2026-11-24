@@ -20,7 +20,9 @@
 4. 기록: 원래 공고의 `source_text`·`source_url`은 그대로. 새 공고는 입구 원문 보관(`job_ingest_raw`)에 남는다.
 
 ## 3. 복구
-- 되돌리기 migration: `write_log`의 (원래 공고 delete ↔ 새 공고 upsert) 짝으로 줄을 원래 공고에 다시 쓰고(`retained_rows`의 원래 줄), 새 공고는 비공개·관리자 숨김(데이터 삭제 금지 규칙). 전환 migration과 같은 PR에 시험으로 묶는다.
+- 되돌리기 SQL: `supabase/pending/20261124_multi_branch_conversion_revert.sql`(대기 — 쓸 때 대표 승인 뒤 migrations/로 옮겨 정상 경로로 적용). 보류함 meta(from_job_id·work_location_id·from_location)로 `retained_rows`의 원래 줄을 같은 쓰기 함수(write_location 'upsert')로 원래 공고에 다시 쓰고, 위치 글자는 정식 입구로 되돌리고, 보류함 줄은 지우지 않고 rejected/conversion_reverted로 닫는다. 이미 새 공고로 등록된 지점이 있으면 자동 되돌리기를 멈춘다(대표 판단).
+- 시험 DB에서 실제로 되돌려 원래 줄(주소·순서·좌표·위치 근거·정확도)과 위치 글자가 모두 돌아오는 것을 확인한다(운영 본문 그대로의 write_location 사용).
+- dry-run 뒤 변경 시 중단: 전환 직전 대상 계획(공고·줄 번호·위치 근거·공개 상태·처리)과 대상 공고의 지원·대화·면접·위치 후보 건수를 다시 계산해 dry-run과 다르면 전체 취소.
 
 ## 4. 실행 순서
 1. **dry-run(지금)**: `scripts/ops/jobs/multi-branch-conversion-preview.sql` — 읽기 전용(run-sql-plan이 처음부터 `set transaction read only`). 실행은 기존 `ops-run-sql.yml`(master, Lee 계정 수동, `name=multi-branch-conversion-preview`). 출력: 전체·대상 건수, 지점별 위치 근거 분포, 대상 공고·지점마다 전환 전→후(기존 번호 유지 / 새 독립 공고 / 이미 있는 같은 지점 공고), 대상 공고에 걸린 지원·대화·면접·위치 후보 건수.
@@ -30,3 +32,17 @@
 ## 5. 검증한 것 / 못 한 것
 - [직접 확인] 미리 보기 SQL: `run-sql-plan` 통과(허용 문장만), 로컬 폐기용 PostgreSQL 16에서 합성 자료(지점 3곳·2곳·1곳, 이미 있는 같은 지점 공고 1건)로 실행 — 대상 2건·새 공고 3건·충돌 1건을 맞게 표시.
 - [미확인] 운영 실제 대상 건수 — 이 세션은 운영 DB 읽기 권한이 없다(직접 접근 금지 규칙). 위 1번 실행 결과로만 확인한다.
+
+## 6. dry-run 결과와 Lee 확정 기준 (2026-11-24)
+- [직접 확인] ops-run-sql 실행 45314812701(Lee 계정, 읽기 전용): 전체 38건, 다중 지점 3건(#4825 비공개 4곳 모두 위치 없음, #5992 공개 첫 지점 대략·둘째 확정, #5994 공개 첫 지점 확정·둘째 대략), 지원·대화·면접·위치 후보 0.
+- Lee 확정: ① 확정 위치 지점이 없는 공고(#4825)는 그대로(새 공고 없음, 원본·지점 보존) ② 확정 위치 지점을 기존 번호에 유지(#5992) ③ 나머지 지점은 기존 위치 검색·확정 정책 그대로(보류함 → 찾으면 같은 입구로 독립 공고, 못 찾으면 보류·원본 보존) ④ 검색 순서·확정 기준·재확인 정책 변경 없음 ⑤ 검증은 보존·중복 방지·복구 가능성만.
+- 위 2절의 "새 공고를 입구로 바로 만들기"는 ③으로 바뀌었다: 이 전환은 새 공고를 만들지 않고, 보류함(research_artifacts location-hold, status held)에 넣기만 한다. 다음 보류 다시 확인(crawler/ingest_gateway.retry_held — 수집 실행·retry_held 모드에서 돎)이 위치를 찾은 지점만 등록한다.
+- 구현: supabase/migrations/20261124120000_multi_branch_conversion.sql + supabase/tests/multi_branch_conversion.setup.sql·.local.sql·_production_check.sql.
+
+## 7. 예상 결과
+| 공고 | 기존 번호에 남는 지점 | 보류함으로 가는 지점(원본 보존) | 공고 위치 글자 |
+|---|---|---|---|
+| #4825(비공개) | 그대로 4곳 | 없음 | 그대로 |
+| #5992(공개) | 148 Trần Phú, Từ Sơn(확정 위치, 줄 1798) | 152 Trần Hưng Đạo(대략, 줄 1776) | 남는 지점 주소와 다르면 정식 입구로 맞춤 |
+| #5994(공개) | Số 37 Lý Thái Tổ(확정 위치, 줄 1778) | Trần Phú, Từ Sơn(대략, 줄 1800) | 남는 지점 주소와 다르면 정식 입구로 맞춤 |
+- 지금 생기는 새 공고 0건. 공개 화면의 지도 핀은 그대로(옮기는 두 지점은 대략 위치라 원래 핀이 아니었음).
