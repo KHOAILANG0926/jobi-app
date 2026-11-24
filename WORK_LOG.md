@@ -1,3 +1,10 @@
+## 2026-11-24 — 지도 W7 dry-run 준비 + #6337 원문 조회(읽기 전용 SQL 2개, 운영 데이터 변경 없음)
+- 요청(Lee): W7 dry-run 준비(W2 결과·ops-run-sql 재사용), W4·W6 재수집 실증·W7 복구 대상·#6337 원문 조회용 읽기 전용 실행을 함께 준비. 실제 복구는 결과 검토·승인 뒤.
+- 변경: scripts/ops/jobs/location-w7-recovery-preview.sql(W2 조회를 넓힘 — 무효화로 확정 좌표를 잃은 줄 분류·목록, 지워진 확정 줄을 지금 판정 same_site_address로 재분류, 확정 없는 공개 공고 줄, 보류함 상태, W3b 지도 처리 상태, 11-24 뒤 쓰기 기록의 확정 유지·잃음) / scripts/ops/jobs/read-job-6337-source.sql(원문·상세요강 글자, 원본 사이트 주소는 조회 안 함).
+- 검증 [직접 확인]: run-sql-plan 통과(읽기 전용 강제), 로컬 폐기용 PostgreSQL 16(운영 본문 함수 + W6 적용)에서 두 계획 모두 오류 없이 실행.
+- 완료: W6 #1013 대표 Approve → 병합 20ea3ce → migrations-apply 45404543388 → deploy-verify 45404883130 성공.
+- 미완료: 두 SQL의 운영 실행(Lee 계정 수동), 결과 검토, 복구 migration(승인 뒤), W4·W6 실제 다시 수집 실증, #6337 원인 확정.
+
 ## 2026-11-24 — 지도 W6: 같은 사업장의 확정 좌표는 주소·회사명 표기 변경으로 초기화하지 않음 (DB, 대표 Approve 대상)
 - 요청(Lee): 확정 출처와 관계없이 같은 사업장 확정 좌표 보호 / 단순 주소·회사명 표기 변경으로 초기화 금지 / 실제 이전·다른 지점은 기존 절차 / 번지 없는 공단 주소도 범위(공단명·행정구역 일치만으로 같은 사업장 판정 금지) / Google 확정 정책 변경 없음. W3b와 별도 PR.
 - 원인 [직접 확인 — 코드]: 트리거 job_identity_changed(20261026231445)가 공고 위치 글자가 바뀌면 그 줄을, 회사 이름이 조금이라도 바뀌면 모든 줄을 invalidate — 확정 줄 보호를 거치지 않는다. Facebook 다시 처리는 회사 이름도 고치는 칸이라 실제 자동 경로다.
@@ -52,9 +59,3 @@
 - 원인 [직접 확인 — 코드·실행 이력]: 승인 안내(github-actions[bot] 댓글)는 검사 통과 12~20초 뒤 발송됐지만(#1002: 05:26:03→05:26:23, 06:07:29→06:07:41) 본문에 멘션·직접 링크가 없었다. 운영 검사 성공 알림 경로는 없었고(다음 작업 큐 호출뿐), 실패 이슈는 중복 방지가 없어 고유 커밋 18개에 이슈 24건(같은 커밋 최대 3건).
 - 변경: decision-approval-gate.mjs(approvalLinks — 저장소 주인 멘션+Files/PR 직접 링크, 형식 틀리면 예전 문구)·bot-pr-automerge.yml(PR_NUMBER 한 줄), scripts/ci/deploy-notify.sh 신규 1개(success: 병합 PR에 완료 댓글 1번·Lee 승인 요청 PR만 멘션·같은 커밋 표시로 중복 방지 / failure: 같은 제목 열린 이슈 있으면 안 만듦·실패 단계·조치·멘션, 이슈 조회 실패는 누락 방지로 생성), deploy-verify.yml 두 단계를 이 스크립트 호출로 교체, 시험 deploy-notify.test.mjs·gate 시험 추가, pr-checks.yml 연결.
 - 검증 [직접 확인]: 신규 시험·기존 승인·병합 관련 시험 통과. 미확인: Lee 단말 수신(GitHub 알림 설정 의존), 실제 실패 알림(운영 실패를 일부러 만들지 않음 — 시험 대역으로만).
-
-## 2026-11-24 — 지도 정상화 A(확정 위치 유실 방지)·C(API 오류 구분) + B dry-run 준비 (운영 변경 없음)
-- 원인 [직접 확인]: write_location이 기존 줄을 admin_location_key 완전 일치로만 찾아, 지역을 덧붙여 저장된 기존 확정 줄("…, TP. Bắc Ninh")과 재수집 글자가 다르면 새 줄 취급 → replace가 확정 줄을 지움(retained_rows에만 남음). C: Google·Goong 장애(provider_failed)·VietMap 월 한도(deferred)가 '못 찾음(not_found)'으로 기록돼 7일 뒤 재확인·최대 2번 경로로 감.
-- 변경: supabase/migrations/20261124130000_location_same_store_keep.sql(+tests setup·local·production_check) — 완전 일치 줄이 없을 때만 기존 같은 매장 규칙(addressReader.sameStore·pin_guard._same)을 '지역 덧붙임' 모양(한쪽이 다른 쪽의 낱말 단위 앞부분 + 짧은 쪽에 번지 숫자)으로 좁혀, 그리고 후보 1줄·확정 줄일 때만 그 줄 사용·주소 글자 유지(거리 이름만·12≠112·앞에 글자가 붙은 포함은 다른 지점, 시험 6~8번). src/lib/locationPrecheck.ts checkBlocked/providerErrorKind 한 곳(precheckVerdict·autoLocationResolver 공용), Goong 오류 기록, 매장 여러 곳 보류 일반화, crawler DEFERRED_REASONS에 provider_quota. B: scripts/ops/jobs/location-keep-recovery-preview.sql(읽기 전용).
-- 검증 [직접 확인]: 로컬 PostgreSQL 16 fixture→setup→migration→local→production_check 통과, autoLocationResolver·googleQuotaCache·locationPrecheck·location-hook 시험·crawler test_ingest_gateway·tsc 통과, dry-run SQL은 run-sql-plan 검증 + 시험 DB 실행.
-- 남은 것: A 병합·운영 적용 뒤 Lee가 ops-run-sql(name=location-keep-recovery-preview)로 dry-run 실행 → 결과 보고. 복구 migration은 대표 승인 뒤 별도.
