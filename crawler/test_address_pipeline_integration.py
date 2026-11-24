@@ -1434,7 +1434,8 @@ def test_coordinate_accuracy_never_leaks_exact_candidate_to_db() -> None:
         loc = {"coordinate_accuracy": tier_in, "lat": 1.0, "lng": 2.0, "geocode_status": "success", "source_verified": False}
         tier_out, lat_out, lng_out, status_out = _coordinate_accuracy_for_db(loc)
         assert_equal(tier_out, tier_in, f"{tier_in} tier must pass through unchanged (already DB-legal)")
-        assert_equal((lat_out, lng_out), (1.0, 2.0), f"{tier_in} tier's coordinate must not be touched by this mapping")
+        # 지도 정상화 W4c(Lee 2026-11-24): 검증 안 된 대략 좌표(동·구·성 수준)는 위치 원본에 보내지 않는다 — 좌표만 비운다.
+        assert_equal((lat_out, lng_out), (None, None), f"{tier_in} tier's unverified approximate coordinate must not be sent to the location source")
 
     # _work_location_rpc_rows()가 실제로 이 매핑을 적용하는지, 그리고
     # raw_address는 매핑과 무관하게 항상 그대로 보존되는지 엔드투엔드로 확인.

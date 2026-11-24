@@ -1,3 +1,9 @@
+## 2026-11-24 — 지도 W4c: 수집기의 Geoapify 대략 좌표를 위치 원본에 보내지 않음
+- 근거 [직접 확인 — 코드]: vieclam24h 수집기는 Geoapify로 구한 동·구·성 수준 좌표(ward/region)를 근무지 줄에 실어 보내 DB에 대략 위치(auto_area)로 남겼다. 핀·거리검색은 확정 좌표만 쓰고(#989), 확정 좌표는 Google → VietMap → Goong과 관리자 확정으로만 정한다(「위치 확인 우선순위」) — Geoapify는 그 순서에 없다.
+- 변경: crawl_topcv._coordinate_accuracy_for_db가 원문 좌표로 검증되지 않은 줄의 좌표를 비움(주소 글자·주소 단계는 그대로). 행정단위·모집지역(resolved_*·matched_recruitment_regions)은 Geoapify와 무관해 영향 없음, 길찾기는 Google 출처 대략 점만 쓰므로 영향 없음. DB 변경 없음.
+- 영향: 다음 다시 수집 때 기존 Geoapify 대략 줄은 좌표 없는 줄로 바뀐다(핀·거리검색에는 원래 안 쓰임). 사람이 확인한 줄(manual)·확정 줄은 그대로. 수동 CLI regeocode_work_locations.py는 이번 범위 아님.
+- 검증 [직접 확인]: test_job_error_isolation 95건 통과(새 2건). 완료: W4a 2차 #1010 병합 d2f4f3f·deploy-verify 45391068111 성공. 미완료: #1008·#1009·#1010·이 PR의 운영 다시 수집 실증, W3b·W6(사전 보고 제출, Lee 승인 대기), W7.
+
 ## 2026-11-24 — 지도 W4a 2차: vieclam24h 다시 수집 근무지 줄을 입구(ingest_job)로 — 원문 기록 중복 없이
 - 요청(Lee): 입구 경유 통일을 제외·완료 처리하지 말고, 원문 중복 저장 없이 공통 저장·트랜잭션 일관성을 확보하는 기존 구조 활용.
 - 변경: crawl_topcv 다시 수집이 바뀐 칸 + 근무지 줄을 ingest_job 한 번(한 트랜잭션)으로 보냄(_recollect_rows_for_entry). 근무지 줄이 지금 DB와 실제로 다를 때만 부름(_work_locations_changed — 주소 열쇠 집합·미확정 줄의 좌표·주소 정확도·모집지역, 확정 줄 좌표는 DB가 지키므로 변화로 세지 않음) → 바뀐 것 없는 다시 수집은 입구를 부르지 않아 job_ingest_raw가 늘지 않는다. 기존 규칙(일시 오류 시 보류·이 지점 줄만·사람 확인 줄 다시 넣기 merge_protected_work_locations) 그대로, DB 변경 없음. 새 공고의 등록 뒤 근무지 쓰기(_replace_job_work_locations)는 그대로.

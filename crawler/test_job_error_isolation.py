@@ -1463,5 +1463,29 @@ class RecollectRowsThroughEntry(unittest.TestCase):
         self.assertEqual(self._rows(had_existing=True, had_transient=False, own=own)[0]["sort_order"], 0, "보호 줄 합치기(merge_protected_work_locations)를 그대로 거친다")
 
 
+class ApproximateCoordinatesNotSent(unittest.TestCase):
+    """지도 정상화 W4c: 수집기의 Geoapify 대략 좌표(동·구·성 수준)는 위치 원본에 보내지 않는다 — 확정 좌표는
+    위치 확인 우선순위(Google → VietMap → Goong)와 관리자 확정으로만. 원문 좌표로 검증된 줄만 좌표를 보낸다."""
+
+    def test_only_verified_rows_carry_coordinates(self):
+        f = topcv._coordinate_accuracy_for_db
+        for tier in ("ward", "region", "unresolved"):
+            out = f({"coordinate_accuracy": tier, "lat": 21.0, "lng": 105.8, "geocode_status": "success", "source_verified": False})
+            self.assertEqual(out[0], tier, "주소 단계는 그대로")
+            self.assertEqual((out[1], out[2]), (None, None), f"{tier}: 대략 좌표는 보내지 않음")
+        self.assertEqual(f({"coordinate_accuracy": "exact_candidate", "lat": 21.0, "lng": 105.8, "geocode_status": "success", "source_verified": True})[:3],
+                         ("exact", 21.0, 105.8), "원문 좌표로 검증된 줄은 그대로 보냄")
+        self.assertEqual(f({"coordinate_accuracy": "exact_candidate", "lat": 21.0, "lng": 105.8, "geocode_status": "success", "source_verified": False})[:3],
+                         ("unresolved", None, None), "검증 안 된 후보 좌표는 예전처럼 비움")
+
+    def test_rpc_rows_keep_address_text(self):
+        rows = topcv._work_location_rpc_rows([{"raw_address": "Phường Võ Cường, Bắc Ninh", "normalized_address": "phuong vo cuong bac ninh",
+                                               "lat": 21.17, "lng": 106.06, "geocode_status": "success", "geocode_source": "geoapify",
+                                               "coordinate_accuracy": "ward", "source_verified": False}])
+        self.assertEqual((rows[0]["lat"], rows[0]["lng"]), (None, None))
+        self.assertEqual(rows[0]["raw_address"], "Phường Võ Cường, Bắc Ninh", "주소 글자는 그대로 보존")
+        self.assertIs(rows[0]["location_verified"], False)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
