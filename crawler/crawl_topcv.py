@@ -2209,6 +2209,11 @@ def _coordinate_accuracy_for_db(loc: dict) -> tuple[str | None, float | None, fl
             tier = "unresolved"
             lat, lng = None, None
             geocode_status = "failed"
+    elif loc.get("source_verified") is not True:
+        # 지도 정상화 W4c(Lee 2026-11-24): 동·구·성 수준(ward/region)의 Geoapify 대략 좌표는 위치 원본에 보내지 않는다.
+        # 확정 좌표는 「위치 확인 우선순위」(Google → VietMap → Goong)와 관리자 확정으로만 정하고, 대략 위치는 핀·거리검색에 쓰지 않는다
+        # (지도 위치 절대 원칙). 주소 글자와 주소 단계(ward/region)는 그대로 보낸다 — 좌표만 비운다.
+        lat, lng = None, None
     return tier, lat, lng, geocode_status
 
 
