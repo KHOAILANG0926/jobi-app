@@ -169,17 +169,6 @@ jobs:
             echo "도면 등록 전(결정 0005 승인 대기) — 대조 생략"
           fi
 
-      - name: 지도 요약 실제 공고 검사 (위치·핀·지도 캐시·공개 위치 응답 영향 PR — 병합 뒤 deploy-verify와 같은 검사)
-        if: steps.impact.outputs.map == 'true'
-        run: BASE_URL=http://localhost:4173 MAP_API_BASE=https://www.viecganban.vn node scripts/ops/map-summary-check.mjs
-      - name: 지도 요약 검사 화면 보존
-        if: always() && steps.impact.outputs.map == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: map-summary-demo-proof
-          path: map-summary-proof/
-          retention-days: 14
-
       - name: 기간·계약 메뉴 메인 목록 상단 구성 검사 (메인 목록·메뉴 검색 영향 PR)
         if: steps.impact.outputs.menu == 'true'
         run: BASE_URL=http://localhost:4173 node scripts/ops/menu-search-check.mjs
@@ -206,25 +195,25 @@ jobs:
       # The preceding live-data checks execute BASE code and BASE check scripts
       # only for this schema-transition PR. Always restore HEAD before its checks.
       - name: 이관 PR 신규 HEAD 소스 복원
-        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true')
+        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
       - name: HEAD 격리 화면 의존성·빌드
-        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true')
+        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         env:
           VITE_VIETMAP_TILEMAP_KEY: fixture-browser
         run: |
           npm ci
           npm run build
       - name: HEAD 격리 서버 시작 (BASE 서버와 별도 포트)
-        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true')
+        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         run: |
           npx vite preview --host 127.0.0.1 --port 4174 --strictPort > canonical-preview.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://localhost:4174/ >/dev/null && exit 0; sleep 1; done
           cat canonical-preview.log; exit 1
       - name: HEAD canonical 원본 0·1·여러 곳 실제 핀 (격리 PC·모바일)
-        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true')
+        if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         run: BASE_URL=http://localhost:4174 SCREENSHOT_DIR=canonical-pr-proof node scripts/ops/location-canonical-browser-fixtures.mjs
       - name: HEAD 헤더·관리자 이동 (격리 데이터)
         if: steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true')
@@ -232,7 +221,7 @@ jobs:
           BASE_URL=http://localhost:4174 node scripts/ops/desktop-header-check.mjs
           BASE_URL=http://localhost:4174 node scripts/ops/admin-navigation-check.mjs
       - name: HEAD 격리 canonical 검사 근거 보존 (운영 검증 아님)
-        if: always() && steps.impact.outputs.screen == 'true' && steps.schema-mode.outputs.canonical == 'true'
+        if: always() && steps.impact.outputs.screen == 'true' && (steps.schema-mode.outputs.canonical == 'true' || steps.impact.outputs.map == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: prerelease-head-canonical-proof-${{ github.sha }}

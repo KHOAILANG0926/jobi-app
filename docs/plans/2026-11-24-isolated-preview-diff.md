@@ -17,7 +17,7 @@
 - `scripts/ci/change-impact.mjs` 한 곳: 바뀐 파일 → screen / map / menu. 모르는 파일은 화면 검사(닫힌 방향), 목록을 못 받으면 전부.
 - app-screen-check가 이 판정기를 **BASE(master) 사본**으로 돌린다 — PR이 판정기를 고쳐 자기 검사를 끄지 못하게. 판정기가 BASE에 없으면(첫 도입) 전부 실행.
 - screen=false(문서·크롤러·시험 DB·CI 스크립트·다른 워크플로만) → 화면 검사 단계 생략(필수 검사 app-screen은 통과로 끝남). 병합 뒤 deploy-verify 운영 검사는 그대로.
-- map=true → 지도 요약 대조를 PR 단계에서(병합 뒤와 같은 검사, HEAD 화면 + 운영 공개 원본. vite preview에는 /api가 없어 공개 위치 응답은 운영 주소(MAP_API_BASE)로 대조 — PR의 api 코드 자체는 api 단위 시험과 병합 뒤 deploy-verify가 봄). menu=true → 메뉴 검색 검사. 브랜치 이름 조건은 지움(같은 일을 한 곳으로).
+- map=true → 기존 HEAD 격리 핀 검사(location-canonical-browser-fixtures: 지도 열쇠 가짜·DB 응답 가짜 0·1·여러 곳, PC·모바일)를 PR 단계에서. 실제 공고 지도 요약(map-summary-check)은 PR 빌드에 지도 열쇠가 없어 지도가 안 그려지므로(#1000 첫 실행에서 확인) 병합 뒤 deploy-verify 그대로. menu=true → 메뉴 검색 검사. 브랜치 이름 조건은 지움(같은 일을 한 곳으로).
 - 최근 병합 PR로 본 효과: #995(병합 봇·CI·규칙 문서) 화면 검사 생략 / #999(migration) 화면+지도 요약 / #991(api/map-locations) 화면+지도 요약.
 
 ## 3. 다음 단계(설계만, 구현 전 확인 필요)
