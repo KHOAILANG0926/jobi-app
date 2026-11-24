@@ -19,4 +19,10 @@ for (const a of ['125 Đường Nguyễn Thị Minh Khai, Phường Kinh Bắc, 
 assert(locationVerdict({ hasExact: false, state: done('unresolved'), texts: ['Bắc Ninh'], sourceText: 'Địa chỉ: thôn Đông, xã Tam Đa' }) === 'our_miss', 'address only in source text → our_miss')
 assert(!hasLocationDetail(['Bắc Ninh', 'Tỉnh Bắc Ninh, Việt Nam'], 'Tuyển công nhân. Lương 8tr. Liên hệ 0912345678'), 'province + no address words → no detail')
 assert(hasLocationDetail(['Bắc Ninh'], 'Làm tại KCN Quế Võ'), 'KCN in source → detail')
+// 지도 정상화 W3a: 외부 API 장애·한도(blocked)로 확인 못 한 것은 우리가 못 찾은 것이 아니다 — 주소가 있어도 our_miss(비공개)가 아니라 보류
+assert(locationVerdict({ hasExact: false, state: done('unresolved'), texts: ['Khu phố Mao Yên, Bắc Ninh'], blocked: true }) === 'pending', 'blocked unresolved → pending, not our_miss')
+assert(locationVerdict({ hasExact: false, state: { state: 'failed', failures: 2, calls: 2, kind: 'unresolved' }, texts: ['Khu phố Mao Yên, Bắc Ninh'], blocked: true }) === 'pending', 'repeated provider outage → still pending')
+assert(locationVerdict({ hasExact: false, state: done('unresolved'), texts: ['Khu phố Mao Yên, Bắc Ninh'], blocked: false }) === 'our_miss', 'not blocked → our_miss unchanged')
+assert(locationVerdict({ hasExact: false, state: done('exact'), texts: ['Bắc Ninh'], blocked: true }) === 'located', 'found point still wins over blocked flag')
+assert(locationVerdict({ hasExact: true, state: done('unresolved'), texts: ['Bắc Ninh'], blocked: true }) === 'located', 'approved coordinate still wins')
 console.log('locationLevel tests: all assertions passed')

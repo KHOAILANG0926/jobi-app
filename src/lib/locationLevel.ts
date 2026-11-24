@@ -29,6 +29,8 @@ export interface LocationFacts {
   state: { state: string; failures: number; calls: number; kind: string | null } | null
   texts: Array<string | null | undefined>
   sourceText?: string | null
+  /** 지도 정상화 W3a: 위치 확인이 외부 API 장애·한도로 막혔음(locationPrecheck.checkBlocked) — '못 찾음'이 아니라 보류 */
+  blocked?: boolean
 }
 
 export function locationVerdict(f: LocationFacts): LocationVerdict {
@@ -37,6 +39,7 @@ export function locationVerdict(f: LocationFacts): LocationVerdict {
   const s = f.state
   if (!s) return 'pending'
   if (s.kind && ['exact', 'gate', 'area'].includes(s.kind)) return 'located'
+  if (f.blocked) return 'pending' // 장애·한도로 확인 못 한 것은 우리가 못 찾은 것(our_miss·비공개)이 아니다 — 다음에 다시
   const notFound = (s.state === 'done' && s.kind === 'unresolved') || (s.state === 'failed' && (s.failures >= 2 || s.calls >= 2))
   if (!notFound) return 'pending'
   return hasLocationDetail(f.texts, f.sourceText) ? 'our_miss' : 'no_info'

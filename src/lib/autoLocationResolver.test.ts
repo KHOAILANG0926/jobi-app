@@ -262,3 +262,28 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   for (const r of [g, g2, v, o, none, quota]) assert(r.kind !== 'area', 'resolver never returns an approximate (area) decision')
   console.log('autoLocationResolver: 위치 확인 우선순위 Google → VietMap → Goong 통과')
 }
+
+// ── 지도 정상화 W3a: 외부 API 장애·한도는 결과의 failed/deferred 플래그로도 남는다(지도 처리 저장 상태 done→failed/deferred) — 정상 '결과 없음'은 그대로 플래그 없음 ──
+{
+  const company = 'Fixture Cafe'
+  const addr = '12 Nguyễn Trãi, Phường Thanh Xuân Trung, Quận Thanh Xuân, Hà Nội'
+  const flags = async (o: { google?: () => unknown; goong?: () => unknown; budget?: boolean }) => {
+    const d = await resolver.resolveAutoLocation({ id: 50, company, location: addr, targets: [{ address: addr, workLocationId: 1 }] }, {
+      ...deps, async reserve() { return o.budget !== true }, async request() { return [] },
+      async google() { return o.google ? o.google() : { places: [] } },
+      async goong() { return o.goong ? o.goong() : null },
+    } as never)
+    return { kind: d.kind, failed: !!d.failed, deferred: !!d.deferred }
+  }
+  const empty = await flags({})
+  assert(empty.kind === 'unresolved' && !empty.failed && !empty.deferred, 'normal empty results → no flags: ' + JSON.stringify(empty))
+  const gOut = await flags({ google: () => { throw new Error('upstream_failed') } })
+  assert(gOut.kind === 'unresolved' && gOut.failed && !gOut.deferred, 'Google outage → failed flag: ' + JSON.stringify(gOut))
+  const g429 = await flags({ google: () => { throw new Error('upstream_failed_429') } })
+  assert(g429.kind === 'unresolved' && g429.deferred && !g429.failed, 'Google quota → deferred flag: ' + JSON.stringify(g429))
+  const goongOut = await flags({ goong: () => { throw new Error('upstream_failed') } })
+  assert(goongOut.failed && !goongOut.deferred, 'Goong outage → failed flag: ' + JSON.stringify(goongOut))
+  const goong429 = await flags({ goong: () => { throw new Error('upstream_failed_429') } })
+  assert(goong429.deferred && !goong429.failed, 'Goong 429 → deferred flag: ' + JSON.stringify(goong429))
+  console.log('autoLocationResolver: W3a 장애·한도 플래그 통과')
+}

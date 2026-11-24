@@ -152,7 +152,10 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
     if (gate?.kind === 'gate' && gate.source.ref && gate.satelliteChecked && validPoint(gate)) return {kind:'gate',lat:gate.lat,lng:gate.lng,source:`${gate.source.provider} ${gate.source.ref}`,checkedAt:gate.satelliteChecked,failed,deferred,evidence:reasons.join('\n')}
     // 공단 중심·표에 없는 공단·동 중심·행정구역 중심 같은 대략 위치는 찾지도 찍지도 않는다(Lee 2026-11-11 절대 원칙, Codex #702 — 버릴 결과를 만들려고 지도 호출을 쓰지 않음).
   } catch { failed = true } // Cache/reservation unavailable: fail closed; no more requests.
-  return {kind:'unresolved',failed,deferred,evidence:reasons.join('\n')}
+  // 지도 정상화 W3a: Google·Goong 장애·한도는 근거 문자열에만 남고 failed/deferred가 안 서서 '못 찾음(done)'으로 저장됐다 — 같은 판정 한 곳(checkBlocked)으로 플래그를 세운다.
+  const evidence = reasons.join('\n')
+  const blocked = checkBlocked({failed, deferred, evidence})
+  return {kind:'unresolved',failed: failed || blocked === 'provider_failed',deferred: deferred || blocked === 'google_quota' || blocked === 'provider_quota',evidence}
 }
 
 /** ① 번지: 번지·도로명이 결과에 그대로 + 원문 동/구 일치 / ② 회사+공단: 회사명 정확 일치 1곳 + 공단 경계 안. 실패는 조용히 다음 단계로. */

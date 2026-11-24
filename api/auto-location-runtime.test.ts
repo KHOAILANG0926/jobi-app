@@ -70,3 +70,31 @@ assert.equal(missingVerifiedCoordinate({active:true,admin_hidden:false,company:'
   assert.equal(q.findable, false); assert.equal(q.reason, 'google_quota', 'quota on the other store holds the posting: ' + q.reason)
   console.log('precheck: confirmed memory per store passed')
 }
+
+// 지도 정상화 W3a: 저장된 지도 처리 결과가 Google·Goong 장애·한도 근거를 가지면 주소가 있어도 our_miss(비공개·저녁 목록)로 보내지 않고 보류 — 정상 '결과 없음'은 그대로 our_miss
+{
+  const { applyLocationVerdict } = await import('./_lib/auto-location-runtime.mjs')
+  const run = async (provider_result: unknown, st: Record<string, unknown> = {}) => {
+    const rpcCalls: string[] = []
+    const rows: Record<string, unknown> = {
+      local_jobs: { location: 'Khu phố Mao Yên, Bắc Ninh', source_text: 'Địa chỉ: Khu phố Mao Yên, Bắc Ninh' },
+      map_r1_location_jobs: { state: 'done', failures: 0, calls: 1, source_points: [], provider_result, ...st },
+    }
+    const chain = (table: string) => {
+      const q: any = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: rows[table] ?? null, error: null }),
+        then: (ok: any) => ok({ data: table === 'job_work_locations' ? [{ raw_address: 'Khu phố Mao Yên, Bắc Ninh', industrial_park: null }] : [], error: null }) }
+      return q
+    }
+    const db = { from: chain, rpc: async (name: string) => { rpcCalls.push(name); return { data: name === 'map_r1_has_exact' ? false : null, error: null } } }
+    return { verdict: await applyLocationVerdict(db, 4983), rpcCalls }
+  }
+  const miss = await run({ kind: 'unresolved', evidence: 'google:no_verified_match\nvietmap:no_verified_match' })
+  assert.equal(miss.verdict, 'our_miss', 'normal not-found keeps the existing our_miss path'); assert.ok(miss.rpcCalls.includes('map_r1_mark_unlocated'))
+  for (const evidence of ['google:provider_failed\nvietmap:no_verified_match', 'google:quota', 'goong:quota', 'vietmap:provider_failed']) {
+    const r = await run({ kind: 'unresolved', evidence })
+    assert.equal(r.verdict, 'pending', `${evidence.split('\n')[0]} → pending`); assert.ok(!r.rpcCalls.includes('map_r1_mark_unlocated'), 'outage/quota is never hidden as our_miss')
+  }
+  const failedTwice = await run({ kind: 'unresolved', evidence: 'google:provider_failed' }, { state: 'failed', failures: 2, calls: 2 })
+  assert.equal(failedTwice.verdict, 'pending', 'repeated outage stays pending')
+  console.log('location verdict: W3a provider outage/quota → pending, normal miss → our_miss')
+}

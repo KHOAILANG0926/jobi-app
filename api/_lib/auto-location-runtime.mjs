@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
-import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
+import { agencyByPhone, checkBlocked, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { companyIdentity, phoneKeys } from '../../src/lib/jobIdentity.ts'
 import { readWorkplace } from '../../src/lib/companyReader.ts'
 import { cachedGooglePlaceId, needsLogoLookup, websiteDomain } from '../../src/lib/logoLookup.ts'
@@ -34,6 +34,7 @@ export async function applyLocationVerdict(db, jobId) {
     state: st ? {state:st.state, failures:st.failures, calls:st.calls, kind:canonicalVerdictKind(st)} : null,
     texts: [job.location, ...(wl ?? []).flatMap((w) => [w.raw_address, w.industrial_park])],
     sourceText: job.source_text,
+    blocked: !!st && checkBlocked({failed:false, deferred:false, evidence:st.provider_result?.evidence}) !== null, // 장애·한도 근거 = 못 찾음 아님(W3a)
   })
   if (verdict === 'located') { const {error} = await db.rpc('map_r1_mark_located',{p_id:jobId}); if (error) throw new Error('mark_failed') }
   if (verdict === 'our_miss') { const {error} = await db.rpc('map_r1_mark_unlocated',{p_id:jobId,p_reason:'our_miss'}); if (error) throw new Error('mark_failed') }
