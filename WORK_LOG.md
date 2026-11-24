@@ -1,3 +1,10 @@
+## 2026-11-24 — 지도 W7 복구 dry-run SQL(location-w7-restore-preview, 읽기 전용) — 복구 migration과 같은 규칙
+- 요청(Lee): #6309는 기존 확정 근거·사업장 동일성 확인 뒤 공통 복구 조건, #6043은 전체 주소 대조, 나머지 미확정은 기존 Google → VietMap → Goong, 보류 19건은 기존 재확인 정책, #1015 병합 뒤 migration·검증·Approve 절차.
+- 복구 규칙(공통): 확정 좌표를 잃은 줄이 지금도 확정 없음 + 같은 사업장(운영 판정 same_site_address, 잃기 전·지금 줄의 저장된 행정구역) + 같은 회사(표기만 다름) + 그 좌표를 확정으로 만든 쓰기 기록 요청이 좌표를 가진 확정 출처(source_verified·poster_pin·legacy_verified)·같은 좌표·출처·확인 시각·근거 글 있음 → 같은 좌표·근거를 지금 주소 줄에 다시 쓴다(write_location). 관리자 확정·재사용은 기억표 자격으로만(기존).
+- 나머지: 복구 뒤에도 확정이 없는 공개 공고는 기존 위치 찾기를 한 번 다시 부른다(20261112020000과 같은 방식). 이 5건의 대략 줄은 Google 같은 이름 1곳을 예전 규칙이 대략으로 낮춘 결과로 보이며[추정 — 출처 Google·area], 지금 규칙(11-23)은 같은 Google 결과를 확정으로 채택한다(저장된 Google 결과 재사용 — 새 검색 아님).
+- 검증 [직접 확인]: run-sql-plan 통과, 로컬 폐기용 PostgreSQL 16(운영 본문 위치 함수 + W6)에서 표기만 바뀐 같은 사업장 → 복구, 실제 이전 → 위치 찾기 다시로 분류.
+- 미완료: Lee 실행·결과 검토 → 복구 migration PR(대표 Approve) → 운영 확인, W4·W6 실제 다시 수집 실증, 6337 다시 판정·화면 대조.
+
 ## 2026-11-24 — R #872 1단계: 공고 6337 빈 이름표 'VỊ TRÍ:' 원문 재현·공통 수정 + W7 dry-run 결과 기록
 - 원문 [직접 확인 — Lee 실행 45412211405 로그]: "VỊ TRÍ:" 줄 아래 글머리 없는 직무 줄("3 Nam & Nữ Phục Vụ : 7tr5~ 12tr" …). 저장된 상세요강은 업무 칸에 "VỊ TRÍ:"만, 직무 줄은 급여 칸.
 - 원인 [직접 확인 — 재현]: 모집 소개 줄 규칙(jobDetailFill hiring_intro_heading, #5437)이 "… ĐANG TUYỂN:"·"Vị trí tuyển dụng:"은 알지만 "VỊ TRÍ:"만 있는 줄은 몰라 제목이 미분류 → AI 줄 칸이 제목과 직무 줄을 다른 칸으로 나눔 → 검사기 '빈 이름표' → 비공개 보류. (사전 조사의 '이름표·값 줄 갈라짐' 추정과 같은 현상이며, 고칠 단계는 줄 묶기(keepListBlocks)가 아니라 이 규칙이다 — 줄 묶기를 넓히는 안은 기존 시험 '값 없는 이름표는 계속 잡는다'와 충돌해 버림.)
@@ -55,9 +62,3 @@
 - W3a 원인 [직접 확인 — 코드]: Google·Goong 장애·한도가 근거 문자열에만 남고 failed/deferred가 안 서서 map_r1에 done/unresolved로 저장 → applyLocationVerdict가 our_miss(비공개·저녁 목록)로 처리.
 - 변경: autoLocationResolver 마지막 결과에서 checkBlocked로 failed/deferred 플래그, locationVerdict에 blocked(보류), applyLocationVerdict가 저장된 근거로 blocked 판정. 새 장치 없음(#1002의 checkBlocked 재사용). DB 변경 없음.
 - 검증 [직접 확인]: 새 시험 3곳은 수정 전 실패·수정 후 통과, npm test 125/125·tsc·build 통과. 미완료: map_r1 failed 상태의 영구 스킵(calls/failures 기준, W3b DB)·운영 실제 건수는 이번 범위 아님.
-
-## 2026-11-24 — #1004 실제 발송 검증 결함(완료 댓글 403) 보완 + W2 dry-run 결과 기록
-- 검증 [직접 확인]: #1005 병합(12f5795) 뒤 deploy-verify 실행 45377084519 성공, 그러나 완료 댓글 단계가 `gh: Resource not accessible by integration (HTTP 403)`로 발송 실패(경고만, 운영 검사 결과는 성공 유지). 원인 = deploy-verify.yml 권한에 pull-requests: write 없음(issues: write만으로는 PR 댓글 403). #1005의 gh 대역 시험은 권한을 못 봄.
-- 변경: deploy-verify.yml permissions에 pull-requests: write 한 줄 + deploy-notify.test.mjs에 권한 단언 추가(수정 전 실패·수정 후 통과 확인). 다른 변경 없음.
-- W2 dry-run(Lee 실행, ops-run-sql 45344520708 성공) [Lee 보고 — 내가 실행하지 않음]: 삭제 이력 있는 확정 위치 1건(이미 확정 있음)·복구 대상 0·재판정 19 = 지점 분리 보류 2 + 회사명 AI 확인 불가 5 + 회사명 미확정 1 + 위치 원문 없음 2 + 위치 검색 실패 9. 복구 대상 0건은 이 dry-run 기준의 결과이며, W6·W7의 기존 작업 범위는 이것만으로 줄이지 않는다(Lee 2026-11-24 지시 — W6는 사전 보고·승인 뒤, W7은 복구 dry-run 검토·승인 뒤 기존 계획대로).
-- 남은 것: 이 PR 병합 뒤 deploy-verify의 완료 댓글이 실제로 달리는지 확인 → #1004 종료. 실패 알림 실제 발송·Lee 단말 수신은 확인 불가(분리 표기).
