@@ -4,7 +4,8 @@
 //   map    : 위치·핀·지도 캐시·공개 위치 응답에 닿는 변경 → 기존 HEAD 격리 핀 검사(location-canonical-browser-fixtures)를 PR 단계에서도
 //   menu   : 메인 목록·메뉴 검색에 닿는 변경 → 기존 메뉴 검색 검사(menu-search-check)를 PR 단계에서도
 // 예전에는 map·menu 검사를 브랜치 이름(demo/map-summary…, fix/menu-full-search…)으로 골랐다 — 같은 일을 파일 기준 한 곳으로 합친다.
-// 닫힌 방향: 목록을 못 받거나 비었으면 전부 돌린다. screen을 끄는 것은 아래 '화면과 무관' 목록에만 맞는 파일뿐일 때다(모르는 파일 = 화면 검사).
+// 닫힌 방향: 목록을 못 받거나 비었으면 전부 돌린다. screen을 끄는 것은 아래 '화면과 무관' 목록에만 맞는 파일뿐일 때다.
+// 분류되지 않은 파일(화면과 무관·지도·메뉴 어디에도 안 맞음)은 영향을 모르는 것이므로 화면·지도·메뉴 검사를 모두 돌린다(Lee 2026-11-24).
 // 워크플로는 이 판정기를 PR 사본이 아니라 BASE(master) 사본으로 돌린다 — PR이 판정기를 고쳐 자기 검사를 끄지 못하게.
 import { execFileSync } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
@@ -46,9 +47,11 @@ export function changeImpact(files) {
   const screenFiles = files.filter((f) => !hit(NO_SCREEN, f))
   const mapFiles = files.filter((f) => hit(MAP, f))
   const menuFiles = files.filter((f) => hit(MENU, f))
+  const unknownFiles = screenFiles.filter((f) => !hit(MAP, f) && !hit(MENU, f))
+  const unknown = unknownFiles.length > 0
   return {
-    screen: screenFiles.length > 0, map: mapFiles.length > 0, menu: menuFiles.length > 0,
-    reason: [`화면 ${screenFiles.slice(0, 5).join(', ') || '없음'}`, `지도 ${mapFiles.slice(0, 5).join(', ') || '없음'}`, `메뉴 ${menuFiles.slice(0, 5).join(', ') || '없음'}`].join(' / '),
+    screen: screenFiles.length > 0, map: mapFiles.length > 0 || unknown, menu: menuFiles.length > 0 || unknown,
+    reason: [`화면 ${screenFiles.slice(0, 5).join(', ') || '없음'}`, `지도 ${mapFiles.slice(0, 5).join(', ') || '없음'}`, `메뉴 ${menuFiles.slice(0, 5).join(', ') || '없음'}`, `미분류(전부 실행) ${unknownFiles.slice(0, 5).join(', ') || '없음'}`].join(' / '),
   }
 }
 
@@ -59,6 +62,6 @@ if (process.argv[1]?.endsWith('change-impact.mjs')) {
   const r = changeImpact(files)
   const out = `screen=${r.screen}\nmap=${r.map}\nmenu=${r.menu}\n`
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, out); else process.stdout.write(out)
-  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### 변경 영향 범위\n- 화면 검사 ${r.screen ? '실행' : '생략(화면과 무관한 파일만)'} · 지도 요약 검사 ${r.map ? '실행' : '해당 없음'} · 메뉴 검색 검사 ${r.menu ? '실행' : '해당 없음'}\n- 근거: ${r.reason}\n`)
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### 변경 영향 범위\n- 화면 검사 ${r.screen ? '실행' : '생략(화면과 무관한 파일만)'} · 격리 핀 검사 ${r.map ? '실행' : '해당 없음'} · 메뉴 검색 검사 ${r.menu ? '실행' : '해당 없음'}\n- 근거: ${r.reason}\n`)
   console.log(r.reason)
 }
