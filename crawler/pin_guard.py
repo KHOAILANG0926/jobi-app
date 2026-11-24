@@ -48,6 +48,24 @@ def _same(a, b):
     return f" {a} " in f" {b} " or f" {b} " in f" {a} "
 
 
+def keeps_confirmed_location(old_location, new_location, rows):
+    """다시 수집에서 공고 위치 글자를 그대로 둘지(지도 정상화 W4b, Lee 2026-11-24).
+    공고 위치 글자가 바뀌면 DB가 그 글자의 근무지 줄 좌표를 지우고 다시 찾는다(location_private.job_identity_changed → invalidate).
+    같은 지점인데 표기(뒤에 지역을 덧붙임)만 다른 글자로 바꾸면 확정 좌표가 사라지므로, 그 경우에만 기존 글자를 둔다:
+     - 한쪽이 다른 쪽의 낱말 단위 앞부분이고 짧은 쪽에 번지 숫자가 있을 때(DB 쓰기 함수의 같은 지점 조건과 같음 — 거리 이름만·다른 번지·앞에 글자가 붙은 주소는 다른 지점),
+     - 그리고 기존 글자의 근무지 줄이 확정 좌표(관리자 확정·재사용·검증)일 때만.
+    그 밖(다른 지점·이전·확정 아님)은 예전처럼 새 글자로 바꾸고 기존 위치 확인 정책을 탄다."""
+    old, new = _key(old_location), _key(new_location)
+    if not old or not new or old == new:
+        return False
+    short, long_ = (old, new) if len(old) <= len(new) else (new, old)
+    if not (long_ + " ").startswith(short + " ") or not re.search(r"\d", short):
+        return False
+    return any(_key(r.get("raw_address")) == old and r.get("lat") is not None and r.get("lng") is not None
+               and (r.get("location_verified") is True or r.get("point_authority") in ("admin_confirmed", "auto_reuse"))
+               for r in (rows or []))
+
+
 def other_stores(existing, found):
     """기존 근무지 줄과 같은 매장이 아닌 지점(found)만 — 지점별 독립 공고(Lee 2026-11-23)에서 따로 등록할 지점.
     기존 줄이 비어 있으면 found 전부."""

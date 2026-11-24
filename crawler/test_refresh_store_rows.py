@@ -33,3 +33,22 @@ def test_refresh_keeps_location_when_source_has_no_address():
     from refresh_facebook_existing import refresh_fields
     assert refresh_fields({"title": "t", "company": "HAIDILAO VINCOM BẮC NINH", "location": ""}) == ["title", "company"]
     assert refresh_fields({"title": "t", "company": "c", "location": "152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh"}) == ["title", "company", "location"]
+
+
+def test_refresh_keeps_confirmed_location_on_notation_only_change():
+    # 지도 정상화 W4b: 같은 지점인데 표기(지역 덧붙임)만 다른 주소로 위치 글자를 바꾸면 DB가 확정 좌표를 지운다 → 확정 줄이면 기존 글자 유지
+    from pin_guard import keeps_confirmed_location as keep
+    old = "152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh"
+    confirmed = [{"raw_address": old, "lat": 21.18, "lng": 106.07, "point_authority": "admin_confirmed"}]
+    verified = [{"raw_address": old, "lat": 21.18, "lng": 106.07, "location_verified": True}]
+    assert keep(old, "152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh, Việt Nam", confirmed)      # 뒤에 지역만 덧붙음
+    assert keep(old, "152 Trần Hưng Đạo", verified)                                          # 더 짧은 표기(번지 있음)
+    assert not keep(old, old, confirmed)                                                      # 같은 글자 = 바뀌는 것 없음
+    assert not keep(old, "340 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", confirmed)                  # 다른 번지 = 다른 지점
+    assert not keep(old, "Tầng 2, 152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", confirmed)          # 앞에 글자가 붙음 = 같은 지점으로 보지 않음
+    assert not keep("Trần Hưng Đạo, Bắc Ninh", "Trần Hưng Đạo", [{"raw_address": "Trần Hưng Đạo, Bắc Ninh", "lat": 1.0, "lng": 2.0, "location_verified": True}])  # 번지 없는 거리 이름
+    assert not keep(old, "152 Trần Hưng Đạo", [{"raw_address": old, "lat": 21.18, "lng": 106.07}])   # 확정 아님 = 예전 동작
+    assert not keep(old, "152 Trần Hưng Đạo", [{"raw_address": old, "lat": None, "lng": None, "location_verified": True}])  # 좌표 없음
+    assert not keep(old, "152 Trần Hưng Đạo", [{"raw_address": "다른 줄", "lat": 1.0, "lng": 2.0, "location_verified": True}])  # 그 글자의 줄이 아님
+    assert not keep(old, "152 Trần Hưng Đạo", [])
+

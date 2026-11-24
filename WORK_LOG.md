@@ -1,3 +1,8 @@
+## 2026-11-24 — 지도 W4b: Facebook 다시 수집이 표기만 다른 주소로 확정 좌표를 지우지 않게
+- 원인 [직접 확인 — 코드]: 공고 location 글자가 바뀌면 DB 트리거 location_private.job_identity_changed가 그 글자의 근무지 줄을 invalidate(확정 좌표 포함, 확정 보호를 거치지 않음)한다. Facebook 다시 수집은 원문에서 다시 읽은 주소로 location을 고치므로 표기(지역 덧붙임)만 달라도 확정 좌표가 지워진다 — #1002 A(쓰기 함수 줄 찾기)가 막지 못하는 경로.
+- 변경: crawler/pin_guard.keeps_confirmed_location(같은 지점 조건은 DB 쓰기 함수와 같게: 낱말 단위 앞부분 + 짧은 쪽 번지 숫자, 그 글자의 줄이 확정 좌표일 때만) + refresh_facebook_existing이 그 경우 location 칸을 고치지 않음. DB 변경 없음. 다른 지점·이전·확정 아님은 예전 동작.
+- 검증 [직접 확인]: test_refresh_store_rows 새 사례 통과(다른 번지·거리 이름만·앞 글자·확정 아님은 유지 안 함). 미해결(W6, 사전 보고·승인 대상): DB 트리거의 invalidate 자체, 번지 없는 공단 주소, vieclam24h 경로(W4a).
+
 ## 2026-11-24 — 지도 W3a: 지도 처리 경로의 외부 API 장애·한도 오판 수정 + #1004 종료
 - #1004 [직접 확인]: #1006 병합(ec35de6) 뒤 deploy-verify 45379834976 성공, #1006에 완료 댓글 실제 발송(7129560415), 승인 요청 댓글에 멘션·직접 링크(7129266251). 실패 알림 실제 발송·Lee 단말 수신은 미확인으로 분리 표기하고 이슈 종료.
 - W3a 원인 [직접 확인 — 코드]: Google·Goong 장애·한도가 근거 문자열에만 남고 failed/deferred가 안 서서 map_r1에 done/unresolved로 저장 → applyLocationVerdict가 our_miss(비공개·저녁 목록)로 처리.

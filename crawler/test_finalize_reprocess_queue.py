@@ -234,3 +234,19 @@ by_id = {r["id"]: r for r in bdb.queue}
 assert by_id[103]["status"] == "success" and by_id[120]["error"] == "held:inspect_failed:pin", (by_id[103], by_id[120])
 assert sum(1 for r in bdb.queue if r["error"] == "held:awaiting_inspect") == 48
 print("finalize_reprocess_queue: 검사표 대기 50건 초과 페이지 순회 시험 통과")
+
+# 지도 정상화 W4b: 다시 수집이 같은 지점의 표기만 다른 주소로 위치 글자를 바꿔 확정 좌표를 지우지 않게(pin_guard.keeps_confirmed_location).
+# 같은 지점 조건은 DB 쓰기 함수와 같다 — 낱말 단위 앞부분 + 짧은 쪽에 번지 숫자, 그리고 그 글자의 줄이 확정 좌표일 때만.
+_keep = f.pin_guard.keeps_confirmed_location
+_old = "152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh"
+_conf = [{"raw_address": _old, "lat": 21.18, "lng": 106.07, "point_authority": "admin_confirmed"}]
+assert _keep(_old, "152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh, Việt Nam", _conf), "뒤에 지역만 덧붙은 표기 → 기존 글자 유지"
+assert _keep(_old, "152 Trần Hưng Đạo", [{"raw_address": _old, "lat": 21.18, "lng": 106.07, "location_verified": True}]), "짧은 표기(번지 있음)·검증 좌표"
+assert not _keep(_old, "340 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", _conf), "다른 번지 = 다른 지점"
+assert not _keep(_old, "Tầng 2, 152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", _conf), "앞에 글자가 붙은 주소는 같은 지점으로 보지 않음"
+assert not _keep("Trần Hưng Đạo, Bắc Ninh", "Trần Hưng Đạo", [{"raw_address": "Trần Hưng Đạo, Bắc Ninh", "lat": 1.0, "lng": 2.0, "location_verified": True}]), "번지 없는 거리 이름"
+assert not _keep(_old, "152 Trần Hưng Đạo", [{"raw_address": _old, "lat": 21.18, "lng": 106.07}]), "확정 아님 = 예전 동작"
+assert not _keep(_old, "152 Trần Hưng Đạo", [{"raw_address": _old, "lat": None, "lng": None, "location_verified": True}]), "좌표 없음"
+assert not _keep(_old, "152 Trần Hưng Đạo", []) and not _keep(_old, _old, _conf), "줄 없음·같은 글자"
+print("finalize_reprocess_queue: W4b 표기만 다른 주소의 확정 좌표 보존 판정 시험 통과")
+
