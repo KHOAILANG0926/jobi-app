@@ -1,3 +1,9 @@
+## 2026-11-24 — 확정 순위 기록 + 2순위(기존 다중 지점 공고 전환) dry-run 준비 (운영 변경 없음)
+- 요청: Lee 확정 순위 저장(1순위 완료·2순위 다중 지점 전환·3순위 격리 Preview 차등 검증), 2순위 착수.
+- 변경: docs/plans/2026-11-24-multi-branch-conversion.md(대상 정의·기존 장치로 전환·복구·순서), scripts/ops/jobs/multi-branch-conversion-preview.sql(읽기 전용 집계, ops-run-sql), CHATGPT_HANDOFF.md.
+- 검증 [직접 확인]: run-sql-plan 통과, 로컬 PostgreSQL 16 합성 자료로 집계 결과 확인. 운영 대상 건수는 미확인(운영 DB 읽기 권한 없음 — Lee가 ops-run-sql 실행).
+- 이전 HANDOFF(#988 지점별 독립 공고 구현 스냅샷)는 git 이력에 있음.
+
 ## 2026-11-24 — #995 실전 검증 후속: approval-gate 대기 기준 시각 조회 실패를 '60분 초과'로 오판 수정 (병합·운영 DB 없음)
 - 원인 [직접 확인 — 실행 45293080396 로그]: 대표 Approve 직후(23:56:50) pull_request_review 실행은 PR 브랜치의 봇 워크플로로 돌고 scripts는 master 사본(체크아웃 ref master)이라 새 판정 파일 recheck-since.jq가 없어 jq 실패 → 기준 시각 빈 값 → 재확인 대신 '60분 초과 판정 불가'로 보류. 그 시점 approval-gate는 아직 옛 판정이었고(approval-checks 45293102602가 23:57~23:58 갱신) pending 판독 자체는 맞음. 병합은 00:03:30 다른 실행(45293892608)이 함.
 - 수정: 기준 시각 조회 실패 → head 커밋 시각으로 대신, 그것도 없으면 6분 재확인(판정 불가로 보지 않음). 60분 상한·승인 판정·approval-gate 확인은 그대로.
@@ -52,10 +58,3 @@
 - 변경: vietMapStyle.loadVietMapStyle(사본 4초 1번 → 실패·형식 오류면 원본, 기존 재시도 그대로)·stripStyleKey·withStyleKey 한 곳 — 메인·상세·관리자 처음 지도와 일반↔위성 교체 모두 사용. 사본 public/vietmap/styles/{tm,hm}.json(열쇠 값 비움 — 원본에서 열쇠는 타일 주소에만). scripts/ops/vietmap-style-copy.mjs를 vercel-deploy 빌드 직전에 실행(못 받으면 저장소 사본 그대로). map-summary-check는 사본 요청도 증거에 기록(판정 그대로).
 - 검증 [직접 확인]: 운영 deploy-verify 44886908964 실패 2번(상세 sb-5876 지도 실패 / 재실행은 메인 핀 화면 밖 — 여기서 재현하니 메인 style 5·6초 두 번 멈춤 → 예비 지도). 같은 순서 20번: 운영(옛 코드) 실패 7·원본 요청 멈춤 17 → 새 코드(로컬 빌드) 실패 0·사본 20·원본 0. tsc·npm test 124/124·build 통과.
 - 남은 것: PR 병합(Lee Approve) → 배포 → deploy-verify 통과로 #950 잠금 풀림 확인. 사본 갱신은 배포할 때만(배포가 없으면 갱신도 없음) — 타일 판 번호가 바뀌어도 옛 판이 계속 제공되는지는 미확인(hm은 2026-01 판 사용 중).
-
-## 2026-11-21 — #808 S1~S8 마감: 독립 검토·4대 보고를 병합 조건에서 뺌, 병합 뒤 검사 2개 추가, PR 본문 형식 F12, MAP-1 지도 스타일 대기, ai-review 검사 삭제
-- 요청(Lee 11-21): 공고 자동 수집→검증→공개에 필요한 것만 끝내고 #808 닫기. 결정 1 대안 거절 뒤 "최신 상태 요구 안 씀", 결정 2 독립 검토 선택화(11-14 결정 7①·#807 게이트 (3) 변경), 3 MAP-1 원인만, 4 vieclam24h 1건, 5 기록.
-- 변경: approval-checks ai-review = neutral「필수 아님, 검토 안 함」·4대 보고 분기 삭제 / decision-approval-gate 4대 보고(highRiskReport 등) 삭제 / bot-pr-automerge 검토 대기·검토관 자동 호출 삭제, 병합 뒤 호출 목록에 ai-reader-calibration·job-ocr-check / merge-gate-ready.jq = approval-gate만 / check-pr-ready READY 줄 뒤 설명 허용·칸 경계 / vietMapStyle 상세·관리자 지도 스타일 대기 5·6초→15·20초(메인은 12초 예비지도 제한 안이라 5·6초 유지 — 검토관 지적 1, 시험으로 묶음) / map-summary-check 실패 증거 저장 / 안 쓰게 된 codexGate·needsSecondReview 삭제(검토관 지적 3) / BLOCKED·MERGED 줄도 같은 기준(지적 2) / CLAUDE.md·RULES_CORE.md·AGENTS.md·claude-auto 주석.
-- MAP-1 [직접 확인 11-21]: 운영 대상 지도 검사 재현 — style.json 6번 200(0.24~1.9초) 뒤 2번 응답 없음(5·6초 제한 초과). 같은 주소 12번 중 3번 11~12초·1번 20초+(다른 VietMap 파일·사이트는 1초 안). 같은 순서 20번: 운영(옛 코드) 실패 10, 새 코드 실패 2(상세 35초+ 1·메인 예비지도 전환 1 — 이 환경은 예비지도 주소 막힘).
-- 검증: 관련 시험 21개·npm test 124/124·tsc·build 통과(로컬). check-repository-policy는 CI 이벤트 필요(CI에서 확인).
-- #808 최종 결과(11-21, 닫음): 끝 기준 1 완료 — PR #948 1a83668 봇 병합(run 44883022114)·vercel-deploy 44883059904·deploy-verify 44883165886(MAP-1 통과)·행정 핀 44883204814 성공, 잠금 #943·#945 풀림 조건 충족(이슈는 열린 채) / 끝 기준 2 보류 — vieclam24h 시험 2건(44879128739·44879875442) 본문에 전화번호 없어 공개 0 / Lee가 Ruleset에서 ai-review를 뺀 뒤(08:17Z) ai-review 검사 삭제 PR(approval-checks는 approval-gate만).
