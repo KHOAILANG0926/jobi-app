@@ -463,3 +463,26 @@ body {
 .app-pj__panel { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--app-line); border-radius: 14px; background: #fafafa; }
 .app-pj__bad { color: #b42318; font-size: 12px; font-weight: 400; }
 .app-pj__done { display: flex; flex-direction: column; gap: 10px; padding: 8px var(--app-gutter); }
+
+/* ── 2단계 ⑥: 메시지·면접 ── */
+.app-thread { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; padding: 14px; border: 1px solid var(--app-line); border-radius: 16px; background: #fff; font: inherit; text-align: left; cursor: pointer; }
+.app-thread span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.app-thread small { color: var(--app-muted); font-size: 13px; }
+.app-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--app-primary); flex: none; }
+.app-conv { display: flex; flex-direction: column; min-height: 100%; }
+.app-conv__head { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.app-conv__head span { font-size: 12px; color: var(--app-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-conv__stream { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 8px var(--app-gutter) 12px; overflow-y: auto; }
+.app-conv__bubble { max-width: 82%; align-self: flex-start; padding: 8px 12px; border-radius: 14px 14px 14px 4px; background: #f3f4f6; }
+.app-conv__bubble--me { align-self: flex-end; background: #fee9e7; border-radius: 14px 14px 4px 14px; }
+.app-conv__bubble small { display: block; font-size: 11px; color: var(--app-muted); }
+.app-conv__bubble p { margin: 2px 0; font-size: 15px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.app-conv__bubble time { font-size: 11px; color: var(--app-muted); }
+.app-conv__err { margin: 0 var(--app-gutter) 6px; }
+.app-conv__composer { position: sticky; bottom: 0; display: flex; gap: 8px; align-items: flex-end; padding: 8px var(--app-gutter) calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--app-line); background: #fff; }
+.app-conv__composer textarea { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--app-line); border-radius: 14px; font: inherit; font-size: 16px; resize: none; }
+.app-conv__composer .app-btn { min-height: 44px; padding: 0 14px; }
+.app-bizapp__slot { margin: 8px 0 0; font-size: 13px; color: #075985; font-weight: 700; }
+.app-bizapp__sched { margin-top: 8px; }
+.app-shell--conv .app-screen { padding-bottom: 0; }
+.app-shell--conv .app-conv { min-height: 100vh; min-height: 100dvh; }

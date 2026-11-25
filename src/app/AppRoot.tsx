@@ -21,11 +21,15 @@ const PostScreen = lazy(() => import('./community/PostScreen'))
 const BizHomeScreen = lazy(() => import('./biz/BizHomeScreen'))
 const BizManageScreen = lazy(() => import('./biz/BizManageScreen'))
 const PostJobScreen = lazy(() => import('./biz/PostJobScreen'))
+const MessagesScreen = lazy(() => import('./inbox/MessagesScreen'))
+const InterviewsScreen = lazy(() => import('./inbox/InterviewsScreen'))
+const BizMessagesScreen = lazy(() => import('./biz/BizMessagesScreen'))
+const BizCompanyScreen = lazy(() => import('./biz/BizCompanyScreen'))
 const CvScreen = lazy(() => import('./account/CvScreen'))
 const ApplicationsScreen = lazy(() => import('./account/ApplicationsScreen'))
 const LoginScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.LoginScreen })))
 const SignupScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.SignupScreen })))
-const BUILT = new Set(['/', '/goi-y', '/ban-do', '/ho-so', '/cong-dong', '/biz', '/biz/quan-ly-tin', '/biz/dang-tin'])
+const BUILT = new Set(['/', '/goi-y', '/ban-do', '/ho-so', '/cong-dong', '/biz', '/biz/quan-ly-tin', '/biz/dang-tin', '/biz/doanh-nghiep'])
 export default function AppRoot() {
   return (
     <AppProviders>
@@ -45,8 +49,12 @@ export default function AppRoot() {
               <Route path="/biz" element={<BizHomeScreen />} />
               <Route path="/biz/quan-ly-tin" element={<BizManageScreen />} />
               <Route path="/biz/dang-tin" element={<PostJobScreen />} />
+              <Route path="/biz/tin-nhan" element={<BizMessagesScreen />} />
+              <Route path="/biz/doanh-nghiep" element={<BizCompanyScreen />} />
               <Route path="/ho-so" element={<MeScreen />} />
               <Route path="/ho-so/cv" element={<CvScreen />} />
+              <Route path="/ho-so/tin-nhan" element={<MessagesScreen />} />
+              <Route path="/ho-so/phong-van" element={<InterviewsScreen />} />
               <Route path="/ho-so/ung-tuyen" element={<ApplicationsScreen />} />
               <Route path="/dang-nhap" element={<LoginScreen />} />
               <Route path="/dang-ky" element={<SignupScreen />} />
