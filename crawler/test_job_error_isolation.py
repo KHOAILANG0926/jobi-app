@@ -471,6 +471,42 @@ class TopcvSaveIsolation(unittest.TestCase):
         self.assertNotEqual(cm.exception.code, 0)
 
 
+class Vieclam24hSourceIdentity(unittest.TestCase):
+    """원문 글 식별자: 목록 화면의 검색 꼬리표(?open_from·search_id)는 볼 때마다 바뀐다(#6255 저장 주소 사례).
+    같은 글을 다시 만나면 주소 꼬리표가 달라도 같은 기존 공고로 대조돼야 한다."""
+    STORED = ("https://vieclam24h.vn/khach-san-nha-hang-du-lich/nhan-vien-phuc-vu-c5p210000187id200992606.html"
+              "?open_from=0301_1_1&search_id=a6d7221ce10a9fce6838dc2a2fb05187")
+    AGAIN = ("https://vieclam24h.vn/khach-san-nha-hang-du-lich/nhan-vien-phuc-vu-c5p210000187id200992606.html"
+             "?open_from=0301_1_2&search_id=0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
+    BARE = "https://vieclam24h.vn/khach-san-nha-hang-du-lich/nhan-vien-phuc-vu-c5p210000187id200992606.html"
+
+    def test_search_tail_is_not_part_of_identity(self):
+        self.assertEqual(topcv.canonical_source_url(self.STORED), self.BARE)
+        self.assertEqual(topcv.canonical_source_url(self.AGAIN), self.BARE)
+        self.assertEqual(topcv.canonical_source_url(self.BARE + "#apply"), self.BARE)
+
+    def test_address_without_html_post_number_is_kept(self):
+        url = "https://example.com/jobs?id=123"
+        self.assertEqual(topcv.canonical_source_url(url), url, "글 번호가 꼬리표에 있는 주소는 바꾸지 않음")
+        self.assertIsNone(topcv.canonical_source_url(None))
+
+    def test_recollected_listing_matches_stored_job(self):
+        row = {"id": 6255, "title": "Nhân viên phục vụ", "company": "Hikari", "source_url": self.STORED}
+        db = {"local_jobs": [row]}
+
+        class _Q:
+            def __init__(self, rows): self.rows = rows
+            def select(self, *_a, **_k): return self
+            def like(self, *_a, **_k): return self
+            def execute(self): return types.SimpleNamespace(data=self.rows)
+
+        with mock.patch.object(topcv, "supabase", types.SimpleNamespace(table=lambda _n: _Q(db["local_jobs"]))):
+            by_source_url, by_key = topcv.load_existing_lookup_maps()
+        renamed = {"source_url": self.AGAIN, "title": "Nhân viên phục vụ (sửa tiêu đề)", "company": "Hikari"}
+        self.assertIs(topcv.match_existing_row(renamed, by_source_url, by_key), row,
+                      "제목이 바뀌고 꼬리표가 달라도 같은 원문 글이면 같은 기존 공고")
+
+
 class TopcvRetryNextRun(unittest.TestCase):
     """TopCV는 '본 글' 상태 없이 DB에 있는 원문 주소(source_url)로 새 공고를 가린다 —
     오류로 저장 못 한 공고는 DB에 없으므로 다음 수집에서 다시 신규로 처리되는지, 실제 upsert_job_record로 두 번 돌린다."""

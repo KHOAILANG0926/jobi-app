@@ -567,6 +567,18 @@ def listing_failure(pages: int, empty: int) -> str | None:
     return None
 
 
+def canonical_source_url(url: str | None) -> str | None:
+    """원문 글 식별자(Lee 2026-11-23 지점별 독립 공고의 '원본 식별자') — 목록 화면이 주소 뒤에 붙이는
+    검색 꼬리표(?open_from=…&search_id=…)는 볼 때마다 바뀌므로 뺀다. 글 번호가 주소 경로(….html)에
+    있을 때만 빼고, 그 밖의 주소는 그대로 둔다. 저장·기존 공고 대조가 모두 이 함수 하나를 거친다."""
+    if not url:
+        return url
+    parts = urllib.parse.urlsplit(url)
+    if not parts.path.endswith(".html"):
+        return url
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+
+
 async def crawl_category(page, url: str) -> list[dict]:
     print(f"  📄 로딩: {url}")
     await page.goto(url, wait_until="domcontentloaded", timeout=30000)
@@ -620,6 +632,8 @@ async def crawl_category(page, url: str) -> list[dict]:
         return items
     }""")
 
+    for item in raw_jobs:
+        item["href"] = canonical_source_url(item["href"])
     print(f"    수집: {len(raw_jobs)}개" + ("" if raw_jobs else f" (화면 제목: {title_text[:60]!r})"))
     return raw_jobs
 
@@ -2441,7 +2455,7 @@ def load_existing_lookup_maps(source: str = "vieclam24h") -> tuple[dict, dict]:
         .like("description", f"%[source:{source}]%") \
         .execute()
     rows = existing_raw.data or []
-    by_source_url = {r["source_url"]: r for r in rows if r.get("source_url")}
+    by_source_url = {canonical_source_url(r["source_url"]): r for r in rows if r.get("source_url")}
     by_key = {canonical_job_key(r.get("title", ""), r.get("company", "")): r for r in rows}
     return by_source_url, by_key
 
@@ -2451,7 +2465,7 @@ def match_existing_row(job: dict, by_source_url: dict, by_key: dict) -> dict | N
     있으면 정확히 그 값으로(제목이 원문 사이트에서 수정돼도 안전), 없으면
     canonical_job_key(title, company)로 대조한다(source_url이 아직 없던
     구버전 행 대비 하위호환)."""
-    src = job.get("source_url")
+    src = canonical_source_url(job.get("source_url"))
     if src and src in by_source_url:
         return by_source_url[src]
     return by_key.get(canonical_job_key(job.get("title", ""), job.get("company", "")))
@@ -2644,9 +2658,13 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
 
     if existing is not None and len(resolved) > 1 and not had_transient and not verify_write:
         # 다시 수집에서 새로 나타난 지점은 지점별 독립 공고로(이미 있는 지점은 건드리지 않음).
-        fresh_rows = _unregistered_branch_rows(job.get("source_url"), _work_location_rpc_rows(resolved))
+        # 같은 원문 글의 형제 지점은 기존 공고에 저장된 원본 식별자로 찾고 같은 식별자로 등록한다
+        # (이번 수집 주소의 검색 꼬리표가 달라도 같은 글).
+        stored_source_url = existing.get("source_url") or job.get("source_url")
+        fresh_rows = _unregistered_branch_rows(stored_source_url, _work_location_rpc_rows(resolved))
         if fresh_rows:
             new_payload = {k: v for k, v in job.items() if not k.startswith("_")}
+            new_payload["source_url"] = stored_source_url
             new_payload["last_verified_at"] = datetime.now(timezone.utc).isoformat()
             try:
                 _ingest_branch_jobs(new_payload, fresh_rows)
@@ -2746,9 +2764,10 @@ async def search_source_url_candidates(page, title: str) -> list[dict]:
     )
     await page.wait_for_timeout(1500)
     try:
-        return await page.evaluate(_SEARCH_LIST_JS)
+        items = await page.evaluate(_SEARCH_LIST_JS)
     except Exception:
         return []
+    return [{**item, "href": canonical_source_url(item["href"])} for item in items]
 
 
 def match_source_url_candidate(title: str, company: str, deadline: str | None, candidates: list[dict], today: date) -> dict:
