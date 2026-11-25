@@ -381,3 +381,30 @@ assert(contactHostFor({ conditions: 0, recruitKeys: ['category'] }) === 'locatio
   assert(all.some((l) => l.includes('7 – 8,5 triệu/tháng')), 'decimal-comma salary line is preserved in one piece: ' + JSON.stringify(all))
   console.log('jobDetailSections: 소수점 쉼표 급여 줄 보존 통과')
 }
+
+// ── 기준 공고 회귀(구조 정리 4번): 웹·앱 상세가 같이 쓰는 값 계산(lib/jobDetailDerive.ts)이 실제 운영 원문에서 같은 값을 내는지 고정한다.
+// 이 값은 JobDetail.tsx 안에 있던 식을 lib로 옮기기 전에 master에서 낸 결과 그대로다(옮긴 뒤에도 같아야 함 — 다르면 화면이 바뀐 것).
+{
+  const { REAL_JOBS } = await import('./realJobs.fixtures.ts')
+  const { benefitFlags, activeBenefitText, employmentText, isAllowanceNote } = await import('./jobDetailDerive.ts')
+  const { sourceRecruitmentRoles } = await import('./sourceRecruitmentRoles.ts')
+  const { roleConditionSummary } = await import('./jobRolePresentation.ts')
+  // 옮기기 전(master) 앱·웹이 인라인 식으로 낸 값(실제 운영 원문 fixtures 6건).
+  const BASELINE_DERIVED = '{"4824":{"benefits":"Chuyên cần","employment":null},"4828":{"benefits":"","employment":null},"4878":{"benefits":"","employment":null},"4879":{"benefits":"","employment":null},"4982":{"benefits":"","employment":"Full time / Part time"},"5157":{"benefits":"","employment":"Fulltime / Parttime"}}'
+  const row = (id: string) => {
+    const r = REAL_JOBS[id]
+    const job = { id: 'sb-' + id, title: r.title, company: r.company, category: 'khac', salary: r.salary ?? '', location: '', description: r.source_text, postedAt: '2026-11-01' } as never
+    const summary = roleConditionSummary(r.source_text)
+    return {
+      benefits: activeBenefitText(benefitFlags(job, summary)),
+      employment: employmentText(job, summary, sourceRecruitmentRoles(r.source_text), undefined) ?? null,
+    }
+  }
+  const ids = Object.keys(REAL_JOBS).sort()
+  assert(ids.length >= 4, '기준 공고 fixtures를 읽지 못함')
+  const got = Object.fromEntries(ids.map((id) => [id, row(id)]))
+  // 값이 비어 있어도(공고 원문에 근거가 없으면 켜지 않는다) 그 상태 자체가 기준이다.
+  assert(JSON.stringify(got) === BASELINE_DERIVED, '기준 공고 값 계산이 옮기기 전과 다름: ' + JSON.stringify(got))
+  assert(isAllowanceNote('Phụ cấp 500k') && !isAllowanceNote('Lương thỏa thuận'), '수당 메모 판정')
+  console.log('jobDetailSections: 기준 공고 상세 값 계산(복리후생·고용형태) 회귀 통과 (' + ids.length + '건)')
+}
