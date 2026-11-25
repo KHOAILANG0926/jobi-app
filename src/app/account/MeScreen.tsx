@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Bookmark, CalendarDays, Check, ChevronRight, Clock, FileText, LogOut, MessageSquare, Menu as MenuIcon, Star, UserRound, Briefcase } from 'lucide-react'
+import { Bookmark, CalendarDays, Check, ChevronRight, Clock, FileText, LogOut, MessageSquare, SlidersHorizontal, Menu as MenuIcon, Star, UserRound, Briefcase } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
@@ -31,6 +31,7 @@ export default function MeScreen() {
       <Row to="/ho-so/tin-nhan" icon={<MessageSquare size={20} aria-hidden />}>Tin nhắn</Row>
       <Row to="/ho-so/phong-van" icon={<CalendarDays size={20} aria-hidden />}>Phỏng vấn sắp tới</Row>
       <Row to="/danh-sach/phu-hop" icon={<Star size={20} aria-hidden />}>Việc phù hợp với bạn</Row>
+      <Row to="/ho-so/dieu-kien" icon={<SlidersHorizontal size={20} aria-hidden />}>Điều kiện tìm việc & thông báo</Row>
       <h2 className="app-menu__group">Hồ sơ</h2>
       <Row to="/ho-so/cv" icon={<UserRound size={20} aria-hidden />}>CV của tôi</Row>
       {user?.role === 'employer' && <Row to="/biz" icon={<Briefcase size={20} aria-hidden />}>Trang nhà tuyển dụng</Row>}

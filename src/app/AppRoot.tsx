@@ -25,6 +25,7 @@ const MessagesScreen = lazy(() => import('./inbox/MessagesScreen'))
 const InterviewsScreen = lazy(() => import('./inbox/InterviewsScreen'))
 const BizMessagesScreen = lazy(() => import('./biz/BizMessagesScreen'))
 const BizCompanyScreen = lazy(() => import('./biz/BizCompanyScreen'))
+const ConditionsScreen = lazy(() => import('./account/ConditionsScreen'))
 const CvScreen = lazy(() => import('./account/CvScreen'))
 const ApplicationsScreen = lazy(() => import('./account/ApplicationsScreen'))
 const LoginScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.LoginScreen })))
@@ -53,6 +54,7 @@ export default function AppRoot() {
               <Route path="/biz/doanh-nghiep" element={<BizCompanyScreen />} />
               <Route path="/ho-so" element={<MeScreen />} />
               <Route path="/ho-so/cv" element={<CvScreen />} />
+              <Route path="/ho-so/dieu-kien" element={<ConditionsScreen />} />
               <Route path="/ho-so/tin-nhan" element={<MessagesScreen />} />
               <Route path="/ho-so/phong-van" element={<InterviewsScreen />} />
               <Route path="/ho-so/ung-tuyen" element={<ApplicationsScreen />} />

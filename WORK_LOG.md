@@ -1,3 +1,9 @@
+## 2026-11-25 — JOBI 앱 2단계 ⑦: 맞춤 조건 설정(로그인 구직자)
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 맞춤(Phù hợp) 조건. 진행표 #1031.
+- 변경: `src/app/account/ConditionsScreen.tsx`(`/ho-so/dieu-kien`: 저장한 조건 목록·추가·수정·일시정지·삭제·결과 보기(맞음/미확인), 웹 `JobAlertsPanel`과 같은 `lib/jobAlerts`의 검사·저장·판정 — 이동거리는 웹과 같이 아직 안 씀). 마이에 진입 줄, 맞춤 목록의 '조건 설정' 버튼이 로그인 구직자는 앱 화면으로(그 외는 웹 로컬 조건 화면 그대로).
+- 검증 [직접 확인]: tsc·build·npm test 136/136, Playwright 8/8(가짜 구직자 세션, 쓰기 호출 가로챔: 필수 조건 검사 문구가 웹과 같음 → 저장 호출 → 결과 영역).
+- 안 한 것: 알림 목록(job_alert_notifications 읽음 처리)·비로그인 로컬 조건 편집(웹 RecommendSection)은 웹 화면 연결 유지.
+
 ## 2026-11-25 — JOBI 앱 2단계 ⑥: 메시지·면접(구직자·기업) + 기업 계정 화면
 - 요청(Lee): 최종 V3 기준 개발 연속 진행 — 소통(메시지·면접). 진행표 #1031.
 - 변경: `src/lib/interviewSchedule.ts`(웹 `ScheduleInterviewModal`의 '일정 저장 + 지원 상태 interview' 순서를 그대로 옮긴 공용 함수 — 웹 모달도 이 함수를 부름, 동작 변경 없음) / `src/app/inbox/` — 구직자 메시지함 `/ho-so/tin-nhan`(웹 `MessagesInbox`와 같은 `messagesStorage`)·면접 일정 `/ho-so/phong-van`·대화 화면 / `src/app/biz/` — 기업 메시지함 `/biz/tin-nhan`·기업 계정 `/biz/doanh-nghiep`(계정·안 읽은 메시지·예정 면접·로그아웃)·면접 일정 시트(지원자 카드의 '면접 잡기'). 대화를 연 상태에서는 하단 탭을 숨김(입력창).
@@ -49,9 +55,3 @@
 - 변경: `src/app/map/` — `MapScreen`(지도 탭: 지역 검색·필터 칩·내 위치·선택 카드(길찾기·지원 판정)·목록 시트), `MiniMap`(홈 미리보기 184px, 누르면 지도 탭), `useMapData`(웹과 같은 `lib/mapR1.mapSearch`로 핀·목록 — 확정 좌표만, 위치 모르는 공고는 목록에서만). 지도 부품은 허용 목록의 `HomeMapCanvas` 그대로, 스타일은 #1045의 `map.css`.
 - 검증 [직접 확인]: tsc·build·npm test 132/132, Playwright 홈 V3 B 순서(한국→추천→지도→바로가기→필터→브랜드→목록)·미니 지도 184px·첫 화면(735px)에 지도 152px 보임·지도 탭 핀 27개(실제 공고)·목록 시트 27건·가로 넘침 없음. 지도 타일 그림은 이 작업 환경의 외부 지도 접근 제한으로 직접 보지 못함(병합 뒤 운영 화면 확인).
 - 남은 것: 지도 위 업종/급여 전환 버튼·재검색·핫스팟(알바몬 앱 미확인 항목), 사이트 안 지원·회원(2단계).
-
-## 2026-11-25 — JOBI 앱 1단계 ③: 공고 상세(상단 카드 + 4구역) + 웹 지도 스타일 복사 규칙
-- 요청(Lee): 최종 V3 기준 구직자 핵심 그룹 연속 개발(상세·지도 단계). 상세 4구역은 승인된 틀 그대로, 지도는 웹 부품을 그대로 쓰고 스타일은 한 곳에서 관리.
-- 변경: `src/app/detail/`(값 만들기 `detailModel.ts` = 웹 JobDetail과 같은 lib 함수 조합, 화면 `DetailScreen.tsx`, 꾸민 본문 `DetailRich.tsx`), 하단 고정 지원 바(웹과 같은 `resolveApplyAction`: Ứng tuyển/Gọi·Zalo/없음), 지도 구역은 허용된 `JobVietMap`을 지연 불러옴, `src/app/map.css`=웹 css(index.css·homeDiscovery.css)에서 지도 규칙만 뽑은 복사본(`mapCss.ts`+`scripts/app/sync-map-css.mjs`가 만들고 `mapStyle.test.ts`가 웹 지도 스타일과 어긋나면 실패).
-- 검증 [직접 확인]: tsc·build·npm test 132/132, Playwright 상세 10항목, 실제 공고 12건에서 웹 상세와 앱 상세의 ①②구역 행 이름·값·제목 대조 11건 동일(1건은 여러 직무 공고에서 웹이 폭 때문에 접어 보이는 표시만 다름).
-- 남은 것: 지도 탭·홈 지도 섹션(4단계), 사이트 안 지원(로그인·CV, 2단계 — 그 전엔 웹 상세로 연결), 기업정보·후기 구역·꾸민 본문의 여러 직무 변형·templateHtml 공고(웹 전용).
