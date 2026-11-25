@@ -22,7 +22,27 @@ function findTests(dir) {
   return out
 }
 
-const tests = roots.flatMap(findTests)
+// 범위 선택(구조 정리 5번): `--scope=app|web|shared`는 그 범위 시험 + 경계·계층 시험만, `--changed[=기준]`은 바뀐 파일(기준…HEAD, 기본 origin/master)로 범위를 정한다.
+// 아무 옵션이 없으면(npm test, 필수 CI) 예전과 똑같이 전부 돌린다. 규칙은 src/archtest/testScopes.ts 한 곳.
+import { includeTest, scopesForChanges } from '../src/archtest/testScopes.ts'
+const args = process.argv.slice(2)
+const scopeArg = args.find((a) => a.startsWith('--scope='))?.slice('--scope='.length)
+const changedArg = args.find((a) => a === '--changed' || a.startsWith('--changed='))
+let scopes = ['all']
+if (scopeArg) {
+  if (!['all', 'app', 'web', 'shared'].includes(scopeArg)) { console.error(`알 수 없는 --scope=${scopeArg} (all|app|web|shared)`); process.exit(2) }
+  scopes = [scopeArg]
+} else if (changedArg) {
+  const base = changedArg.includes('=') ? changedArg.slice(changedArg.indexOf('=') + 1) : 'origin/master'
+  let files = []
+  try { files = execFileSync('git', ['diff', '--name-only', `${base}...HEAD`], { encoding: 'utf8' }).split('\n').filter(Boolean) } catch { files = [] }
+  const picked = scopesForChanges(files)
+  scopes = picked === 'all' ? ['all'] : picked
+  console.log(`바뀐 파일 ${files.length}개 → 시험 범위: ${scopes.join('+')}`)
+}
+const allTests = roots.flatMap(findTests)
+const tests = allTests.filter((f) => scopes.some((sc) => includeTest(relative(join(import.meta.dirname, '..'), f).split('\\').join('/'), sc)))
+if (scopes[0] !== 'all') console.log(`시험 ${tests.length}/${allTests.length}개 실행(범위 ${scopes.join('+')} + 경계·계층 시험)`)
 let failed = 0
 const cwd = process.cwd()
 const toPosixRelative = (p) => relative(cwd, p).split('\\').join('/')
