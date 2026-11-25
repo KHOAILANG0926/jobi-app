@@ -2349,7 +2349,7 @@ def _ingest_branch_jobs(payload: dict, rows: list[dict]) -> list[int]:
     ids = []
     for row in rows:
         address = row["raw_address"]
-        ids.append(ingest_job(supabase, {**payload, "location": address, "branch_location": address, "work_locations": [row]}, hold=False))
+        ids.append(ingest_job(supabase, {**payload, "location": address, "branch_location": address, "work_locations": [row]}))
     return ids
 
 
@@ -2539,14 +2539,13 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             insert_payload["origin"] = "crawler"
         try:
             # 등록은 DB 입구 하나만(Lee 2026-10-29). 입구는 판정 칸(origin·admin_hidden 등)을 받지 않는다.
-            # hold=False: 근무지 여러 곳은 등록 뒤 _replace_job_work_locations로 따로 쓰므로 보류 재처리(그 단계 없음)에 넣지 않는다.
-            # 확인 못 한 공고는 예전처럼 거부 → 저장 안 됨 → 다음 수집 때 다시 만남(Codex #619).
-            # 근무지 줄은 입구에 같이 넘긴다(같은 트랜잭션) — 등록 뒤 따로 다시 쓰지 않는다(#916).
+            # 위치를 못 찾거나 지금 확인 못 한 공고는 버리지 않고 비공개 보류함에 원문·근무지 줄과 함께 보관한다(Lee 2026-11-09·11-25) —
+            # 근무지 줄은 입구에 같이 넘기므로(같은 트랜잭션, #916) 보류 재처리도 같은 줄로 등록한다. 검증 저장(숨김)은 hold_job이 보관하지 않는다.
             branch_rows = _work_location_rpc_rows(resolved) if resolved else []
             if len(branch_rows) > 1 and not verify_write:  # 검증 저장은 격리(숨김) 처리가 공고 하나 기준이라 예전처럼 한 공고로
                 job_id = _ingest_branch_jobs(insert_payload, branch_rows)[0]
             else:
-                job_id = ingest_job(supabase, insert_payload, hold=False, work_location_rows=branch_rows or None)
+                job_id = ingest_job(supabase, insert_payload, work_location_rows=branch_rows or None)
             rows_written_by_ingest = bool(resolved)
         except Exception as exc:  # noqa: BLE001 — 규칙 거부만 건너뛰고 나머지 오류는 그대로 올린다
             code = rule_code(exc)
