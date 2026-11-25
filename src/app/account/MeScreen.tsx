@@ -1,0 +1,40 @@
+import { Link, useNavigate } from 'react-router-dom'
+import { Bookmark, Check, ChevronRight, Clock, FileText, LogOut, Menu as MenuIcon, Star, UserRound, Briefcase } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { useAuth } from '../../context/AuthContext'
+
+function Row({ to, href, icon, children }: { to?: string; href?: string; icon: ReactNode; children: ReactNode }) {
+  const inner = <><span className="app-menu__icon">{icon}</span><span>{children}</span><ChevronRight size={18} aria-hidden /></>
+  return to ? <Link className="app-menu__row" to={to}>{inner}</Link> : <a className="app-menu__row" href={href}>{inner}</a>
+}
+
+// 마이 탭(구직자): 로그인 전에는 로그인 유도, 후에는 내 활동(지원·저장·최근 본)과 계정. CV·이력서 화면은 다음 PR에서 이 자리로 연결한다(그 전에는 웹 CV 화면).
+export default function MeScreen() {
+  const { user, loading, logout } = useAuth()
+  const navigate = useNavigate()
+  const onLogout = async () => { await logout(); navigate('/', { replace: true }) }
+  return (
+    <div className="app-page" data-testid="app-me">
+      <header className="app-pagebar"><h1 className="app-pagebar__title">Của tôi</h1><Link className="app-icon-btn" to="/menu" aria-label="Menu"><MenuIcon size={24} aria-hidden /></Link></header>
+      {loading ? <p className="app-state" role="status">Đang tải…</p> : !user ? (
+        <div className="app-menu__login"><p>Đăng nhập để ứng tuyển nhanh bằng CV đã lưu</p><div><Link className="app-btn app-btn--primary" to="/dang-nhap?redirect=%2Fho-so">Đăng nhập</Link><Link className="app-btn app-btn--ghost" to="/dang-ky?redirect=%2Fho-so">Đăng ký</Link></div></div>
+      ) : (
+        <div className="app-me__card" data-testid="app-me-card">
+          <span className="app-me__avatar" aria-hidden>{(user.name || user.email || '?').trim().charAt(0).toUpperCase()}</span>
+          <div><strong>{user.name || 'Người dùng'}</strong><span>{user.email}</span></div>
+        </div>
+      )}
+      <h2 className="app-menu__group">Hoạt động của tôi</h2>
+      <Row to="/ho-so/ung-tuyen" icon={<Check size={20} aria-hidden />}>Đã ứng tuyển</Row>
+      <Row to="/danh-sach/da-luu" icon={<Bookmark size={20} aria-hidden />}>Việc đã lưu</Row>
+      <Row to="/danh-sach/da-xem" icon={<Clock size={20} aria-hidden />}>Việc đã xem</Row>
+      <Row to="/danh-sach/phu-hop" icon={<Star size={20} aria-hidden />}>Việc phù hợp với bạn</Row>
+      <h2 className="app-menu__group">Hồ sơ</h2>
+      <Row href="/ho-so" icon={<UserRound size={20} aria-hidden />}>CV của tôi</Row>
+      {user?.role === 'employer' && <Row to="/biz" icon={<Briefcase size={20} aria-hidden />}>Trang nhà tuyển dụng</Row>}
+      <h2 className="app-menu__group">Khác</h2>
+      <Row to="/menu" icon={<FileText size={20} aria-hidden />}>Tất cả tiện ích</Row>
+      {user && <button type="button" className="app-menu__row app-menu__row--btn" onClick={onLogout}><span className="app-menu__icon"><LogOut size={20} aria-hidden /></span><span>Đăng xuất</span></button>}
+    </div>
+  )
+}

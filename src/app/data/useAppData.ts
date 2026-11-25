@@ -47,8 +47,11 @@ export function useAppliedJobIds(): Set<string> {
   useEffect(() => {
     if (!user?.id) { setIds(new Set()); return }
     let cancelled = false
-    loadApplications().then((apps) => { if (!cancelled) setIds(new Set(apps.filter((a) => a.seekerId === user.id).map((a) => a.jobId))) }).catch(() => {})
-    return () => { cancelled = true }
+    const load = () => { loadApplications().then((apps) => { if (!cancelled) setIds(new Set(apps.filter((a) => a.seekerId === user.id).map((a) => a.jobId))) }).catch(() => {}) }
+    load()
+    // 지원·철회가 일어나면(lib/applicationsStorage가 알림) 바로 다시 읽는다 — 지원 직후 상세 하단 바가 "Đã ứng tuyển"으로 바뀐다.
+    window.addEventListener('vgb:applications', load)
+    return () => { cancelled = true; window.removeEventListener('vgb:applications', load) }
   }, [user?.id])
   return ids
 }

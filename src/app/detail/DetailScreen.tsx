@@ -13,6 +13,7 @@ import { recordJobView } from '../../lib/viewHistoryStorage'
 import { zaloMeUrl } from '../../lib/jobUtils'
 import { useAppliedJobIds, useSavedJobIds } from '../data/useAppData'
 import { appApplyButton } from '../data/applyAction'
+import { useAppApply } from '../account/useAppApply'
 import { buildDetailModel, DETAIL_LABELS, type DetailRow } from './detailModel'
 import DetailRich from './DetailRich'
 
@@ -46,6 +47,7 @@ export default function DetailScreen() {
   const brands = useBrandsOptional()
   const saved = useSavedJobIds()
   const applied = useAppliedJobIds()
+  const apply = useAppApply()
   const job = jobs.find((j) => j.id === id)
   const model = useMemo(() => (job ? buildDetailModel(job) : null), [job])
   const [tab, setTab] = useState<string>('conditions')
@@ -191,11 +193,11 @@ export default function DetailScreen() {
         {action.kind === 'internal' && (
           applied.has(job.id)
             ? <span className="app-actionbar__main app-actionbar__main--off">Đã ứng tuyển</span>
-            // 사이트 안 지원(로그인·CV)은 2단계(회원·지원)에서 앱에 만든다. 그 전에는 같은 사이트의 웹 상세 지원 화면으로 연결한다.
-            : <a className="app-actionbar__main" href={`/viec-lam/${job.id}`}>Ứng tuyển ngay</a>
+            : <button type="button" className="app-actionbar__main" onClick={() => apply.start(job)}>Ứng tuyển ngay</button>
         )}
         {action.kind === 'none' && !contact.phone && !contact.zalo && <span className="app-actionbar__main app-actionbar__main--off">Chưa có thông tin liên hệ</span>}
       </div>
+      {apply.sheet}
     </div>
   )
 }
