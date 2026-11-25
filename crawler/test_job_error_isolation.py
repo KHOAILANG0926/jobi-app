@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sys
 import types
+import json
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -292,6 +293,36 @@ class FacebookScrollNavigation(unittest.TestCase):
     def test_other_errors_still_raise(self):
         with self.assertRaises(ValueError):
             self._run("ok", other_error=True)
+
+
+class FacebookSessionEvidenceAndBrowser(unittest.TestCase):
+    """세션 만료 원인 확인(2026-11-25): 판정 근거 요약은 실행 기록에 남겨도 되는 값만, 브라우저 정보는 실제 실행 환경."""
+
+    def test_signal_summary_has_no_secret_or_body(self):
+        s = fb.page_signal_summary("https://www.facebook.com/checkpoint/1501092823525282/?next=https%3A%2F%2Fx&token=abc#frag",
+                                   "Facebook 12345678", ["c_user", "xs", "datr"], False, True,
+                                   "Xác minh danh tính của bạn. Nguyễn Văn A 0912345678 secret-xs-value")
+        self.assertEqual(s["url"], "www.facebook.com/checkpoint/#/")
+        self.assertEqual(s["title"], "Facebook #")
+        self.assertEqual(s["cookie_names"], ["c_user", "datr", "xs"])
+        self.assertTrue(s["has_c_user"] and s["login_form"] and not s["has_feed"])
+        self.assertEqual(s["checkpoint_markers"], ["xác minh danh tính"])
+        dumped = json.dumps(s, ensure_ascii=False)
+        for leak in ("token", "abc", "next=", "Nguyễn", "0912345678", "secret-xs-value", "1501092823525282"):
+            self.assertNotIn(leak, dumped)
+
+    def test_user_agent_matches_real_environment(self):
+        ua = fb.browser_user_agent("125.0.6422.26", "x86_64")
+        self.assertEqual(ua, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.26 Safari/537.36")
+        self.assertNotIn("Windows", ua)
+
+    def test_both_facebook_tools_use_the_same_context_helper(self):
+        import inspect
+        from pathlib import Path
+        src = Path(fb.__file__).with_name("korea_fb_survey.py").read_text(encoding="utf-8")
+        self.assertIn("crawl_facebook.new_facebook_context(browser", src)
+        self.assertNotIn("Chrome/124", src)
+        self.assertIn('new_facebook_context(browser, "vi-VN")', inspect.getsource(fb.main))
 
 
 class FacebookRetryNextRun(unittest.TestCase):

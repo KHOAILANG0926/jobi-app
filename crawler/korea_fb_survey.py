@@ -24,7 +24,7 @@ import hashlib
 from datetime import timedelta, timezone
 
 import crawl_facebook
-from crawl_facebook import (TOP_LEVEL_POSTS_JS, account_lock_reason, advance_feed, build_cookies, expand_and_reread,
+from crawl_facebook import (TOP_LEVEL_POSTS_JS, account_lock_reason, advance_feed, expand_and_reread,
                             expand_visible_posts, extract_visible_posts, inspect_page_state, is_truncated_post,
                             mobile_group_url, parse_time_label, write_account_lock)
 
@@ -600,9 +600,7 @@ async def main(argv=None) -> int:
     result = {"at": datetime.now().isoformat(timespec="seconds"), "queries": [], "groups": [], "detail": [], "class_names": CLASS_NAMES}
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-        ctx = await browser.new_context(viewport={"width": 1280, "height": 800}, locale="ko-KR",
-                                        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        await ctx.add_cookies(build_cookies())
+        ctx = await crawl_facebook.new_facebook_context(browser, "ko-KR")  # 수집기와 같은 브라우저 정보 한 곳(실제 실행 환경)
         page = await ctx.new_page()
         await stealth_async(page)
         try:
