@@ -186,3 +186,112 @@ body {
 .app-menu__row > span:nth-child(2) { flex: 1; }
 .app-menu__row > svg { color: #c2c7d0; }
 .app-menu__icon { color: var(--app-muted); display: inline-flex; }
+
+/* ===== 1단계: 공고 상세(V3 시안 · 상단 카드 + 4구역 구성 그대로) ===== */
+.app-shell--detail .app-screen { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+.app-box { margin: 0 var(--app-gutter); border: 1px solid #e2e8f0; border-radius: var(--app-radius); background: #fff; }
+.app-dcard { margin: 6px var(--app-gutter) 4px; border: 1.5px solid var(--app-tint-line); border-radius: 20px; padding: 14px; background: #fff; }
+.app-dcard__top { display: flex; gap: 12px; align-items: flex-start; }
+.app-dcard__logo { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; flex: none; background: var(--app-soft); }
+.app-dcard__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.app-pill { display: inline-block; background: var(--app-soft); border-radius: 999px; font-size: 11.5px; padding: 2px 10px; color: #4b5563; }
+.app-pill--urgent { background: var(--app-primary); color: #fff; font-weight: 700; }
+.app-pill--soon { background: #fff3e0; color: #b45309; font-weight: 600; }
+.app-dcard__title { margin: 8px 0 4px; font-size: 21px; line-height: 1.25; letter-spacing: -.01em; }
+.app-dcard__company { margin: 0; font-size: 14px; color: var(--app-muted); }
+.app-dcard__salary { margin: 8px 0 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.app-dcard__amount { color: var(--app-primary); font-size: 22px; font-weight: 800; line-height: 1.2; }
+.app-dcard__salary small { color: var(--app-muted); font-size: 12px; flex-basis: 100%; }
+.app-dcard__meta { margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--app-muted); }
+.app-dcard__meta span { display: inline-flex; align-items: center; gap: 4px; }
+.app-benefits { display: flex; gap: 8px; overflow-x: auto; margin-top: 12px; scrollbar-width: none; }
+.app-benefits::-webkit-scrollbar { display: none; }
+.app-benefit { flex: none; width: 46px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9.5px; color: #9ca3af; text-align: center; }
+.app-benefit__icon { width: 38px; height: 38px; border-radius: 10px; background: var(--app-soft); display: grid; place-items: center; color: #9ca3af; }
+.app-benefit--on { color: var(--app-text); }
+.app-benefit[data-key="bus"].app-benefit--on .app-benefit__icon { color: #2563eb; background: #dbeafe; }
+.app-benefit[data-key="dorm"].app-benefit--on .app-benefit__icon { color: #7c3aed; background: #ede9fe; }
+.app-benefit[data-key="meal"].app-benefit--on .app-benefit__icon { color: #ea580c; background: #ffedd5; }
+.app-benefit[data-key="attendance"].app-benefit--on .app-benefit__icon { color: #16a34a; background: #dcfce7; }
+.app-benefit[data-key="housing"].app-benefit--on .app-benefit__icon { color: #db2777; background: #fce7f3; }
+.app-benefit[data-key="fuel"].app-benefit--on .app-benefit__icon { color: #0891b2; background: #cffafe; }
+.app-benefit[data-key="performance"].app-benefit--on .app-benefit__icon { color: #ca8a04; background: #fef9c3; }
+.app-dtabs { display: flex; margin-top: 12px; border-bottom: 1px solid #e8ebf0; position: sticky; top: 58px; background: #fff; z-index: 4; }
+.app-dtabs button { flex: 1; padding: 13px 8px; border: 0; border-bottom: 3px solid transparent; background: transparent; font: inherit; font-size: 14px; font-weight: 600; color: var(--app-muted); cursor: pointer; }
+.app-dtabs button.app-on { color: var(--app-text); border-color: var(--app-primary); }
+.app-dsec { scroll-margin-top: 112px; }
+.app-dsec > h2 { margin: 26px var(--app-gutter) 12px; font-size: 21px; font-weight: 700; }
+.app-info { margin-top: 0; margin-bottom: 0; padding: 6px 16px; }
+.app-info__row { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #f0f1f4; font-size: 14px; }
+.app-info__row:last-child { border-bottom: 0; }
+.app-info dt, .app-info__row dt { width: 92px; flex: none; color: var(--app-muted); margin: 0; }
+.app-info__row dd { flex: 1; margin: 0; font-weight: 600; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; word-break: break-word; }
+.app-info__soon { color: var(--app-primary); }
+.app-info__lines, .app-info__rows { display: flex; flex-direction: column; gap: 3px; }
+.app-info__sub { font-weight: 500; font-size: 12.5px; color: var(--app-muted); }
+.app-info__rolerow { display: flex; gap: 10px; justify-content: space-between; }
+.app-info__rolerow b { color: var(--app-primary); }
+.app-addr { display: flex; align-items: flex-start; gap: 6px; margin: 0 var(--app-gutter) 8px; font-size: 14px; font-weight: 600; }
+.app-addr span { flex: 1; }
+.app-addr button { border: 0; background: transparent; color: #2563eb; font: inherit; font-size: 12.5px; cursor: pointer; flex: none; }
+.app-map-box { padding: 12px; }
+.app-map-note { margin: 8px 0 0; font-size: 12px; color: var(--app-muted); }
+.app-map-links { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.app-map-dir { display: flex; justify-content: space-between; padding: 12px 14px; border: 1px solid #d9dde3; border-radius: 12px; font-weight: 700; font-size: 14px; color: var(--app-text); text-decoration: none; }
+.app-desc { padding: 0 0 8px; overflow: hidden; }
+.app-desc__sec { padding: 12px 16px 0; }
+.app-desc__sec h3, .app-desc__plain { margin: 0 0 8px; font-size: 15px; font-weight: 700; padding-left: 8px; border-left: 3px solid var(--app-primary); }
+.app-desc__plain { margin: 12px 16px; }
+.app-desc__line { margin: 0 0 6px; font-size: 14px; line-height: 1.55; }
+.app-desc__img { display: block; width: calc(100% - 32px); margin: 0 16px 12px; border-radius: 10px; }
+.app-warn { margin: 16px var(--app-gutter); background: #fff8e6; border-radius: 12px; padding: 11px 13px; font-size: 12px; color: #7a5a00; }
+.app-actionbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 12; display: flex; gap: 8px; align-items: center; padding: 10px var(--app-gutter) calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--app-line); background: #fff; }
+.app-actionbar__save { width: 48px; height: 48px; border: 1px solid #d9dde3; border-radius: 12px; background: #fff; color: var(--app-text); display: grid; place-items: center; flex: none; cursor: pointer; }
+.app-actionbar__save.app-on { color: var(--app-primary); }
+.app-actionbar__btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 48px; border-radius: 12px; border: 1px solid #d9dde3; font-weight: 700; font-size: 14.5px; color: var(--app-text); text-decoration: none; }
+.app-actionbar__main { flex: 1.6; display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 12px; background: var(--app-primary); color: #fff; font-weight: 700; font-size: 14.5px; text-decoration: none; }
+.app-actionbar__main--off { background: #e5e7eb; color: #6b7280; }
+.app-actionbar[data-action="contact"] .app-actionbar__btn:first-of-type { background: var(--app-primary); border-color: var(--app-primary); color: #fff; }
+
+/* 상세 ④ 꾸민 본문 */
+.app-rich { padding-bottom: 4px; }
+.app-rich__hero { margin: 14px; background: #fff1ee; border-radius: 16px; padding: 18px; text-align: center; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.app-rich__hero small { color: var(--app-muted); }
+.app-rich__hero b { color: var(--app-primary); font-size: 22px; }
+.app-rich__pill { background: #fff; border: 1px solid var(--app-tint-line); color: #c62828; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 700; }
+.app-rich__note { font-size: 12px; color: var(--app-muted); }
+.app-rich__sec { padding: 8px 14px 0; }
+.app-rich__h { margin: 10px 0 8px; font-size: 16px; font-weight: 700; padding-left: 8px; border-left: 3px solid var(--app-primary); }
+.app-rich__card { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; padding: 12px 14px; border-radius: 12px; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .06); font-size: 14px; line-height: 1.5; }
+.app-rich__card svg { flex: none; color: var(--app-primary); margin-top: 1px; }
+.app-rich__o { color: #e65100; font-weight: 700; }
+.app-rich__b { color: #1d4ed8; font-weight: 700; }
+.app-rich__flow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 6px; }
+.app-rich__step { display: inline-flex; align-items: center; gap: 2px; background: var(--app-soft); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 600; }
+.app-rich__tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.app-rich__tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 12px; background: var(--app-soft); font-size: 12px; text-align: center; }
+.app-rich__cta { display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 12px; background: var(--app-primary); color: #fff; font-weight: 700; text-decoration: none; }
+.app-rich__contact { margin: 8px 0; font-size: 14px; }
+
+/* ===== 1단계: 지도(V3 시안 · 홈 지도 미리보기 + 지도 탭) ===== */
+.app-minimap { position: relative; margin: 0 var(--app-gutter); height: 184px; border-radius: var(--app-radius); overflow: hidden; border: 1px solid #e8ebf0; background: #eef0f3; isolation: isolate; }
+.app-minimap__veil { position: absolute; inset: 0; display: block; z-index: 2; }
+.app-minimap__btn { position: absolute; right: 10px; bottom: 10px; width: 36px; height: 36px; border-radius: 18px; background: #fff; color: var(--app-primary); display: grid; place-items: center; box-shadow: 0 2px 10px rgba(0, 0, 0, .22); }
+.app-map-note--center { text-align: center; padding: 24px; }
+.app-mapscreen { position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--app-tabbar-h) + env(safe-area-inset-bottom, 0px)); overflow: hidden; background: #eef0f3; }
+.app-mapscreen__canvas { position: absolute; inset: 0; z-index: 0; isolation: isolate; }
+.app-mapscreen__top { position: absolute; left: 0; right: 0; top: 0; z-index: 3; display: flex; flex-direction: column; gap: 6px; padding-top: 10px; pointer-events: none; }
+.app-mapscreen__top > * { pointer-events: auto; }
+.app-mapsearch { display: flex; align-items: center; gap: 10px; margin: 0 12px; height: 46px; padding: 0 14px; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, .18); font: inherit; font-size: 14px; color: var(--app-muted); text-align: left; cursor: pointer; }
+.app-mapscreen__top .app-chip-row { padding-top: 0; }
+.app-mapscreen__top .app-chip { box-shadow: 0 2px 8px rgba(0, 0, 0, .15); border-color: transparent; }
+.app-mapfab { position: absolute; right: 12px; bottom: 150px; z-index: 3; width: 46px; height: 46px; border: 0; border-radius: 12px; background: #fff; color: var(--app-text); display: grid; place-items: center; box-shadow: 0 2px 10px rgba(0, 0, 0, .22); cursor: pointer; }
+.app-mapnotice { position: absolute; left: 12px; right: 70px; bottom: 150px; z-index: 3; margin: 0; padding: 10px 12px; border-radius: 12px; background: #fff8e6; color: #7a5a00; font-size: 12.5px; box-shadow: 0 2px 10px rgba(0, 0, 0, .15); }
+.app-mapscreen__bottom { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; pointer-events: none; }
+.app-mapscreen__bottom > * { pointer-events: auto; }
+.app-maplist-btn { align-self: center; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border: 0; border-radius: 22px; background: #111827; color: #fff; font: inherit; font-weight: 700; font-size: 14px; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); cursor: pointer; }
+.app-mapcard { position: relative; background: #fff; border-radius: 18px; padding: 14px; box-shadow: 0 -2px 18px rgba(0, 0, 0, .18); }
+.app-mapcard__close { position: absolute; top: 8px; right: 8px; }
+.app-mapcard__body { display: flex; flex-direction: column; gap: 3px; color: var(--app-text); text-decoration: none; padding-right: 28px; }
+.app-mapcard__actions { display: flex; gap: 8px; margin-top: 12px; }
+.app-mapcard__actions .app-btn { flex: 1; min-height: 44px; }
