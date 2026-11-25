@@ -372,6 +372,19 @@ def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
         raise HoldStoreError("hold_store_failed: 보류함 저장 실패 — 이 글은 본 글로 표시하지 않음") from exc
 
 
+HOLD_HISTORY_LIMIT = 10
+
+
+def _note_history(meta: dict, before: tuple) -> None:
+    """오류 기록 축적(Lee 2026-11-25): 같은 보류 줄(원문 payload) 안에 판정이 바뀐 때만 이전 상태·사유를 남긴다 —
+    원문·처음 사유·다시 판정 결과(등록이면 job_id)·같은 사유 반복이 한 줄에 이어진다. 바뀌지 않은 재확인은 남기지 않고(중복 방지) 최근 HOLD_HISTORY_LIMIT개만."""
+    if (meta.get("status"), meta.get("reason")) == before:
+        return
+    history = list(meta.get("history") or [])
+    history.append({"at": meta.get("retried_at") or _now(), "status": before[0], "reason": before[1]})
+    meta["history"] = history[-HOLD_HISTORY_LIMIT:]
+
+
 _HOLDS_RETRIED = False
 
 
@@ -389,6 +402,7 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
         return counts
     for row in rows:
         meta = dict(row.get("meta") or {})
+        before = (meta.get("status"), meta.get("reason"))
         meta["attempts"] = int(meta.get("attempts") or 0) + 1
         meta["retried_at"] = _now()
         held_at = str(meta.get("held_at") or "")
@@ -456,6 +470,7 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
                         meta["next_at"] = _after(1)
                     stop = True
         counts[meta.get("status", "held")] += 1
+        _note_history(meta, before)
         try:
             update = {"meta": meta}
             if new_payload is not None:
