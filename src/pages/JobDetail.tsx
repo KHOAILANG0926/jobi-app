@@ -30,7 +30,7 @@ import { useBrandsOptional } from '../context/BrandsContext'
 import { ConditionLines } from '../components/ConditionLines'
 import { conditionItems, itemsCoveredBy, salaryParts } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
-import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
+import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, EMPLOYMENT_TYPE_EXTRA_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { contactHostFor, balanceConditionColumns, detailSections, salaryAmounts, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { descriptionRoleGroups, roleConditionSummary, roleSalaryLines, roleSalaryRows } from '../lib/jobRolePresentation'
 import { insuranceTags } from '../lib/jobQuyenLoi'
@@ -49,7 +49,7 @@ import { richPill } from '../lib/detailRich'
 import '../components/template/AlbamonTemplate.css'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
-import { activeBenefitText as activeBenefitTextOf, benefitFlags, conditionSalaryLines as conditionSalaryLinesOf, employmentText as employmentTextOf, isAllowanceNote as isAllowanceNoteOf } from '../lib/jobDetailDerive'
+import { mealLabel } from '../lib/mealBenefit'
 import { usesAlbamonLayout, albamonConditionLines, albamonCompose, sourceAgeValue } from '../lib/jobQuyenLoi'
 
 const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
@@ -356,7 +356,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const roleSalary = roleSummary ? roleSalaryLines(job.description) : []
   // 2026-11-04 Lee 승인 글 모형: 최신 틀은 직무 | 금액 두 칸(Full-time 글자 없음, 파트타임 공통 시급 한 줄, triệu 표기). 상여·수당 줄은 상세요강에.
   const salaryRows = roleSummary && usesAlbamonLayout(job.id) ? roleSalaryRows(job.description) : []
-  const conditionSalaryLines = conditionSalaryLinesOf(roleSalary)
+  const conditionSalaryLines = roleSalary.length > 3 ? [...roleSalary.slice(0, 2), `${roleSalary[2]} +${roleSalary.length - 3}`] : roleSalary
   const locationText = nonEmpty(job.rawLocation)
   const preferenceText = nonEmpty(job.rawPreference)
   const educationText = nonEmpty(job.rawEducation)
@@ -404,7 +404,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const contact = contactOf(job)
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
-  const employmentText = employmentTextOf(job, roleSummary, sourceRoles, workPeriodText)
+  const employmentText = roleSummary?.workPeriod ?? (sourceRoles.workTypes.length > 1 ? sourceRoles.workTypes.join(' / ') : (job.employmentType ? [EMPLOYMENT_TYPE_LABEL[job.employmentType], job.employmentTypeExtra && EMPLOYMENT_TYPE_EXTRA_LABEL[job.employmentTypeExtra]].filter(Boolean).join(' · ') : workPeriodText ?? sourceRoles.workTypes[0]))
   const otherJobsOfCompany = isGenericCompanyName(job.company) ? [] : jobs
     .filter((j) => j.id !== job.id && companyKeyFromName(j.company) === companyKeyFromName(job.company))
     .slice(0, 5)
@@ -421,7 +421,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     value ? row(key, icon, label, <ConditionLines text={value} showPreview={albamonLayout && key === 'benefits'} compactText={roleSummary ? (key === 'hours' ? `${roleSummary.roleCount} vị trí, giờ khác` : key === 'workDays' ? 'Theo từng vị trí' : key === 'benefits' ? 'Theo từng vị trí' : undefined) : undefined} onOverflowChange={(o) => setConditionOverflow(key, label, value, o)} onMore={() => scrollToDetail(CONDITION_DETAIL_KEY[key] ?? '07')} />) : null
   // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
   const salaryNote = nonEmpty(job.salaryNote)
-  const isAllowanceNote = isAllowanceNoteOf(salaryNote)
+  const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
   // Fixed future-proof slots: missing values do not remove the field definition.
   // Only populated slots render; don't fabricate values or infer benefits from source text.
   // 틀은 2가지: 기준 공고(KDA)와 새 4칸 틀(나머지 전부). 예전 Quyền lợi 틀(3건)은 Lee 2026-11-09 "적용"으로 새 틀에 합침.
@@ -522,19 +522,21 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
 
   // 출처 사이트·Facebook CDN 이미지는 회사 로고로 쓰지 않는다(companyLogo.ts, 2026-10-06) — 없으면 이니셜.
   // Header benefits: verified positives only. Unknown values stay neutral (never mean 'not provided').
-  // 복리후생 7칸의 켜짐 판정은 lib/jobDetailDerive.ts(앱 상세와 같은 함수). 여기서는 칸마다 아이콘·색만 붙인다.
-  const BENEFIT_VIEW = {
-    bus: { icon: Bus, color: '#2563eb', bg: '#dbeafe' },
-    dorm: { icon: BedDouble, color: '#7c3aed', bg: '#ede9fe' },
-    meal: { icon: Utensils, color: '#ea580c', bg: '#ffedd5' },
-    attendance: { icon: CalendarCheck, color: '#16a34a', bg: '#dcfce7' },
-    housing: { icon: House, color: '#db2777', bg: '#fce7f3' },
-    fuel: { icon: Fuel, color: '#0891b2', bg: '#cffafe' },
-    performance: { icon: ChartNoAxesColumnIncreasing, color: '#ca8a04', bg: '#fef9c3' },
-  } as const
-  const benefitIcons = benefitFlags(job, roleSummary).map((f) => ({ ...f, ...BENEFIT_VIEW[f.key] }))
+  const evidence = [job.description ?? '', ...(job.benefitTags ?? [])].join(' ').normalize('NFC')
+  // 2026-10-25 Lee: AI가 원문 근거로 고른 복리후생 번호표(benefit_tags 표시 이름)도 켠다 — 단어 목록에 없는 표현(예: "oto bai xăng")도 잡힘
+  const aiTags = new Set(job.benefitTags ?? [])
+  const explicitBenefit = (pattern: RegExp, label?: string) => (!!label && aiTags.has(label)) || pattern.test(evidence)
+  const benefitIcons = [
+    { key: 'bus', label: 'Xe đưa đón', active: job.shuttleBus === true, icon: Bus, color: '#2563eb', bg: '#dbeafe' },
+    { key: 'dorm', label: 'Ký túc xá', active: job.dormitory === true, icon: BedDouble, color: '#7c3aed', bg: '#ede9fe' },
+    { key: 'meal', label: roleSummary?.mealBenefit ?? mealLabel(job.description), active: !!roleSummary?.mealBenefit || job.mealProvided === true, icon: Utensils, color: '#ea580c', bg: '#ffedd5' },
+    { key: 'attendance', label: 'Chuyên cần', active: explicitBenefit(/(?:chuyên cần|chuyen can)(?:\\s*[:：-]?\\s*[\\d.,]+\\s*(?:k|đ|vnd|đồng))?/i, 'Chuyên cần'), icon: CalendarCheck, color: '#16a34a', bg: '#dcfce7' },
+    { key: 'housing', label: 'Nhà ở', active: explicitBenefit(/(?:phụ cấp nhà ở|hỗ trợ nhà ở|tiền nhà|phu cap nha o|ho tro nha o)/i, 'Nhà ở'), icon: House, color: '#db2777', bg: '#fce7f3' },
+    { key: 'fuel', label: 'Xăng xe', active: explicitBenefit(/(?:phụ cấp xăng xe|hỗ trợ xăng xe|tiền xăng|phu cap xang xe|ho tro xang xe)/i, 'Xăng xe'), icon: Fuel, color: '#0891b2', bg: '#cffafe' },
+    { key: 'performance', label: 'Năng suất', active: explicitBenefit(/(?:thưởng năng suất|thuong nang suat|thưởng sản lượng)/i, 'Năng suất'), icon: ChartNoAxesColumnIncreasing, color: '#ca8a04', bg: '#fef9c3' },
+  ] as const
   // 확인된 복리후생만(상단 아이콘과 같은 근거). 없으면 행 없음.
-  const activeBenefitText = activeBenefitTextOf(benefitIcons)
+  const activeBenefitText = benefitIcons.filter((b) => b.active).map((b) => b.label).join(' · ')
   const conditionPcFields = [
     row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
     // 2026-11-04 Lee 데모(GPT 디자인 안): 최신 틀은 보험 원문 줄 대신 짧은 표시(BHXH·BHYT·BHTN) — 원문 줄은 상세요강에 그대로.
