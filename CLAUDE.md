@@ -37,6 +37,16 @@
 - 대표 결정·승인이 필요한 항목만 따로 요청하고 나머지는 멈추지 않고 계속한다. 중간 보고는 생략하고 기능 그룹이 끝나면 통합 보고한다(구분 ①②③별 결과·PR·운영 검사·미완료).
 - 기존 보안·승인·검증 규칙(「자율 완주 및 승인 게이트」「승인 대상 판정」「기존 확정 규정 보호」「보고 검증 규정」「검증 반복 제한」)은 그대로다.
 
+## 웹·앱·크롤링 작업 영역과 공통 코드 수정 책임 — MANDATORY (Lee 2026-11-25 구조 정리 지시)
+- 목적: 웹과 앱을 둘 다 독립적으로 운영·발전시킬 수 있게 구조적 기반을 마련한다(어느 쪽도 없애거나 대체하지 않는다). 지금은 GitHub·Vercel·Supabase와 공통 처리 시스템을 함께 쓴다. 서버·DB 분리, 엔진 복제, 대규모 파일 이동, 패키지 분리는 지시 없이 하지 않는다. 구조도·세부·향후 분리 순서: `docs/architecture/README.md`.
+- 영역과 담당: 크롤링·데이터 처리(`crawler/`·`scripts/`·데이터 쪽 `supabase/`·엔진 파일) = 크롤링 창 / 웹 전용(`src/pages`·`src/components`·`src/index.css`) = 웹 창 / 앱 전용(`src/app`·`app.html`) = 앱 창 / 공통(`src/lib`·`src/context`·`src/data`·`src/types`·`api/`) = 영향 범위를 확인한 창 / DB·인증·권한 = 기존 승인 체계 / 빌드·배포·검사 = 구조 정리(대표 승인).
+- 전용 영역을 바꾸면 그 영역 중심으로 검사한다(`npm run test:app|web`·`typecheck:app|web`·`build:app`, 바뀐 파일로 정하는 `npm run test:changed`). 공통 영역을 바꾸면 웹·앱 양쪽(`npm test` 전부 + 웹·앱 화면 검사)을 확인하고 PR 「작업 범위」에 영향(웹/앱/서버)을 적는다. 필수 CI는 범위를 줄이지 않고 기존처럼 전부 돌린다(검사 약화 금지).
+- 공통 파일은 작은 PR로 나눠 바꾸고, 올리기 전에 같은 파일을 고치는 열린 PR·최근 병합 PR을 직접 확인한다. 같은 공통 파일을 두 창이 동시에 고치지 않고 먼저 병합할 쪽을 정한다. 같은 문제를 웹과 앱에서 각각 고치지 않고 공통 함수(예: `lib/jobDetailDerive.ts`)에 둔다.
+- 계층 규칙(시험이 강제, `src/archtest/layers.test.ts`·`src/app/boundary.test.ts`): 서버 함수(`api/`)와 Node 도구가 끌어오는 `src` 코드는 React·브라우저 전역·브라우저 Supabase 클라이언트·화면 코드를 만지지 않는다 / `src/lib`·`data`·`types`·`context`는 화면 코드를 가져오지 않는다 / 앱↔웹은 서로 가져오지 않는다. 지금 있는 위반은 시험의 KNOWN 목록(이유 기재)이 기준이며 새로 늘리지 않는다.
+- 환경 종속: 브라우저 저장소·window 이벤트는 `kvLocal`/`kvSession`(`src/lib/kvStore.ts`)·`emitEvent`/`onEvent`(`src/lib/eventBus.ts`)를 쓰고 직접 쓰지 않는다. 브라우저 연결은 `src/lib/browserEnv.ts` 한 곳이다. 실제로 환경에 기대는 곳에만 어댑터를 둔다(전부 감싸지 않는다).
+- 승인된 화면 틀 파일(`src/pages/JobDetail.tsx` 등 `scripts/test-desktop-baseline.mjs` 잠금 대상)은 화면 결과가 같아도 기준 공고 회귀 시험·잠금 해시 갱신·대표 수동 Approve 뒤에만 바꾼다(「승인된 공고 틀 보존」은 그대로).
+- 기록 충돌 줄이기: `tsconfig.tsbuildinfo` 같은 빌드 산출물은 추적하지 않는다. 기능 그룹을 PR 여러 개로 나눌 때 `WORK_LOG.md`·`CHATGPT_HANDOFF.md`는 중간 PR마다 고치지 않고 그룹을 닫는 마지막 PR에서 한 번에 갱신한다(중간 PR의 기록은 PR 본문 「작업 범위」·「확인한 기록」). 단일 PR 작업은 기존대로 그 PR에서 갱신한다.
+
 ## 승인 대상 판정 — 자동 병합과 수동 Approve 구분 (Lee 2026-11-23 최종 지시)
 - 구현은 `scripts/decision-approval-gate.mjs` 한 곳이다(approval-gate 검사·봇 병합이 같은 판정기를 씀). 새 검사 체계·AST 분석·호출 그래프 추적은 만들지 않는다.
 - **수동 Approve 유지**: 결정 문서·CODEOWNERS / `AGENTS.md`·`CLAUDE.md`·`.claude/RULES_CORE.md` 전체 / 승인·병합 게이트와 필수 검사 구성(필수 검사 이름의 잡을 정의하는 워크플로 포함) / 워크플로의 권한·비밀값·실행 트리거(on)·실행기·외부 액션 변경 / 고권한 워크플로(실제 설정 기준: `environment:`·permissions의 write·GITHUB_TOKEN 아닌 secrets·self-hosted)의 실행 명령·대상·인자 변경 / DB 구조·인증·RLS·권한·`supabase/functions/`·운영 배포 핵심 경로 / 승인된 PC 화면 틀. STATUS 직접 수정 금지와 파괴적 migration 차단도 그대로.

@@ -27,6 +27,16 @@ Codex는 이 저장소 PR을 자동 리뷰한다. 아래 순서로 본다. 지�
 - 밤 근무: 예약 작업이 몇 시간마다 `ai-team` 이슈를 우선순위대로 하나씩 처리. 아침 보고: 밤에 한 일·합친 것·Lee 결정 필요한 것을 5줄로.
 - 공고가 적은 지금 고치는 게 낫다(Lee 2026-11-08): 큰 수정·구조 변경을 "나중에"로 미루지 않는다. 단 위 "준비만" 항목은 Lee 한마디를 받는다.
 
+## 웹·앱·크롤링 작업 영역과 공통 코드 수정 책임 — MANDATORY (Lee 2026-11-25 구조 정리 지시, CLAUDE.md와 같은 내용)
+- 목적: 웹과 앱을 둘 다 독립적으로 운영·발전시킬 수 있게 구조적 기반을 마련한다(어느 쪽도 없애거나 대체하지 않는다). 지금은 GitHub·Vercel·Supabase와 공통 처리 시스템을 함께 쓴다. 서버·DB 분리, 엔진 복제, 대규모 파일 이동, 패키지 분리는 지시 없이 하지 않는다. 구조도·세부·향후 분리 순서: `docs/architecture/README.md`.
+- 영역과 담당: 크롤링·데이터 처리(`crawler/`·`scripts/`·데이터 쪽 `supabase/`·엔진 파일) = 크롤링 창 / 웹 전용(`src/pages`·`src/components`·`src/index.css`) = 웹 창 / 앱 전용(`src/app`·`app.html`) = 앱 창 / 공통(`src/lib`·`src/context`·`src/data`·`src/types`·`api/`) = 영향 범위를 확인한 창 / DB·인증·권한 = 기존 승인 체계 / 빌드·배포·검사 = 구조 정리(대표 승인).
+- 전용 영역을 바꾸면 그 영역 중심으로 검사한다(`npm run test:app|web`·`typecheck:app|web`·`build:app`, 바뀐 파일로 정하는 `npm run test:changed`). 공통 영역을 바꾸면 웹·앱 양쪽(`npm test` 전부 + 웹·앱 화면 검사)을 확인하고 PR 「작업 범위」에 영향(웹/앱/서버)을 적는다. 필수 CI는 범위를 줄이지 않고 기존처럼 전부 돌린다(검사 약화 금지).
+- 공통 파일은 작은 PR로 나눠 바꾸고, 올리기 전에 같은 파일을 고치는 열린 PR·최근 병합 PR을 직접 확인한다. 같은 공통 파일을 두 창이 동시에 고치지 않고 먼저 병합할 쪽을 정한다. 같은 문제를 웹과 앱에서 각각 고치지 않고 공통 함수(예: `lib/jobDetailDerive.ts`)에 둔다.
+- 계층 규칙(시험이 강제, `src/archtest/layers.test.ts`·`src/app/boundary.test.ts`): 서버 함수(`api/`)와 Node 도구가 끌어오는 `src` 코드는 React·브라우저 전역·브라우저 Supabase 클라이언트·화면 코드를 만지지 않는다 / `src/lib`·`data`·`types`·`context`는 화면 코드를 가져오지 않는다 / 앱↔웹은 서로 가져오지 않는다. 지금 있는 위반은 시험의 KNOWN 목록(이유 기재)이 기준이며 새로 늘리지 않는다.
+- 환경 종속: 브라우저 저장소·window 이벤트는 `kvLocal`/`kvSession`(`src/lib/kvStore.ts`)·`emitEvent`/`onEvent`(`src/lib/eventBus.ts`)를 쓰고 직접 쓰지 않는다. 브라우저 연결은 `src/lib/browserEnv.ts` 한 곳이다. 실제로 환경에 기대는 곳에만 어댑터를 둔다(전부 감싸지 않는다).
+- 승인된 화면 틀 파일(`src/pages/JobDetail.tsx` 등 `scripts/test-desktop-baseline.mjs` 잠금 대상)은 화면 결과가 같아도 기준 공고 회귀 시험·잠금 해시 갱신·대표 수동 Approve 뒤에만 바꾼다(「승인된 공고 틀 보존」은 그대로).
+- 기록 충돌 줄이기: `tsconfig.tsbuildinfo` 같은 빌드 산출물은 추적하지 않는다. 기능 그룹을 PR 여러 개로 나눌 때 `WORK_LOG.md`·`CHATGPT_HANDOFF.md`는 중간 PR마다 고치지 않고 그룹을 닫는 마지막 PR에서 한 번에 갱신한다(중간 PR의 기록은 PR 본문 「작업 범위」·「확인한 기록」). 단일 PR 작업은 기존대로 그 PR에서 갱신한다.
+
 ## 운영 DB 직접 접근 금지 — Lee 2026-10-27 재확인 (10-13 결정)
 - Codex는 Supabase 도구 등으로 운영 DB에 직접 연결해 SQL을 실행하거나 조회하지 않는다. 앞으로도 같은 경로를 사용하지 않는다.
 - 운영 DB 변경은 `supabase/migrations/` 파일과 `supabase/tests/*_production_check.sql`을 같은 PR로 제출하고 필수 검사→봇 병합→`migrations-apply.yml` 자동 적용으로만 진행한다.
