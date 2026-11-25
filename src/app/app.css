@@ -272,3 +272,26 @@ body {
 .app-rich__tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 12px; background: var(--app-soft); font-size: 12px; text-align: center; }
 .app-rich__cta { display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 12px; background: var(--app-primary); color: #fff; font-weight: 700; text-decoration: none; }
 .app-rich__contact { margin: 8px 0; font-size: 14px; }
+
+/* ===== 1단계: 지도(V3 시안 · 홈 지도 미리보기 + 지도 탭) ===== */
+.app-minimap { position: relative; margin: 0 var(--app-gutter); height: 184px; border-radius: var(--app-radius); overflow: hidden; border: 1px solid #e8ebf0; background: #eef0f3; isolation: isolate; }
+.app-minimap__veil { position: absolute; inset: 0; display: block; z-index: 2; }
+.app-minimap__btn { position: absolute; right: 10px; bottom: 10px; width: 36px; height: 36px; border-radius: 18px; background: #fff; color: var(--app-primary); display: grid; place-items: center; box-shadow: 0 2px 10px rgba(0, 0, 0, .22); }
+.app-map-note--center { text-align: center; padding: 24px; }
+.app-mapscreen { position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--app-tabbar-h) + env(safe-area-inset-bottom, 0px)); overflow: hidden; background: #eef0f3; }
+.app-mapscreen__canvas { position: absolute; inset: 0; z-index: 0; isolation: isolate; }
+.app-mapscreen__top { position: absolute; left: 0; right: 0; top: 0; z-index: 3; display: flex; flex-direction: column; gap: 6px; padding-top: 10px; pointer-events: none; }
+.app-mapscreen__top > * { pointer-events: auto; }
+.app-mapsearch { display: flex; align-items: center; gap: 10px; margin: 0 12px; height: 46px; padding: 0 14px; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, .18); font: inherit; font-size: 14px; color: var(--app-muted); text-align: left; cursor: pointer; }
+.app-mapscreen__top .app-chip-row { padding-top: 0; }
+.app-mapscreen__top .app-chip { box-shadow: 0 2px 8px rgba(0, 0, 0, .15); border-color: transparent; }
+.app-mapfab { position: absolute; right: 12px; bottom: 150px; z-index: 3; width: 46px; height: 46px; border: 0; border-radius: 12px; background: #fff; color: var(--app-text); display: grid; place-items: center; box-shadow: 0 2px 10px rgba(0, 0, 0, .22); cursor: pointer; }
+.app-mapnotice { position: absolute; left: 12px; right: 70px; bottom: 150px; z-index: 3; margin: 0; padding: 10px 12px; border-radius: 12px; background: #fff8e6; color: #7a5a00; font-size: 12.5px; box-shadow: 0 2px 10px rgba(0, 0, 0, .15); }
+.app-mapscreen__bottom { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; pointer-events: none; }
+.app-mapscreen__bottom > * { pointer-events: auto; }
+.app-maplist-btn { align-self: center; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border: 0; border-radius: 22px; background: #111827; color: #fff; font: inherit; font-weight: 700; font-size: 14px; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); cursor: pointer; }
+.app-mapcard { position: relative; background: #fff; border-radius: 18px; padding: 14px; box-shadow: 0 -2px 18px rgba(0, 0, 0, .18); }
+.app-mapcard__close { position: absolute; top: 8px; right: 8px; }
+.app-mapcard__body { display: flex; flex-direction: column; gap: 3px; color: var(--app-text); text-decoration: none; padding-right: 28px; }
+.app-mapcard__actions { display: flex; gap: 8px; margin-top: 12px; }
+.app-mapcard__actions .app-btn { flex: 1; min-height: 44px; }

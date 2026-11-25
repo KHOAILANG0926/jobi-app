@@ -18,8 +18,9 @@ import AppJobCard from '../ui/AppJobCard'
 import AppTopBar from '../ui/AppTopBar'
 import FilterRail from '../ui/FilterRail'
 import { useFilterSheets } from '../ui/useFilterSheets'
+import MiniMap from '../map/MiniMap'
 
-// 메인 홈(V3 최종, 지도 B안). 순서: 상단바 → 한국 일자리 → 추천 → (지도: 4단계에서 추천 바로 아래에 추가) → 바로가기 5개 → 필터 칩 → 브랜드 → 최신 목록.
+// 메인 홈(V3 최종, 지도 B안). 순서: 상단바 → 한국 일자리 → 추천 → 지도(추천 바로 아래) → 바로가기 5개 → 필터 칩 → 브랜드 → 최신 목록.
 // 급구 가로 섹션은 두지 않는다(대표 결정 2026-11-25). 모든 값은 기존 lib 함수·실제 공고에서 만든다.
 function RecSummary({ job }: { job: Job }) {
   const salary = cardSalary(job)
@@ -85,6 +86,7 @@ export default function HomeScreen() {
         <ChevronRight size={22} aria-hidden />
       </a>
       <Recommended jobs={recommended} />
+      <MiniMap jobs={jobs} areas={areas} />
       <nav className="app-shortcuts" aria-label="Khám phá việc làm">
         {SHORTCUTS.map(({ to, label, icon: Icon }) => <Link key={to} to={to}><span className="app-shortcuts__icon"><Icon size={24} aria-hidden /></span>{label}</Link>)}
       </nav>
