@@ -1,0 +1,188 @@
+/* src/index.css에서 복사 — 직접 고치지 말고 node scripts/app/sync-map-css.mjs 로 다시 만든다 */
+.job-location-map {
+  width: 100%; height: 220px; border-radius: 12px; overflow: hidden; z-index: 0;
+}
+
+.job-location-map__disclaimer {
+  margin: 0.5rem 0 0; font-size: 0.72rem; color: #aaa;
+}
+
+.near-me-map .job-location-map {
+  height: 320px;
+}
+
+.job-location-map__error {
+  margin: 0; padding: 1rem; text-align: center; font-size: 0.85rem; color: #94a3b8; background: #f8fafc; border-radius: 12px;
+}
+
+.near-me-view__map .job-location-map {
+  height: 380px; position: sticky; top: 90px;
+}
+
+.jd2-vmap {
+  position: relative; width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; margin-top: 0.75rem;
+}
+
+.jd2-vmap__canvas {
+  position: absolute; inset: 0;
+}
+
+.jd2-vmap__modes {
+  position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;
+}
+
+.jd2-vmap__modes button {
+  border: 0; padding: 6px 10px; font-size: 12px; font-weight: 600; background: #fff; color: #0f172a; cursor: pointer;
+}
+
+.jd2-vmap__modes button[aria-pressed='true'] {
+  background: #0f172a; color: #fff;
+}
+
+.jd2-vmap__zoom {
+  position: absolute; left: 8px; bottom: 28px; z-index: 2; border: 1px solid #cbd5e1; background: #fff; color: #0f172a; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.15);
+}
+
+.jd2-vmap-modal {
+  position: fixed; inset: 0; z-index: 1000; background: #fff; display: flex; flex-direction: column;
+}
+
+.jd2-vmap-modal__bar {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.9rem; border-bottom: 1px solid #e2e8f0; background: #fff;
+}
+
+.jd2-vmap-modal__title {
+  flex: 1; min-width: 0; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.jd2-vmap-modal__dir {
+  font-size: 0.85rem; font-weight: 700; color: #1d4ed8; text-decoration: none; white-space: nowrap;
+}
+
+.jd2-vmap-modal__dir:hover {
+  text-decoration: underline;
+}
+
+.jd2-vmap-modal__close {
+  border: 0; border-radius: 8px; padding: 8px 16px; background: #0f172a; color: #fff; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+}
+
+.jd2-vmap-modal__map {
+  position: relative; flex: 1; min-height: 0;
+}
+
+.jd2-vmap-modal__hint {
+  margin: 0; padding: 0.5rem 0.9rem; font-size: 0.8rem; color: #475569; border-top: 1px solid #e2e8f0; background: #fff;
+}
+
+.hme-map,
+.hme-map__canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden;
+}
+
+.hme-map--loading {
+  display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 14px; background: #f8fafc;
+}
+
+.hme-map__notice {
+  position: absolute; left: 12px; bottom: 12px; z-index: 500; background: #fff; border: 1px solid #fde68a; color: #92400e; border-radius: 8px; padding: 6px 10px; font-size: 12px;
+}
+
+.hme-pin {
+  position: absolute; left: 0; bottom: 0; display: block; width: 100%; height: 148%; background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 27 40%22%3E%3Cpath d=%22M13.5 39.5C13.5 39.5 26.5 22 26.5 13.5A13 13 0 0 0 0.5 13.5C0.5 22 13.5 39.5 13.5 39.5Z%22 fill=%22%23ea4335%22 stroke=%22%23c5221f%22 stroke-width=%221%22/%3E%3Ccircle cx=%2213.5%22 cy=%2213.5%22 r=%224.6%22 fill=%22%23ffffff%22/%3E%3C/svg%3E") no-repeat center bottom / contain; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); cursor: pointer;
+}
+
+.hme-pin.is-selected {
+  filter: drop-shadow(0 0 4px rgba(229, 57, 53, .55)) drop-shadow(0 1px 2px rgba(0, 0, 0, .35));
+}
+
+.hme-map__job-marker:has(.hme-map__job-count) .hme-pin {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 27 40%22%3E%3Cpath d=%22M13.5 39.5C13.5 39.5 26.5 22 26.5 13.5A13 13 0 0 0 0.5 13.5C0.5 22 13.5 39.5 13.5 39.5Z%22 fill=%22%23ea4335%22 stroke=%22%23c5221f%22 stroke-width=%221%22/%3E%3C/svg%3E");
+}
+
+.hme-map__job-marker {
+  cursor: pointer;
+}
+
+.hme-map__job-marker:focus-visible {
+  outline: 3px solid #2563eb; outline-offset: 3px;
+}
+
+.hme-map__job-count {
+  position: absolute; z-index: 2; left: 0; top: -48%; width: 100%; height: 96%; padding: 0; border-radius: 50%; background: transparent; color: #fff; border: 0; font: 700 11px/1 sans-serif; display: flex; align-items: center; justify-content: center; box-sizing: border-box; pointer-events: auto;
+}
+
+.hme-map__job-picker {
+  display: grid; gap: 6px; min-width: 180px; max-width: 260px; color: #1f2937;
+}
+
+.hme-map__job-picker button {
+  border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #1f2937; padding: 7px; text-align: left; cursor: pointer;
+}
+
+.hme-map__job-picker button:hover,
+.hme-map__job-picker button:focus-visible {
+  border-color: #dc2626; background: #fef2f2;
+}
+
+@media (max-width: 600px) {
+  .hme-map__job-picker {
+    max-height: 150px; overflow-y: auto;
+  }
+}
+
+.hme-map__origin {
+  width: 16px; height: 16px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0, 0, 0, .3); box-sizing: border-box; pointer-events: none;
+}
+
+.hme-map__modes {
+  position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; background: #fff; border: 1px solid #d6dbe3; border-radius: 9px; box-shadow: 0 1px 4px rgba(15, 23, 42, .18); overflow: hidden;
+}
+
+.hme-map__modes button {
+  border: 0; background: #fff; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer;
+}
+
+.hme-map__modes button + button {
+  border-left: 1px solid #e2e8f0;
+}
+
+.hme-map__modes button.is-active {
+  background: #0f172a; color: #fff;
+}
+
+.hme-map__modes button:focus-visible {
+  outline: 2px solid #2563eb; outline-offset: -2px;
+}
+
+.hme-map__cluster {
+  width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(185, 28, 28, .9); color: #fff; font-weight: 700; font-size: 13px; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(185, 28, 28, .22), 0 1px 4px rgba(0, 0, 0, .3); cursor: pointer; box-sizing: border-box;
+}
+
+.hme-map__cluster:focus-visible {
+  outline: 3px solid #2563eb; outline-offset: 3px;
+}
+
+.hme-map-r1-results {
+  display: grid; gap: 8px; margin-top: 12px;
+}
+
+.hme-map-r1-results button {
+  text-align: left; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; color: #334155;
+}
+
+.hme-map-r1-results small {
+  display: block; margin-top: 4px;
+}
+
+/* src/components/home/homeDiscovery.css에서 복사 — 직접 고치지 말고 node scripts/app/sync-map-css.mjs 로 다시 만든다 */
+@media (max-width: 760px) {
+  @media (max-width: 760px) {
+    .hme-map-r1-results {
+      max-height: 250px; overflow-y: auto;
+    }
+    .hme-map-r1-results button {
+      min-width: 0; font-size: 12px; overflow-wrap: anywhere;
+    }
+  }
+}
