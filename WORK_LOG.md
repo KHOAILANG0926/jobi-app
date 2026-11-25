@@ -1,7 +1,7 @@
 ## 2026-11-25 — JOBI 앱 1단계 준비 ①: 목록 조건 필터를 lib로 뽑음(웹 동작 동일)
 - 요청(Lee): 최종 V3 시안 기준 구직자 핵심 기능 개발 연속 진행. 앱은 웹 화면 코드를 못 가져오고 복제도 금지 → UrgentJobsPage 안에 있던 목록 필터(`filtered`)·정렬을 `src/lib/jobListFilter.ts`로 옮겨 웹·앱이 한 함수를 공유(Home.tsx→jobSearch.ts로 뽑은 선례와 같은 방식).
-- 변경: `src/lib/jobListFilter.ts`(+시험), `src/pages/jobsMenu/UrgentJobsPage.tsx`는 같은 조건을 함수에 넘기도록만 바꿈(조건·결과 동일, 화면 코드 변경 없음).
-- 검증 [직접 확인]: tsc·build·npm test 128/128(새 시험 포함).
+- 변경: `src/lib/jobListFilter.ts`·`src/lib/jobSuggestions.ts`(+시험 2개), `UrgentJobsPage.tsx`·`SuggestedJobsPage.tsx`는 같은 조건을 함수에 넘기도록만 바꿈(조건·결과 동일, 화면 코드 변경 없음). 추천(Gợi ý) 판정도 앱이 쓰도록 함께 뽑음.
+- 검증 [직접 확인]: tsc·build·npm test 129/129(새 시험 2개 포함).
 
 ## 2026-11-25 — #6454 기존 공고 대조 누락: 원본 식별자(source_url)로도 찾기
 - 원인 [직접 확인]: 검증 저장(09:48) 직후 상세 정리(job-ocr-check 45589142507, detail-fill '원문에서 다시 만듦', scripts/ocr/detail-fill.mjs:90)가 설명을 새로 쓰며 [source:vieclam24h] 표시를 지움 → vieclam24h 수집기의 기존 공고 목록(설명 표시로만 조회, crawl_topcv.load_existing_lookup_maps)에서 빠짐 → 다음 검증 저장(45630753016)에서 '새 공고'로 처리(DB 입구 중복 판정이 같은 번호 6454를 돌려줘 중복은 없음).
