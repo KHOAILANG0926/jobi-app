@@ -1,7 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Bookmark, CalendarDays, Check, ChevronRight, Clock, FileText, LogOut, MessageSquare, SlidersHorizontal, Menu as MenuIcon, Star, UserRound, Briefcase } from 'lucide-react'
+import { Bookmark, CalendarDays, Check, ChevronRight, Clock, FileText, Bell, LogOut, MessageSquare, SlidersHorizontal, Menu as MenuIcon, Star, UserRound, Briefcase } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useNotifications } from '../../context/NotificationContext'
 
 function Row({ to, href, icon, children }: { to?: string; href?: string; icon: ReactNode; children: ReactNode }) {
   const inner = <><span className="app-menu__icon">{icon}</span><span>{children}</span><ChevronRight size={18} aria-hidden /></>
@@ -11,6 +12,7 @@ function Row({ to, href, icon, children }: { to?: string; href?: string; icon: R
 // 마이 탭(구직자): 로그인 전에는 로그인 유도, 후에는 내 활동(지원·저장·최근 본)과 계정. CV 화면은 /ho-so/cv.
 export default function MeScreen() {
   const { user, loading, logout } = useAuth()
+  const { unreadCount } = useNotifications()
   const navigate = useNavigate()
   const onLogout = async () => { await logout(); navigate('/', { replace: true }) }
   return (
@@ -28,6 +30,7 @@ export default function MeScreen() {
       <Row to="/ho-so/ung-tuyen" icon={<Check size={20} aria-hidden />}>Đã ứng tuyển</Row>
       <Row to="/danh-sach/da-luu" icon={<Bookmark size={20} aria-hidden />}>Việc đã lưu</Row>
       <Row to="/danh-sach/da-xem" icon={<Clock size={20} aria-hidden />}>Việc đã xem</Row>
+      <Row to="/ho-so/thong-bao" icon={<Bell size={20} aria-hidden />}>Thông báo{unreadCount > 0 ? ` (${unreadCount} mới)` : ''}</Row>
       <Row to="/ho-so/tin-nhan" icon={<MessageSquare size={20} aria-hidden />}>Tin nhắn</Row>
       <Row to="/ho-so/phong-van" icon={<CalendarDays size={20} aria-hidden />}>Phỏng vấn sắp tới</Row>
       <Row to="/danh-sach/phu-hop" icon={<Star size={20} aria-hidden />}>Việc phù hợp với bạn</Row>
