@@ -8,11 +8,12 @@ import ScreenStub from './ScreenStub'
 import { EMPLOYER_TABS, SEEKER_TABS } from './tabs'
 
 // 주소는 /app 아래만 쓴다(vercel.json이 /app, /app/* 를 app.html로 보냄). 웹 주소와 섞이지 않는다.
-// 1단계: 홈·목록(프리셋)·검색·메뉴. 추천 탭(/goi-y)은 목록의 '추천' 프리셋과 같은 화면이다. 아직 없는 화면은 ScreenStub.
+// 1단계: 홈·목록(프리셋)·검색·메뉴·공고 상세. 추천 탭(/goi-y)은 목록의 '추천' 프리셋과 같은 화면이다. 아직 없는 화면은 ScreenStub.
 // 홈 말고는 처음 열 때 불러온다(첫 화면 무게를 줄임).
 const ListScreen = lazy(() => import('./screens/ListScreen'))
 const MenuScreen = lazy(() => import('./screens/MenuScreen'))
 const SearchScreen = lazy(() => import('./screens/SearchScreen'))
+const DetailScreen = lazy(() => import('./detail/DetailScreen'))
 const BUILT = new Set(['/', '/goi-y'])
 export default function AppRoot() {
   return (
@@ -27,6 +28,7 @@ export default function AppRoot() {
               <Route path="/danh-sach/:preset" element={<ListScreen />} />
               <Route path="/tim-kiem" element={<SearchScreen />} />
               <Route path="/menu" element={<MenuScreen />} />
+              <Route path="/viec-lam/:id" element={<DetailScreen />} />
               {[...SEEKER_TABS, ...EMPLOYER_TABS].filter((tab) => !BUILT.has(tab.to)).map((tab) => (
                 <Route key={tab.key} path={tab.to} element={<ScreenStub />} />
               ))}
