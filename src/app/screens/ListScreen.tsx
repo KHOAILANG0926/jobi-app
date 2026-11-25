@@ -84,7 +84,7 @@ export default function ListScreen({ preset: fixed }: { preset?: PresetId }) {
   }
 
   let empty: React.ReactNode = <p className="app-state">Chưa có việc làm phù hợp với điều kiện hiện tại.</p>
-  if (base.needs === 'prefs') empty = <div className="app-state"><p>Bạn chưa thiết lập điều kiện việc làm phù hợp.</p><a className="app-btn app-btn--primary" href="/viec-lam/phu-hop">Thiết lập điều kiện</a></div>
+  if (base.needs === 'prefs') empty = <div className="app-state"><p>Bạn chưa thiết lập điều kiện việc làm phù hợp.</p>{user?.role === 'seeker' ? <Link className="app-btn app-btn--primary" to="/ho-so/dieu-kien">Thiết lập điều kiện</Link> : <a className="app-btn app-btn--primary" href="/viec-lam/phu-hop">Thiết lập điều kiện</a>}</div>
   if (base.needs === 'signal') empty = <div className="app-state"><p>Chưa đủ thông tin để gợi ý. Hãy lưu hoặc ứng tuyển vài việc bạn quan tâm, hoặc thiết lập điều kiện phù hợp.</p><Link className="app-btn app-btn--primary" to="/danh-sach/phu-hop">Việc làm phù hợp</Link></div>
   if (base.needs === 'origin') {
     empty = (
