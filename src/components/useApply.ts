@@ -1,35 +1,14 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
-import { addApplication } from '../lib/applicationsStorage'
-import { loadCv } from '../lib/cvStorage'
+import { buildProfile, submitApplication, type UserProfile } from '../lib/applySubmit'
 import { resolveApplyRoute } from '../lib/jobUtils'
-import { loadProfile } from '../lib/storage'
 import type { Job } from '../types/job'
 
 export type ApplyStatus = 'idle' | 'confirming' | 'loading' | 'success' | 'error' | 'unavailable'
 export type { Job }
 
-export interface UserProfile {
-  name: string
-  phone: string
-  age: string
-}
-
-export function buildProfile(scope?: string): UserProfile {
-  const profile = loadProfile(scope)
-  const cv = loadCv(scope)
-  let age = '—'
-  if (cv.dateOfBirth) {
-    const years = new Date().getFullYear() - new Date(cv.dateOfBirth).getFullYear()
-    if (years > 0 && years < 100) age = String(years)
-  }
-  return {
-    name: cv.fullName || profile.fullName || '—',
-    phone: cv.phone || profile.phone || '—',
-    age,
-  }
-}
+export type { UserProfile }
+export { buildProfile }
 
 export function useApply() {
   const { user } = useAuth()
@@ -59,22 +38,7 @@ export function useApply() {
     if (!job) return
     setStatus('loading')
     await new Promise<void>((r) => setTimeout(r, 800))
-    const p = buildProfile(user?.id)
-    // CV 사진 스냅샷 복사가 실패해도(예: 사진을 아예 등록 안 함) 지원 자체는
-    // 막지 않는다 — 사진 없이 지원하는 것도 정상 흐름이므로.
-    const cvPhotoSnapshotPath = user?.id
-      ? await snapshotCvPhotoForApplication(user.id, job.id).catch(() => null)
-      : null
-    const res = await addApplication({
-      jobId: job.id,
-      jobTitle: job.title,
-      company: job.company,
-      employerId: job.employerId,
-      seekerId: user?.id,
-      seekerName: p.name,
-      seekerPhone: p.phone,
-      cvPhotoSnapshotPath,
-    })
+    const res = await submitApplication(job, user?.id)
     setStatus(res.ok ? 'success' : 'error')
   }, [job, user?.id])
 

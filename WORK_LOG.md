@@ -1,3 +1,9 @@
+## 2026-11-25 — JOBI 앱 2단계 ①: 로그인·가입·마이 탭·지원 내역·사이트 안 지원
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 구직자 핵심 다음 단계(회원·지원). 진행표 #1031.
+- 변경: `src/lib/applySubmit.ts`(웹 `useApply`의 buildProfile·제출을 그대로 옮긴 공용 함수, 웹은 그 함수를 부름 — 동작 변경 없음) / `src/app/account/` — 로그인·가입(웹 같은 AuthContext·문구·검사, 이동은 /app 안 경로만), 지원 시트(`useAppApply`, 상세 하단 "Ứng tuyển ngay"가 웹 상세로 보내던 임시 연결을 대체), 마이 탭(`/ho-so`), 지원 내역(`/ho-so/ung-tuyen`: 웹과 같은 `applicationsStorage` 목록·실시간·철회).
+- 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 흐름 14/14(마이·지원 내역 로그인 유도·로그인/가입 검증 문구·외부 redirect 차단). 로그인 후 지원 제출은 이 환경에 인증 열쇠가 없어 직접 못 봄(병합 뒤 운영 확인 불가 — 계정 필요).
+- 남은 것: Zalo 로그인·비밀번호 찾기·CV는 웹 화면 연결(다음 PR), 이력서(CV)·커뮤니티·기업 기능.
+
 ## 2026-11-25 — JOBI 앱 지도 카메라: 핀이 가장 많은 곳에 맞춤(운영 확인 후 수정)
 - 원인 [직접 확인 — 운영 `/app` 화면]: 전국 핀 전체에 카메라를 맞추면(웹 방식) 평균 위치가 라오스 쪽 빈 땅으로 떨어져 홈 지도·지도 탭에 핀이 안 보임.
 - 변경: `src/app/map/useMapData.ts`의 `fitViewport`가 1° 격자에서 핀이 가장 많은 칸과 이웃 칸에만 맞춤(+`fitViewport.test.ts`). 지도 부품·핀 계산·크기는 그대로.
@@ -46,9 +52,3 @@
   - 표기 차이 1건(Concentrix 45589255744): Google·Goong 등록 이름 "…SERVICE" vs 공고 "…Services", Google은 후보 여럿 → 판정 기준은 안 바꿈, 공통 수정안만 보고.
   - 법인 이름 ≠ 가게 이름 5건(Thiên Lý·Sol Group 2·Ly Thái Bakery·Indigo)·검색 결과 없음 1건(PHT): 기존 규칙상 '못 찾음'이 맞음.
 - 원문 유실: vieclam24h 입구가 hold=False라 못 찾은 공고가 보류함에 안 남음(#916 뒤 근무지 줄을 입구에 같이 넘겨 그 이유가 없어짐) → 보류함 보관(근무지 줄 포함, 지점별 줄 이름). AGENTS.md에 시험 실행 원칙(#1030 누락분).
-
-## 2026-11-25 — vieclam24h 정기 수집 재개(하루 20건) 준비
-- 요청(Lee): 시작 필수 조건 3개(원문 보관·중복 방지·DB 공개 판정) 확인 뒤 vieclam24h부터 하루 20건, 연락처 없는 공고는 원문 보관·비공개.
-- 조건 확인 [직접 확인 — 코드]: ① 원문 = 등록 값에 source_text(source_fields.build_source_text, 원문 그대로) ② 중복 = match_existing_row(원본 식별자, #1028 꼬리표 제거)+ingest_private.find_existing(원본 식별자·지점·내용 해시)+dedupe_private.verdict ③ 공개 = DB 트리거 trg_zz0_publish_gate(연락처 8자리 미만이면 비공개).
-- 변경: crawl.yml 예약 2번(09:23 목록 앞 10건·15:23 다음 10건, VPS 수집 — 열쇠 없음) + 같은 실행 save 잡(GitHub 서버·ops-keys, 사이트 접속 없음) → crawl_topcv --save-details(정기 저장 경로 save_to_supabase 그대로, 공고별 오류 분리). 시험: CLI 22·격리 109·워크플로 구조 21 통과.
-- 남은 것: 워크플로 예약·열쇠 단계라 Lee Approve 필요. 실제 첫 정기 실행 결과 확인. 자체 사업장 위치 DB 자동 저장은 별도.
