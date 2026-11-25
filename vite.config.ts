@@ -1,8 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import type { Plugin } from 'vite'
+
+// 앱(/app)은 별도 입구(app.html)다. 배포(vercel.json)와 같은 규칙을 개발·미리보기 서버에도 적용한다.
+const APP_PATH = /^\/app(?:\/|$)/
+function appEntryRewrite(): Plugin {
+  const rewrite = (req: { url?: string }, _res: unknown, next: () => void) => {
+    const url = req.url ?? ''
+    const pathname = url.split('?')[0]
+    if (APP_PATH.test(pathname)) req.url = '/app.html' + url.slice(pathname.length)
+    next()
+  }
+  return {
+    name: 'jobi-app-entry-rewrite',
+    configureServer(server) { server.middlewares.use(rewrite) },
+    configurePreviewServer(server) { server.middlewares.use(rewrite) },
+  }
+}
 
 export default defineConfig(({ isSsrBuild }) => ({
-  plugins: [react()],
+  plugins: [react(), appEntryRewrite()],
   define: {
     // Map acceptance records are opt-in and never enabled in a Production build.
     'import.meta.env.VITE_MAP_ACCEPTANCE': JSON.stringify(process.env.VERCEL_ENV === 'preview' ? 'true' : 'false'),
@@ -14,6 +31,8 @@ export default defineConfig(({ isSsrBuild }) => ({
     rollupOptions: isSsrBuild
       ? undefined
       : {
+          // 웹(index.html)과 앱(app.html) 두 입구. 앱은 src/app만 불러온다(경계 검사: src/app/boundary.test.ts).
+          input: { main: 'index.html', app: 'app.html' },
           output: {
             manualChunks(id) {
               if (id.includes('node_modules/html2canvas')) return 'html2canvas'

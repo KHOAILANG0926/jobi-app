@@ -1,0 +1,39 @@
+/* 앱 전용 스타일 — 클래스 이름은 모두 app- 로 시작한다(boundary.test.ts가 확인). index.css는 불러오지 않는다. */
+:root {
+  --app-primary: #e53935;
+  --app-text: #111827;
+  --app-muted: #6b7280;
+  --app-line: #e5e7eb;
+  --app-bg: #ffffff;
+  --app-tabbar-h: 56px;
+}
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-shell { min-height: 100%; display: flex; flex-direction: column; }
+.app-screen {
+  flex: 1;
+  padding-bottom: calc(var(--app-tabbar-h) + env(safe-area-inset-bottom, 0px));
+}
+.app-stub { padding: 24px 16px; }
+.app-stub__title { margin: 0; font-size: 20px; font-weight: 700; }
+.app-tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  display: flex;
+  height: calc(var(--app-tabbar-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--app-bg);
+  border-top: 1px solid var(--app-line);
+}
+.app-tab {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  color: var(--app-muted); text-decoration: none; font-size: 11px;
+}
+.app-tab__label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-tab--active { color: var(--app-primary); font-weight: 600; }

@@ -1,3 +1,9 @@
+## 2026-11-25 — JOBI 앱(/app) 0단계 뼈대: app.html·src/app·/app 주소·경계 검사(#1031)
+- 요청(Lee): 앱은 src/app + app.html + /app으로만 추가, 기존 웹 화면은 그대로, 데이터·검색·필터·회원·지원은 기존 기능 재사용. 하단 탭 구직자 5개·기업 4개, noindex, lang=vi.
+- 변경: app.html(앱 입구, noindex), src/app(main·AppRoot·AppShell·TabBar·ScreenStub·tabs·app.css, 클래스 app-), vite.config.ts(입구 2개+개발·미리보기 /app 규칙), vercel.json(/app·/app/* → app.html, 웹 전체 규칙보다 앞), vite.app.config.mjs(앱 단독 빌드 확인용), .gitignore(dist-app), 경계 검사 src/app/boundary.test.ts(run-tests가 자동 실행, run-tests.mjs 수정 없음).
+- 검증 [직접 확인]: tsc·npm run build·npm test 127/127, 앱 단독 빌드(웹 코드 없음), Playwright /app 23/23, master와 웹 5경로×2폭 렌더 10/10 동일, 경계 위반 7종 실패 확인.
+- 남은 것: 후속 과제 #1031(공유 청크 jspdf 미리받기, 기업 탭 홈/기업홈 확정 등). 병합·deploy-verify 확인 뒤 1단계.
+
 ## 2026-11-25 — vieclam24h 정기 수집 재개(하루 20건) 준비
 - 요청(Lee): 시작 필수 조건 3개(원문 보관·중복 방지·DB 공개 판정) 확인 뒤 vieclam24h부터 하루 20건, 연락처 없는 공고는 원문 보관·비공개.
 - 조건 확인 [직접 확인 — 코드]: ① 원문 = 등록 값에 source_text(source_fields.build_source_text, 원문 그대로) ② 중복 = match_existing_row(원본 식별자, #1028 꼬리표 제거)+ingest_private.find_existing(원본 식별자·지점·내용 해시)+dedupe_private.verdict ③ 공개 = DB 트리거 trg_zz0_publish_gate(연락처 8자리 미만이면 비공개).
@@ -54,16 +60,3 @@
 - W7 [직접 확인 — Lee 실행 45438989778]: 되돌릴 후보 #6309의 잃기 전 좌표 근거는 다른 회사(Goong 주소 검색 결과 "Công ty S&S MED VINA") → 되돌리지 않음. #6043 전체 주소 = 끝의 성 이름만 빠짐, 줄에 저장된 행정구역이 없어 W6 규칙으로는 같은 사업장 판정 안 함 → 위치 찾기 다시. 확정 없는 공개 공고 6건(#5599·#5876·#5993·#6043·#6255·#6309) 모두 Google/Goong 같은 이름 결과가 대략으로 저장돼 있음 → migration 20261124160000_location_w7_recheck가 규칙으로 고른 공고에 기존 위치 찾기를 다시 부름(20261112020000과 같은 방식). 보류 19건은 대상 아님.
 - 검증 [직접 확인]: npm test 126/126, tsc·build, 로컬 폐기용 PostgreSQL에서 migration 시험 적용 전 실패 → 적용 뒤 통과.
 - 미완료: 교정 실행·대표 Approve·운영 적용·6건 결과 확인, 6337 다시 판정·화면 대조, W4·W6 실제 다시 수집 실증.
-
-## 2026-11-24 — R #872: 급여 읽기가 "7tr5"(7,5 triệu) 소수 표기를 금액 중간("5~ 12tr")부터 읽던 것 수정
-- 근거 [직접 확인 — OCR 대조 45417524853 화면 대조]: 6337 상단 급여 "5~ 12tr"(원문 "3 Nam & Nữ Phục Vụ : 7tr5~ 12tr") — 판정 불명확(5.000.000이 원문에 없음).
-- 원인 [직접 확인 — 재현]: salaryReader의 이름표 없는 금액 규칙(UNLABELED)이 'tr' 뒤 소수 자리를 몰랐고, 금액을 숫자 낱말 처음부터 읽지 않았다. 이름표 있는 줄("Lương: 7tr5 - 12tr")은 원래 맞게 읽었다.
-- 변경: 같은 규칙 한 곳에서 금액 = 숫자 [+ tr/triệu + 소수 1~2자리], 앞이 글자·숫자면 읽지 않음. 운영 원문 그대로 회귀 시험 + 8tr5·8tr~11tr·7 - 8tr·từ 9tr5. npm test 126/126, tsc 통과.
-- 하지 않은 것(보고): 6337은 직무 4개·금액이 다르므로 기존 규칙(Lee 10-28)상 상단은 "Theo vị trí"여야 하나, 여러 직무 판정이 "인원 + 직무 : 금액" 줄 형태를 모른다 — Lee 결정 대기.
-- 완료: #1017 병합 bdff8ae(Lee Approve)·deploy-verify 45426167235 성공 → #1016 닫음(404 공유 캐시 수정).
-
-## 2026-11-24 — 운영 배포 검증 실패 #1016(d357eb8) 원인 수정: 상세 SSR이 404를 공유 캐시에 남김
-- 실패 [직접 확인 — deploy-verify 45417799995, 1차·재실행 모두]: 실제 화면 검사가 고른 최신 공개 공고 sb-6337 상세가 PC·모바일 HTTP 404.
-- 원인 [직접 확인 — 실행 기록 시각]: #1015 병합 뒤 OCR 대조(R7, 45417524853)가 6337을 원문에서 다시 만들고, 화면 대조(14:46:14)가 비공개 상태의 상세 주소를 열어 404 → api/ssr.js가 404도 공유 캐시(s-maxage 120 + stale-while-revalidate 600)에 남김 → 재검사가 공개(14:46:32) → 운영 검사(14:46:45·재실행 14:50:14)가 캐시된 404를 받음. 운영 사용자에게도 공개 직후 최대 12분 404가 나가는 결함.
-- 변경: 캐시 머리글을 한 곳(api/_lib/ssr-cache.mjs)으로 — 404는 no-store(DB 조회 실패 503과 같은 방식), 있는 화면은 기존 공유 캐시 그대로. 시험 api/_ssr-cache.test.ts(빌드 결과 없이 돎).
-- 검증 [직접 확인]: npm test 126/126, tsc·build 통과. 운영 확인은 병합 뒤 deploy-verify(새 커밋이 d357eb8을 포함해 성공하면 S6 잠금 해제).
