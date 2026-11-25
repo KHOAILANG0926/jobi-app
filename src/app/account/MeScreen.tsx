@@ -8,7 +8,7 @@ function Row({ to, href, icon, children }: { to?: string; href?: string; icon: R
   return to ? <Link className="app-menu__row" to={to}>{inner}</Link> : <a className="app-menu__row" href={href}>{inner}</a>
 }
 
-// 마이 탭(구직자): 로그인 전에는 로그인 유도, 후에는 내 활동(지원·저장·최근 본)과 계정. CV·이력서 화면은 다음 PR에서 이 자리로 연결한다(그 전에는 웹 CV 화면).
+// 마이 탭(구직자): 로그인 전에는 로그인 유도, 후에는 내 활동(지원·저장·최근 본)과 계정. CV 화면은 /ho-so/cv.
 export default function MeScreen() {
   const { user, loading, logout } = useAuth()
   const navigate = useNavigate()
@@ -30,7 +30,7 @@ export default function MeScreen() {
       <Row to="/danh-sach/da-xem" icon={<Clock size={20} aria-hidden />}>Việc đã xem</Row>
       <Row to="/danh-sach/phu-hop" icon={<Star size={20} aria-hidden />}>Việc phù hợp với bạn</Row>
       <h2 className="app-menu__group">Hồ sơ</h2>
-      <Row href="/ho-so" icon={<UserRound size={20} aria-hidden />}>CV của tôi</Row>
+      <Row to="/ho-so/cv" icon={<UserRound size={20} aria-hidden />}>CV của tôi</Row>
       {user?.role === 'employer' && <Row to="/biz" icon={<Briefcase size={20} aria-hidden />}>Trang nhà tuyển dụng</Row>}
       <h2 className="app-menu__group">Khác</h2>
       <Row to="/menu" icon={<FileText size={20} aria-hidden />}>Tất cả tiện ích</Row>

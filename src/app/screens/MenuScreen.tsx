@@ -20,10 +20,10 @@ export default function MenuScreen() {
         <div className="app-menu__login"><p>Đăng nhập để ứng tuyển nhanh bằng CV đã lưu</p><div><Link className="app-btn app-btn--primary" to="/dang-nhap">Đăng nhập</Link><Link className="app-btn app-btn--ghost" to="/dang-ky">Đăng ký</Link></div></div>
       )}
       <div className="app-menu__quick">
-        <Link to="/ho-so"><span><Check size={22} aria-hidden /></span>Đã ứng tuyển</Link>
+        <Link to="/ho-so/ung-tuyen"><span><Check size={22} aria-hidden /></span>Đã ứng tuyển</Link>
         <Link to="/danh-sach/da-luu"><span><Bookmark size={22} aria-hidden /></span>Đã lưu</Link>
         <Link to="/danh-sach/da-xem"><span><Clock size={22} aria-hidden /></span>Đã xem</Link>
-        <Link to="/ho-so"><span><UserRound size={22} aria-hidden /></span>CV của tôi</Link>
+        <Link to="/ho-so/cv"><span><UserRound size={22} aria-hidden /></span>CV của tôi</Link>
       </div>
       <h2 className="app-menu__group">Tìm việc</h2>
       <Row to="/danh-sach/tuyen-gap" icon={<Zap size={20} aria-hidden />}>Việc tuyển gấp</Row>

@@ -2,13 +2,7 @@ import { FormEvent, forwardRef, useEffect, useRef, useState } from 'react'
 import type { CvData, CvEducation, CvExperience, CvReference } from '../lib/cvStorage'
 import { createEmptyCv, loadCv, saveCv } from '../lib/cvStorage'
 import { loadProfile } from '../lib/storage'
-import {
-  deleteCvPhoto,
-  loadAccountCv,
-  loadCvPhoto,
-  saveAccountCv,
-  uploadCvPhoto,
-} from '../lib/accountCvStorage'
+import { loadHydratedAccountCv, saveAccountCvWithPhoto } from '../lib/cvAccountSync'
 
 const OBJECTIVE_MAX = 200
 const PHOTO_MAX_BYTES = 1.5 * 1024 * 1024
@@ -142,15 +136,10 @@ export function CvBuilder({ userId }: { userId?: string }) {
       setData(createEmptyCv())
       setPhotoPath(null)
       try {
-        const remote = await loadAccountCv(userId)
+        const remote = await loadHydratedAccountCv(userId)
         if (cancelled || !remote) return
-        let photoDataUrl: string | null = null
-        if (remote.photoPath) photoDataUrl = await loadCvPhoto(userId, remote.photoPath)
-        if (cancelled) return
-        const hydrated = { ...remote.cv, profilePhotoDataUrl: photoDataUrl }
         setPhotoPath(remote.photoPath)
-        setData(hydrated)
-        saveCv(hydrated, userId)
+        setData(remote.cv)
       } catch {
         if (!cancelled) setServerError('Không tải được CV từ tài khoản. Dữ liệu trên thiết bị vẫn được giữ nguyên.')
       }
@@ -169,17 +158,10 @@ export function CvBuilder({ userId }: { userId?: string }) {
     setServerError('')
     try {
       if (userId) {
-        const previousPhotoPath = photoPath
-        const nextPhotoPath = data.profilePhotoDataUrl
-          ? await uploadCvPhoto(userId, data.profilePhotoDataUrl)
-          : null
-        await saveAccountCv(userId, data, nextPhotoPath)
-        setPhotoPath(nextPhotoPath)
-        if (!nextPhotoPath && previousPhotoPath) {
-          deleteCvPhoto(userId, previousPhotoPath).catch(() => undefined)
-        }
+        setPhotoPath(await saveAccountCvWithPhoto(userId, data, photoPath))
+      } else {
+        saveCv(data, userId)
       }
-      saveCv(data, userId)
       setSaved(true)
       window.setTimeout(() => setSaved(false), 2800)
     } catch {

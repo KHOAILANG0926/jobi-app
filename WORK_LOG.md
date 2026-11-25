@@ -1,3 +1,9 @@
+## 2026-11-25 — JOBI 앱 2단계 ②: CV(이력서) 작성 화면
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 이력서. 진행표 #1031.
+- 변경: `src/lib/cvAccountSync.ts`(웹 `CvBuilder`의 계정 CV 읽기·저장 순서를 그대로 옮긴 공용 함수, 웹도 이 함수를 부름 — 동작 변경 없음) / `src/app/account/CvScreen.tsx`(`/ho-so/cv`: 기본 정보·사진·경력·학력·기술·추천인, 로그인 전 이 기기 저장·로그인 후 계정 저장, 자료 모양은 `lib/cvStorage` 그대로). 마이·메뉴의 CV 링크를 웹 화면에서 앱 화면으로 교체.
+- 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 CV 흐름 10/10(저장 키가 웹과 같은 `vgb_cv_draft`, 새로고침 유지, 항목 추가·삭제). 계정 저장·사진 업로드는 이 환경에 인증 열쇠가 없어 직접 못 봄.
+- 남은 것: CV PDF 내려받기·미리보기(웹 CvBuilder 전용 화면), 기기 CV를 계정으로 가져오기 제안(웹 Profile), 맞춤 조건·커뮤니티·기업.
+
 ## 2026-11-25 — JOBI 앱 2단계 ①: 로그인·가입·마이 탭·지원 내역·사이트 안 지원
 - 요청(Lee): 최종 V3 기준 개발 연속 진행 — 구직자 핵심 다음 단계(회원·지원). 진행표 #1031.
 - 변경: `src/lib/applySubmit.ts`(웹 `useApply`의 buildProfile·제출을 그대로 옮긴 공용 함수, 웹은 그 함수를 부름 — 동작 변경 없음) / `src/app/account/` — 로그인·가입(웹 같은 AuthContext·문구·검사, 이동은 /app 안 경로만), 지원 시트(`useAppApply`, 상세 하단 "Ứng tuyển ngay"가 웹 상세로 보내던 임시 연결을 대체), 마이 탭(`/ho-so`), 지원 내역(`/ho-so/ung-tuyen`: 웹과 같은 `applicationsStorage` 목록·실시간·철회).

@@ -340,3 +340,25 @@ body {
 .app-astatus--accepted { background: #dcfce7; color: #166534; }
 .app-astatus--rejected { background: #fee2e2; color: #991b1b; }
 .app-link-btn { border: 0; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--app-muted); text-decoration: underline; cursor: pointer; }
+
+/* ── 2단계 ②: CV ── */
+.app-cv__hint { margin: 4px var(--app-gutter) 0; font-size: 14px; color: var(--app-muted); line-height: 1.45; }
+.app-cv__hint a { color: var(--app-primary); font-weight: 700; text-decoration: none; }
+.app-cv__sec { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--app-line); border-radius: 18px; background: #fff; }
+.app-cv__sec h2 { margin: 0; font-size: 17px; }
+.app-cv__item { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--app-line); border-radius: 14px; background: #fafafa; }
+.app-cv__item-head { display: flex; align-items: center; justify-content: space-between; min-height: 32px; }
+.app-field textarea { padding: 10px 14px; border: 1px solid var(--app-line); border-radius: 14px; font: inherit; font-weight: 400; font-size: 16px; resize: vertical; background: #fff; color: var(--app-text); width: 100%; box-sizing: border-box; }
+.app-cv__photo { display: flex; align-items: center; gap: 14px; }
+.app-cv__photo > div { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.app-cv__photo-box { display: grid; place-items: center; width: 76px; height: 96px; border-radius: 12px; background: #f3f4f6; color: var(--app-muted); font-size: 13px; overflow: hidden; flex: none; }
+.app-cv__photo-box img { width: 100%; height: 100%; object-fit: cover; }
+.app-cv__file { position: relative; min-height: 40px; overflow: hidden; }
+.app-cv__file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.app-cv__tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.app-cv__tag { display: inline-flex; align-items: center; gap: 4px; }
+.app-cv__tag button { display: grid; place-items: center; border: 0; background: none; padding: 0; color: inherit; cursor: pointer; }
+.app-cv__addrow { display: flex; gap: 8px; }
+.app-cv__addrow input { flex: 1; min-width: 0; min-height: 44px; padding: 0 14px; border: 1px solid var(--app-line); border-radius: 14px; font: inherit; font-size: 16px; }
+.app-cv__addrow .app-btn { min-height: 44px; }
+.app-cv__save { position: sticky; bottom: 0; padding: 10px 0 12px; background: linear-gradient(to top, #fff 70%, rgba(255, 255, 255, 0)); }

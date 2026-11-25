@@ -16,6 +16,7 @@ const SearchScreen = lazy(() => import('./screens/SearchScreen'))
 const DetailScreen = lazy(() => import('./detail/DetailScreen'))
 const MapScreen = lazy(() => import('./map/MapScreen'))
 const MeScreen = lazy(() => import('./account/MeScreen'))
+const CvScreen = lazy(() => import('./account/CvScreen'))
 const ApplicationsScreen = lazy(() => import('./account/ApplicationsScreen'))
 const LoginScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.LoginScreen })))
 const SignupScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.SignupScreen })))
@@ -35,6 +36,7 @@ export default function AppRoot() {
               <Route path="/ban-do" element={<MapScreen />} />
               <Route path="/menu" element={<MenuScreen />} />
               <Route path="/ho-so" element={<MeScreen />} />
+              <Route path="/ho-so/cv" element={<CvScreen />} />
               <Route path="/ho-so/ung-tuyen" element={<ApplicationsScreen />} />
               <Route path="/dang-nhap" element={<LoginScreen />} />
               <Route path="/dang-ky" element={<SignupScreen />} />
