@@ -317,7 +317,9 @@ def store_facebook_images(client, job: dict, limit: int = 5) -> int:
 
 
 def _hold_name(job: dict) -> str:
-    key = str(job.get("source_url") or "") or json.dumps([job.get("source"), job.get("source_id"), job.get("title"),
+    # 같은 원문의 지점별 공고(branch_location, 「지점별 독립 공고」)는 지점마다 한 줄 — 원문 주소만 쓰면 형제 지점이 첫 지점 줄에 묻힌다.
+    branch = str(job.get("branch_location") or "")
+    key = (str(job.get("source_url") or "") + (f"|{branch}" if branch else "")) if job.get("source_url") else json.dumps([job.get("source"), job.get("source_id"), job.get("title"),
                                                            job.get("company"), job.get("source_text")], ensure_ascii=False, default=str)
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
@@ -524,22 +526,23 @@ def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: l
     """입구를 불러 공고 번호를 돌려받는다(새 공고·같은 공고·다시 수집 모두 같은 함수).
     새 공고는 먼저 위치를 찾을 수 있는지 확인하고, 못 찾으면 등록하지 않는다(이미 있는 공고 다시 수집은 그대로).
     지금 확인 못 하면(Google 한도 초과 등) 버리지 않고 보류함에 넣고, 다음 수집 실행 때 먼저 다시 확인한다.
-    hold=False: 등록 뒤에 따로 하는 단계가 있는 수집기(TopCV 계열 — 근무지 여러 곳을 등록 뒤 따로 씀)는 보류하지 않는다.
-    보류 재처리는 그 단계를 거치지 않으므로, 예전처럼 거부만 하고 다음 수집 때 그 수집기가 다시 만나 처리한다(Codex #619)."""
+    work_location_rows(수집기가 정한 근무지 줄)는 보류할 때 함께 보관한다 — 다시 확인해 등록할 때 같은 줄을 입구가 같은 트랜잭션에서 쓴다(#916).
+    hold=False는 보관하지 않고 거부만 한다(다음 수집 때 그 수집기가 다시 만남)."""
     existing = job_id is not None or update_fields is not None or job.get("job_id") is not None or job.get("refresh")
     if existing:
         return _call_gateway(client, job, job_id=job_id, update_fields=update_fields)
     if job.get("admin_hidden") is not True:  # 검증 저장은 대기열을 건드리지 않는다
         retry_held_once(client)
+    held = {**job, "work_locations": work_location_rows} if work_location_rows and not job.get("work_locations") else job
     try:
         return _ingest_new(client, job, work_location_rows)
     except LocationDeferred as exc:
         if hold:
-            hold_job(client, job, _reason_of(exc), "held")
+            hold_job(client, held, _reason_of(exc), "held")
         raise
     except LocationNotFound as exc:
         if hold and _reason_of(exc) in UNFOUND_REASONS:
-            hold_job(client, job, _reason_of(exc), "unfound")  # 공고 목록에는 넣지 않고 비공개 보관(Lee 2026-11-09)
+            hold_job(client, held, _reason_of(exc), "unfound")  # 공고 목록에는 넣지 않고 비공개 보관(Lee 2026-11-09)
         raise
     except Exception as exc:  # noqa: BLE001 — 규칙 코드가 있는 거부만 보관하고, 모든 예외는 그대로 다시 올린다
         code = rule_code(exc)

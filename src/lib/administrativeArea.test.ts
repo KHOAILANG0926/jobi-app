@@ -48,3 +48,14 @@ assert(!areaContains(bacNinh, {lat:11.05,lng:106.70}),'Bình Dương stays outsi
   assert(!withinOriginalProvince('Bắc Ninh, Hà Nội', '', { lat: 21.1810, lng: 106.0705 }), 'two provinces without cũ stay unknown')
   assert(administrativeArea(addr) === null, 'city stage unchanged: unknown city boundary is still unknown')
 }
+
+// 2026-11-25 vieclam24h 시험 10건(검증 저장 45588882480): 호찌민 주소를 "TP.HCM"으로만 적은 공고는 원래 성을 몰라
+// Google이 같은 회사·같은 번지를 찾아도 '성 밖'으로 떨어졌다(Tiêu Điểm Mới 10.80601,106.66420 · A Mà Kitchen 10.76692,106.68754, business-search-compare 45617007308·45617149028).
+{
+  const { withinOriginalProvince } = await import('./administrativeArea.ts')
+  const a = '2 Nguyễn Văn Mại, Phường Tân Sơn Nhất, TP.HCM, Phường Tân Sơn Nhất (Quận Tân Bình, TP.HCM cũ)'
+  const b = '189 Cống Quỳnh, Phường Cầu Ông Lãnh (Quận 1, TP.HCM cũ)'
+  assert(withinOriginalProvince(a, 'TP.HCM', { lat: 10.80601, lng: 106.66420 }), 'TP.HCM written address: HCMC point passes')
+  assert(withinOriginalProvince(b, 'TP.HCM', { lat: 10.76692, lng: 106.68754 }), 'TP.HCM cũ written address: HCMC point passes')
+  assert(!withinOriginalProvince(b, 'TP.HCM', { lat: 21.1810, lng: 106.0705 }), 'TP.HCM address: Bắc Ninh point still fails')
+}
