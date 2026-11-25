@@ -1,3 +1,16 @@
+## 2026-11-25 — JOBI 앱 2단계 ⑥: 메시지·면접(구직자·기업) + 기업 계정 화면
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 소통(메시지·면접). 진행표 #1031.
+- 변경: `src/lib/interviewSchedule.ts`(웹 `ScheduleInterviewModal`의 '일정 저장 + 지원 상태 interview' 순서를 그대로 옮긴 공용 함수 — 웹 모달도 이 함수를 부름, 동작 변경 없음) / `src/app/inbox/` — 구직자 메시지함 `/ho-so/tin-nhan`(웹 `MessagesInbox`와 같은 `messagesStorage`)·면접 일정 `/ho-so/phong-van`·대화 화면 / `src/app/biz/` — 기업 메시지함 `/biz/tin-nhan`·기업 계정 `/biz/doanh-nghiep`(계정·안 읽은 메시지·예정 면접·로그아웃)·면접 일정 시트(지원자 카드의 '면접 잡기'). 대화를 연 상태에서는 하단 탭을 숨김(입력창).
+- 검증 [직접 확인]: tsc·build·npm test 136/136, Playwright 14/14(가짜 구직자·기업 세션, 쓰기 호출은 전부 가로채 실제 DB 쓰기 없음: 대화 열기·보내기·면접 시트 → 일정 저장+지원 상태 변경 호출 순서 확인). 실제 계정 화면은 직접 못 봄.
+- 대표 결정 필요: 회사 소개 같은 별도 '기업 정보' 저장소는 지금 DB에 없어(웹에도 없음) 만들지 않음 — DB 구조 변경(STRICT)이라 Lee 결정 필요.
+- 남은 것: 맞춤(Phù hợp) 조건 설정, 알림.
+
+## 2026-11-25 — JOBI 앱 2단계 ④: 기업 탭 홈·공고 관리·지원자 관리
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 기업 기능 첫 묶음. 진행표 #1031.
+- 변경: `src/app/biz/` — 기업 입구 `BizGate`(웹 RequireEmployer와 같은 서버 `account_roles` 판정, 조회 실패와 '기업 아님' 구분), 홈 `/biz`(통계·새 지원자·바로가기), 공고 관리 `/biz/quan-ly-tin`(내 공고 목록·긴급 표시·삭제 확인, 지원자 목록·공고별 거르기·상태 변경·지원 시점 CV 보기). 자료는 웹 대시보드와 같은 `fetchEmployerJobs`·`applicationsStorage`, 계산은 순수 함수 `bizView.ts`(+시험).
+- 검증 [직접 확인]: tsc·build·npm test 135/135, Playwright 게스트 10/10(기업 입구 로그인 안내·기업 탭 4개·redirect 유지·가입 시 기업 선택). 기업 계정 화면(공고·지원자·상태 변경)은 계정이 없어 직접 못 봄.
+- 남은 것: 공고 등록 6단계(`/biz/dang-tin`), 기업 정보(`/biz/doanh-nghiep`), 기업 쪽 메시지·면접 일정, 맞춤 조건.
+
 ## 2026-11-25 — JOBI 앱 2단계 ③: 커뮤니티(목록·상세·글쓰기·댓글·좋아요·신고)
 - 요청(Lee): 최종 V3 기준 개발 연속 진행 — 커뮤니티. 진행표 #1031.
 - 변경: `src/app/community/` — 목록(`/cong-dong`: 분류·검색·정렬, 웹과 같은 `lib/communityStorage.loadPosts`), 상세(`/cong-dong/:id`: 조회수·좋아요·댓글·신고 = 웹과 같은 `communityStorage`·`adminOperations.createReport`), 글쓰기 시트(웹과 같은 항목·검사·`addPost`, 사진 4장). 분류·검색·정렬·상대 시간은 순수 함수 `communityView.ts`(+시험). 로그인 안 한 글쓰기·좋아요·댓글·신고는 앱 로그인 화면으로.
@@ -42,13 +55,3 @@
 - 변경: `src/app/` — 공급자(회원·공고·브랜드, 웹과 같은 context), 필터 상태 1개(`filters/`: 웹 목록(#1040 lib/jobListFilter)·지도 필터(homeMapFilters)·검색(jobSearch)을 이어 붙임), 지원 버튼 판정 1개(`data/applyAction.ts`=resolveApplyAction), 카드·바텀시트·지역/필터 시트·상단바·칩 줄(`ui/`), 홈·목록(프리셋 10개)·검색·메뉴(`screens/`), 스타일 `app.css`(app- 접두). 시트는 처음 열 때 불러옴(성·동 자료가 커서 첫 화면에서 뺌).
 - 검증 [직접 확인]: tsc·build·npm test 131/131·Playwright 390×844 27항목(홈 V3 순서·한국 섹션·추천·바로가기 5·필터 칩·브랜드·카드·필터 시트 9섹션 적용·지역 시트·급구/지역/근처/맞춤/추천 프리셋·검색·메뉴·가로 넘침 없음·웹 css 미로드).
 - 남은 것: 상세·지원(다음 PR)·지도 섹션(추천 아래, 4단계)·맞춤 조건 설정 화면·인기 검색어 집계·앱용 카드 이미지 최적화·번들 크기(앱 JS 약 612KB, gzip 206KB — 후속 최적화).
-
-## 2026-11-25 — JOBI 앱 1단계 준비 ①: 목록 조건 필터를 lib로 뽑음(웹 동작 동일)
-- 요청(Lee): 최종 V3 시안 기준 구직자 핵심 기능 개발 연속 진행. 앱은 웹 화면 코드를 못 가져오고 복제도 금지 → UrgentJobsPage 안에 있던 목록 필터(`filtered`)·정렬을 `src/lib/jobListFilter.ts`로 옮겨 웹·앱이 한 함수를 공유(Home.tsx→jobSearch.ts로 뽑은 선례와 같은 방식).
-- 변경: `src/lib/jobListFilter.ts`·`src/lib/jobSuggestions.ts`(+시험 2개), `UrgentJobsPage.tsx`·`SuggestedJobsPage.tsx`는 같은 조건을 함수에 넘기도록만 바꿈(조건·결과 동일, 화면 코드 변경 없음). 추천(Gợi ý) 판정도 앱이 쓰도록 함께 뽑음.
-- 검증 [직접 확인]: tsc·build·npm test 129/129(새 시험 2개 포함).
-
-## 2026-11-25 — #6454 기존 공고 대조 누락: 원본 식별자(source_url)로도 찾기
-- 원인 [직접 확인]: 검증 저장(09:48) 직후 상세 정리(job-ocr-check 45589142507, detail-fill '원문에서 다시 만듦', scripts/ocr/detail-fill.mjs:90)가 설명을 새로 쓰며 [source:vieclam24h] 표시를 지움 → vieclam24h 수집기의 기존 공고 목록(설명 표시로만 조회, crawl_topcv.load_existing_lookup_maps)에서 빠짐 → 다음 검증 저장(45630753016)에서 '새 공고'로 처리(DB 입구 중복 판정이 같은 번호 6454를 돌려줘 중복은 없음).
-- 변경: 기존 DB 칸 source_url(원본 식별자, 상세 정리가 안 건드림)로도 조회(사이트 주소로 거름 — 다른 사이트와 안 섞임). detail-fill·다른 수집원 코드는 안 바꿈. 시험: 수정 전 실패 재현 → 통과(새 2건), 수집기 시험 전부 통과.
-- 남은 것(범위 밖, 보고만): 상세 정리가 다른 수집원 공고 설명의 출처 표시도 지울 수 있음(화면 source 읽기 jobRows.parseDescription).
