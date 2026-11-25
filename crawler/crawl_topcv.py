@@ -2437,6 +2437,9 @@ def _unregistered_branch_rows(source_url: str | None, rows: list[dict]) -> list[
     return [r for r in rows if r["raw_address"] in fresh]
 
 
+SITE_ORIGINS = {"vieclam24h": "https://vieclam24h.vn/", "vietnamworks": "https://www.vietnamworks.com/"}
+
+
 def load_existing_lookup_maps(source: str = "vieclam24h") -> tuple[dict, dict]:
     """이 크롤러가 쓰는 기존 공고 조회는 이 함수 하나뿐이다 — 카테고리 전체
     크롤(수백 건)과 --process-url/--reprocess-ids(1~수건) 모두 동일하게
@@ -2450,11 +2453,15 @@ def load_existing_lookup_maps(source: str = "vieclam24h") -> tuple[dict, dict]:
     분리해야 하는 이유: 분리하지 않으면 by_key(canonical_job_key(title,
     company) 기준)에 서로 다른 사이트의 공고가 섞여, 우연히 제목+회사가
     같은 서로 다른 사이트의 두 공고가 "이미 존재"로 잘못 매칭될 수 있다."""
-    existing_raw = supabase.table("local_jobs") \
-        .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin,admin_hidden") \
-        .like("description", f"%[source:{source}]%") \
-        .execute()
-    rows = existing_raw.data or []
+    columns = "id,title,company,salary,application_deadline,description,location,source_url,active,origin,admin_hidden"
+    rows = supabase.table("local_jobs").select(columns).like("description", f"%[source:{source}]%").execute().data or []
+    # 원본 식별자(source_url, 그 사이트 주소)로도 찾는다 — 등록 뒤 상세 정리(detail-fill '원문에서 다시 만듦')가 설명을 새로 쓰면
+    # [source:…] 표시가 빠져 위 조회에서 빠지고 '새 공고'로 처리됐다(#6454, 검증 저장 45630753016). 사이트 주소로 거르므로 다른 사이트와 섞이지 않는다.
+    origin = SITE_ORIGINS.get(source)
+    if origin:
+        seen = {r["id"] for r in rows}
+        rows += [r for r in (supabase.table("local_jobs").select(columns).like("source_url", f"{origin}%").execute().data or [])
+                 if r["id"] not in seen]
     by_source_url = {canonical_source_url(r["source_url"]): r for r in rows if r.get("source_url")}
     by_key = {canonical_job_key(r.get("title", ""), r.get("company", "")): r for r in rows}
     return by_source_url, by_key
