@@ -1,3 +1,15 @@
+## 2026-11-25 — JOBI 앱 2단계 ③: 커뮤니티(목록·상세·글쓰기·댓글·좋아요·신고)
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 커뮤니티. 진행표 #1031.
+- 변경: `src/app/community/` — 목록(`/cong-dong`: 분류·검색·정렬, 웹과 같은 `lib/communityStorage.loadPosts`), 상세(`/cong-dong/:id`: 조회수·좋아요·댓글·신고 = 웹과 같은 `communityStorage`·`adminOperations.createReport`), 글쓰기 시트(웹과 같은 항목·검사·`addPost`, 사진 4장). 분류·검색·정렬·상대 시간은 순수 함수 `communityView.ts`(+시험). 로그인 안 한 글쓰기·좋아요·댓글·신고는 앱 로그인 화면으로.
+- 검증 [직접 확인]: tsc·build·npm test 134/134, Playwright 10/10(실제 글 6건 표시·분류·검색·비로그인 글쓰기→로그인·상세·없는 글 안내). 주의: 이 시험이 실제 글 1건을 열어 운영 조회수가 1 올라감(읽기 전용 아님을 몰랐음, 이후 시험은 글 열기 생략). 글쓰기·댓글·좋아요·신고 제출은 계정이 없어 직접 못 봄.
+- 남은 것: 맞춤 조건 설정(JobAlertsPanel), 기업 기능.
+
+## 2026-11-25 — JOBI 앱 2단계 ②: CV(이력서) 작성 화면
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 이력서. 진행표 #1031.
+- 변경: `src/lib/cvAccountSync.ts`(웹 `CvBuilder`의 계정 CV 읽기·저장 순서를 그대로 옮긴 공용 함수, 웹도 이 함수를 부름 — 동작 변경 없음) / `src/app/account/CvScreen.tsx`(`/ho-so/cv`: 기본 정보·사진·경력·학력·기술·추천인, 로그인 전 이 기기 저장·로그인 후 계정 저장, 자료 모양은 `lib/cvStorage` 그대로). 마이·메뉴의 CV 링크를 웹 화면에서 앱 화면으로 교체.
+- 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 CV 흐름 10/10(저장 키가 웹과 같은 `vgb_cv_draft`, 새로고침 유지, 항목 추가·삭제). 계정 저장·사진 업로드는 이 환경에 인증 열쇠가 없어 직접 못 봄.
+- 남은 것: CV PDF 내려받기·미리보기(웹 CvBuilder 전용 화면), 기기 CV를 계정으로 가져오기 제안(웹 Profile), 맞춤 조건·커뮤니티·기업.
+
 ## 2026-11-25 — JOBI 앱 2단계 ①: 로그인·가입·마이 탭·지원 내역·사이트 안 지원
 - 요청(Lee): 최종 V3 기준 개발 연속 진행 — 구직자 핵심 다음 단계(회원·지원). 진행표 #1031.
 - 변경: `src/lib/applySubmit.ts`(웹 `useApply`의 buildProfile·제출을 그대로 옮긴 공용 함수, 웹은 그 함수를 부름 — 동작 변경 없음) / `src/app/account/` — 로그인·가입(웹 같은 AuthContext·문구·검사, 이동은 /app 안 경로만), 지원 시트(`useAppApply`, 상세 하단 "Ứng tuyển ngay"가 웹 상세로 보내던 임시 연결을 대체), 마이 탭(`/ho-so`), 지원 내역(`/ho-so/ung-tuyen`: 웹과 같은 `applicationsStorage` 목록·실시간·철회).
@@ -40,15 +52,3 @@
 - 원인 [직접 확인]: 검증 저장(09:48) 직후 상세 정리(job-ocr-check 45589142507, detail-fill '원문에서 다시 만듦', scripts/ocr/detail-fill.mjs:90)가 설명을 새로 쓰며 [source:vieclam24h] 표시를 지움 → vieclam24h 수집기의 기존 공고 목록(설명 표시로만 조회, crawl_topcv.load_existing_lookup_maps)에서 빠짐 → 다음 검증 저장(45630753016)에서 '새 공고'로 처리(DB 입구 중복 판정이 같은 번호 6454를 돌려줘 중복은 없음).
 - 변경: 기존 DB 칸 source_url(원본 식별자, 상세 정리가 안 건드림)로도 조회(사이트 주소로 거름 — 다른 사이트와 안 섞임). detail-fill·다른 수집원 코드는 안 바꿈. 시험: 수정 전 실패 재현 → 통과(새 2건), 수집기 시험 전부 통과.
 - 남은 것(범위 밖, 보고만): 상세 정리가 다른 수집원 공고 설명의 출처 표시도 지울 수 있음(화면 source 읽기 jobRows.parseDescription).
-## 2026-11-25 — JOBI 앱(/app) 0단계 뼈대: app.html·src/app·/app 주소·경계 검사(#1031)
-- 요청(Lee): 앱은 src/app + app.html + /app으로만 추가, 기존 웹 화면은 그대로, 데이터·검색·필터·회원·지원은 기존 기능 재사용. 하단 탭 구직자 5개·기업 4개, noindex, lang=vi.
-- 변경: app.html(앱 입구, noindex), src/app(main·AppRoot·AppShell·TabBar·ScreenStub·tabs·app.css, 클래스 app-), vite.config.ts(입구 2개+개발·미리보기 /app 규칙), vercel.json(/app·/app/* → app.html, 웹 전체 규칙보다 앞), vite.app.config.mjs(앱 단독 빌드 확인용), .gitignore(dist-app), 경계 검사 src/app/boundary.test.ts(run-tests가 자동 실행, run-tests.mjs 수정 없음).
-- 검증 [직접 확인]: tsc·npm run build·npm test 127/127, 앱 단독 빌드(웹 코드 없음), Playwright /app 23/23, master와 웹 5경로×2폭 렌더 10/10 동일, 경계 위반 7종 실패 확인.
-- 남은 것: 후속 과제 #1031(공유 청크 jspdf 미리받기, 기업 탭 홈/기업홈 확정 등). 병합·deploy-verify 확인 뒤 1단계.
-
-## 2026-11-25 — vieclam24h 시험 10건 위치 실패 원인 + 보류함 보관 + TP.HCM 인식
-- 검증 저장 45588882480(보관 10건 재사용): 1건 숨김 저장(#6454), 9건 location_precheck_failed: not_found. 비교 검색(business-search-compare, 1건씩 9번) 결과 [직접 확인]:
-  - TP.HCM 인식 결함 2건(Tiêu Điểm Mới 45617007308·A Mà Kitchen 45617149028): Google이 같은 회사·같은 번지를 찾았는데 원래 성 판정이 "TP.HCM"을 몰라 '성 밖' → 성 이름표(originalProvinceBoundaries)에 hcm 추가.
-  - 표기 차이 1건(Concentrix 45589255744): Google·Goong 등록 이름 "…SERVICE" vs 공고 "…Services", Google은 후보 여럿 → 판정 기준은 안 바꿈, 공통 수정안만 보고.
-  - 법인 이름 ≠ 가게 이름 5건(Thiên Lý·Sol Group 2·Ly Thái Bakery·Indigo)·검색 결과 없음 1건(PHT): 기존 규칙상 '못 찾음'이 맞음.
-- 원문 유실: vieclam24h 입구가 hold=False라 못 찾은 공고가 보류함에 안 남음(#916 뒤 근무지 줄을 입구에 같이 넘겨 그 이유가 없어짐) → 보류함 보관(근무지 줄 포함, 지점별 줄 이름). AGENTS.md에 시험 실행 원칙(#1030 누락분).
