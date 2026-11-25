@@ -11,6 +11,7 @@ import { buildDescriptionFromSources, UNSPECIFIED_DUTIES_NOTICE } from '../../sr
 import { fillSalary } from './salary-fill.mjs'
 import { readWorkTime } from '../../src/lib/jobDescriptionExtract.ts'
 import { autoScope, ALL_JOBS } from '../ops/auto-cutoff.mjs'
+import { keepSourceTag } from '../../src/lib/sourceTag.ts'
 
 const { SUPABASE_DB_URL } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
@@ -87,7 +88,8 @@ try {
       if (String(job.source_text ?? '').trim()) {
         // 원문이 있으면: AI가 쓴 글을 쓰지 않고 원문에서 다시 만든다(글자 그대로, 화면 글자·중복·위쪽 정보 반복 제거).
         const b = buildDescriptionFromSources(sources, ctx)
-        if (b.description.trim()) next = b.description
+        // 맨 앞 출처 표시([source:…])는 이어 붙인다 — 수집기 기존 공고 조회·출처 구분이 이 표시를 쓴다(#6454).
+        if (b.description.trim()) next = keepSourceTag(current, b.description)
         record = { mode: 'rebuild', version: FILL_VERSION, checked_at: new Date().toISOString(),
           unclassified: b.unclassified.map((u) => u.line), still_missing: [],
           dropped: b.dropped.map(({ line, reason }) => ({ line, reason })), annotations: b.annotations }
