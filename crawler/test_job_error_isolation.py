@@ -1417,6 +1417,31 @@ class RecollectKeepsConfirmedLocationText(unittest.TestCase):
         self.assertNotIn("location", out)
         self.assertEqual(out["salary"], "9tr", "다른 칸은 그대로 고친다")
 
+    def test_branch_kept_from_listing_text_when_geocode_returned_nothing(self):
+        # 지도 조회가 일시 실패해 근무지 줄이 비어도(원문 주소 칸 글자만 있음) 지점 판정은 같다 — 첫 매장 주소로 덮어쓰지 않는다(Lee 2026-11-25).
+        rows = [{"raw_address": "148 Trần Phú, Từ Sơn, Bắc Ninh", "lat": 21.1187, "lng": 105.9608, "location_verified": True}]
+        listing = ["152 Trần Hưng Đạo, Kinh Bắc", "148 Trần Phú, Từ Sơn"]
+        with mock.patch.object(topcv, "supabase", self._db(rows)):
+            out = topcv._keep_confirmed_location_text({"id": 7, "location": "148 Trần Phú, Từ Sơn, Bắc Ninh"},
+                                                     {"location": "152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh"}, listing)
+        self.assertNotIn("location", out)
+
+    def test_rows_query_failure_is_not_treated_as_no_rows(self):
+        # 근무지 줄 조회 실패는 예외로 올라가 공고별 오류 기록·다음 실행 재시도로 간다 — '줄 없음'으로 보고 위치 글자를 고치지 않는다.
+        class Q:
+            def __getattr__(q, _):
+                return lambda *a, **k: q
+            def execute(q):
+                raise ConnectionError("db down")
+        with mock.patch.object(topcv, "supabase", types.SimpleNamespace(table=lambda name: Q())):
+            with self.assertRaises(ConnectionError):
+                topcv._keep_confirmed_location_text({"id": 7, "location": self.OLD}, {"location": "340 Trần Hưng Đạo"}, [])
+
+    def test_recollect_passes_listing_text_to_branch_check(self):
+        # 호출하는 곳이 원문 주소 칸(지도 조회 전) 글자도 넘기는지 — 지도 조회가 실패해도 지점 판정이 바뀌지 않게.
+        import inspect
+        self.assertIn('job.get("_work_locations")', inspect.getsource(topcv.upsert_job_record))
+
     def test_no_location_change_does_not_query(self):
         with mock.patch.object(topcv, "supabase", None):  # 위치 칸이 안 바뀌면 DB를 묻지 않는다
             self.assertEqual(topcv._keep_confirmed_location_text({"id": 7, "location": self.OLD}, {"salary": "9tr"}), {"salary": "9tr"})

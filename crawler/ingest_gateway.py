@@ -141,6 +141,9 @@ def http_read_location(source_text: str, region: str = "") -> dict:
     return _post_hook({"read_address": {"source_text": source_text, "location": region}}, {})
 
 
+# 위치 hook에 닿지 못했을 때 _post_hook이 돌려주는 이유(정상 '결과 없음'과 구분 — 다시 처리는 이때 위치를 판정하지 않는다).
+HOOK_UNAVAILABLE = ("precheck_unavailable", "precheck_not_configured")
+
 # 테스트는 이 값을 바꿔 네트워크 없이 판정을 넣는다.
 PRECHECK = http_precheck
 READ_LOCATION = http_read_location

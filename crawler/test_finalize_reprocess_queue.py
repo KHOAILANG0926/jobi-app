@@ -262,3 +262,72 @@ assert not _branch(_krik + [{"raw_address": "Số 37 Lý Thái Tổ"}], _found, 
 assert not _branch(_krik, _found, "") and not _branch(_krik, [], _found[0]), "위치 글자 없음·매장 확인 실패 = 예전 동작"
 print("finalize_reprocess_queue: 지점별 공고의 다른 지점 주소 덮어쓰기 방지 시험 통과")
 
+
+# 지도 정상화 W4·W6 마무리(Lee 2026-11-25): Facebook 다시 처리 전체를 가짜 DB·서버로 돌린다(운영 #5992 실제 값).
+#  ① 지도 확인(PRECHECK)이 실패해도 이 공고(둘째 매장 지점)의 위치 글자를 첫 매장 주소로 덮어쓰지 않는다 — 지점 판정은 원문 매장 목록으로.
+#  ② 주소 읽기 서버에 닿지 못함 ≠ 원문에 주소 없음 — 판정하지 않고 실패로 남긴다(대기열이 기록·다음에 다시), 입구 호출 없음.
+#  ③ 근무지 줄 조회 실패는 예외로 올라간다('줄 없음'으로 보고 덮어쓰지 않음). ④ 실제 이전(이 공고 줄이 글의 어느 매장도 아님)은 기존대로 고친다.
+import importlib.util as _ilu
+_KRIK_TEXT = "KRIK TUYỂN DỤNG NHÂN VIÊN BÁN HÀNG PARTTIME\nCơ sở 1: 152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh\nCơ sở 2: 148 Trần Phú, Từ Sơn, Bắc Ninh"
+_KRIK_ROW = {"raw_address": "148 Trần Phú, Từ Sơn, Bắc Ninh", "lat": 21.118684128, "lng": 105.960786663, "location_verified": True, "point_authority": "source_verified"}
+
+def _load_refresh(rows, rows_error=None):
+    state = {"id": 5992, "origin": "crawler", "admin_hidden": False, "source_text": _KRIK_TEXT, "ocr_text": "", "source_url": "u", "description": "",
+             "images": [], "location": "148 Trần Phú, Từ Sơn, Bắc Ninh", "title": "KRIK TUYỂN DỤNG NHÂN VIÊN BÁN HÀNG PARTTIME", "company": "KRIK",
+             "salary": "", "active": True}
+    class Q:
+        def __init__(q, name): q.name = name
+        def __getattr__(q, _): return lambda *a, **k: q
+        def execute(q):
+            if q.name == "job_work_locations":
+                if rows_error: raise rows_error
+                return types.SimpleNamespace(data=list(rows))
+            return types.SimpleNamespace(data=dict(state))
+    fake_db = types.SimpleNamespace(table=lambda name: Q(name))
+    saved = sys.modules.get("crawl_facebook")
+    sys.modules["crawl_facebook"] = types.SimpleNamespace(is_facebook_row=lambda r: True, supabase=fake_db,
+        parse_post=lambda p: {"title": "KRIK TUYỂN DỤNG NHÂN VIÊN BÁN HÀNG PARTTIME", "company": "KRIK", "location": ""})
+    spec = _ilu.spec_from_file_location("refresh_real_for_test", Path(__file__).resolve().parent / "refresh_facebook_existing.py")
+    mod = _ilu.module_from_spec(spec); spec.loader.exec_module(mod)
+    if saved is None: sys.modules.pop("crawl_facebook", None)
+    else: sys.modules["crawl_facebook"] = saved
+    calls = []
+    def fake_ingest(_db, payload):
+        calls.append(payload)
+        for k in payload.get("update_fields", []): state[k] = payload[k]
+        return 5992
+    mod.ingest_job = fake_ingest
+    return mod, calls, state
+
+def _boom(*_a, **_k): raise RuntimeError("precheck down")
+_two = {"location": "152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", "locations": ["152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", "148 Trần Phú, Từ Sơn, Bắc Ninh"]}
+
+_m, _calls, _st = _load_refresh([_KRIK_ROW])
+_m.ingest_gateway.READ_LOCATION, _m.ingest_gateway.PRECHECK = (lambda *_a, **_k: dict(_two)), _boom
+_m.refresh_existing(5992)
+assert _calls and "location" not in _calls[0]["update_fields"] and _st["location"] == "148 Trần Phú, Từ Sơn, Bắc Ninh", f"① 지도 확인 실패에도 지점 위치 유지: {_calls}"
+
+_m, _calls, _st = _load_refresh([_KRIK_ROW])
+_m.ingest_gateway.READ_LOCATION, _m.ingest_gateway.PRECHECK = (lambda *_a, **_k: {"reason": "precheck_unavailable"}), _boom
+try:
+    _m.refresh_existing(5992); raise AssertionError("② 주소 읽기 서버 불통인데 다시 처리가 성공으로 끝남")
+except RuntimeError as e:
+    assert "location read unavailable" in str(e) and not _calls, f"② 판정 없이 실패로 남김(입구 호출 없음): {e} {_calls}"
+
+_m, _calls, _st = _load_refresh([_KRIK_ROW], rows_error=ConnectionError("db down"))
+_m.ingest_gateway.READ_LOCATION, _m.ingest_gateway.PRECHECK = (lambda *_a, **_k: dict(_two)), _boom
+try:
+    _m.refresh_existing(5992); raise AssertionError("③ 근무지 줄 조회 실패인데 다시 처리가 계속됨")
+except ConnectionError:
+    assert not _calls, "③ 조회 실패 → 입구 호출 없음(위치 덮어쓰기 없음)"
+
+_m, _calls, _st = _load_refresh([{"raw_address": "99 Lý Thái Tổ, Bắc Ninh", "lat": 21.1, "lng": 106.0, "location_verified": True}])
+_m.ingest_gateway.READ_LOCATION, _m.ingest_gateway.PRECHECK = (lambda *_a, **_k: dict(_two)), _boom
+_m.refresh_existing(5992)
+assert _calls and _calls[0].get("location") == "152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", f"④ 이 공고 줄이 글의 어느 매장도 아니면(실제 이전) 기존대로 고침: {_calls}"
+
+_d = f.pin_guard.location_text_decision
+assert _d("148 Trần Phú, Từ Sơn, Bắc Ninh", "152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", [_KRIK_ROW], _two["locations"]) == "keep_branch"
+assert _d("152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh", "152 Trần Hưng Đạo", [dict(_KRIK_ROW, raw_address="152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh")], []) == "keep_confirmed"
+assert _d("a", "b", [], []) == "update" and _d("a", "", [], []) == "update"
+print("finalize_reprocess_queue: W4·W6 다시 처리 위치 글자 — 지도 확인 실패·서버 불통·조회 실패·실제 이전 구분 시험 통과")

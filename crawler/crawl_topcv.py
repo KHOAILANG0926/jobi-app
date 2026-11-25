@@ -49,7 +49,7 @@ from job_quality import (
 from job_posting_policy import crawler_policy_errors
 from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 from ingest_gateway import ingest_job, retry_held_once
-from pin_guard import _key as _address_key, keeps_branch_location, keeps_confirmed_location, other_stores
+from pin_guard import _key as _address_key, location_text_decision, other_stores
 from job_criteria import deadline_passed, has_enough_contact, today_vn
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -2340,22 +2340,19 @@ def _ingest_branch_jobs(payload: dict, rows: list[dict]) -> list[int]:
 
 
 def _keep_confirmed_location_text(existing: dict, field_updates: dict, found: list[str] | None = None) -> dict:
-    """다시 수집에서 위치 글자(location)를 고칠지(지도 정상화 W4a, Facebook 다시 수집 W4b와 같은 판정 한 곳 pin_guard.keeps_confirmed_location).
-    위치 글자가 바뀌면 DB가 그 글자의 근무지 줄 좌표를 지우고 다시 찾는다 — 같은 지점인데 표기만 다르고 그 줄이 확정 좌표이면 위치 글자는 그대로 둔다.
-    그 밖(다른 지점·이전·확정 아님·조회 실패)은 예전처럼 고친다."""
+    """다시 수집에서 위치 글자(location)를 고칠지 — Facebook 다시 처리와 같은 판정 한 곳(pin_guard.location_text_decision, 지도 정상화 W4·W6).
+    같은 지점·표기만 다름(확정 줄)이거나 이 공고가 글의 다른 지점이면 위치 글자는 그대로 둔다(DB가 위치 글자 변경을 이전으로 보고 그 줄 좌표를 지움).
+    found = 이번 글의 매장 주소 글자(원문 주소 칸 — 지도 조회 결과가 아님). 근무지 줄 조회 실패는 예외로 올라가 공고별 오류 기록·다음 실행 재시도
+    (기존 JOB_ERRORS 구조)로 가며 '줄 없음'으로 보지 않는다 — 조회 실패로 위치 글자를 덮어쓰지 않는다."""
     new_location = field_updates.get("location")
     if not new_location or not existing.get("location"):
         return field_updates
     rows = (supabase.table("job_work_locations").select("raw_address,lat,lng,location_verified,point_authority")
             .eq("job_id", existing["id"]).execute().data or [])
-    # 지점별 독립 공고: 이 공고가 이번 글의 다른 지점(첫 매장이 아닌 매장)이면 첫 매장 주소로 바꾸지 않는다 — Facebook 다시 처리와 같은 판정 한 곳
-    # (pin_guard.keeps_branch_location, 2026-11-24 운영 #5992 pin_lost).
-    if keeps_branch_location(rows, found or [], new_location):
-        print(f"    📌 id={existing['id']}: 이 공고는 글의 다른 지점 — 지점 위치 글자 유지")
-        return {k: v for k, v in field_updates.items() if k != "location"}
-    if not keeps_confirmed_location(existing["location"], new_location, rows):
+    decision = location_text_decision(existing["location"], new_location, rows, found or [])
+    if decision == "update":
         return field_updates
-    print(f"    📌 id={existing['id']}: 같은 지점·표기만 다른 주소 — 확정 위치 글자 유지")
+    print(f"    📌 id={existing['id']}: " + ("같은 지점·표기만 다른 주소 — 확정 위치 글자 유지" if decision == "keep_confirmed" else "이 공고는 글의 다른 지점 — 지점 위치 글자 유지"))
     return {k: v for k, v in field_updates.items() if k != "location"}
 
 
@@ -2558,7 +2555,8 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
         action = "inserted"
     else:
         field_updates = compute_job_updates(existing, job)
-        field_updates = _keep_confirmed_location_text(existing, field_updates, [r.get("raw_address") for r in resolved if r.get("raw_address")])
+        # 매장 목록은 원문 주소 칸(지도 조회 전)과 지도 조회 뒤 줄을 함께 — 지도 조회가 일시 실패해도 지점 판정이 바뀌지 않게.
+        field_updates = _keep_confirmed_location_text(existing, field_updates, [w.get("text") for w in (job.get("_work_locations") or []) if w.get("text")] + [r.get("raw_address") for r in resolved if r.get("raw_address")])
         # 공개 게이트/버전 필드는 이 공고가 실제로 크롤러가 만든 것일 때만,
         # 그리고 이번 판정이 geocode API 일시 오류 없이 완전했을 때만 건드린다
         # — 기업이 직접 등록한 공고(origin != 'crawler')는 이 매칭에 걸릴 일이

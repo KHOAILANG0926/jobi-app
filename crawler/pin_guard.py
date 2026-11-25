@@ -86,6 +86,20 @@ def keeps_branch_location(existing, found, new_location):
     return bool(other_stores(rows, [new_location]))
 
 
+def location_text_decision(old_location, new_location, rows, source_stores):
+    """다시 처리·다시 수집에서 공고 위치 글자를 바꿀지 — 한 곳(Facebook·vieclam24h 공통, 지도 정상화 W4·W6).
+    rows = 지금 DB 근무지 줄(조회 실패는 호출한 쪽에서 예외로 올려 '줄 없음'과 섞지 않는다),
+    source_stores = 이번 원문의 매장 위치 글자 목록(지도 조회 없이 원문에서 읽은 것 — 지도 확인이 실패해도 판정이 바뀌지 않게).
+    'keep_confirmed' = 같은 지점·표기만 다름(확정 줄) / 'keep_branch' = 이 공고는 글의 다른 지점 / 'update' = 그 밖(실제 이전 포함, 기존 동작)."""
+    if not new_location or not old_location or new_location == old_location:
+        return "update"
+    if keeps_confirmed_location(old_location, new_location, rows):
+        return "keep_confirmed"
+    if keeps_branch_location(rows, [x for x in (source_stores or []) if x] or [new_location], new_location):
+        return "keep_branch"
+    return "update"
+
+
 def merge_store_rows(existing, found):
     """기존 근무지 줄 + 위치 확인이 찾은 매장 → DB로 보낼 근무지 줄(바꿀 게 없으면 []).
     실제 공고(KRIK 5992·MediaMart 5994)로 test_refresh_store_rows.py에서 먼저 돌려 본다(2026-11-12).
