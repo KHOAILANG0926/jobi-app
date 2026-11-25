@@ -507,6 +507,49 @@ class Vieclam24hSourceIdentity(unittest.TestCase):
                       "제목이 바뀌고 꼬리표가 달라도 같은 원문 글이면 같은 기존 공고")
 
 
+class ExistingLookupAfterDetailFill(unittest.TestCase):
+    """#6454(2026-11-25): 등록 뒤 상세 정리(detail-fill 원문에서 다시 만듦)가 설명의 [source:vieclam24h] 표시를 지우면
+    수집기의 기존 공고 목록에서 빠져 '새 공고'로 처리됐다(검증 저장 45630753016). 기존 공고는 원본 식별자(source_url)로도 찾는다."""
+
+    class _Table:
+        def __init__(self, rows):
+            self.rows, self.filters = rows, []
+
+        def select(self, *_a, **_k):
+            return self
+
+        def like(self, column, pattern):
+            import re
+            rx = re.compile("^" + ".*".join(re.escape(x) for x in pattern.split("%")) + "$", re.S)
+            self.filters.append(lambda r: bool(rx.match(str(r.get(column) or ""))))
+            return self
+
+        def execute(self):
+            return types.SimpleNamespace(data=[r for r in self.rows if all(f(r) for f in self.filters)])
+
+    URL = "https://vieclam24h.vn/lao-dong-pho-thong/nhan-vien-phuc-vu-c49p210000160id200988528.html?open_from=0301_1_10&search_id=x"
+
+    def _maps(self, rows, source="vieclam24h"):
+        with mock.patch.object(topcv, "supabase", types.SimpleNamespace(table=lambda _n: self._Table(rows))):
+            return topcv.load_existing_lookup_maps(source=source)
+
+    def test_rebuilt_description_still_found_by_source_url(self):
+        rebuilt = {"id": 6454, "title": "Nhân viên phục vụ", "company": "Gusto Thai Restaurant",
+                   "description": "Nội dung công việc\nPhục vụ khách", "source_url": self.URL}
+        by_source_url, by_key = self._maps([rebuilt])
+        job = {"source_url": self.URL, "title": "Nhân viên phục vụ", "company": "Gusto Thai Restaurant"}
+        self.assertIs(topcv.match_existing_row(job, by_source_url, by_key), rebuilt, "상세 정리 뒤에도 같은 원문 글은 기존 공고")
+
+    def test_other_site_rows_stay_separate(self):
+        fb = {"id": 1, "title": "Nhân viên phục vụ", "company": "Gusto Thai Restaurant",
+              "description": "[source:facebook] x", "source_url": "https://www.facebook.com/groups/a/posts/1"}
+        tagged = {"id": 2, "title": "t", "company": "c", "description": "[source:vieclam24h] x", "source_url": None}
+        by_source_url, by_key = self._maps([fb, tagged])
+        self.assertEqual(sorted(r["id"] for r in by_key.values()), [2], "다른 사이트 공고는 섞이지 않고, 주소 없는 예전 표시 공고는 그대로")
+        _, vnw = self._maps([{**fb, "id": 3, "source_url": self.URL}], source="vietnamworks")
+        self.assertEqual(vnw, {}, "vieclam24h 원문 주소는 vietnamworks 목록에 들어가지 않음")
+
+
 class Vieclam24hScheduledSave(unittest.TestCase):
     """정기 수집 저장(--save-details): VPS 상세를 정기 저장 경로(save_to_supabase) 하나로 — 제외·오류 공고만 빠지고 나머지는 저장."""
 
