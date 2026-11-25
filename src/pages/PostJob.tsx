@@ -15,82 +15,20 @@ import VietMapPinPicker from '../components/job-form/VietMapPinPicker'
 import { findRegionCenter } from '../lib/jobCoords'
 import { shrinkImage } from '../lib/imageResize'
 import { RECRUITMENT_LABELS, SHIFT_LABELS } from '../lib/jobConditions'
-import { BENEFIT_TAG_OPTIONS, composeAge, composeDescription, composeHires, composeHours, composeLocation, composeSalary, normalizeVnPhone, type GenderChoice, type PayUnit } from '../lib/postJobForm'
+import { BENEFIT_TAG_OPTIONS, composeAge, composeDescription, composeHires, composeHours, composeLocation, composeSalary, normalizeVnPhone, type PayUnit } from '../lib/postJobForm'
 import type { PinPoint } from '../components/job-form/LocationPinPicker'
 import { PREVIEW_KEY } from '../lib/postJobPreview'
+import { addDays, buildJobFields, emptyPostForm, preferenceText as preferenceTextOf, processText as processTextOf, salaryNoteText as salaryNoteTextOf, saveJobPin, uploadJobPhotos, validatePostForm, type PostFieldKey } from '../lib/postJobSubmit'
 import { AlbamonTemplateEditor } from '../components/template/AlbamonTemplate'
 import { sanitizeTemplateHtml } from '../lib/templateHtml'
 import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
 import type { JobCategory, ShiftType } from '../types/job'
 
 // 2026-10-30 Lee: 공고 작성 체크리스트 순서(① 근무조건 ② 모집조건 ③ 근무지역 ④ 상세요강). 필수 9개 = 급여·근무시간·고용형태·업직종·모집마감·모집인원·주소·업무 내용·연락처.
-const emptyForm = {
-  title: '',
-  company: '',
-  // 'khac'(기타)가 지금 분류의 fallback(구 'other'는 폐기).
-  category: 'khac' as JobCategory,
-  subcategory: '',
-  salaryAmount: '',
-  salaryUnit: 'month' as PayUnit,
-  salaryNegotiable: false,
-  salaryIncludesOvertime: false,
-  allowance: '',
-  payMethod: '',
-  timeStart: '',
-  timeEnd: '',
-  breakMinutes: '',
-  jobDuration: '',
-  employmentType: '' as '' | 'full_time' | 'seasonal' | 'part_time',
-  // 알바몬처럼 고용형태 하나 더(최대 2개, Lee 2026-11-08) — local_jobs.employment_type_extra
-  employmentTypeExtra: '' as '' | 'contract' | 'internship' | 'collaborator',
-  benefitTags: [] as string[],
-  insurance: false,
-  benefitOther: '',
-  applicationDeadline: '',
-  ongoing: false,
-  hires: '',
-  hiresUndecided: false,
-  ageMin: '',
-  ageMax: '',
-  gender: '' as GenderChoice,
-  genderMale: '',
-  genderFemale: '',
-  education: '',
-  preference: '',
-  street: '',
-  province: '',
-  ward: '',
-  park: '',
-  work: '',
-  overtime: '',
-  environment: '',
-  // Lee 2026-11-08 "4 적용"(알바몬 공고등록 따라 하기): DB 새 칸 없이 기존 칸에 넣는다 — 경력·우대는 preference, 식대·수습은 salaryNote, 접수 방법·담당자 이름은 상세요강 '채용 절차'.
-  beginner: false,
-  withFriends: false,
-  prefPicks: [] as string[],
-  mealAllowance: false,
-  probation: false,
-  applyMethods: ['Gọi điện', 'Nhắn Zalo'] as string[],
-  contactName: '',
-  process: '',
-  employerPhone: '',
-  zalo: '',
-  zaloSameAsPhone: true,
-  urgent: false,
-  laborContractPledge: false,
-  workDays: [] as string[],
-  daysNegotiable: false,
-  hoursNegotiable: false,
-}
+const emptyForm = emptyPostForm
 
 type EmployerCheck = 'checking' | 'employer' | 'guest'
 type PostMode = 'quick' | 'email'
-
-function addDays(n: number): string {
-  const t = new Date()
-  t.setDate(t.getDate() + n)
-  return t.toISOString().slice(0, 10)
-}
 
 function randomPassword(): string {
   const bytes = new Uint8Array(24)
@@ -212,6 +150,7 @@ export function PostJob() {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [error])
 
+  const fieldRefs: Record<PostFieldKey, RefObject<HTMLElement | null>> = { title: titleRef, company: companyRef, salary: salaryRef, time: timeRef, employment: employmentRef, deadline: deadlineRef, hires: hiresRef, age: ageRef, street: streetRef, description: descriptionRef, phone: employerPhoneRef, zalo: zaloRef }
   function goToField(ref: RefObject<HTMLElement | null>) {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     ref.current?.focus()
@@ -288,9 +227,9 @@ export function PostJob() {
   }
 
   // 4번: 기존 칸에 넣을 글(제출·미리보기 공용)
-  const preferenceText = () => [form.beginner && 'Không cần kinh nghiệm', form.withFriends && 'Có thể đi làm cùng bạn bè', ...form.prefPicks, form.preference.trim()].filter(Boolean).join(', ')
-  const processText = () => [form.process.trim(), form.applyMethods.length ? `Cách ứng tuyển: ${form.applyMethods.join(', ')}` : '', form.contactName.trim() ? `Người liên hệ: ${form.contactName.trim()}` : ''].filter(Boolean).join('\n')
-  const salaryNoteText = () => [form.allowance.trim() && `Phụ cấp·Thưởng: ${form.allowance.trim()}`, form.mealAllowance && 'Phụ cấp ăn riêng', form.probation && 'Có thời gian thử việc', form.payMethod && `Trả lương: ${form.payMethod}`].filter(Boolean).join('; ')
+  const preferenceText = () => preferenceTextOf(form)
+  const processText = () => processTextOf(form)
+  const salaryNoteText = () => salaryNoteTextOf(form)
   const saveContact = () => { try { localStorage.setItem(CONTACT_KEY, JSON.stringify({ name: form.contactName.trim(), phone: form.employerPhone.trim() })); flash('Đã lưu thông tin người liên hệ') } catch { flash('Không lưu được trên trình duyệt này') } }
 
   // 3번 미리보기: 지금 입력값으로 상세 화면을 새 창에 그대로(저장·등록 없음). 빈 칸은 빈 채로.
@@ -328,35 +267,14 @@ export function PostJob() {
     e.preventDefault()
     setError(null)
 
-    const salary = composeSalary(form.salaryAmount, form.salaryUnit, form.salaryNegotiable)
-    const hours = form.hoursNegotiable ? 'Thỏa thuận' : composeHours(form.timeStart, form.timeEnd, form.breakMinutes)
-    const hires = composeHires(form.hires, form.hiresUndecided, form.gender, form.genderMale, form.genderFemale)
-    const age = composeAge(form.ageMin, form.ageMax)
-    const location = composeLocation(form.street, form.ward, form.province, form.park)
-    const description = composeDescription({ work: form.work, overtime: form.overtime, environment: form.environment, process: processText(), benefitOther: form.benefitOther })
-    const phone = normalizeVnPhone(form.employerPhone)
-    const zalo = form.zaloSameAsPhone ? phone : (form.zalo.trim() ? normalizeVnPhone(form.zalo) : null)
-    const deadlineChosen = form.ongoing || !!form.applicationDeadline.trim() || quickGuestMode
-    const requiredFields: { valid: boolean; message: string; ref: RefObject<HTMLElement | null> }[] = [
-      { valid: !!form.title.trim(), message: 'Vui lòng nhập tiêu đề công việc.', ref: titleRef },
-      { valid: !!form.company.trim(), message: 'Vui lòng nhập tên công ty / đơn vị.', ref: companyRef },
-      { valid: !!salary, message: 'Vui lòng nhập mức lương (hoặc chọn Thỏa thuận).', ref: salaryRef },
-      { valid: !!hours, message: 'Vui lòng nhập giờ bắt đầu và kết thúc.', ref: timeRef },
-      { valid: !!form.employmentType, message: 'Vui lòng chọn hình thức làm việc.', ref: employmentRef },
-      { valid: deadlineChosen, message: 'Vui lòng chọn hạn nộp hồ sơ hoặc Tuyển liên tục.', ref: deadlineRef },
-      { valid: !!hires, message: 'Vui lòng nhập số lượng tuyển (hoặc chọn Chưa xác định).', ref: hiresRef },
-      { valid: age !== null, message: 'Độ tuổi không hợp lệ (15–70, từ nhỏ đến lớn).', ref: ageRef },
-      { valid: !!location, message: 'Vui lòng nhập số nhà/đường, chọn tỉnh/thành và phường/xã.', ref: streetRef },
-      { valid: !!description, message: 'Vui lòng nhập nội dung công việc.', ref: descriptionRef },
-      { valid: !!phone, message: 'Số điện thoại không hợp lệ (ví dụ 0912 345 678).', ref: employerPhoneRef },
-      { valid: form.zaloSameAsPhone || !form.zalo.trim() || !!zalo, message: 'Số Zalo không hợp lệ.', ref: zaloRef },
-    ]
-    const firstInvalid = requiredFields.find((f) => !f.valid)
-    if (firstInvalid) {
-      setError(firstInvalid.message)
-      goToField(firstInvalid.ref)
+    const checked = validatePostForm(form, quickGuestMode)
+    if (!checked.ok) {
+      setError(checked.message)
+      goToField(fieldRefs[checked.field])
       return
     }
+    const { composed } = checked
+    const location = composed.location
     if (employerCheck === 'guest' && postMode === 'email' && !guestEmail.trim()) {
       setError('Vui lòng nhập email để đăng ký.')
       goToField(guestEmailRef)
@@ -365,62 +283,14 @@ export function PostJob() {
 
     setSubmitting(true)
     try {
-      let imageUrl: string | undefined = undefined
-      const imagePaths: string[] = []
-      for (const [i, photo] of photos.entries()) {
-        const ext = photo.file.name.split('.').pop()
-        const path = `${Date.now()}-${i}.${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('job-images')
-          .upload(path, photo.file, { upsert: true })
-        if (uploadError) throw new Error('Tải ảnh thất bại: ' + uploadError.message)
-        imagePaths.push(path)
-        if (i === 0) imageUrl = supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl
-      }
-
-      const salaryNote = salaryNoteText()
-      const baseFields = {
-        title: form.title.trim(),
-        company: form.company.trim(),
-        category: form.category,
-        subcategory: form.subcategory || undefined,
-        salary: salary!.salary,
-        salaryPeriod: salary!.salaryPeriod,
-        salaryBasis: form.salaryIncludesOvertime && !form.salaryNegotiable ? 'total_with_overtime' as const : undefined,
-        salaryNote: salaryNote || undefined,
-        location: location!,
-        description: description!,
-        hours: hours!,
-        jobDuration: form.jobDuration || undefined,
-        employmentType: form.employmentType || undefined,
-        employmentTypeExtra: form.employmentTypeExtra || undefined,
-        descriptionHtml: sanitizeTemplateHtml(tplHtml) || undefined,
-        workDays: form.daysNegotiable ? 'Thỏa thuận' : (form.workDays.length ? form.workDays.join(', ') : undefined),
-        benefitTags: form.benefitTags.length ? form.benefitTags : undefined,
-        numHires: hires!,
-        genderRequirement: form.gender || undefined,
-        ageRequirement: age || undefined,
-        education: form.education || undefined,
-        preference: preferenceText() || undefined,
-        laborContractPledge: form.laborContractPledge || undefined,
-        socialInsurancePledge: form.insurance || undefined,
-        employerPhone: phone!,
-        zalo: zalo || undefined,
-        urgent: form.urgent,
-        imageUrl,
-        images: imagePaths.length ? imagePaths : undefined,
-        ...conditions,
-        workSchedule: form.workDays.length === 5 ? '5_days' as const : form.workDays.length === 6 ? '6_days' as const : form.workDays.length ? 'other' as const : conditions.workSchedule,
-      }
+      const { imageUrl, imagePaths } = await uploadJobPhotos(photos.map((p) => p.file))
+      const baseFields = buildJobFields(form, conditions, composed, { descriptionHtml: sanitizeTemplateHtml(tplHtml), imageUrl, imagePaths })
       const deadlineOr = (days: number) => form.ongoing ? '' : (form.applicationDeadline.trim() || addDays(days))
 
       // 근무지 핀은 공고 저장 뒤 소유 확인 RPC로 저장한다(실패해도 공고는 유지 — 관리 화면에서 다시 지정 가능).
       const savePin = async (jobId: string, token: string | null) => {
         if (!pin) return
-        const { error: pinError } = await supabase.rpc('set_job_pinned_location', {
-          p_job_id: Number(jobId.replace(/^sb-/, '')), p_token: token, p_address: location!, p_lat: pin.lat, p_lng: pin.lng,
-        })
-        if (pinError) setPinWarning(true)
+        if (!(await saveJobPin(jobId, token, location, pin))) setPinWarning(true)
       }
       const resetForm = () => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); dropDraft() }
 
