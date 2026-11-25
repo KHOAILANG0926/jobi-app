@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-25 22:40 (VN)**
-- 기준 커밋: `b132a06` (fix(job-repair): 자동 수리의 회사 이름 쓰기를 등록 입구(ingest_job)로 (#978 8) (#1038))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45647530701
+- 생성 시각: **2026-11-26 00:11 (VN)**
+- 기준 커밋: `d1440e2` (feat(salary): 급여 글자에서 급여 숫자 칸(min·max·통화·협의)을 같은 입구로 채움 (#1043))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45661772895
 - 검증 스크립트 지문(SHA-256): `381fdde1e2023cb4`
 
 ## 한눈에 보기
@@ -44,33 +44,33 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 127/127 파일 통과 |
+| 테스트 `npm test` | ✅ 131/131 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `04447a9` · 상태 **success** · 2026-11-25 22:39 (VN)
-- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
+- 마지막 Production 배포: `d1440e2` · 상태 **success** · 2026-11-26 00:10 (VN)
+- master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #1043 | 2026-11-26 00:09 (VN) | `d1440e2` | feat(salary): 급여 글자에서 급여 숫자 칸(min·max·통화·협의)을 같은 입구로 채움 |
+| #1044 | 2026-11-26 00:08 (VN) | `e269799` | fix(post-job): 등록 성공 안내를 실제 공개 여부대로 (#717 A안) |
+| #1042 | 2026-11-25 23:43 (VN) | `a764761` | feat(app): 앱 1단계 ① 공통 부품·홈·목록·검색·필터·지역 시트·메뉴 (V3 시안) |
+| #1036 | 2026-11-25 23:34 (VN) | `f5a53fc` | docs(rules): 기능 그룹 단위 작업 운영 원칙 추가 (Lee 2026-11-25) |
+| #1040 | 2026-11-25 23:31 (VN) | `3623c9c` | refactor(lib): 목록 조건 필터·정렬을 lib/jobListFilter로 추출 (앱 1단계 준비 ①) |
 | #1038 | 2026-11-25 22:39 (VN) | `b132a06` | fix(job-repair): 자동 수리의 회사 이름 쓰기를 등록 입구(ingest_job)로 (#978 8) |
 | #1037 | 2026-11-25 22:38 (VN) | `04447a9` | fix(detail-fill): 원문에서 다시 만든 설명도 맨 앞 출처 표시를 유지 (#6454 후속) |
 | #1039 | 2026-11-25 22:33 (VN) | `13b6cd1` | chore(ops): 직업코드 없는 공고 원문 조회(읽기 전용) — C 작업 직업분류 근거 |
 | #1035 | 2026-11-25 21:37 (VN) | `5d7e6e9` | fix(crawler): 상세 정리 뒤에도 기존 vieclam24h 공고를 원본 식별자(source_url)로 찾기 (#6454) |
 | #1033 | 2026-11-25 21:20 (VN) | `6391ff0` | feat(app): JOBI 앱(/app) 0단계 뼈대 — app.html·src/app·/app 주소·경계 검사 |
-| #1034 | 2026-11-25 21:03 (VN) | `ad51e38` | fix(location): vieclam24h 못 찾은 공고 보류함 보관 + 주소의 TP.HCM을 호찌민으로 인식 |
-| #1030 | 2026-11-25 18:00 (VN) | `ec5bc4e` | docs(rules): 시험 실행 원칙을 기존 「검증 반복 제한」에 추가 (Lee 2026-11-25) |
-| #1029 | 2026-11-25 13:05 (VN) | `ad97a2f` | feat(crawler): vieclam24h 정기 수집 재개 — 하루 20건(VPS 수집 + GitHub 서버 저장) |
-| #1028 | 2026-11-25 12:25 (VN) | `e68349c` | fix(crawler): vieclam24h 원본 식별자에서 목록 검색 꼬리표 제거 |
-| #1027 | 2026-11-25 09:59 (VN) | `2d5253d` | fix(crawler): Facebook 세션 만료 판정 근거를 실행 기록에 남기고 브라우저 정보를 실제 실행 환경으로 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **27건** (전체 48건, 숨김·비활성 21건)
+- 공개 중: **27건** (전체 51건, 숨김·비활성 24건)
 - 출처별: 출처 없음 23 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -89,6 +89,7 @@
 | #5505 | 2026-11-11 20:11 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
 | #5599 | 2026-11-11 20:12 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
 | #5422 | 2026-11-11 20:23 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
+| #6493 (비공개) | 2026-11-26 00:10 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 실패 (서버 결과에 없음) | — | — | — |
 
 ## 6. VietMap 호출 수 (서버 카운터)
 
@@ -99,16 +100,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-25 22:34 (VN) | location_candidate.approve | job 6474 |
-| 2026-11-25 22:34 (VN) | location_candidate.add | job 6474 |
-| 2026-11-25 21:38 (VN) | location_candidate.approve | job 6471 |
-| 2026-11-25 21:38 (VN) | location_candidate.add | job 6471 |
-| 2026-11-25 21:23 (VN) | location_candidate.approve | job 6469 |
-| 2026-11-25 21:23 (VN) | location_candidate.add | job 6469 |
-| 2026-11-25 21:06 (VN) | location_candidate.approve | job 6463 |
-| 2026-11-25 21:06 (VN) | location_candidate.add | job 6463 |
-| 2026-11-25 18:02 (VN) | location_candidate.approve | job 6460 |
-| 2026-11-25 18:02 (VN) | location_candidate.add | job 6460 |
+| 2026-11-26 00:10 (VN) | location_candidate.approve | job 6493 |
+| 2026-11-26 00:10 (VN) | location_candidate.add | job 6493 |
+| 2026-11-25 23:46 (VN) | location_candidate.approve | job 6490 |
+| 2026-11-25 23:46 (VN) | location_candidate.add | job 6490 |
+| 2026-11-25 23:35 (VN) | location_candidate.approve | job 6487 |
+| 2026-11-25 23:35 (VN) | location_candidate.add | job 6487 |
+| 2026-11-25 23:34 (VN) | location_candidate.approve | job 6483 |
+| 2026-11-25 23:34 (VN) | location_candidate.add | job 6483 |
+| 2026-11-25 22:41 (VN) | location_candidate.approve | job 6480 |
+| 2026-11-25 22:41 (VN) | location_candidate.add | job 6480 |
 
 ## 8. 검증 장치 변경 이력
 
