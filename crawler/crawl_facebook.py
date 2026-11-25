@@ -361,6 +361,22 @@ def guess_category(text: str) -> str:
     return classify("", "", text)
 
 
+def browser_user_agent(chromium_version: str, machine: str | None = None) -> str:
+    """실제 실행 환경(리눅스 VPS·설치된 Chromium 판)에 맞춘 브라우저 정보(2026-11-25 세션 만료 원인 확인 — 예전 고정값
+    'Windows … Chrome/124'는 리눅스 VPS의 실제 Chromium 판과 달랐다). 판 번호는 실제 실행한 브라우저에서 받는다."""
+    import platform
+    arch = machine or platform.machine() or "x86_64"
+    return f"Mozilla/5.0 (X11; Linux {arch}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chromium_version} Safari/537.36"
+
+
+async def new_facebook_context(browser, locale: str):
+    """Facebook 수집·조사가 같이 쓰는 브라우저 문맥 한 곳 — 실제 환경의 브라우저 정보 + Secrets 쿠키(값은 출력하지 않는다)."""
+    context = await browser.new_context(viewport={"width": 1280, "height": 800},
+                                        user_agent=browser_user_agent(browser.version), locale=locale)
+    await context.add_cookies(build_cookies())
+    return context
+
+
 def build_cookies() -> list[dict]:
     if not FB_C_USER or not FB_XS:
         raise RuntimeError("FB_C_USER, FB_XS 쿠키가 .env에 없습니다.")
@@ -450,6 +466,24 @@ async def inspect_page_state(page) -> str:
     return classify_page_signals(page.url, has_c_user, has_feed, body[:3000])
 
 
+def page_signal_summary(url: str, title: str, cookie_names: list[str], has_feed: bool, login_form: bool, body_head: str) -> dict:
+    """정상이 아닌 화면의 판정 근거만(2026-11-25 세션 만료 원인 확인) — GitHub 실행 기록에 남겨도 되는 값만 모은다.
+    쿠키는 이름만(값 없음), 주소는 호스트·경로만(검색어·조각 없음, 숫자 묶음은 #), 본문은 넣지 않고 어떤 보안 확인 낱말이 보였는지만."""
+    from urllib.parse import urlsplit
+    parts = urlsplit(url or "")
+    path = re.sub(r"\d{4,}", "#", parts.path or "")[:80]
+    b = (body_head or "").lower()
+    return {
+        "url": f"{parts.netloc}{path}",
+        "title": re.sub(r"\d{4,}", "#", (title or "").strip())[:80],
+        "cookie_names": sorted({str(n) for n in cookie_names if n})[:20],
+        "has_c_user": "c_user" in set(cookie_names),
+        "has_feed": bool(has_feed),
+        "login_form": bool(login_form),
+        "checkpoint_markers": [m for m in CHECKPOINT_MARKERS if m in b],
+    }
+
+
 async def save_evidence(page, group_url: str, state: str) -> None:
     """정상이 아닌 페이지는 스크린샷+본문 앞부분을 남겨 사람이 원인을 판단하게 한다
     (state/ 는 gitignore — 그룹 게시자 이름 등이 포함될 수 있어 커밋 금지)."""
@@ -464,6 +498,12 @@ async def save_evidence(page, group_url: str, state: str) -> None:
             body = ""
         stem.with_suffix(".txt").write_text(f"url: {page.url}\n\n{body[:2000]}", encoding="utf-8")
         print(f"    🧾 증거 저장: {stem.name}.png/.txt")
+        # 판정 근거 요약은 실행 기록에도 남긴다(화면 사진·본문은 VPS에만 — 게시자 이름 등이 있을 수 있어서). 쿠키 값·본문·검색어는 넣지 않는다.
+        cookie_names = [c.get("name") for c in await page.context.cookies("https://www.facebook.com")]
+        has_feed = (await page.locator('[role="feed"]').count()) > 0
+        login_form = (await page.locator('input[name="pass"], input[name="email"]').count()) > 0
+        summary = page_signal_summary(page.url, await page.title(), cookie_names, has_feed, login_form, body[:3000])
+        print(f"::warning title=Facebook 화면 상태 {state}::{json.dumps(summary, ensure_ascii=False)}")
     except Exception as e:
         print(f"    ⚠️ 증거 저장 실패: {e}")
 
@@ -1672,12 +1712,7 @@ async def main(argv=None) -> int:
             headless=True,
             args=["--no-sandbox", "--disable-setuid-sandbox"],
         )
-        context = await browser.new_context(
-            viewport={"width": 1280, "height": 800},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            locale="vi-VN",
-        )
-        await context.add_cookies(build_cookies())
+        context = await new_facebook_context(browser, "vi-VN")
         page = await context.new_page()
         await stealth_async(page)
 
