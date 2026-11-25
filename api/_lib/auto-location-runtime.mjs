@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
-import { agencyByPhone, checkBlocked, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
+import { agencyByPhone, checkBlocked, precheckCompany, precheckJob, precheckLocationText, precheckLocationTexts, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { companyIdentity, phoneKeys } from '../../src/lib/jobIdentity.ts'
 import { readWorkplace } from '../../src/lib/companyReader.ts'
 import { cachedGooglePlaceId, needsLogoLookup, websiteDomain } from '../../src/lib/logoLookup.ts'
@@ -144,7 +144,8 @@ async function phoneSaysAgency(db, name, input) {
 /** 원문 주소 읽기만(외부 지도 조회 없음). 이미 올라간 공고 다시 수집이 같은 기준으로 위치 글자를 받는다. */
 export function readLocationOnly(input) {
   const c = precheckCompany(input || {})
-  return { location: precheckLocationText(input || {}, false), company: c.name, agency: c.agency, fee: c.fee,
+  // locations: 원문의 매장마다 위치 글자(첫 번째 = location, 지도 조회 없음) — 다시 처리가 이 공고가 글의 어느 지점인지 지도 확인 없이 가린다(지점별 독립 공고).
+  return { location: precheckLocationText(input || {}, false), locations: precheckLocationTexts(input || {}), company: c.name, agency: c.agency, fee: c.fee,
     workplace_key: c.agency ? readWorkplace(`${input?.source_text ?? ''}\n${input?.poster_text ?? ''}`.slice(0, 40000)) : '' }
 }
 

@@ -9,7 +9,7 @@ import re
 import unicodedata
 from crawl_facebook import is_facebook_row, parse_post, supabase
 import ingest_gateway
-from pin_guard import keeps_branch_location, keeps_confirmed_location, merge_store_rows, other_stores
+from pin_guard import location_text_decision, merge_store_rows, other_stores
 from ingest_gateway import ingest_job
 
 # 급여는 다시 수집이 쓰지 않는다(2026-11-01 Lee "읽는 규칙을 하나로" — src/lib/salaryReader.ts 한 곳).
@@ -57,25 +57,31 @@ def refresh_existing(job_id: int):
     # 원문 주소는 위치 확인 서버의 주소 읽기 한 곳(src/lib/addressReader.ts)으로 읽는다(Lee 2026-11-07, 지도 조회 없음).
     # 원문에서 주소를 못 읽으면(예: sb-5942 HAIDILAO — 원문에 번지 없이 '[ HAIDILAO VINCOM BẮC NINH ]'만, 위치는 관리자 확정)
     # 위치 칸은 고치지 않고 기존 값을 그대로 둔다. 원문 근거 없는 위치를 쓰지 않는 원칙은 같고, 공고 하나 때문에 대기열 전체가 실패하지 않게 한다.
-    parsed["location"] = str((ingest_gateway.READ_LOCATION(text, parsed.get("location") or "") or {}).get("location") or "").strip()
-    # 같은 지점인데 표기만 다른 주소로 위치 글자를 바꾸면 DB가 그 줄의 확정 좌표를 지운다 — 그 경우에만 기존 글자를 둔다(W4b, pin_guard.keeps_confirmed_location).
-    kept_confirmed = False
-    if parsed["location"] and old.get("location") and parsed["location"] != old["location"]:
-        current = (supabase.table("job_work_locations").select("raw_address,lat,lng,location_verified,point_authority")
-                   .eq("job_id", job_id).execute()).data or []
-        if keeps_confirmed_location(old["location"], parsed["location"], current):
-            kept_confirmed, parsed["location"] = True, ""
+    read = ingest_gateway.READ_LOCATION(text, parsed.get("location") or "") or {}
+    # 주소 읽기 서버에 닿지 못한 것은 '원문에 주소 없음'이 아니다 — 위치를 판정하지 않고 이 공고 다시 처리를 실패로 남긴다
+    # (대기열이 오류를 기록하고 다음에 다시, 기존 재처리 구조). 기존 위치 글자·확정 좌표는 그대로.
+    if read.get("reason") in ingest_gateway.HOOK_UNAVAILABLE:
+        raise RuntimeError(f"location read unavailable ({read.get('reason')}): existing location kept, retry next run")
+    parsed["location"] = str(read.get("location") or "").strip()
+    # 이 공고의 지금 근무지 줄 — 조회 실패는 예외로 올라가 대기열이 기록한다('줄 없음'과 섞지 않음). 아래 지점 확인에도 같은 줄을 쓴다.
+    current = (supabase.table("job_work_locations").select("raw_address,lat,lng,location_verified,point_authority")
+               .eq("job_id", job_id).order("sort_order").execute()).data or []
+    # 위치 글자를 바꿀지는 한 곳(pin_guard.location_text_decision) — 같은 지점·표기만 다름(W4b), 글의 다른 지점(지점별 독립 공고)이면 그대로.
+    # 매장 목록은 원문에서 읽은 것(지도 조회 없음)이라 아래 지도 확인(PRECHECK)이 실패해도 판정이 바뀌지 않는다.
+    source_stores = [str(x).strip() for x in (read.get("locations") or []) if str(x).strip()] or [parsed["location"]]
+    decision = location_text_decision(old.get("location"), parsed["location"], current, source_stores)
+    kept_confirmed, kept_branch = decision == "keep_confirmed", decision == "keep_branch"
+    if decision != "update":
+        parsed["location"] = ""
     # 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 새 공고와 같은 위치 확인으로 '찾은 매장'을 더한다(못 찾은 매장은 안 넣음, 절대 원칙).
     # 기존 근무지 줄은 그대로 둔다(Codex #705): DB 입구는 받은 목록으로 근무지를 바꾸고 빠진 줄은 지우므로, 기존 줄을 앞에 넣고
     # 새로 찾은 매장만 뒤에 붙인다. 확인 실패면 예전 동작(위치 글자만).
-    rows, siblings, kept_branch = [], [], False
+    rows, siblings = [], []
     try:
         verdict = ingest_gateway.PRECHECK({"company": parsed.get("company") or "", "location": "", "source_text": text}) or {}
         found = [str(x).strip() for x in (verdict.get("stores") or []) if str(x).strip()][:5]
         if verdict.get("findable") is True and found:
-            existing = (supabase.table("job_work_locations")
-                        .select("raw_address,lat,lng,location_verified,point_authority")
-                        .eq("job_id", job_id).order("sort_order").execute()).data or []
+            existing = current
             if len(existing) > 1:
                 rows = merge_store_rows(existing, found)  # 전환 전 여러 지점 줄을 가진 기존 공고만 예전 방식 그대로
             else:
@@ -87,9 +93,6 @@ def refresh_existing(job_id: int):
                 else:
                     others = other_stores(existing, found)
                     siblings = others if len(others) < len(found) else []
-                    # 이 공고가 이번 글의 다른 지점이면(줄이 첫 매장이 아닌 매장과 같음) 위치 글자를 첫 매장 주소로 바꾸지 않는다(pin_guard.keeps_branch_location).
-                    if keeps_branch_location(existing, found, parsed["location"]):
-                        kept_branch, parsed["location"] = True, ""
     except Exception as exc:  # 위치 확인 서버 오류로 다시 처리를 막지 않는다(예전 동작 그대로)
         print(f"store precheck skipped: {type(exc).__name__}")
     fields = refresh_fields(parsed)

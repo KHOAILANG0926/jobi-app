@@ -98,3 +98,13 @@ assert.equal(missingVerifiedCoordinate({active:true,admin_hidden:false,company:'
   assert.equal(failedTwice.verdict, 'pending', 'repeated outage stays pending')
   console.log('location verdict: W3a provider outage/quota → pending, normal miss → our_miss')
 }
+
+// 지도 정상화 W4·W6 마무리(Lee 2026-11-25): 원문 주소 읽기(지도 조회 없음)가 매장마다 위치 글자도 돌려준다 — 다시 처리가 이 공고가 글의
+// 어느 지점인지 지도 확인 없이 가린다(지점별 독립 공고). 운영 #5992 KRIK 두 매장 모양.
+{
+  const { readLocationOnly } = await import('./_lib/auto-location-runtime.mjs')
+  const r = readLocationOnly({ source_text: 'KRIK TUYỂN DỤNG NHÂN VIÊN BÁN HÀNG PARTTIME\n📍 Cơ sở 1: 152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh\n📍 Cơ sở 2: 148 Trần Phú, Từ Sơn, Bắc Ninh', location: '' })
+  assert.equal(r.location, '152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh', 'first store stays the location text')
+  assert.deepEqual(r.locations, ['152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh', '148 Trần Phú, Từ Sơn, Bắc Ninh'], 'every store from the source, no map lookup')
+  console.log('read address: store list for branch identity (5992 form)')
+}
