@@ -2,14 +2,14 @@
 // - 처음 들어온 사람에게 한 번만 묻는다(로그인 무관, 거절해도 앱 사용 가능).
 // - 허용한 위치는 메인 지도 거리 계산에 쓴다. Google 길찾기는 출발지를 비워 두면 Google이 이용자 위치에서 출발한다.
 // - 위치는 서버로 보내지 않는다. 이 브라우저 안에서만 쓴다.
+import { kvLocal } from './kvStore'
 export interface UserPoint { lat: number; lng: number; accuracy: number; at: number }
 const ASKED_KEY = 'vgb_location_prompt_v1'
 let current: UserPoint | null = null
 const listeners = new Set<(p: UserPoint) => void>()
 
-function storage(): Storage | null { try { return typeof window !== 'undefined' ? window.localStorage : null } catch { return null } }
-export function promptAlreadyAsked(): boolean { try { return storage()?.getItem(ASKED_KEY) != null } catch { return true } }
-export function markPromptAsked(answer: 'allow' | 'later' | 'denied'): void { try { storage()?.setItem(ASKED_KEY, answer) } catch { /* 저장 불가 브라우저: 다음 방문에 다시 물을 수 있음 */ } }
+export function promptAlreadyAsked(): boolean { try { return kvLocal.get(ASKED_KEY) != null } catch { return true } }
+export function markPromptAsked(answer: 'allow' | 'later' | 'denied'): void { try { kvLocal.set(ASKED_KEY, answer) } catch { /* 저장 불가 브라우저: 다음 방문에 다시 물을 수 있음 */ } }
 /** 자동 검사(화면 측정·스모크)에서는 창을 띄우지 않는다 — 승인된 화면 틀 측정을 가리지 않게. */
 export function isAutomation(): boolean { try { return typeof navigator !== 'undefined' && navigator.webdriver === true } catch { return false } }
 

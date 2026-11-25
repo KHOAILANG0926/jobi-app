@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { loadApplications } from '../lib/applicationsStorage'
+import { onEvent } from '../lib/eventBus'
 import {
   dismissAlertNotifications,
   listAlertNotifications,
@@ -119,14 +120,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onCheck = () => check()
     const onRefresh = () => refresh()
-    window.addEventListener('vgb:saved-jobs', onCheck)
-    window.addEventListener('vgb:applications', onCheck)
-    window.addEventListener('vgb:notifications', onRefresh)
-    return () => {
-      window.removeEventListener('vgb:saved-jobs', onCheck)
-      window.removeEventListener('vgb:applications', onCheck)
-      window.removeEventListener('vgb:notifications', onRefresh)
-    }
+    const offs = [onEvent('saved-jobs', onCheck), onEvent('applications', onCheck), onEvent('notifications', onRefresh)]
+    return () => { offs.forEach((off) => off()) }
   }, [check, refresh])
 
   const handleMarkRead = useCallback(

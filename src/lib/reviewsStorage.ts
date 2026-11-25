@@ -1,4 +1,6 @@
 import { normalizeViText } from './jobCoords'
+import { kvLocal } from './kvStore'
+import { emitEvent } from './eventBus'
 
 export interface CompanyReview {
   id: string
@@ -18,7 +20,7 @@ export function companyKeyFromName(company: string): string {
 
 function loadAll(): CompanyReview[] {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = kvLocal.get(KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as CompanyReview[]
     return Array.isArray(parsed) ? parsed : []
@@ -28,8 +30,8 @@ function loadAll(): CompanyReview[] {
 }
 
 function persist(list: CompanyReview[]) {
-  localStorage.setItem(KEY, JSON.stringify(list))
-  window.dispatchEvent(new CustomEvent('vgb:company-reviews'))
+  kvLocal.set(KEY, JSON.stringify(list))
+  emitEvent('company-reviews')
 }
 
 export function getReviewsForCompany(company: string): CompanyReview[] {
