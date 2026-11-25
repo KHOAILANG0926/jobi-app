@@ -16,13 +16,12 @@ import { VN_WARDS_BY_PROVINCE } from '../../data/vnWards'
 import { resolveJobArea, setOldWardData } from '../../lib/jobAreaWards'
 import { loadApplications } from '../../lib/applicationsStorage'
 import { normalizeViText } from '../../lib/jobCoords'
+import { filterJobsByListConditions, sortJobsForList } from '../../lib/jobListFilter'
 import { loadSavedJobIds, toggleSavedJobId } from '../../lib/storage'
 import { NoPublicJobs } from '../../components/NoPublicJobs'
 import {
   DAY_LABELS,
   DAY_ORDER,
-  parseWorkDays,
-  parseWorkHourBuckets,
   TIME_BUCKET_LABELS,
   TIME_BUCKET_ORDER,
   type DayCode,
@@ -599,80 +598,14 @@ export default function UrgentJobsPage() {
     [categorySearch],
   )
 
-  const filtered = useMemo(() => {
-    let list = jobs
-    // 2026-11-03 Lee "급구 페이지는 자동으로 연결하는 게 맞다" — DB에 따로 채워야
-    // 하던 resolved_* 칸 대신 공고 주소로 바로 판정(lib/jobAreaWards.ts, 메인·검색과 같은 기준).
-    if (selectedProvince) {
-      list = list.filter((j) => {
-        const area = jobAreas.get(j.id)
-        if (!area || !area.provinces.includes(selectedProvince)) return false
-        if (selectedWards.size === 0) return true
-        return area.wards.some((w) => selectedWards.has(w))
-      })
-    }
-    if (categoryIds.size > 0) list = list.filter((j) => categoryIds.has(j.category))
-    if (selectedSubcategoryKeys.size > 0) {
-      list = list.filter((j) => !!j.subcategory && selectedSubcategoryKeys.has(`${j.category}:${j.subcategory}`))
-    }
-    if (workPeriods.size > 0) list = list.filter((j) => !!j.workPeriod && workPeriods.has(j.workPeriod))
-    if (jobDurations.size > 0) list = list.filter((j) => !!j.jobDuration && jobDurations.has(j.jobDuration))
-    // 성별/연령은 "이 공고 자체의 성질"이 아니라 "누가 지원 가능한가"라는
-    // 조건이라 workPeriod/jobDuration과 다르게 다룬다 — 조건 값이 없는
-    // 공고(genderRequirement/ageRequirement가 null)는 "제한 없음"을
-    // 뜻하므로 어느 필터를 선택해도 계속 보여야 한다(선택한 조건과
-    // 정확히 일치하는 공고만 남기면 아직 아무 공고도 이 값을 안 채운
-    // 지금 시점엔 전부 사라져버림).
-    if (genderFilter) list = list.filter((j) => !j.genderRequirement || j.genderRequirement === genderFilter)
-    if (ageFilter) list = list.filter((j) => !j.ageRequirement || j.ageRequirement === ageFilter)
-    if (pledgeOnly) list = list.filter((j) => !!j.laborContractPledge || !!j.socialInsurancePledge)
-    if (selectedDays.size > 0) {
-      list = list.filter((j) => {
-        const days = parseWorkDays(j.workDays)
-        return [...selectedDays].some((d) => days.has(d))
-      })
-    }
-    if (selectedDayCounts.size > 0) {
-      list = list.filter((j) => selectedDayCounts.has(parseWorkDays(j.workDays).size))
-    }
-    if (excludeUnspecifiedDays) list = list.filter((j) => parseWorkDays(j.workDays).size > 0)
-    if (excludeUnspecifiedHours) list = list.filter((j) => parseWorkHourBuckets(j.hours).size > 0)
-    if (selectedTimeBuckets.size > 0) {
-      list = list.filter((j) => {
-        const buckets = parseWorkHourBuckets(j.hours)
-        return [...selectedTimeBuckets].some((b) => buckets.has(b))
-      })
-    }
-    if (includeKeywords.length > 0) {
-      list = list.filter((j) => {
-        const text = normalizeViText(`${j.title} ${j.description}`)
-        return includeKeywords.every((k) => text.includes(normalizeViText(k)))
-      })
-    }
-    if (excludeKeywords.length > 0) {
-      list = list.filter((j) => {
-        const text = normalizeViText(`${j.title} ${j.description}`)
-        return !excludeKeywords.some((k) => text.includes(normalizeViText(k)))
-      })
-    }
-    return list
-  }, [jobs, jobAreas, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
+  const filtered = useMemo(() => filterJobsByListConditions(jobs, {
+    selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter,
+    pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets,
+    includeKeywords, excludeKeywords,
+  }, jobAreas), [jobs, jobAreas, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
 
-  const sorted = useMemo(() => {
-    const list = [...filtered]
-    if (sortMode === 'deadline') {
-      // 마감일 없는(상시 모집) 공고는 급하지 않다고 보고 뒤로 보낸다.
-      list.sort((a, b) => {
-        if (!a.applicationDeadline && !b.applicationDeadline) return 0
-        if (!a.applicationDeadline) return 1
-        if (!b.applicationDeadline) return -1
-        return a.applicationDeadline.localeCompare(b.applicationDeadline)
-      })
-    } else {
-      list.sort((a, b) => b.postedAt.localeCompare(a.postedAt))
-    }
-    return list
-  }, [filtered, sortMode])
+
+  const sorted = useMemo(() => sortJobsForList(filtered, sortMode), [filtered, sortMode])
 
   const visible = useMemo(() => sorted.slice(0, pageSize), [sorted, pageSize])
 

@@ -31,7 +31,7 @@ const report = [`## 자동 수리 (${MODE === 'preview' ? '미리 보기 — 아
 let fixed = 0, failed = 0
 try {
   const { rows } = await client.query(`
-    select id, title, company, source_text, ocr_text,
+    select id, origin, title, company, source_text, ocr_text, images,
            (select array_agg(i->>'key') from jsonb_array_elements(coalesce(ocr_check->'inspect'->'items','[]'::jsonb)) i
             where not (i->>'ok')::boolean) as failed_keys,
            ocr_check->'repair'->>'source_hash' as prev_hash, md5(coalesce(source_text,'') || coalesce(ocr_text,'')) as source_hash
@@ -49,10 +49,15 @@ try {
       if (MODE === 'apply') {
         const set = Object.fromEntries(g.proposals.map((p) => [p.field, p.to]))
         const record = { source_hash: job.source_hash, at: new Date().toISOString(), model: MODEL, proposals: g.proposals, rejected: g.rejected }
-        await client.query(`update public.local_jobs set
-            company = coalesce($2, company),
-            ocr_check = coalesce(ocr_check,'{}'::jsonb) || jsonb_build_object('repair', $3::jsonb)
-          where id = $1`, [job.id, set.company ?? null, JSON.stringify(record)])
+        // 회사 이름은 등록 입구(ingest_job) 한 곳으로만 쓴다(#978 8 — 직접 SQL이 입구를 우회했다). 판단 기록(repair)만 ocr_check에.
+        if (set.company) {
+          const payload = { channel: job.origin === 'crawler' ? 'crawler_other' : 'admin', job_id: job.id, refresh: true,
+            update_fields: ['company'], source_text: job.source_text, images: job.images ?? null, company: set.company }
+          const w = await client.query('select public.ingest_job($1::jsonb) as job_id', [JSON.stringify(payload)])
+          if (Number(w.rows[0]?.job_id) !== Number(job.id)) throw new Error('ingest_job returned wrong id')
+        }
+        await client.query(`update public.local_jobs set ocr_check = coalesce(ocr_check,'{}'::jsonb) || jsonb_build_object('repair', $2::jsonb)
+          where id = $1`, [job.id, JSON.stringify(record)])
         fixed += g.proposals.length
       }
       console.log(`#${job.id} 제안 ${g.proposals.length} · 버림 ${g.rejected.length}`)
