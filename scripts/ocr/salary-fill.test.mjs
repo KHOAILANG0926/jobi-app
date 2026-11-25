@@ -1,6 +1,6 @@
 // 급여 확정·저장 한 곳(salary-fill) 시험(R2 #753): 정책(빈칸만/다시 읽기/사람이 쓴 값 보호)과 쓰기 방식(ingest_job 한 입구, 직접 UPDATE 없음).
 import assert from 'node:assert/strict'
-import { planSalaryFill, fillSalary } from './salary-fill.mjs'
+import { planSalaryFill, fillSalary, planSalaryAmounts } from './salary-fill.mjs'
 
 const SRC = 'Tuyển công nhân\nMức lương: 8 triệu/tháng\nLiên hệ: 0912345678'
 const job = (extra) => ({ id: 77, origin: 'crawler', salary: '', source_text: SRC, images: [], ...extra })
@@ -25,12 +25,29 @@ assert.equal(planSalaryFill(job({}), null, 'bogus'), null, '알 수 없는 정�
   assert.equal(c.q.length, 1)
   assert.ok(/^select public\.ingest_job\(/.test(c.q[0].sql) && !/update/i.test(c.q[0].sql), 'ingest_job 한 입구')
   const p = JSON.parse(c.q[0].params[0])
-  assert.deepEqual(p.update_fields, ['salary', 'salary_period']); assert.equal(p.channel, 'crawler_other'); assert.equal(p.refresh, true)
+  assert.deepEqual(p.update_fields, ['salary', 'salary_period', 'salary_min', 'salary_max', 'salary_currency', 'salary_negotiable']); assert.equal(p.channel, 'crawler_other'); assert.equal(p.refresh, true)
+  assert.equal(p.salary_min, 8000000); assert.equal(p.salary_max, 8000000); assert.equal(p.salary_currency, 'VND')
   const a = fake(); await fillSalary(a, job({ origin: 'admin' }), null, 'refresh')
   assert.equal(JSON.parse(a.q[0].params[0]).channel, 'admin', '관리자 공고는 admin 경로')
 }
 {
-  const c = fake(); assert.equal(await fillSalary(c, job({ salary: '8 triệu/tháng' }), null, 'refresh'), null); assert.equal(c.q.length, 0, '쓸 것이 없으면 DB를 부르지 않음')
+  const done = { salary: '8 triệu/tháng', salary_min: 8000000, salary_max: 8000000, salary_currency: 'VND', salary_negotiable: false }
+  const c = fake(); assert.equal(await fillSalary(c, job(done), null, 'refresh'), null); assert.equal(c.q.length, 0, '쓸 것이 없으면 DB를 부르지 않음')
+}
+// 급여 숫자 칸(Lee 2026-11-25 C 작업): 급여 글자 그대로만 숫자로 — 여러 직무·포스터 요약·시간 섞인 글자는 비움(추정·합산 금지)
+{
+  assert.deepEqual(planSalaryAmounts('8 - 10 triệu/ tháng'), { salary_min: 8000000, salary_max: 10000000, salary_currency: 'VND', salary_negotiable: false })
+  assert.deepEqual(planSalaryAmounts('Từ 10.000.000đ/tháng'), { salary_min: 10000000, salary_max: null, salary_currency: 'VND', salary_negotiable: false }, '하한만 — 상한을 만들지 않음')
+  assert.deepEqual(planSalaryAmounts('Đến 15 triệu'), { salary_min: null, salary_max: 15000000, salary_currency: 'VND', salary_negotiable: false }, '상한만')
+  assert.equal(planSalaryAmounts('Theo vị trí — xem chi tiết'), null, '여러 직무 급여는 합치지 않음')
+  assert.equal(planSalaryAmounts('350K/11h'), null, '시간이 섞인 글자는 숫자로 옮기지 않음')
+  assert.equal(planSalaryAmounts('Theo poster: 8 triệu'), null, '포스터 요약은 옮기지 않음')
+  assert.equal(planSalaryAmounts('Thỏa thuận').salary_negotiable, true)
+  // 같은 급여 글자라도 숫자 칸이 비어 있으면 숫자 칸만 쓴다
+  const c = fake(); assert.equal(await fillSalary(c, job({ salary: '8 triệu/tháng' }), null, 'refresh'), null)
+  const p = JSON.parse(c.q[0].params[0]); assert.deepEqual(p.update_fields, ['salary_min', 'salary_max', 'salary_currency', 'salary_negotiable']); assert.ok(!('salary' in p))
+  // 관리자 공고는 숫자 칸이 이미 있으면 건드리지 않음(사람이 쓴 값)
+  const a = fake(); await fillSalary(a, job({ origin: 'admin', salary: '8 triệu/tháng', salary_min: 7000000 }), null, 'refresh'); assert.equal(a.q.length, 0)
 }
 await assert.rejects(() => fillSalary(fake(999), job({}), null, 'empty'), /wrong id/, '다른 공고 번호가 돌아오면 실패')
-console.log('salary-fill.test.mjs: 정책 8건·쓰기 방식(ingest_job 한 입구) 통과')
+console.log('salary-fill.test.mjs: 정책 8건·쓰기 방식(ingest_job 한 입구)·급여 숫자 칸 통과')
