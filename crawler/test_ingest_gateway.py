@@ -810,6 +810,33 @@ def run_db_rule_rejection_kept():
     print("test_ingest_gateway: DB rule rejection kept as rejected passed")
 
 
+def run_site_rows_kept_in_hold():
+    """vieclam24h(Lee 2026-11-25): 위치를 못 찾은 새 공고는 수집기가 정한 근무지 줄과 함께 보류함에 보관되고(원문 유실 없음),
+    같은 원문의 지점별 공고는 지점마다 다른 보류 줄이다. 다시 확인 때 보관된 근무지 줄로 입구에 간다."""
+    g._HOLDS_RETRIED = True
+    g.PRECHECK = lambda j: {"findable": False, "reason": "not_found"}
+    row_a = {"raw_address": "35/5 Nguyễn Trung Trực, Phường Bến Thành", "normalized_address": "a"}
+    job = {"title": "Kỹ thuật viên spa", "company": "Sol Group", "source": "vieclam24h",
+           "source_url": "https://example.invalid/x.html", "source_text": "원문 그대로", "description": "[source:vieclam24h] x"}
+    c = HoldClient()
+    try:
+        g.ingest_job(c, dict(job), work_location_rows=[row_a])
+    except g.LocationNotFound:
+        pass
+    (held,) = c.rows.values()
+    assert held["meta"]["status"] == "unfound" and c.calls == [], held["meta"]
+    assert held["payload"]["work_locations"] == [row_a] and held["payload"]["source_text"] == "원문 그대로", held["payload"]
+    c = HoldClient()
+    for address in ("A street", "B street"):
+        try:
+            g.ingest_job(c, {**job, "location": address, "branch_location": address, "work_locations": [{"raw_address": address}]})
+        except g.LocationNotFound:
+            pass
+    assert len(c.rows) == 2, "같은 원문의 지점별 공고는 지점마다 보류 줄"
+    assert g._hold_name({"source_url": "u"}) == g._hold_name({"source_url": "u", "branch_location": ""}), "지점 없는 보류 줄 이름은 예전 그대로"
+    print("test_ingest_gateway: site rows kept in hold passed")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
@@ -821,3 +848,4 @@ if __name__ == "__main__":
     run_retry_error_does_not_block_queue()
     run_review_status_stored()
     run_db_rule_rejection_kept()
+    run_site_rows_kept_in_hold()

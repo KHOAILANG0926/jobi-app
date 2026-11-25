@@ -1,3 +1,10 @@
+## 2026-11-25 — vieclam24h 시험 10건 위치 실패 원인 + 보류함 보관 + TP.HCM 인식
+- 검증 저장 45588882480(보관 10건 재사용): 1건 숨김 저장(#6454), 9건 location_precheck_failed: not_found. 비교 검색(business-search-compare, 1건씩 9번) 결과 [직접 확인]:
+  - TP.HCM 인식 결함 2건(Tiêu Điểm Mới 45617007308·A Mà Kitchen 45617149028): Google이 같은 회사·같은 번지를 찾았는데 원래 성 판정이 "TP.HCM"을 몰라 '성 밖' → 성 이름표(originalProvinceBoundaries)에 hcm 추가.
+  - 표기 차이 1건(Concentrix 45589255744): Google·Goong 등록 이름 "…SERVICE" vs 공고 "…Services", Google은 후보 여럿 → 판정 기준은 안 바꿈, 공통 수정안만 보고.
+  - 법인 이름 ≠ 가게 이름 5건(Thiên Lý·Sol Group 2·Ly Thái Bakery·Indigo)·검색 결과 없음 1건(PHT): 기존 규칙상 '못 찾음'이 맞음.
+- 원문 유실: vieclam24h 입구가 hold=False라 못 찾은 공고가 보류함에 안 남음(#916 뒤 근무지 줄을 입구에 같이 넘겨 그 이유가 없어짐) → 보류함 보관(근무지 줄 포함, 지점별 줄 이름). AGENTS.md에 시험 실행 원칙(#1030 누락분).
+
 ## 2026-11-25 — vieclam24h 정기 수집 재개(하루 20건) 준비
 - 요청(Lee): 시작 필수 조건 3개(원문 보관·중복 방지·DB 공개 판정) 확인 뒤 vieclam24h부터 하루 20건, 연락처 없는 공고는 원문 보관·비공개.
 - 조건 확인 [직접 확인 — 코드]: ① 원문 = 등록 값에 source_text(source_fields.build_source_text, 원문 그대로) ② 중복 = match_existing_row(원본 식별자, #1028 꼬리표 제거)+ingest_private.find_existing(원본 식별자·지점·내용 해시)+dedupe_private.verdict ③ 공개 = DB 트리거 trg_zz0_publish_gate(연락처 8자리 미만이면 비공개).
@@ -61,9 +68,3 @@
 - 변경: 같은 규칙 한 곳에서 금액 = 숫자 [+ tr/triệu + 소수 1~2자리], 앞이 글자·숫자면 읽지 않음. 운영 원문 그대로 회귀 시험 + 8tr5·8tr~11tr·7 - 8tr·từ 9tr5. npm test 126/126, tsc 통과.
 - 하지 않은 것(보고): 6337은 직무 4개·금액이 다르므로 기존 규칙(Lee 10-28)상 상단은 "Theo vị trí"여야 하나, 여러 직무 판정이 "인원 + 직무 : 금액" 줄 형태를 모른다 — Lee 결정 대기.
 - 완료: #1017 병합 bdff8ae(Lee Approve)·deploy-verify 45426167235 성공 → #1016 닫음(404 공유 캐시 수정).
-
-## 2026-11-24 — 운영 배포 검증 실패 #1016(d357eb8) 원인 수정: 상세 SSR이 404를 공유 캐시에 남김
-- 실패 [직접 확인 — deploy-verify 45417799995, 1차·재실행 모두]: 실제 화면 검사가 고른 최신 공개 공고 sb-6337 상세가 PC·모바일 HTTP 404.
-- 원인 [직접 확인 — 실행 기록 시각]: #1015 병합 뒤 OCR 대조(R7, 45417524853)가 6337을 원문에서 다시 만들고, 화면 대조(14:46:14)가 비공개 상태의 상세 주소를 열어 404 → api/ssr.js가 404도 공유 캐시(s-maxage 120 + stale-while-revalidate 600)에 남김 → 재검사가 공개(14:46:32) → 운영 검사(14:46:45·재실행 14:50:14)가 캐시된 404를 받음. 운영 사용자에게도 공개 직후 최대 12분 404가 나가는 결함.
-- 변경: 캐시 머리글을 한 곳(api/_lib/ssr-cache.mjs)으로 — 404는 no-store(DB 조회 실패 503과 같은 방식), 있는 화면은 기존 공유 캐시 그대로. 시험 api/_ssr-cache.test.ts(빌드 결과 없이 돎).
-- 검증 [직접 확인]: npm test 126/126, tsc·build 통과. 운영 확인은 병합 뒤 deploy-verify(새 커밋이 d357eb8을 포함해 성공하면 S6 잠금 해제).
