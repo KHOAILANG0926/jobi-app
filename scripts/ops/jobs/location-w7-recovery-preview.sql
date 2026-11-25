@@ -1,4 +1,4 @@
--- 지도 정상화 W7 dry-run(Lee 2026-11-24): 기존 데이터 재확인·복구 대상 집계 + W3b·W4·W6 운영 실증용 조회(2026-11-25: E2E 시험 공고 구분 + 같은 원문 지점 공고 묶음). W2(location-keep-recovery-preview)의 조회를 넓혀 다시 쓴다.
+-- 지도 정상화 W7 dry-run(Lee 2026-11-24): 기존 데이터 재확인·복구 대상 집계 + W3b·W4·W6 운영 실증용 조회(2026-11-25: E2E 시험 공고 구분 + 같은 원문 지점 공고 묶음·상태·보류함 지점 전환 결과). W2(location-keep-recovery-preview)의 조회를 넓혀 다시 쓴다.
 -- 읽기 전용(데이터 변경 없음). 실행: ops-run-sql.yml(master, Lee 계정 수동, name=location-w7-recovery-preview). run-sql-plan이 처음부터 읽기 전용 트랜잭션을 건다.
 -- 같은 사업장 판정은 운영에 적용된 한 곳(location_private.same_site_address, 20261124150000)을 그대로 부른다 — 이 파일에 따로 판정을 만들지 않는다.
 -- 복구 방법(승인 뒤 별도 migration)은 이 집계에 없다. 운영 데이터는 대표 승인 전까지 바꾸지 않는다.
@@ -120,3 +120,22 @@ select '::notice::[같은 원문 지점 공고] 묶음 ' || left(md5(j.source_ur
        || ' · 줄 ' || coalesce(w.id::text, '없음') || ' ' || coalesce(w.point_kind, '없음') || '/' || coalesce(w.point_authority, '없음') || ' · ' || left(coalesce(w.raw_address, ''), 60)
   from public.local_jobs j join g on g.source_url = j.source_url left join public.job_work_locations w on w.job_id = j.id
  order by left(md5(j.source_url), 6), j.id, w.id limit 80;
+-- [같은 원문 지점 공고 상태] 묶음 공고마다 연결 기록(지원·대화·면접)·지도 처리 상태·같은 지점 중복 수(같은 원문 + 같은 지점 열쇠의 공고 수, 1이어야 함).
+with g as (select source_url from public.local_jobs where nullif(source_url, '') is not null group by source_url having count(*) > 1),
+jw as (select j.id, j.source_url, w.id as wid, coalesce(nullif(w.normalized_address, ''), public.admin_location_key(w.raw_address)) as k
+         from public.local_jobs j join g on g.source_url = j.source_url left join public.job_work_locations w on w.job_id = j.id)
+select '::notice::[같은 원문 공고 상태] 묶음 ' || left(md5(jw.source_url), 6) || ' · #' || jw.id
+       || ' · 지원 ' || (select count(*) from public.applications a where a.job_id = jw.id)
+       || ' · 대화 ' || (select count(*) from public.message_threads m where m.job_id = jw.id)
+       || ' · 면접 ' || (select count(*) from public.interviews i where i.job_id = jw.id)
+       || ' · 같은 지점 공고 수 ' || coalesce((select count(distinct x.id) from jw x where x.source_url = jw.source_url and x.k = jw.k)::text, '-')
+       || ' · 지도 처리 ' || coalesce(s.state, '없음') || ' 호출 ' || coalesce(s.calls::text, '-') || ' 실패 ' || coalesce(s.failures::text, '-')
+       || ' · 마지막 결과 ' || coalesce(s.provider_result->>'kind', '없음') || ' / ' || left(replace(coalesce(s.provider_result->>'evidence', ''), chr(10), ' | '), 220)
+  from jw left join public.map_r1_location_jobs s on s.job_id = jw.id
+ order by left(md5(jw.source_url), 6), jw.id;
+-- [보류함 처리 결과] 지점 전환(branch_split) 보류 줄의 상태·이유·등록된 공고 번호·지점 주소.
+select '::notice::[보류함 지점 전환] ' || coalesce(h.meta->>'status', '없음') || ' / ' || coalesce(h.meta->>'reason', '없음')
+       || ' · 원래 공고 #' || coalesce(h.meta->>'from_job_id', '-') || ' · 등록 공고 #' || coalesce(h.meta->>'job_id', '-')
+       || ' · 다시 확인 ' || coalesce(h.meta->>'retried_at', '-') || ' · ' || left(coalesce(h.payload->>'branch_location', h.payload->>'location', ''), 60)
+  from public.research_artifacts h where h.kind = 'location-hold' and coalesce(h.meta->>'from_job_id', '') <> '' order by h.meta->>'from_job_id';
+
