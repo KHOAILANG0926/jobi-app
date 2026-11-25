@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { updateApplicationStatus, type JobApplication } from '../lib/applicationsStorage'
-import { scheduleInterview } from '../lib/interviewStorage'
+import type { JobApplication } from '../lib/applicationsStorage'
+import { scheduleInterviewForApplication } from '../lib/interviewSchedule'
 
 interface Props {
   open: boolean
@@ -58,21 +58,7 @@ export function ScheduleInterviewModal({ open, app, employerId, onClose, onSched
     setSaving(true)
     setError(false)
     try {
-      await scheduleInterview({
-        jobId: app.jobId,
-        jobTitle: app.jobTitle,
-        company: app.company,
-        seekerId: app.seekerId ?? '',
-        seekerName: app.seekerName,
-        employerId,
-        datetime: `${date}T${time}:00`,
-        location: resolvedLocation.trim(),
-        notes: notes.trim(),
-        status: 'pending',
-      })
-      if (!app.id) throw new Error('Application id is required to schedule an interview')
-      const statusUpdated = await updateApplicationStatus(app.id, 'interview')
-      if (!statusUpdated) throw new Error('Application status update failed')
+      await scheduleInterviewForApplication(app, employerId, { date, time, location: resolvedLocation, notes })
       onScheduled()
       setDone(true)
       window.setTimeout(onClose, 1400)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Flame, Trash2 } from 'lucide-react'
 import { useJobs } from '../../context/JobsContext'
@@ -7,10 +7,12 @@ import { loadApplicationCvPhoto } from '../../lib/accountCvStorage'
 import { APPLICATION_STATUS_META, updateApplicationStatus, type ApplicationStatus, type JobApplication } from '../../lib/applicationsStorage'
 import type { CvData } from '../../lib/cvStorage'
 import type { Job } from '../../types/job'
+import { loadEmployerInterviews, subscribeInterviews, type InterviewSlot } from '../../lib/interviewStorage'
 import BizGate from './BizGate'
 import { filterByJob, SELECTABLE_STATUSES } from './bizView'
 import { useBizData } from './useBizData'
 
+const InterviewSheet = lazy(() => import('./InterviewSheet'))
 const fmt = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('vi-VN') }
 
 function CvPanel({ app }: { app: JobApplication }) {
@@ -49,6 +51,13 @@ function Manage({ userId }: { userId: string }) {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [cvOpen, setCvOpen] = useState<string | null>(null)
+  const [scheduleFor, setScheduleFor] = useState<JobApplication | null>(null)
+  const [interviews, setInterviews] = useState<Map<string, InterviewSlot>>(new Map())
+  useEffect(() => {
+    const sync = () => { loadEmployerInterviews(userId).then((list) => setInterviews(new Map(list.map((x) => [`${x.jobId}:${x.seekerId}`, x])))).catch(() => {}) }
+    sync()
+    return subscribeInterviews(sync)
+  }, [userId])
   const setView = (t: 'tin' | 'ung-vien', job?: string) => setParams(() => { const n = new URLSearchParams(); if (t === 'ung-vien') n.set('tab', 'ung-vien'); if (job) n.set('job', job); return n }, { replace: true })
 
   const toggleUrgent = async (job: Job) => {
@@ -129,6 +138,12 @@ function Manage({ userId }: { userId: string }) {
                         {SELECTABLE_STATUSES.map((s) => <option key={s} value={s}>{APPLICATION_STATUS_META[s].labelVi}</option>)}
                       </select>
                     </div>
+                    {(() => {
+                      const slot = a.seekerId ? interviews.get(`${a.jobId}:${a.seekerId}`) : undefined
+                      return slot
+                        ? <p className="app-bizapp__slot">🗓 {new Date(slot.datetime).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' })} {new Date(slot.datetime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+                        : <button type="button" className="app-link-btn app-bizapp__sched" onClick={() => setScheduleFor(a)}>🗓 Hẹn phỏng vấn</button>
+                    })()}
                     {cvOpen === key && <CvPanel app={a} />}
                   </li>
                 )
@@ -137,6 +152,7 @@ function Manage({ userId }: { userId: string }) {
           )}
         </>
       )}
+      {scheduleFor && <Suspense fallback={null}><InterviewSheet app={scheduleFor} employerId={userId} onClose={() => setScheduleFor(null)} onScheduled={() => data.reloadApplications()} /></Suspense>}
     </div>
   )
 }
