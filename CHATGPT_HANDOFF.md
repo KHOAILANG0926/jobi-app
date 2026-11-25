@@ -8,6 +8,7 @@
 - 운영 배포 검증 실패 #1016(d357eb8, #1015 병합): 상세 SSR이 비공개 때 열린 404를 공유 캐시에 남겨 공개 직후 sb-6337이 404 → 404 no-store 수정 #1017 병합 bdff8ae(Lee Approve), deploy-verify 45426167235 성공, #1016 닫음. 같은 PR로 W7 복구 dry-run SQL(location-w7-restore-preview)이 master에 — Lee 실행 대기.
 - Facebook(11-25): Lee 쿠키 갱신 뒤 로그인 정상 → 다음 실행 보안 확인(checkpoint)·Meta 해킹 의심 화면. 개인 계정 쿠키는 다시 넣지 않음, 수집 전용 새 계정 쿠키 대기(잠금 유지, 넣으면 reset_account_lock dryrun 1번). vieclam24h: 주소 검색 꼬리표 제거(canonical_source_url) PR, #6255 실제 다시 수집 실증 미완료(최신 목록에 없음).
 - vieclam24h 정기 수집(Lee 11-25 하루 20건): crawl.yml 예약 2번 + save 잡(--save-details) PR — Lee Approve 뒤 첫 실행 결과 확인. 연락처 없는 공고는 원문 보관·비공개(DB 공개 판정).
+- JOBI 앱(/app) 트랙(Lee 2026-11-25, 진행표·후속 과제 #1031): 설계안 개발 순서 0단계(뼈대) 구현 — app.html·src/app·/app 주소·경계 검사(src/app/boundary.test.ts). 병합·deploy-verify 통과를 확인한 뒤 1단계로 진행. 기존 웹 화면은 건드리지 않고 데이터·기능은 기존 것을 가져다 쓴다.
 - vieclam24h 10건 점검(11-25): 위치 실패 9건 원인 — TP.HCM 인식 결함 2(수정), 표기 차이 1(수정안만), 법인≠가게 이름 5·결과 없음 1(규칙상 못 찾음). 못 찾은 공고는 이제 보류함 보관. 수정 PR 병합 뒤 같은 보관 데이터로 검증 저장 다시(새 공고만) — 정기 예약은 저장소 전체 예약 지연(미확인).
 ## 2. 다음 할 일 3개
 1. 보류함 두 지점(#5992 152 Trần Hưng Đạo, #5994 Trần Phú)은 다음 보류 다시 확인(retry_held) 때 기존 정책대로 — 결과 확인.

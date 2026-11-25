@@ -1,3 +1,9 @@
+## 2026-11-25 — JOBI 앱(/app) 0단계 뼈대: app.html·src/app·/app 주소·경계 검사(#1031)
+- 요청(Lee): 앱은 src/app + app.html + /app으로만 추가, 기존 웹 화면은 그대로, 데이터·검색·필터·회원·지원은 기존 기능 재사용. 하단 탭 구직자 5개·기업 4개, noindex, lang=vi.
+- 변경: app.html(앱 입구, noindex), src/app(main·AppRoot·AppShell·TabBar·ScreenStub·tabs·app.css, 클래스 app-), vite.config.ts(입구 2개+개발·미리보기 /app 규칙), vercel.json(/app·/app/* → app.html, 웹 전체 규칙보다 앞), vite.app.config.mjs(앱 단독 빌드 확인용), .gitignore(dist-app), 경계 검사 src/app/boundary.test.ts(run-tests가 자동 실행, run-tests.mjs 수정 없음).
+- 검증 [직접 확인]: tsc·npm run build·npm test 127/127, 앱 단독 빌드(웹 코드 없음), Playwright /app 23/23, master와 웹 5경로×2폭 렌더 10/10 동일, 경계 위반 7종 실패 확인.
+- 남은 것: 후속 과제 #1031(공유 청크 jspdf 미리받기, 기업 탭 홈/기업홈 확정 등). 병합·deploy-verify 확인 뒤 1단계.
+
 ## 2026-11-25 — vieclam24h 시험 10건 위치 실패 원인 + 보류함 보관 + TP.HCM 인식
 - 검증 저장 45588882480(보관 10건 재사용): 1건 숨김 저장(#6454), 9건 location_precheck_failed: not_found. 비교 검색(business-search-compare, 1건씩 9번) 결과 [직접 확인]:
   - TP.HCM 인식 결함 2건(Tiêu Điểm Mới 45617007308·A Mà Kitchen 45617149028): Google이 같은 회사·같은 번지를 찾았는데 원래 성 판정이 "TP.HCM"을 몰라 '성 밖' → 성 이름표(originalProvinceBoundaries)에 hcm 추가.
@@ -54,17 +60,3 @@
 - 변경: 판정 한 곳 pin_guard.keeps_branch_location(기존 other_stores와 같은 매장 규칙) — 이 공고 줄이 글의 한 매장과 같은데 위치 글자가 다른 매장이면 위치 글자를 바꾸지 않음. Facebook 다시 처리·vieclam24h 다시 수집이 같이 씀. 시험 #5992 실제 값(수정 전 실패 → 통과), test_job_error_isolation 96건 통과.
 - 남은 것: #5992 데이터 상태 확인·복구(운영 DB 조회 필요 — W7 경로, 대표 실행), W4·W6 실증은 이 결함 수정 뒤 다음 실제 다시 처리로 다시 확인.
 - 같은 날 완료: #1020 병합 d49ab44(교정 #19), migrations-apply 45509224202(20261124160000 적용), deploy-verify 45509674827 성공. detail-read 45510134760: 6337·W7 6건 PC·모바일 HTTP 200, 화면 대조 문제 0, 위치 '회사 공식 정보로 확인' 표시. 6337 상단 Theo từng vị trí(4)·직무별 급여 4줄·직무별 인원.
-
-## 2026-11-24 — 여러 직무 판정이 '인원 + 직무 : 금액' 줄을 인식(6337) + W7 위치 다시 확인 migration
-- 요청(Lee): 기존 여러 직무 판정 함수 보완(인원 + 직무 + 급여 형태 인식, 기존 Theo vị trí·직무별 급여 표시 재사용) / W7은 조회 결과 확인 뒤 기존 복구 절차.
-- 여러 직무: 판정 한 곳 roleAmountLine(jobRolePresentation)을 급여 읽기(readSalary → 상단 "Theo vị trí — xem chi tiết")와 표시(roleConditionSummary·roleSalaryLines·roleSalaryRows — 상세 머리·근무조건 직무|금액·메인 카드)가 같이 쓴다. 직무 제목 줄이 2개 이상이면 기존 그대로, 아니면 인원 + 직무 : 금액 줄이 서로 다른 직무 2개 이상일 때. 모집인원은 원문 직무별 인원(합치지 않음). 상세요강 묶음 표시(승인된 틀)는 그대로. 교대·기간 낱말은 직무 아님.
-- W7 [직접 확인 — Lee 실행 45438989778]: 되돌릴 후보 #6309의 잃기 전 좌표 근거는 다른 회사(Goong 주소 검색 결과 "Công ty S&S MED VINA") → 되돌리지 않음. #6043 전체 주소 = 끝의 성 이름만 빠짐, 줄에 저장된 행정구역이 없어 W6 규칙으로는 같은 사업장 판정 안 함 → 위치 찾기 다시. 확정 없는 공개 공고 6건(#5599·#5876·#5993·#6043·#6255·#6309) 모두 Google/Goong 같은 이름 결과가 대략으로 저장돼 있음 → migration 20261124160000_location_w7_recheck가 규칙으로 고른 공고에 기존 위치 찾기를 다시 부름(20261112020000과 같은 방식). 보류 19건은 대상 아님.
-- 검증 [직접 확인]: npm test 126/126, tsc·build, 로컬 폐기용 PostgreSQL에서 migration 시험 적용 전 실패 → 적용 뒤 통과.
-- 미완료: 교정 실행·대표 Approve·운영 적용·6건 결과 확인, 6337 다시 판정·화면 대조, W4·W6 실제 다시 수집 실증.
-
-## 2026-11-24 — R #872: 급여 읽기가 "7tr5"(7,5 triệu) 소수 표기를 금액 중간("5~ 12tr")부터 읽던 것 수정
-- 근거 [직접 확인 — OCR 대조 45417524853 화면 대조]: 6337 상단 급여 "5~ 12tr"(원문 "3 Nam & Nữ Phục Vụ : 7tr5~ 12tr") — 판정 불명확(5.000.000이 원문에 없음).
-- 원인 [직접 확인 — 재현]: salaryReader의 이름표 없는 금액 규칙(UNLABELED)이 'tr' 뒤 소수 자리를 몰랐고, 금액을 숫자 낱말 처음부터 읽지 않았다. 이름표 있는 줄("Lương: 7tr5 - 12tr")은 원래 맞게 읽었다.
-- 변경: 같은 규칙 한 곳에서 금액 = 숫자 [+ tr/triệu + 소수 1~2자리], 앞이 글자·숫자면 읽지 않음. 운영 원문 그대로 회귀 시험 + 8tr5·8tr~11tr·7 - 8tr·từ 9tr5. npm test 126/126, tsc 통과.
-- 하지 않은 것(보고): 6337은 직무 4개·금액이 다르므로 기존 규칙(Lee 10-28)상 상단은 "Theo vị trí"여야 하나, 여러 직무 판정이 "인원 + 직무 : 금액" 줄 형태를 모른다 — Lee 결정 대기.
-- 완료: #1017 병합 bdff8ae(Lee Approve)·deploy-verify 45426167235 성공 → #1016 닫음(404 공유 캐시 수정).
