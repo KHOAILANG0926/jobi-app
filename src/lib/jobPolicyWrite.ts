@@ -29,6 +29,12 @@ export function ingestSourceText(fields: Record<string, unknown>, pastedText?: s
     .map(([key, value]) => `${key}: ${String(value).trim()}`)
     .join('\n')
 }
+/** 등록 성공 화면 안내(#717 A안, Lee 2026-11-25): 저장 결과가 실제로 공개됐을 때만 '공개됨'.
+ *  공개 판정(직업분류·연락처 등)은 DB가 정하므로, 공개되지 않았으면 확인 뒤 공개된다고 알린다(시간 약속 없음). 웹·앱 등록 화면이 같이 쓴다. */
+export function publishedNotice(published: boolean): string {
+  return published ? 'Tin của bạn đã hiển thị công khai ngay bây giờ.'
+    : 'Tin của bạn đã được lưu. Tin sẽ hiển thị công khai sau khi được kiểm tra ngành nghề và thông tin liên hệ.'
+}
 type IngestChannel = 'admin' | 'employer'
 // 돌려받는 열 목록이 변수라 supabase 타입 추론이 안 되므로 결과 모양을 직접 적는다.
 type IngestResult = { data: Record<string, any> | null, error: { message: string } | null }

@@ -162,3 +162,11 @@ const knownHidden = fake({ ...blocked, active: true, admin_hidden: true })
 await checkedGuestJobUpdate(knownHidden.client, { p_job_id: 1, p_token: 'synthetic', p_description: blocked.description })
 assert.equal(knownHidden.writes.length, 1, 'future token RPC known hidden edit allowed')
 console.log('guest hidden regression: legacy hidden/public, SELECT errors, activation and known-hidden cases passed')
+
+// #717 A안(Lee 2026-11-25): 등록 성공 화면은 실제 저장 결과의 공개 여부대로 안내한다(직업분류 게이트가 비공개로 돌린 공고에 '공개됨'이라고 하지 않음).
+{
+  const { publishedNotice } = await import('./jobPolicyWrite.ts')
+  assert.equal(publishedNotice(true), 'Tin của bạn đã hiển thị công khai ngay bây giờ.')
+  assert.equal(!/công khai ngay/.test(publishedNotice(false)) && /kiểm tra/.test(publishedNotice(false)), true, 'not public → waiting notice')
+  console.log('publishedNotice: public / waiting cases passed')
+}
