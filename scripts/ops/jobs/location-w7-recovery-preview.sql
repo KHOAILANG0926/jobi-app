@@ -1,4 +1,4 @@
--- 지도 정상화 W7 dry-run(Lee 2026-11-24): 기존 데이터 재확인·복구 대상 집계 + W3b·W4·W6 운영 실증용 조회. W2(location-keep-recovery-preview)의 조회를 넓혀 다시 쓴다.
+-- 지도 정상화 W7 dry-run(Lee 2026-11-24): 기존 데이터 재확인·복구 대상 집계 + W3b·W4·W6 운영 실증용 조회(2026-11-25: E2E 시험 공고 구분 + 같은 원문 지점 공고 묶음). W2(location-keep-recovery-preview)의 조회를 넓혀 다시 쓴다.
 -- 읽기 전용(데이터 변경 없음). 실행: ops-run-sql.yml(master, Lee 계정 수동, name=location-w7-recovery-preview). run-sql-plan이 처음부터 읽기 전용 트랜잭션을 건다.
 -- 같은 사업장 판정은 운영에 적용된 한 곳(location_private.same_site_address, 20261124150000)을 그대로 부른다 — 이 파일에 따로 판정을 만들지 않는다.
 -- 복구 방법(승인 뒤 별도 migration)은 이 집계에 없다. 운영 데이터는 대표 승인 전까지 바꾸지 않는다.
@@ -102,6 +102,7 @@ with l as (
 select '::notice::[W4·W6 쓰기 기록] ' || to_char(created_at, 'MM-DD') || ' ' || operation || ' · ' || count(*) || '건'
        || ' · 확정 유지 ' || count(*) filter (where was_confirmed and is_confirmed)
        || ' · 확정 잃음 ' || count(*) filter (where was_confirmed and not is_confirmed)
+       || ' (그중 E2E 시험 공고 ' || count(*) filter (where was_confirmed and not is_confirmed and coalesce(previous_row->>'raw_address', '') like 'E2E %') || ')'
   from l group by to_char(created_at, 'MM-DD'), operation order by 1;
 with l as (
   select l.*, (l.previous_row->>'lat' is not null and (l.previous_row->>'point_authority' in ('admin_confirmed', 'auto_reuse') or coalesce((l.previous_row->>'location_verified')::boolean, false))) as was_confirmed,
@@ -110,4 +111,12 @@ with l as (
 select '::notice::[W4·W6 확정 잃은 쓰기] #' || job_id || ' 줄 ' || coalesce(work_location_id::text, '없음') || ' ' || operation || ' ' || to_char(created_at, 'MM-DD HH24:MI')
        || ' · ' || left(coalesce(previous_row->>'raw_address', ''), 60) || ' → ' || left(coalesce(next_row->>'raw_address', '삭제'), 60)
        || ' · 같은 사업장 ' || coalesce(location_private.same_site_address(previous_row->>'raw_address', next_row->>'raw_address', array[next_row->>'province', next_row->>'district', next_row->>'ward', next_row->>'resolved_province'])::text, '해당 없음')
-  from l where was_confirmed and not is_confirmed order by created_at desc limit 40;
+  from l where was_confirmed and not is_confirmed and coalesce(previous_row->>'raw_address', '') not like 'E2E %' order by created_at desc limit 40;
+-- [지점별 공고 묶음] 같은 원문 글에서 나온 공고가 2개 이상인 묶음과 각 공고의 근무지 줄 — 다시 처리의 지점 등록(ingest_branches) 확인(지점별 독립 공고).
+--  원문 주소(source_url)는 출력하지 않고 묶음 표시(md5 앞 6자)만 쓴다(원본 채용사이트 연결 금지).
+with g as (select source_url from public.local_jobs where nullif(source_url, '') is not null group by source_url having count(*) > 1)
+select '::notice::[같은 원문 지점 공고] 묶음 ' || left(md5(j.source_url), 6) || ' · #' || j.id || ' ' || case when j.active and not coalesce(j.admin_hidden, false) then '공개' else '비공개' end
+       || ' · ' || left(coalesce(j.company, ''), 30) || ' · 등록 ' || to_char(j.created_at, 'MM-DD HH24:MI')
+       || ' · 줄 ' || coalesce(w.id::text, '없음') || ' ' || coalesce(w.point_kind, '없음') || '/' || coalesce(w.point_authority, '없음') || ' · ' || left(coalesce(w.raw_address, ''), 60)
+  from public.local_jobs j join g on g.source_url = j.source_url left join public.job_work_locations w on w.job_id = j.id
+ order by left(md5(j.source_url), 6), j.id, w.id limit 80;
