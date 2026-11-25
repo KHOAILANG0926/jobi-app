@@ -24,11 +24,12 @@ const MessagesScreen = lazy(() => import('./inbox/MessagesScreen'))
 const InterviewsScreen = lazy(() => import('./inbox/InterviewsScreen'))
 const BizMessagesScreen = lazy(() => import('./biz/BizMessagesScreen'))
 const BizCompanyScreen = lazy(() => import('./biz/BizCompanyScreen'))
+const PostJobScreen = lazy(() => import('./biz/PostJobScreen'))
 const CvScreen = lazy(() => import('./account/CvScreen'))
 const ApplicationsScreen = lazy(() => import('./account/ApplicationsScreen'))
 const LoginScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.LoginScreen })))
 const SignupScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.SignupScreen })))
-const BUILT = new Set(['/', '/goi-y', '/ban-do', '/ho-so', '/cong-dong', '/biz', '/biz/quan-ly-tin', '/biz/doanh-nghiep'])
+const BUILT = new Set(['/', '/goi-y', '/ban-do', '/ho-so', '/cong-dong', '/biz', '/biz/quan-ly-tin', '/biz/doanh-nghiep', '/biz/dang-tin'])
 export default function AppRoot() {
   return (
     <AppProviders>
@@ -49,6 +50,7 @@ export default function AppRoot() {
               <Route path="/biz/quan-ly-tin" element={<BizManageScreen />} />
               <Route path="/biz/tin-nhan" element={<BizMessagesScreen />} />
               <Route path="/biz/doanh-nghiep" element={<BizCompanyScreen />} />
+              <Route path="/biz/dang-tin" element={<PostJobScreen />} />
               <Route path="/ho-so" element={<MeScreen />} />
               <Route path="/ho-so/cv" element={<CvScreen />} />
               <Route path="/ho-so/tin-nhan" element={<MessagesScreen />} />

@@ -1,3 +1,8 @@
+## 2026-11-25 — JOBI 앱 2단계 ⑤: 기업 공고 등록(웹 PostJob 검사·저장 칸을 lib로 공용화)
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 기업 공고 등록(6단계 순서는 CLAUDE.md 확정 순서 그대로). 진행표 #1031.
+- 변경: `src/lib/postJobSubmit.ts`(웹 `PostJob`의 폼 값·필수 12칸 검사·저장 칸 만들기·사진 올리기·핀 저장을 그대로 옮긴 공용 함수 — 웹은 그 함수를 부름, 동작 변경 없음, 시험 `postJobSubmit.test.ts`) / `src/app/biz/PostJobScreen.tsx`(`/biz/dang-tin`: 모집내용→근무조건→근무지→접수기간·방법→담당자→상세, 저장은 웹과 같은 `addPostedJob`→`ingest_job`).
+- 검증 [직접 확인]: tsc·build·npm test 136/136, Playwright(가짜 기업 세션·모든 Supabase 호출 가로챔, 실제 DB 쓰기 없음) 필수 검사 12단계가 웹과 같은 순서·문구로 걸림 → 제출 → 성공 화면.
+- 안 한 것(웹에만 있음): 작성 템플릿 편집기(descriptionHtml)·지도 핀 선택·임시저장·미리보기·비로그인 빠른 등록/이메일 등록. 실제 기업 계정 제출은 계정이 없어 직접 못 봄.
 ## 2026-11-25 — JOBI 앱 2단계 ⑥: 메시지·면접(구직자·기업) + 기업 계정 화면
 - 요청(Lee): 최종 V3 기준 개발 연속 진행 — 소통(메시지·면접). 진행표 #1031.
 - 변경: `src/lib/interviewSchedule.ts`(웹 `ScheduleInterviewModal`의 '일정 저장 + 지원 상태 interview' 순서를 그대로 옮긴 공용 함수 — 웹 모달도 이 함수를 부름, 동작 변경 없음) / `src/app/inbox/` — 구직자 메시지함 `/ho-so/tin-nhan`(웹 `MessagesInbox`와 같은 `messagesStorage`)·면접 일정 `/ho-so/phong-van`·대화 화면 / `src/app/biz/` — 기업 메시지함 `/biz/tin-nhan`·기업 계정 `/biz/doanh-nghiep`(계정·안 읽은 메시지·예정 면접·로그아웃)·면접 일정 시트(지원자 카드의 '면접 잡기'). 대화를 연 상태에서는 하단 탭을 숨김(입력창).
@@ -49,9 +54,3 @@
 - 변경: `src/app/detail/`(값 만들기 `detailModel.ts` = 웹 JobDetail과 같은 lib 함수 조합, 화면 `DetailScreen.tsx`, 꾸민 본문 `DetailRich.tsx`), 하단 고정 지원 바(웹과 같은 `resolveApplyAction`: Ứng tuyển/Gọi·Zalo/없음), 지도 구역은 허용된 `JobVietMap`을 지연 불러옴, `src/app/map.css`=웹 css(index.css·homeDiscovery.css)에서 지도 규칙만 뽑은 복사본(`mapCss.ts`+`scripts/app/sync-map-css.mjs`가 만들고 `mapStyle.test.ts`가 웹 지도 스타일과 어긋나면 실패).
 - 검증 [직접 확인]: tsc·build·npm test 132/132, Playwright 상세 10항목, 실제 공고 12건에서 웹 상세와 앱 상세의 ①②구역 행 이름·값·제목 대조 11건 동일(1건은 여러 직무 공고에서 웹이 폭 때문에 접어 보이는 표시만 다름).
 - 남은 것: 지도 탭·홈 지도 섹션(4단계), 사이트 안 지원(로그인·CV, 2단계 — 그 전엔 웹 상세로 연결), 기업정보·후기 구역·꾸민 본문의 여러 직무 변형·templateHtml 공고(웹 전용).
-
-## 2026-11-25 — JOBI 앱 1단계 ②: 공통 부품·홈·목록(프리셋)·검색·필터·지역 시트·메뉴 (V3 시안)
-- 요청(Lee): 최종 V3(지도 B안) 기준 구직자 핵심 그룹 연속 개발. 앱 데이터·검색·필터는 기존 lib·context를 그대로 쓰고 복제하지 않음.
-- 변경: `src/app/` — 공급자(회원·공고·브랜드, 웹과 같은 context), 필터 상태 1개(`filters/`: 웹 목록(#1040 lib/jobListFilter)·지도 필터(homeMapFilters)·검색(jobSearch)을 이어 붙임), 지원 버튼 판정 1개(`data/applyAction.ts`=resolveApplyAction), 카드·바텀시트·지역/필터 시트·상단바·칩 줄(`ui/`), 홈·목록(프리셋 10개)·검색·메뉴(`screens/`), 스타일 `app.css`(app- 접두). 시트는 처음 열 때 불러옴(성·동 자료가 커서 첫 화면에서 뺌).
-- 검증 [직접 확인]: tsc·build·npm test 131/131·Playwright 390×844 27항목(홈 V3 순서·한국 섹션·추천·바로가기 5·필터 칩·브랜드·카드·필터 시트 9섹션 적용·지역 시트·급구/지역/근처/맞춤/추천 프리셋·검색·메뉴·가로 넘침 없음·웹 css 미로드).
-- 남은 것: 상세·지원(다음 PR)·지도 섹션(추천 아래, 4단계)·맞춤 조건 설정 화면·인기 검색어 집계·앱용 카드 이미지 최적화·번들 크기(앱 JS 약 612KB, gzip 206KB — 후속 최적화).
