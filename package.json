@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist/server && vite build -c vite.api.config.mjs",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types scripts/run-tests.mjs"
+    "test": "node --experimental-strip-types scripts/run-tests.mjs",
+    "typecheck:app": "tsc -p tsconfig.app.json",
+    "typecheck:web": "tsc -p tsconfig.web.json"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.3",
