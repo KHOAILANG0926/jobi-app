@@ -18,6 +18,8 @@ const MapScreen = lazy(() => import('./map/MapScreen'))
 const MeScreen = lazy(() => import('./account/MeScreen'))
 const CommunityScreen = lazy(() => import('./community/CommunityScreen'))
 const PostScreen = lazy(() => import('./community/PostScreen'))
+const ConditionsScreen = lazy(() => import('./account/ConditionsScreen'))
+const NotificationsScreen = lazy(() => import('./account/NotificationsScreen'))
 const CvScreen = lazy(() => import('./account/CvScreen'))
 const ApplicationsScreen = lazy(() => import('./account/ApplicationsScreen'))
 const LoginScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.LoginScreen })))
@@ -41,6 +43,8 @@ export default function AppRoot() {
               <Route path="/cong-dong/:id" element={<PostScreen />} />
               <Route path="/ho-so" element={<MeScreen />} />
               <Route path="/ho-so/cv" element={<CvScreen />} />
+              <Route path="/ho-so/dieu-kien" element={<ConditionsScreen />} />
+              <Route path="/ho-so/thong-bao" element={<NotificationsScreen />} />
               <Route path="/ho-so/ung-tuyen" element={<ApplicationsScreen />} />
               <Route path="/dang-nhap" element={<LoginScreen />} />
               <Route path="/dang-ky" element={<SignupScreen />} />
