@@ -2918,6 +2918,28 @@ def load_details_file(path: str) -> list[dict]:
     return items
 
 
+async def save_details(items: list[dict]) -> list[dict]:
+    """--save-details: VPS가 받은 상세(#884 B안, 사이트 접속 없음)를 정기 수집과 같은 저장 경로(save_to_supabase)로 저장한다
+    (Lee 2026-11-25 vieclam24h 정기 수집 재개). 신규는 등록 입구(ingest_job — 위치 확인·회사 이름·직업분류·중복 판정),
+    기존 공고(원본 식별자 대조)는 다시 수집 갱신. 공개 여부는 DB 공개 판정이 정한다(연락처 없으면 원문 보관·비공개).
+    한 공고의 처리 오류는 그 공고만 남기고 계속한다(JOB_ERRORS, 연속 3건이면 멈춤)."""
+    jobs = []
+    for item in items:
+        try:
+            job = await job_from_detail(item["url"], item["detail"])
+        except Exception as exc:  # noqa: BLE001 — 이 공고만 실패로 남기고 계속
+            JOB_ERRORS.add(item["url"], exc, key=item["url"])
+            continue
+        if job.get("_skip") or job.get("_pipeline_failed"):
+            print(f"    ⏩ 제외({job.get('_skip_reason') or job.get('_failure_stage')}): {str(job.get('title') or item['url'])[:70]}")
+            continue
+        if not job.get("active"):
+            print(f"    🔒 공개 보류({job.get('publish_gate_reason')}): {str(job.get('title'))[:70]}")
+        jobs.append(job)
+    save_to_supabase(jobs)
+    return jobs
+
+
 async def process_urls_verify_write(urls: list[str], details: list[dict] | None = None, publish: bool = False) -> dict:
     """--verify-write-urls: migration 0018 적용 전 검증용 3~5건 실제 저장
     전용(2026-09-04 사용자 지시, "운영 적용 준비"). 여러 URL을 순차로
@@ -3061,6 +3083,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
              "--confirm-write 필수, --verify-write와 함께 쓰지 않는다(Lee 승인 뒤 crawl.yml publish_one으로만, #872).",
     )
     parser.add_argument(
+        "--save-details", type=str, default="",
+        help="--save-details-to 파일(1~10건)을 사이트 접속 없이 정기 수집과 같은 저장 경로로 저장한다(신규·기존 갱신, "
+             "공개는 DB 공개 판정). --confirm-write 필수(crawl.yml 정기 수집 저장 단계, Lee 2026-11-25).",
+    )
+    parser.add_argument(
         "--confirm-write", action="store_true",
         help="--process-url/--reprocess-ids/--verify-write-urls가 실제로 DB에 쓰도록 명시적으로 "
              "승인한다(2026-09-04 사고 재발 방지 — 이 플래그 없이는 아무것도 하지 않고 중단한다)",
@@ -3175,6 +3202,7 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
     # 여러 대상 모드를 지정했을 때 기존 우선순위로 하나가 조용히 실행되는 것도 차단한다.
     explicit_modes = [
         args.process_url, args.reprocess_ids, args.verify_write_urls, args.dry_run_urls, args.verify_write_details,
+        args.save_details,
     ]
     if args.save_details_to and not args.dry_run_urls:
         raise SystemExit("--save-details-to는 --dry-run-urls와만 쓸 수 있습니다. 중단합니다.")
@@ -3232,6 +3260,10 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
         return "verify_write_urls"
     elif args.verify_write_details:
         return "publish_one_details" if args.publish_one else "verify_write_details"
+    elif args.save_details:
+        if not args.confirm_write or args.verify_write or args.publish_one:
+            raise SystemExit("--save-details는 --confirm-write와만(--verify-write·--publish-one 없이) 지정합니다. 중단합니다.")
+        return "save_details"
     elif args.dry_run_urls:
         return "dry_run_urls"
     else:
@@ -3266,6 +3298,10 @@ if __name__ == "__main__":
         items = load_details_file(args.verify_write_details)
         manifest = asyncio.run(process_urls_verify_write([i["url"] for i in items], details=items, publish=mode == "publish_one_details"))
         print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
+    elif mode == "save_details":
+        jobs = asyncio.run(save_details(load_details_file(args.save_details)))
+        print(json.dumps([{"source_url": j.get("source_url"), "active": j.get("active"), "publish_gate_reason": j.get("publish_gate_reason")} for j in jobs],
+                         ensure_ascii=False, indent=2, default=str))
     elif mode == "dry_run_urls":
         urls = [u.strip() for u in args.dry_run_urls.split(",") if u.strip()]
         reports = asyncio.run(process_urls_dry_run(urls, save_details_to=args.save_details_to))

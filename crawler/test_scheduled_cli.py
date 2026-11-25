@@ -160,8 +160,8 @@ class ScheduledCallerTests(unittest.TestCase):
         source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
         commands = [line.strip()[5:] for line in source.splitlines()
                     if line.strip().startswith("run: python crawler/crawl_topcv.py")]
-        self.assertEqual(len(commands), 1)  # 시험 수집(저장 없음)만 — 운영 DB 저장 단계 없음(#881)
-        command = shlex.split(commands[0].replace('"$SAMPLE_LIMIT"', "3"))
+        self.assertEqual(len(commands), 1)  # VPS 수집(저장 없음, DB 열쇠 없음) 명령은 하나(#881)
+        command = shlex.split(commands[0].replace('"$SAMPLE_LIMIT"', "3").replace('"$SAMPLE_OFFSET"', "10"))
         self.assertEqual(command[:2], ["python", "crawler/crawl_topcv.py"])
         self.assertEqual(mode_for(command[2:]), "full_crawl")
         self.assertEqual(enter_cli(command[2:])[0][0], "main")
@@ -170,19 +170,29 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertEqual(pure_namespace()["build_arg_parser"]().parse_args(command[2:]).site, "vieclam24h")
 
     def test_actions_manual_confirmation_is_opt_in(self):
-        # Lee 2026-11-17 #872·#881: 예약 계기 없음(정기 수집 불가), 열쇠 없음(저장 불가), 수동 시험만
+        # Lee 2026-11-17 #872·#881: 열쇠 없는 VPS 수집 + Lee 2026-11-25 정기 수집 재개(하루 20건 = 10건 × 2번)
         source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", source)
-        self.assertNotIn("schedule:", source)
-        self.assertNotIn("cron:", source)
-        # #884 B안: VPS 수집 잡(crawl)에는 열쇠·ops-keys가 없고, 열쇠는 GitHub 서버 검증 저장 잡(verify-save)의 저장 단계에만
-        crawl, save = source.split("\n  verify-save:\n", 1)
+        self.assertEqual(re.findall(r"- cron: '([^']+)'", source), ["23 2 * * *", "23 8 * * *"])
+        self.assertIn("SAMPLE_OFFSET: ${{ github.event.schedule == '23 8 * * *' && '10' || '0' }}", source)
+        # #884 B안: VPS 수집 잡(crawl)에는 열쇠·ops-keys가 없고, 열쇠는 GitHub 서버 저장 잡(save·verify-save)의 저장 단계에만
+        crawl, rest = source.split("\n  save:\n", 1)
+        sched, save = rest.split("\n  verify-save:\n", 1)
         self.assertNotIn("secrets.", crawl)
         self.assertNotIn("environment: ops-keys", crawl)
         job_if = [l.strip() for l in source.splitlines() if l.startswith("    if:")]
         self.assertEqual(job_if, [
-            "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run && inputs.verify_save_run_id == ''",
+            "if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run && inputs.verify_save_run_id == '')",
+            "if: github.event_name == 'schedule'",
             "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.verify_save_run_id != ''"])
+        # 정기 저장: 같은 실행의 상세만 받아(사이트 접속 없음) 정기 저장 경로로, 열쇠는 저장 단계 하나에만
+        self.assertIn("    needs: crawl\n", sched)
+        self.assertIn("    environment: ops-keys\n    runs-on: ubuntu-22.04\n", sched)
+        self.assertNotIn("run-id:", sched)
+        self.assertNotIn("playwright install", sched)
+        sched_steps = sched.split("\n      - ")
+        self.assertEqual(sum("secrets." in st for st in sched_steps), 1)
+        self.assertEqual([st for st in sched_steps if "--save-details /tmp/v24/details.json --confirm-write" in st and "secrets.SUPABASE_SERVICE_ROLE_KEY" in st].__len__(), 1)
         self.assertIn("'^([1-9]|10)$'", source)
         self.assertIn("    environment: ops-keys\n    runs-on: ubuntu-22.04\n", save)
         steps = save.split("\n      - ")
@@ -292,18 +302,18 @@ class ScheduledCallerTests(unittest.TestCase):
         # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
         # vietnam-provinces(requirements.txt)는 Python 3.12 이상. 재개 전에 같은 실패가 나지 않게 고정한다.
         full = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
-        source = full.split("\n  verify-save:\n", 1)[0]  # VPS 수집 잡(검증 저장 잡은 GitHub 서버, #884 B안)
+        source = full.split("\n  save:\n", 1)[0]  # VPS 수집 잡(정기 저장·검증 저장 잡은 GitHub 서버, #884 B안)
         reqs = (ROOT / "crawler/requirements.txt").read_text(encoding="utf-8")
         runs_on = [l.split(":", 1)[1].strip() for l in full.splitlines() if l.strip().startswith("runs-on:")]
         # Lee 2026-11-17 #872: GitHub 서버는 vieclam24h가 403으로 막음 → 기존 VPS 실행기에서 소량 시험(Facebook과 폴더 분리)
-        self.assertEqual(runs_on, ["[self-hosted, Linux, X64]", "ubuntu-22.04"])
+        self.assertEqual(runs_on, ["[self-hosted, Linux, X64]", "ubuntu-22.04", "ubuntu-22.04"])  # 수집 VPS · 정기 저장 · 검증 저장
         self.assertIn("path: vieclam24h-run", source)
         self.assertIn("working-directory: vieclam24h-run", source)
         self.assertNotIn("/tmp/", source)
         self.assertNotIn("CRAWLER_STATE_DIR", source)
         self.assertIn("SUPABASE_SERVICE_ROLE_KEY: ''", source)
         versions = re.findall(r"python-version:\s*'(\d+)\.(\d+)'", full)
-        self.assertEqual(len(versions), 2)
+        self.assertEqual(len(versions), 3)
         self.assertEqual(len(set(versions)), 1)
         self.assertGreaterEqual(tuple(map(int, versions[0])), (3, 12))
         self.assertIn("playwright==1.44.0", reqs)  # 판을 올리면 24.04 지원 여부를 다시 확인하고 이 시험도 고친다
