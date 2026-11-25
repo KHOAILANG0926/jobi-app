@@ -13,7 +13,7 @@ const BENEFIT_ICONS: Record<string, typeof Settings> = { bus: Bus, dorm: BedDoub
 
 function emphasize(line: string): ReactNode {
   const text = line.replace(/^\s*[-•*]\s+/, '')
-  const label = /^([^:：]{2,40})[:：]\s*(.+)$/u.exec(text)
+  const label = text.match(/^([^:：]{2,40})[:：]\s*(.+)$/u)
   const money = (s: string) => s.split(/(\d[\d.,]*\s*(?:đ|đồng|vnđ|vnd|k|triệu|tr)\b\.?)/giu).map((p, i) => (i % 2 ? <span key={i} className="app-rich__o">{p}</span> : p))
   return label ? <><span className="app-rich__b">{label[1]}:</span> {money(label[2])}</> : money(text)
 }
