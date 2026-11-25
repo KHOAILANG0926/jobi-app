@@ -1,3 +1,8 @@
+## 2026-11-25 — JOBI 앱 2단계 ⑤: 기업 공고 등록(웹 PostJob 검사·저장 칸을 lib로 공용화)
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 기업 공고 등록(6단계 순서는 CLAUDE.md 확정 순서 그대로). 진행표 #1031.
+- 변경: `src/lib/postJobSubmit.ts`(웹 `PostJob`의 폼 값·필수 12칸 검사·저장 칸 만들기·사진 올리기·핀 저장을 그대로 옮긴 공용 함수 — 웹은 그 함수를 부름, 동작 변경 없음, 시험 `postJobSubmit.test.ts`) / `src/app/biz/PostJobScreen.tsx`(`/biz/dang-tin`: 모집내용→근무조건→근무지→접수기간·방법→담당자→상세, 저장은 웹과 같은 `addPostedJob`→`ingest_job`).
+- 검증 [직접 확인]: tsc·build·npm test 136/136, Playwright(가짜 기업 세션·모든 Supabase 호출 가로챔, 실제 DB 쓰기 없음) 필수 검사 12단계가 웹과 같은 순서·문구로 걸림 → 제출 → 성공 화면.
+- 안 한 것(웹에만 있음): 작성 템플릿 편집기(descriptionHtml)·지도 핀 선택·임시저장·미리보기·비로그인 빠른 등록/이메일 등록. 실제 기업 계정 제출은 계정이 없어 직접 못 봄.
 ## 2026-11-25 — JOBI 앱 2단계 ⑦⑧: 맞춤 조건 설정 + 알림 목록
 - 요청(Lee): 최종 V3 기준 개발 연속 진행 — 맞춤(Phù hợp) 조건·알림. 진행표 #1031.
 - 변경: `src/app/account/ConditionsScreen.tsx`(`/ho-so/dieu-kien`: 저장한 조건 목록·추가·수정·일시정지·삭제·결과 보기, 웹 `JobAlertsPanel`과 같은 `lib/jobAlerts` 검사·저장·판정, 이동거리는 웹과 같이 아직 안 씀) / `src/app/account/NotificationsScreen.tsx`(`/ho-so/thong-bao`, 웹과 같은 `NotificationContext` — `AppProviders`에 같은 공급자 추가) / 마이에 두 줄, 맞춤 목록의 '조건 설정' 버튼은 로그인 구직자만 앱 화면으로(그 외는 웹 로컬 조건 화면 그대로).
@@ -48,9 +53,3 @@
 - 변경: `src/app/map/` — `MapScreen`(지도 탭: 지역 검색·필터 칩·내 위치·선택 카드(길찾기·지원 판정)·목록 시트), `MiniMap`(홈 미리보기 184px, 누르면 지도 탭), `useMapData`(웹과 같은 `lib/mapR1.mapSearch`로 핀·목록 — 확정 좌표만, 위치 모르는 공고는 목록에서만). 지도 부품은 허용 목록의 `HomeMapCanvas` 그대로, 스타일은 #1045의 `map.css`.
 - 검증 [직접 확인]: tsc·build·npm test 132/132, Playwright 홈 V3 B 순서(한국→추천→지도→바로가기→필터→브랜드→목록)·미니 지도 184px·첫 화면(735px)에 지도 152px 보임·지도 탭 핀 27개(실제 공고)·목록 시트 27건·가로 넘침 없음. 지도 타일 그림은 이 작업 환경의 외부 지도 접근 제한으로 직접 보지 못함(병합 뒤 운영 화면 확인).
 - 남은 것: 지도 위 업종/급여 전환 버튼·재검색·핫스팟(알바몬 앱 미확인 항목), 사이트 안 지원·회원(2단계).
-
-## 2026-11-25 — JOBI 앱 1단계 ③: 공고 상세(상단 카드 + 4구역) + 웹 지도 스타일 복사 규칙
-- 요청(Lee): 최종 V3 기준 구직자 핵심 그룹 연속 개발(상세·지도 단계). 상세 4구역은 승인된 틀 그대로, 지도는 웹 부품을 그대로 쓰고 스타일은 한 곳에서 관리.
-- 변경: `src/app/detail/`(값 만들기 `detailModel.ts` = 웹 JobDetail과 같은 lib 함수 조합, 화면 `DetailScreen.tsx`, 꾸민 본문 `DetailRich.tsx`), 하단 고정 지원 바(웹과 같은 `resolveApplyAction`: Ứng tuyển/Gọi·Zalo/없음), 지도 구역은 허용된 `JobVietMap`을 지연 불러옴, `src/app/map.css`=웹 css(index.css·homeDiscovery.css)에서 지도 규칙만 뽑은 복사본(`mapCss.ts`+`scripts/app/sync-map-css.mjs`가 만들고 `mapStyle.test.ts`가 웹 지도 스타일과 어긋나면 실패).
-- 검증 [직접 확인]: tsc·build·npm test 132/132, Playwright 상세 10항목, 실제 공고 12건에서 웹 상세와 앱 상세의 ①②구역 행 이름·값·제목 대조 11건 동일(1건은 여러 직무 공고에서 웹이 폭 때문에 접어 보이는 표시만 다름).
-- 남은 것: 지도 탭·홈 지도 섹션(4단계), 사이트 안 지원(로그인·CV, 2단계 — 그 전엔 웹 상세로 연결), 기업정보·후기 구역·꾸민 본문의 여러 직무 변형·templateHtml 공고(웹 전용).
