@@ -18,11 +18,13 @@ const MapScreen = lazy(() => import('./map/MapScreen'))
 const MeScreen = lazy(() => import('./account/MeScreen'))
 const CommunityScreen = lazy(() => import('./community/CommunityScreen'))
 const PostScreen = lazy(() => import('./community/PostScreen'))
+const BizHomeScreen = lazy(() => import('./biz/BizHomeScreen'))
+const BizManageScreen = lazy(() => import('./biz/BizManageScreen'))
 const CvScreen = lazy(() => import('./account/CvScreen'))
 const ApplicationsScreen = lazy(() => import('./account/ApplicationsScreen'))
 const LoginScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.LoginScreen })))
 const SignupScreen = lazy(() => import('./account/LoginScreens').then((m) => ({ default: m.SignupScreen })))
-const BUILT = new Set(['/', '/goi-y', '/ban-do', '/ho-so', '/cong-dong'])
+const BUILT = new Set(['/', '/goi-y', '/ban-do', '/ho-so', '/cong-dong', '/biz', '/biz/quan-ly-tin'])
 export default function AppRoot() {
   return (
     <AppProviders>
@@ -39,6 +41,8 @@ export default function AppRoot() {
               <Route path="/menu" element={<MenuScreen />} />
               <Route path="/cong-dong" element={<CommunityScreen />} />
               <Route path="/cong-dong/:id" element={<PostScreen />} />
+              <Route path="/biz" element={<BizHomeScreen />} />
+              <Route path="/biz/quan-ly-tin" element={<BizManageScreen />} />
               <Route path="/ho-so" element={<MeScreen />} />
               <Route path="/ho-so/cv" element={<CvScreen />} />
               <Route path="/ho-so/ung-tuyen" element={<ApplicationsScreen />} />

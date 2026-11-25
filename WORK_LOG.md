@@ -1,3 +1,9 @@
+## 2026-11-25 — JOBI 앱 2단계 ④: 기업 탭 홈·공고 관리·지원자 관리
+- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 기업 기능 첫 묶음. 진행표 #1031.
+- 변경: `src/app/biz/` — 기업 입구 `BizGate`(웹 RequireEmployer와 같은 서버 `account_roles` 판정, 조회 실패와 '기업 아님' 구분), 홈 `/biz`(통계·새 지원자·바로가기), 공고 관리 `/biz/quan-ly-tin`(내 공고 목록·긴급 표시·삭제 확인, 지원자 목록·공고별 거르기·상태 변경·지원 시점 CV 보기). 자료는 웹 대시보드와 같은 `fetchEmployerJobs`·`applicationsStorage`, 계산은 순수 함수 `bizView.ts`(+시험).
+- 검증 [직접 확인]: tsc·build·npm test 135/135, Playwright 게스트 10/10(기업 입구 로그인 안내·기업 탭 4개·redirect 유지·가입 시 기업 선택). 기업 계정 화면(공고·지원자·상태 변경)은 계정이 없어 직접 못 봄.
+- 남은 것: 공고 등록 6단계(`/biz/dang-tin`), 기업 정보(`/biz/doanh-nghiep`), 기업 쪽 메시지·면접 일정, 맞춤 조건.
+
 ## 2026-11-25 — JOBI 앱 2단계 ③: 커뮤니티(목록·상세·글쓰기·댓글·좋아요·신고)
 - 요청(Lee): 최종 V3 기준 개발 연속 진행 — 커뮤니티. 진행표 #1031.
 - 변경: `src/app/community/` — 목록(`/cong-dong`: 분류·검색·정렬, 웹과 같은 `lib/communityStorage.loadPosts`), 상세(`/cong-dong/:id`: 조회수·좋아요·댓글·신고 = 웹과 같은 `communityStorage`·`adminOperations.createReport`), 글쓰기 시트(웹과 같은 항목·검사·`addPost`, 사진 4장). 분류·검색·정렬·상대 시간은 순수 함수 `communityView.ts`(+시험). 로그인 안 한 글쓰기·좋아요·댓글·신고는 앱 로그인 화면으로.
@@ -47,8 +53,3 @@
 - 요청(Lee): 최종 V3 시안 기준 구직자 핵심 기능 개발 연속 진행. 앱은 웹 화면 코드를 못 가져오고 복제도 금지 → UrgentJobsPage 안에 있던 목록 필터(`filtered`)·정렬을 `src/lib/jobListFilter.ts`로 옮겨 웹·앱이 한 함수를 공유(Home.tsx→jobSearch.ts로 뽑은 선례와 같은 방식).
 - 변경: `src/lib/jobListFilter.ts`·`src/lib/jobSuggestions.ts`(+시험 2개), `UrgentJobsPage.tsx`·`SuggestedJobsPage.tsx`는 같은 조건을 함수에 넘기도록만 바꿈(조건·결과 동일, 화면 코드 변경 없음). 추천(Gợi ý) 판정도 앱이 쓰도록 함께 뽑음.
 - 검증 [직접 확인]: tsc·build·npm test 129/129(새 시험 2개 포함).
-
-## 2026-11-25 — #6454 기존 공고 대조 누락: 원본 식별자(source_url)로도 찾기
-- 원인 [직접 확인]: 검증 저장(09:48) 직후 상세 정리(job-ocr-check 45589142507, detail-fill '원문에서 다시 만듦', scripts/ocr/detail-fill.mjs:90)가 설명을 새로 쓰며 [source:vieclam24h] 표시를 지움 → vieclam24h 수집기의 기존 공고 목록(설명 표시로만 조회, crawl_topcv.load_existing_lookup_maps)에서 빠짐 → 다음 검증 저장(45630753016)에서 '새 공고'로 처리(DB 입구 중복 판정이 같은 번호 6454를 돌려줘 중복은 없음).
-- 변경: 기존 DB 칸 source_url(원본 식별자, 상세 정리가 안 건드림)로도 조회(사이트 주소로 거름 — 다른 사이트와 안 섞임). detail-fill·다른 수집원 코드는 안 바꿈. 시험: 수정 전 실패 재현 → 통과(새 2건), 수집기 시험 전부 통과.
-- 남은 것(범위 밖, 보고만): 상세 정리가 다른 수집원 공고 설명의 출처 표시도 지울 수 있음(화면 source 읽기 jobRows.parseDescription).
