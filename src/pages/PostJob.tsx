@@ -8,6 +8,7 @@ import { VN_WARDS_BY_PROVINCE } from '../data/vnWards'
 import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
+import { publishedNotice } from '../lib/jobPolicyWrite'
 import { checkIsEmployer } from '../lib/accountRoles'
 import { supabase } from '../lib/supabase'
 import VietMapPinPicker from '../components/job-form/VietMapPinPicker'
@@ -262,8 +263,8 @@ export function PostJob() {
   }
   const dropDraft = () => { try { localStorage.removeItem(DRAFT_KEY) } catch { /* 무시 */ } setDraftAt(null) }
   const [guestEmail, setGuestEmail] = useState('')
-  const [guestSuccess, setGuestSuccess] = useState<{ jobId: string; manageUrl: string } | null>(null)
-  const [emailSuccess, setEmailSuccess] = useState<{ jobId: string; email: string } | null>(null)
+  const [guestSuccess, setGuestSuccess] = useState<{ jobId: string; manageUrl: string; published: boolean } | null>(null)
+  const [emailSuccess, setEmailSuccess] = useState<{ jobId: string; email: string; published: boolean } | null>(null)
 
   useEffect(() => {
     if (!user) { setEmployerCheck('guest'); return }
@@ -452,7 +453,7 @@ export function PostJob() {
         })
         resetForm()
         clearPhotos()
-        setEmailSuccess({ jobId: job.id, email })
+        setEmailSuccess({ jobId: job.id, email, published: job.active === true })
       } else if (employerCheck === 'guest' && postMode === 'quick') {
         // "Đăng nhanh, không cần đăng ký" — 계정 없이, 클라이언트가 만든
         // 무작위 토큰만으로 등록(local_jobs_guest_insert RLS 참고). 관리자
@@ -473,6 +474,7 @@ export function PostJob() {
         setGuestSuccess({
           jobId: job.id,
           manageUrl: `${window.location.origin}/quan-ly-tin/${rawId}?token=${token}`,
+          published: job.active === true,
         })
       } else {
         // 기존 기업 계정 경로 — 그대로 유지.
@@ -497,7 +499,7 @@ export function PostJob() {
           <h1 className="page-header__title">Đăng tin thành công!</h1>
         </header>
         <div className="form-card">
-          <p>Tin của bạn đã hiển thị công khai ngay bây giờ.</p>
+          <p>{publishedNotice(guestSuccess.published)}</p>
           {pinWarning && <p className="jcf-help">Chưa lưu được vị trí trên bản đồ. Bạn có thể chọn lại ở trang quản lý tin.</p>}
           <p>
             <strong>Lưu lại link này để sau này chỉnh sửa hoặc ngừng đăng tin</strong> — vì bạn đăng không qua tài
@@ -531,7 +533,7 @@ export function PostJob() {
           <h1 className="page-header__title">Đăng tin thành công!</h1>
         </header>
         <div className="form-card">
-          <p>Tin của bạn đã hiển thị công khai ngay bây giờ.</p>
+          <p>{publishedNotice(emailSuccess.published)}</p>
           <p>
             Chúng tôi đã gửi một email đến <strong>{emailSuccess.email}</strong> để bạn đặt mật khẩu — dùng email
             đó để đăng nhập và quản lý tin đăng trong bảng điều khiển nhà tuyển dụng sau này.

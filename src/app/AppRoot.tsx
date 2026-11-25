@@ -1,20 +1,41 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import AppProviders from './data/AppProviders'
+import { AppFiltersProvider } from './filters/AppFilters'
 import AppShell from './AppShell'
+import { lazy, Suspense } from 'react'
+import HomeScreen from './screens/HomeScreen'
 import ScreenStub from './ScreenStub'
 import { EMPLOYER_TABS, SEEKER_TABS } from './tabs'
 
 // 주소는 /app 아래만 쓴다(vercel.json이 /app, /app/* 를 app.html로 보냄). 웹 주소와 섞이지 않는다.
+// 1단계: 홈·목록(프리셋)·검색·메뉴. 추천 탭(/goi-y)은 목록의 '추천' 프리셋과 같은 화면이다. 아직 없는 화면은 ScreenStub.
+// 홈 말고는 처음 열 때 불러온다(첫 화면 무게를 줄임).
+const ListScreen = lazy(() => import('./screens/ListScreen'))
+const MenuScreen = lazy(() => import('./screens/MenuScreen'))
+const SearchScreen = lazy(() => import('./screens/SearchScreen'))
+const BUILT = new Set(['/', '/goi-y'])
 export default function AppRoot() {
   return (
-    <BrowserRouter basename="/app">
-      <Routes>
-        <Route element={<AppShell />}>
-          {[...SEEKER_TABS, ...EMPLOYER_TABS].map((tab) => (
-            <Route key={tab.key} path={tab.to} element={<ScreenStub />} />
-          ))}
-          <Route path="*" element={<ScreenStub />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AppProviders>
+      <AppFiltersProvider>
+        <BrowserRouter basename="/app">
+          <Suspense fallback={<p className="app-state" role="status">Đang tải…</p>}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/" element={<HomeScreen />} />
+              <Route path="/goi-y" element={<ListScreen preset="goi-y" />} />
+              <Route path="/danh-sach/:preset" element={<ListScreen />} />
+              <Route path="/tim-kiem" element={<SearchScreen />} />
+              <Route path="/menu" element={<MenuScreen />} />
+              {[...SEEKER_TABS, ...EMPLOYER_TABS].filter((tab) => !BUILT.has(tab.to)).map((tab) => (
+                <Route key={tab.key} path={tab.to} element={<ScreenStub />} />
+              ))}
+              <Route path="*" element={<ScreenStub />} />
+            </Route>
+          </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </AppFiltersProvider>
+    </AppProviders>
   )
 }
