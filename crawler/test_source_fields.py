@@ -1,6 +1,6 @@
 """source_fields 단위 시험: 원문 근거 칸 추출·규칙 거부 집계."""
-from source_fields import (RuleRejections, build_source_text, extract_age_range, extract_contact_name, rule_code,
-                           source_fields)
+from source_fields import (RuleRejections, build_source_text, extract_age_range, extract_contact_name, extract_employment_type,
+                           rule_code, source_fields)
 
 
 def test_age():
@@ -20,6 +20,27 @@ def test_contact_name_verbatim_or_none():
     assert extract_contact_name("Liên hệ ngay để biết thêm") is None
     assert extract_contact_name("Không có tên người liên hệ") is None
     assert extract_contact_name("") is None and extract_contact_name(None) is None
+
+
+def test_employment_type_only_from_explicit_words():
+    """Lee 2026-11-25: 원문에 분명한 근거가 있을 때만 — 한 종류만 있으면 그 값, 없거나 여러 종류면 None(추정·선택 금지)."""
+    # vieclam24h 사이트 칸 값(source_text에 줄로 들어감)
+    assert source_fields("Nhân viên kho", "Mô tả công việc\nSắp xếp hàng", extras=("CTY A", "Toàn thời gian cố định"))["employment_type"] == "full_time"
+    assert extract_employment_type("Hình thức làm việc: Bán thời gian") == "part_time"
+    assert extract_employment_type("Tuyển nhân viên phục vụ part-time ca tối") == "part_time"
+    assert extract_employment_type("TUYỂN CÔNG NHÂN THỜI VỤ tháng 12") == "seasonal"
+    assert extract_employment_type("Tuyển nv Fulltime, lương 8tr") == "full_time"
+    # 여러 종류(직무별 다름)는 고르지 않는다 — 이름표 줄이 한 종류면 그 줄을 따른다
+    assert extract_employment_type("Nhân viên bán hàng Fulltime\nNhân viên bán hàng Parttime") is None
+    assert extract_employment_type("Hình thức: Toàn thời gian\nSinh viên muốn làm part time vui lòng liên hệ sau") == "full_time"
+    # 실제 원문(FUSHAN, src/lib/fushanSource.fixture.ts): 정규직과 시즌제 함께 모집 → 한 종류가 아님
+    assert extract_employment_type("FUSHAN — Chính Thức và Thời Vụ\nTuyển: Chính Thức và Thời Vụ") is None
+    # 부정·없음
+    assert extract_employment_type("Không nhận part time. Làm hành chính") is None
+    assert extract_employment_type("Lương 8 triệu, làm việc tại KCN") is None
+    assert extract_employment_type("") is None and extract_employment_type(None) is None
+    # 낱말 일부(다른 낱말 안)는 근거가 아니다
+    assert extract_employment_type("Tuyển thời vụa") is None and extract_employment_type("fulltimer") is None
 
 
 def test_source_text_is_verbatim_join():
