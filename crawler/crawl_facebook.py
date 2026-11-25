@@ -642,6 +642,12 @@ def write_json_atomic(path: Path, data, keep_backup: bool = False) -> None:
     os.replace(tmp, path)
 
 
+def page_navigated(exc: BaseException) -> bool:
+    """playwright가 '페이지가 바뀌어 실행 문맥이 없어짐'으로 실패했는가(스크롤 중 Facebook 쪽 이동). 다른 오류와 구분한다."""
+    msg = str(exc)
+    return "Execution context was destroyed" in msg or "because of a navigation" in msg
+
+
 async def expand_visible_posts(page) -> None:
     """최상위 게시물 본문의 '더 보기' 버튼만 누른다(2026-09-28: 예전엔 페이지 전체의
     링크까지 '더 보기'를 포함하면 눌러 엉뚱한 곳을 누를 수 있었다)."""
@@ -1029,115 +1035,133 @@ async def crawl_group(page, target: dict, prev_seen: set[str], max_age_days: flo
     stall = 0
     started = time.monotonic()
 
-    while True:
-        if len(jobs) >= TARGET_PER_GROUP:
-            stats["stop_reason"] = "target_jobs"
-            break
-        if step >= MAX_SCROLL_STEPS:
-            stats["stop_reason"] = "max_steps"
-            break
-        if time.monotonic() - started > GROUP_TIME_BUDGET_SEC:
-            stats["stop_reason"] = "time_budget"
-            break
-        step += 1
+    try:
+        while True:
+            if len(jobs) >= TARGET_PER_GROUP:
+                stats["stop_reason"] = "target_jobs"
+                break
+            if step >= MAX_SCROLL_STEPS:
+                stats["stop_reason"] = "max_steps"
+                break
+            if time.monotonic() - started > GROUP_TIME_BUDGET_SEC:
+                stats["stop_reason"] = "time_budget"
+                break
+            step += 1
 
-        await expand_visible_posts(page)
-        await page.wait_for_timeout(random.randint(800, 1500))
-        data = await extract_visible_posts(page)
-        if data["pending"] > 0:
-            # 마지막 글 아래의 빈 칸 = 아직 채워지는 중일 수 있음 → 스크롤 없이 한 번만 더 기다림
-            await page.wait_for_timeout(2000)
             await expand_visible_posts(page)
+            await page.wait_for_timeout(random.randint(800, 1500))
             data = await extract_visible_posts(page)
+            if data["pending"] > 0:
+                # 마지막 글 아래의 빈 칸 = 아직 채워지는 중일 수 있음 → 스크롤 없이 한 번만 더 기다림
+                await page.wait_for_timeout(2000)
+                await expand_visible_posts(page)
+                data = await extract_visible_posts(page)
 
-        new_ids: list[str] = []
-        for r in data["posts"]:
-            key = post_key(r)
-            if key in processed:
-                continue
-            processed.add(key)
-            new_ids.append(key)
-            if not r.get("postUrl"):
-                stats["id_missing"] += 1
-            if key in prev_seen:
-                stats["overlap"] += 1
-                stats["decisions"].append({"key": key, "step": step, "decision": "seen_before"})
-                continue
-
-            full_text_ok = True
-            if is_truncated_post(r.get("text", ""), r.get("hasSeeMore", False)):
-                again = await expand_and_reread(page, r["idx"])
-                dbg = again.get("debug") or {}
-                if again.get("text"):
-                    r = {**r, "text": again["text"], "hasSeeMore": False}
-                    stats["expanded"] += 1
-                elif dbg.get("reason") == "no_button" and not dbg.get("candidates"):
-                    # '…'로 끝나지만 '더 보기' 요소가 전혀 없음 = 작성자 말줄임표(전문)
-                    stats["author_ellipsis"] += 1
-                else:
-                    full_text_ok = False
-                    stats["truncated_debug"].append({"key": key, **dbg})
-
-            text = clean_text(r.get("text", ""))
-            label = r.get("timeLabel", "")
-            time_info = parse_time_label(label)
-            decision, reasons, job = evaluate_post_isolated(key, text, time_info, full_text_ok, location,
-                                                            r.get("images"), now, stats["max_age_days"])
-            if decision == "accepted":
-                if text[:80] in seen_text:
-                    decision, reasons, job = "dup_in_run", ["같은 실행 안에서 같은 본문"], None
-                else:
-                    seen_text.add(text[:80])
-            age_h = post_age_hours(time_info, now)
-            first_line = next((l.strip() for l in text.split("\n") if l.strip()), "")[:70]
-            stats["decisions"].append({
-                "key": key, "step": step, "time_label": label,
-                "age_h": None if age_h is None else round(age_h, 1),
-                "time_precision": (time_info or {}).get("precision"),
-                "decision": decision, "reasons": reasons, "first_line": first_line,
-                # 놓친 구인글(오판) 측정용 본문 앞부분 — 결과 파일은 서버 state/(gitignore)에만 남는다
-                "text_head": text[:300],
-            })
-            stats["counts"][decision] = stats["counts"].get(decision, 0) + 1
-            if decision in HOLD_DECISIONS:
-                stats["hold_keys"].append(key)  # 보류함 보관이 성공한 뒤에만 '본 글'로 기록(hold_review_posts)
-            elif decision in ERROR_DECISIONS:
-                stats["error_keys"].append(key)  # 파서·수집기 오류 — 보류함도 '본 글'도 아님(JOB_ERRORS에 기록됨), 다음 실행에서 다시 읽음
-            else:
-                (stats["final_keys"] if decision in FINAL_DECISIONS else stats["retry_keys"]).append(key)
-            if decision in ("self_promo", "truncated", "too_old", "time_unknown", "accepted", "review", "policy_excluded", "parser_error", "office", "not_job"):
-                print(f"    [{decision}] {key} {label!r} {first_line[:50]!r}")
-            if job:
-                job.update({"fb_post_key": key, "fb_time": time_info,
-                            "fb_age_hours": None if age_h is None else round(age_h, 1)})
-                if decision in HOLD_DECISIONS:
-                    job["_hold_reason"] = "; ".join(reasons)[:80]
-                    job["_hold_reasons"] = list(reasons)
-                    stats["held_jobs"].append(job)  # 저장 후보가 아니다 — 보류함에 보관할 글
+            new_ids: list[str] = []
+            for r in data["posts"]:
+                key = post_key(r)
+                if key in processed:
                     continue
-                jobs.append(job)
-                if len(jobs) >= TARGET_PER_GROUP:
-                    break
+                processed.add(key)
+                new_ids.append(key)
+                if not r.get("postUrl"):
+                    stats["id_missing"] += 1
+                if key in prev_seen:
+                    stats["overlap"] += 1
+                    stats["decisions"].append({"key": key, "step": step, "decision": "seen_before"})
+                    continue
 
-        before = await feed_metrics(page)
-        await advance_feed(page)
-        after = await feed_metrics(page)
-        # 문서 높이는 새 글 없이도 수십 px씩 늘 수 있어(2026-09-28 Bắc Ninh: 스텝마다 +16px)
-        # 200px 이상 늘었을 때만 진전으로 본다.
-        progress = (bool(new_ids) or after["total"] > data["total"]
-                    or after["docHeight"] - before["docHeight"] >= 200)
-        stats["trace"].append({
-            "step": step, "total": data["total"], "filled": len(data["posts"]),
-            "empty_above": data["above"], "empty_pending": data["pending"],
-            "new_ids": new_ids, "total_after_scroll": after["total"],
-            "doc_height": [before["docHeight"], after["docHeight"]], "scroll_y": [before["scrollY"], after["scrollY"]],
-        })
-        print(f"    스텝 {step}: 요소 {data['total']}(채움 {len(data['posts'])}·위 빈칸 {data['above']}·아래 빈칸 {data['pending']}) "
-              f"새 ID {len(new_ids)} → 스크롤 후 요소 {after['total']}, 문서 높이 {before['docHeight']}→{after['docHeight']}")
-        stall, ended = stall_decision(progress, stall)
-        if ended:
-            stats["stop_reason"] = "feed_end" if data["pending"] == 0 else "feed_stalled"
-            break
+                full_text_ok = True
+                if is_truncated_post(r.get("text", ""), r.get("hasSeeMore", False)):
+                    again = await expand_and_reread(page, r["idx"])
+                    dbg = again.get("debug") or {}
+                    if again.get("text"):
+                        r = {**r, "text": again["text"], "hasSeeMore": False}
+                        stats["expanded"] += 1
+                    elif dbg.get("reason") == "no_button" and not dbg.get("candidates"):
+                        # '…'로 끝나지만 '더 보기' 요소가 전혀 없음 = 작성자 말줄임표(전문)
+                        stats["author_ellipsis"] += 1
+                    else:
+                        full_text_ok = False
+                        stats["truncated_debug"].append({"key": key, **dbg})
+
+                text = clean_text(r.get("text", ""))
+                label = r.get("timeLabel", "")
+                time_info = parse_time_label(label)
+                decision, reasons, job = evaluate_post_isolated(key, text, time_info, full_text_ok, location,
+                                                                r.get("images"), now, stats["max_age_days"])
+                if decision == "accepted":
+                    if text[:80] in seen_text:
+                        decision, reasons, job = "dup_in_run", ["같은 실행 안에서 같은 본문"], None
+                    else:
+                        seen_text.add(text[:80])
+                age_h = post_age_hours(time_info, now)
+                first_line = next((l.strip() for l in text.split("\n") if l.strip()), "")[:70]
+                stats["decisions"].append({
+                    "key": key, "step": step, "time_label": label,
+                    "age_h": None if age_h is None else round(age_h, 1),
+                    "time_precision": (time_info or {}).get("precision"),
+                    "decision": decision, "reasons": reasons, "first_line": first_line,
+                    # 놓친 구인글(오판) 측정용 본문 앞부분 — 결과 파일은 서버 state/(gitignore)에만 남는다
+                    "text_head": text[:300],
+                })
+                stats["counts"][decision] = stats["counts"].get(decision, 0) + 1
+                if decision in HOLD_DECISIONS:
+                    stats["hold_keys"].append(key)  # 보류함 보관이 성공한 뒤에만 '본 글'로 기록(hold_review_posts)
+                elif decision in ERROR_DECISIONS:
+                    stats["error_keys"].append(key)  # 파서·수집기 오류 — 보류함도 '본 글'도 아님(JOB_ERRORS에 기록됨), 다음 실행에서 다시 읽음
+                else:
+                    (stats["final_keys"] if decision in FINAL_DECISIONS else stats["retry_keys"]).append(key)
+                if decision in ("self_promo", "truncated", "too_old", "time_unknown", "accepted", "review", "policy_excluded", "parser_error", "office", "not_job"):
+                    print(f"    [{decision}] {key} {label!r} {first_line[:50]!r}")
+                if job:
+                    job.update({"fb_post_key": key, "fb_time": time_info,
+                                "fb_age_hours": None if age_h is None else round(age_h, 1)})
+                    if decision in HOLD_DECISIONS:
+                        job["_hold_reason"] = "; ".join(reasons)[:80]
+                        job["_hold_reasons"] = list(reasons)
+                        stats["held_jobs"].append(job)  # 저장 후보가 아니다 — 보류함에 보관할 글
+                        continue
+                    jobs.append(job)
+                    if len(jobs) >= TARGET_PER_GROUP:
+                        break
+
+            before = await feed_metrics(page)
+            await advance_feed(page)
+            after = await feed_metrics(page)
+            # 문서 높이는 새 글 없이도 수십 px씩 늘 수 있어(2026-09-28 Bắc Ninh: 스텝마다 +16px)
+            # 200px 이상 늘었을 때만 진전으로 본다.
+            progress = (bool(new_ids) or after["total"] > data["total"]
+                        or after["docHeight"] - before["docHeight"] >= 200)
+            stats["trace"].append({
+                "step": step, "total": data["total"], "filled": len(data["posts"]),
+                "empty_above": data["above"], "empty_pending": data["pending"],
+                "new_ids": new_ids, "total_after_scroll": after["total"],
+                "doc_height": [before["docHeight"], after["docHeight"]], "scroll_y": [before["scrollY"], after["scrollY"]],
+            })
+            print(f"    스텝 {step}: 요소 {data['total']}(채움 {len(data['posts'])}·위 빈칸 {data['above']}·아래 빈칸 {data['pending']}) "
+                  f"새 ID {len(new_ids)} → 스크롤 후 요소 {after['total']}, 문서 높이 {before['docHeight']}→{after['docHeight']}")
+            stall, ended = stall_decision(progress, stall)
+            if ended:
+                stats["stop_reason"] = "feed_end" if data["pending"] == 0 else "feed_stalled"
+                break
+    except Exception as exc:  # noqa: BLE001 — 페이지 이동만 여기서 다룬다(그 밖의 오류는 그대로 올린다)
+        if not page_navigated(exc):
+            raise
+        # 스크롤 중 페이지가 다른 곳으로 바뀜(2026-11-25 run 45530723068: Execution context was destroyed) — 그때까지 읽은 후보는 지키고
+        # 기존 페이지 상태 판정으로 다시 본다: 로그인·확인 요청이면 기존 계정 정지(AccountStop), 아니면 이 그룹만 멈춘다(다음 실행에서 다시).
+        print(f"    ↪ 페이지 이동으로 스크롤 중단(스텝 {step}): {str(exc)[:120]}")
+        stats["stop_reason"] = "page_navigated"
+        try:
+            await page.wait_for_load_state("domcontentloaded")
+        except Exception:  # noqa: BLE001 — 상태 판정은 아래에서 다시 한다
+            pass
+        state = await inspect_page_state(page)
+        if state != "ok":
+            stats["state"] = state
+            await save_evidence(page, url, state)
+            if state in ("checkpoint", "session_expired"):
+                raise AccountStop(state, url)
 
     stats["steps"] = step
     stats["jobs"] = len(jobs)
@@ -1148,8 +1172,8 @@ async def crawl_group(page, target: dict, prev_seen: set[str], max_age_days: flo
     stats["oldest_age_h"] = max(ages) if ages else None
     stats["order_consistency"] = order_consistency(ages)
     stats["miss_risk"] = miss_risk(bool(prev_seen), stats["overlap"], stats["oldest_age_h"])
-    if filled_total == 0:
-        # 로그인·피드는 정상인데 게시물을 하나도 못 읽음 = 화면 구조 변경 의심
+    if filled_total == 0 and stats["stop_reason"] != "page_navigated":
+        # 로그인·피드는 정상인데 게시물을 하나도 못 읽음 = 화면 구조 변경 의심(페이지 이동으로 멈춘 경우는 구조 변경이 아니다)
         stats["state"] = "no_posts"
         await save_evidence(page, url, "no_posts")
     elif stats["id_missing"] * 2 > filled_total:

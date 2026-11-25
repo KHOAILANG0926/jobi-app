@@ -235,6 +235,65 @@ class FacebookDbRuleRejectionKept(unittest.TestCase):
             self.assertEqual(self.seen, {}, "수동 선택 저장은 '본 글' 기록을 만들지 않는다")
 
 
+class FacebookScrollNavigation(unittest.TestCase):
+    """스크롤 중 페이지가 바뀌어(run 45530723068: 'Execution context was destroyed') 실행 전체가 실패하지 않는다 —
+    그때까지 읽은 후보는 지키고 기존 페이지 상태 판정으로 다시 본다(로그인·확인 요청이면 기존 계정 정지, 아니면 이 그룹만 멈춤)."""
+
+    def _run(self, state_after, *, other_error=False):
+        import asyncio
+        calls = {"expand": 0, "evidence": []}
+        nav = RuntimeError("Page.evaluate: Execution context was destroyed, most likely because of a navigation")
+
+        async def expand(page):
+            calls["expand"] += 1
+            if calls["expand"] == 2:
+                raise (ValueError("boom") if other_error else nav)
+
+        async def extract(page):
+            return {"posts": [], "pending": 0, "above": 0, "total": 3}
+
+        async def metrics(page):
+            return {"total": 3 + calls["expand"], "docHeight": 1000 * calls["expand"], "scrollY": 0}
+
+        states = iter(["ok", state_after])
+
+        async def state(page):
+            return next(states)
+
+        async def ok(*a, **k):
+            return True
+
+        async def none(*a, **k):
+            return None
+
+        async def evidence(page, url, st):
+            calls["evidence"].append(st)
+
+        async def count(page):
+            return 3
+
+        page = types.SimpleNamespace(title=lambda: asyncio.sleep(0, result="group"), wait_for_timeout=none, wait_for_load_state=none)
+        with mock.patch.object(fb, "goto_with_retry", ok), mock.patch.object(fb, "inspect_page_state", state), \
+                mock.patch.object(fb, "article_count", count), mock.patch.object(fb, "expand_visible_posts", expand), \
+                mock.patch.object(fb, "extract_visible_posts", extract), mock.patch.object(fb, "feed_metrics", metrics), \
+                mock.patch.object(fb, "advance_feed", none), mock.patch.object(fb, "save_evidence", evidence):
+            return asyncio.run(fb.crawl_group(page, {"url": "https://www.facebook.com/groups/x", "location": "Bắc Ninh"}, set())), calls
+
+    def test_navigation_stops_this_group_only(self):
+        (jobs, stats), calls = self._run("ok")
+        self.assertEqual(stats["stop_reason"], "page_navigated")
+        self.assertEqual(stats["state"], "ok")
+        self.assertEqual(jobs, [])
+
+    def test_navigation_to_login_is_account_stop(self):
+        with self.assertRaises(fb.AccountStop):
+            self._run("session_expired")
+
+    def test_other_errors_still_raise(self):
+        with self.assertRaises(ValueError):
+            self._run("ok", other_error=True)
+
+
 class FacebookRetryNextRun(unittest.TestCase):
     """실패 공고가 다음 실행에서 누락되지 않는지 — '본 글' 상태 파일을 실제로 쓰고 읽어 두 번 실행한다."""
 
