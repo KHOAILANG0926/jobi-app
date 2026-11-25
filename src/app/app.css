@@ -447,3 +447,19 @@ body {
 .app-bizcv p { margin: 0 0 4px; }
 .app-bizcv h4 { margin: 8px 0 2px; font-size: 14px; }
 .app-bizcv__muted { color: var(--app-muted); }
+
+/* ── 2단계 ⑤: 공고 등록(기업) ── */
+.app-pj { gap: 16px; }
+.app-pj__sec { display: flex; flex-direction: column; gap: 14px; padding: 14px; border: 1px solid var(--app-line); border-radius: 18px; background: #fff; }
+.app-pj__sec h2 { margin: 0; font-size: 17px; }
+.app-pj__req { color: var(--app-primary); }
+.app-pj__count { align-self: flex-end; font-size: 12px; color: var(--app-muted); }
+.app-pj__check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 400; min-height: 32px; }
+.app-pj__check input { width: 20px; height: 20px; }
+.app-pj__pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.app-pj .app-field input:not([type=checkbox]):not([type=file]), .app-pj .app-field select { min-height: 48px; padding: 0 12px; border: 1px solid var(--app-line); border-radius: 14px; font: inherit; font-weight: 400; font-size: 16px; background: #fff; color: var(--app-text); width: 100%; box-sizing: border-box; }
+.app-pj .app-field input:disabled, .app-pj .app-field select:disabled { background: #f3f4f6; color: var(--app-muted); }
+.app-pj__summary { display: flex; justify-content: space-between; gap: 8px; text-align: left; min-height: 44px; padding: 8px 12px; border: 1px solid var(--app-line); border-radius: 14px; background: #fff; font: inherit; font-size: 14px; font-weight: 400; cursor: pointer; }
+.app-pj__panel { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--app-line); border-radius: 14px; background: #fafafa; }
+.app-pj__bad { color: #b42318; font-size: 12px; font-weight: 400; }
+.app-pj__done { display: flex; flex-direction: column; gap: 10px; padding: 8px var(--app-gutter); }
