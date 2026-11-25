@@ -188,6 +188,15 @@ def test_process_url_without_confirm_write_still_blocked() -> None:
     assert_true("confirm-write" in msg, f"--confirm-write 안내가 있어야 함, got: {msg!r}")
 
 
+def test_save_details_requires_confirm_write() -> None:
+    assert_equal(_mode_for(["--save-details", "d.json", "--confirm-write"]), "save_details", "정기 저장 모드")
+    assert_true("--confirm-write" in _raises_system_exit(["--save-details", "d.json"]), "--confirm-write 없으면 저장 안 함")
+    assert_true("--confirm-write" in _raises_system_exit(["--save-details", "d.json", "--confirm-write", "--publish-one"]),
+                "--publish-one과 섞지 않음")
+    assert_true("하나만" in _raises_system_exit(["--save-details", "d.json", "--dry-run-urls", "u", "--confirm-write"]),
+                "다른 실행 모드와 섞지 않음")
+
+
 def main() -> int:
     tests = [
         test_no_args_blocks_full_crawl_before_it_starts,
@@ -211,6 +220,7 @@ def main() -> int:
         test_existing_reprocess_ids_mode_unaffected,
         test_existing_verify_write_urls_mode_unaffected,
         test_process_url_without_confirm_write_still_blocked,
+        test_save_details_requires_confirm_write,
     ]
     for test in tests:
         test()

@@ -507,6 +507,28 @@ class Vieclam24hSourceIdentity(unittest.TestCase):
                       "제목이 바뀌고 꼬리표가 달라도 같은 원문 글이면 같은 기존 공고")
 
 
+class Vieclam24hScheduledSave(unittest.TestCase):
+    """정기 수집 저장(--save-details): VPS 상세를 정기 저장 경로(save_to_supabase) 하나로 — 제외·오류 공고만 빠지고 나머지는 저장."""
+
+    def test_saves_through_regular_path_and_isolates_errors(self):
+        async def fake_from_detail(url, detail):
+            if url == "boom":
+                raise RuntimeError("파싱 실패")
+            if url == "skip":
+                return {"_skip": True, "_skip_reason": "deadline_expired", "title": "마감"}
+            return {"source_url": url, "title": url, "active": False, "publish_gate_reason": "no_contact"}
+
+        saved = []
+        topcv.JOB_ERRORS.reset()
+        with mock.patch.object(topcv, "job_from_detail", fake_from_detail), \
+             mock.patch.object(topcv, "save_to_supabase", lambda jobs, **_k: saved.extend(jobs)):
+            import asyncio
+            asyncio.run(topcv.save_details([{"url": u, "detail": {}} for u in ("a", "boom", "skip", "b")]))
+        self.assertEqual([j["source_url"] for j in saved], ["a", "b"], "연락처 없는 공고도 저장 경로로(공개는 DB 판정)")
+        self.assertEqual(len(topcv.JOB_ERRORS.failed), 1)
+        topcv.JOB_ERRORS.reset()
+
+
 class TopcvRetryNextRun(unittest.TestCase):
     """TopCV는 '본 글' 상태 없이 DB에 있는 원문 주소(source_url)로 새 공고를 가린다 —
     오류로 저장 못 한 공고는 DB에 없으므로 다음 수집에서 다시 신규로 처리되는지, 실제 upsert_job_record로 두 번 돌린다."""
