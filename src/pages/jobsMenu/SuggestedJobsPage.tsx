@@ -6,13 +6,13 @@ import JobsTable, { type JobsTableRow } from '../../components/JobsTable'
 import { useApply } from '../../components/useApply'
 import { useAuth } from '../../context/AuthContext'
 import { useJobs } from '../../context/JobsContext'
-import { CATEGORY_LABELS } from '../../data/categories'
-import { JOB_REGIONS, jobMatchesRegion, type JobRegionId } from '../../data/jobRegions'
+import { JOB_REGIONS, type JobRegionId } from '../../data/jobRegions'
 import { loadApplications } from '../../lib/applicationsStorage'
 import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../../lib/jobsListView'
-import { hasPrefs, loadPrefs } from '../../lib/recommendStorage'
+import { hasSuggestionSignal, preferredCategoryCounts, suggestJobs } from '../../lib/jobSuggestions'
+import { loadPrefs } from '../../lib/recommendStorage'
 import { loadSavedJobIds } from '../../lib/storage'
-import type { Job, JobCategory } from '../../types/job'
+import type { Job } from '../../types/job'
 import SalaryText from '../../components/SalaryText'
 
 function formatShortDate(iso: string | undefined) {
@@ -38,7 +38,6 @@ export default function SuggestedJobsPage() {
   const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedJobIds(user?.id))
   const [appliedJobs, setAppliedJobs] = useState<Job[]>([])
   const prefs = useMemo(() => loadPrefs(), [])
-  const prefsActive = hasPrefs(prefs)
 
   const [view, setView] = useState<JobsViewMode>(() => loadJobsViewMode())
   const [dateRange, setDateRange] = useState<DateRangeFilter>('all')
@@ -73,49 +72,18 @@ export default function SuggestedJobsPage() {
     [savedIds, jobs],
   )
 
-  // 관심 업종 = 저장했거나 지원한 공고들의 category 빈도수
-  const preferredCategories = useMemo(() => {
-    const counts = new Map<JobCategory, number>()
-    for (const j of [...savedJobs, ...appliedJobs]) {
-      counts.set(j.category, (counts.get(j.category) ?? 0) + 1)
-    }
-    return counts
-  }, [savedJobs, appliedJobs])
-
-  const hasSignal = preferredCategories.size > 0 || (prefsActive && !!prefs.regionId)
+  // 관심 업종·신호·추천 판정은 lib/jobSuggestions.ts 한 곳(앱과 공유) — 아래는 그 함수를 부르기만 한다.
+  const preferredCategories = useMemo(() => preferredCategoryCounts(savedJobs, appliedJobs), [savedJobs, appliedJobs])
+  const hasSignal = hasSuggestionSignal(preferredCategories, prefs.regionId as JobRegionId | undefined)
 
   const regionLabel = prefs.regionId
     ? JOB_REGIONS.find((r) => r.id === prefs.regionId)?.label
     : undefined
 
-  const suggestions = useMemo(() => {
-    if (!hasSignal) return []
-    // 지역 조건이 맞춤 공고에서 이미 설정돼 있으면 그 지역 밖 공고는 아예
-    // 제외한다(다른 근거 점수가 높다는 이유로 지역 밖 공고를 섞지 않음).
-    let candidates = prefs.regionId
-      ? jobs.filter((j) => jobMatchesRegion(j.location, prefs.regionId as JobRegionId, j.workLocations))
-      : jobs
-    const savedOrAppliedIds = new Set([...savedJobs, ...appliedJobs].map((j) => j.id))
-    candidates = candidates.filter((j) => !savedOrAppliedIds.has(j.id))
-
-    const withReasons = candidates.map((job) => {
-      const reasons: string[] = []
-      let weight = 0
-      const catCount = preferredCategories.get(job.category)
-      if (catCount) {
-        reasons.push(`Ngành quan tâm: ${CATEGORY_LABELS[job.category]}`)
-        weight += catCount
-      }
-      if (prefs.regionId && regionLabel) {
-        reasons.push(`Trong khu vực bạn đã chọn ở Việc làm phù hợp: ${regionLabel}`)
-        weight += 1
-      }
-      return { job, reasons, weight }
-    }).filter((r) => r.reasons.length > 0)
-
-    return withReasons
-      .sort((a, b) => b.weight - a.weight || (b.job.hireCount ?? 0) - (a.job.hireCount ?? 0))
-  }, [hasSignal, jobs, prefs.regionId, regionLabel, preferredCategories, savedJobs, appliedJobs])
+  const suggestions = useMemo(
+    () => suggestJobs({ jobs, savedJobs, appliedJobs, regionId: prefs.regionId as JobRegionId | undefined, regionLabel }),
+    [jobs, prefs.regionId, regionLabel, savedJobs, appliedJobs],
+  )
 
   const filteredSuggestions = useMemo(
     () => suggestions.filter((s) => matchesDateRange(s.job.postedAt, dateRange)),
