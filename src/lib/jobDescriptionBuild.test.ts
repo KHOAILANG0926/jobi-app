@@ -151,3 +151,26 @@ console.log('jobDescriptionBuild.test.ts: 실제 원문 #4878·#4879 + 글자 �
   assert(b.description.split('\n').filter((l) => l.trim() === 'Phục vụ bàn').length === 1 && !b.description.includes('#TuyenDung'), '같은 줄 반복·해시태그는 뺌')
   console.log('jobDescriptionBuild.test.ts: 검사 쪽 기준으로 빠짐 아닌 줄만 뺌(#5342·#5368·#5437) 통과')
 }
+
+// 2026-11-26 #701 B 공통 원인(만드는 쪽·검사 쪽이 '뺄 수 있는 줄'을 따로 판단): 사례를 하나씩 더하는 대신, 저장소의 Lee 제공 원문 전부로
+// 만들기 → 검사표(inspectJob)를 돌려 '원문 줄 빠짐'이 하나도 없는지 본다. 새 원문 JSON(scripts/ops/jobs/*.json)이 들어오면 자동으로 대상이 된다.
+{
+  // node:fs는 src/ tsconfig(브라우저 타입)에 타입이 없어 이름을 변수에 담아 동적 import(다른 시험과 같은 방식)
+  const fsModule = 'node:fs'
+  const { readdirSync, readFileSync } = (await import(/* @vite-ignore */ fsModule)) as { readdirSync: (d: URL) => string[]; readFileSync: (f: URL, enc: string) => string }
+  const { inspectJob } = await import('./jobInspect.ts')
+  const dir = new URL('../../scripts/ops/jobs/', import.meta.url)
+  let checked = 0
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+    const raw = JSON.parse(readFileSync(new URL(f, dir), 'utf8'))
+    const j = raw.job ?? raw
+    if (!j.source_text) continue
+    const built = buildDescriptionFromSources([{ name: 'source_text', text: j.source_text }], { title: j.title, company: j.company, salary: j.salary, phones: [j.employer_phone, j.contact_zalo], addresses: [j.location] })
+    const r = inspectJob({ id: 1, title: j.title, company: j.company, contact_name: j.contact_name, salary: j.salary, description: built.description, source_text: j.source_text, phones: [j.employer_phone, j.contact_zalo], addresses: [j.location], pin: 'area', category: 'nha_hang', occupation_code: '5', active: true })
+    const lost = r.items.find((i) => i.key === 'source_lost')
+    assert(!!lost && lost.ok, `${f}: 만든 상세요강을 검사표가 '원문 줄 빠짐'으로 잡음 — ${lost?.detail} (만드는 쪽과 검사 쪽의 '뺄 수 있는 줄' 판단이 어긋남)`)
+    checked++
+  }
+  assert(checked >= 8, `원문 JSON ${checked}개만 대조됨(>=8 기대) — 시험이 비어 있지 않은지 확인`)
+  console.log(`jobDescriptionBuild.test.ts: 저장소 원문 ${checked}개 → 만들기→검사표 '원문 줄 빠짐' 0 통과`)
+}
