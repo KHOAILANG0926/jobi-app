@@ -5,8 +5,8 @@ import http from 'node:http'
 const [port, oldPort, newPort, nextPort] = process.argv.slice(2).map(Number)
 let target = newPort
 http.createServer((req, res) => {
-  const u = new URL(req.url, 'http://x')
-  if (u.pathname === '/__switch') { const to = u.searchParams.get('to'); target = to === 'old' ? oldPort : to === 'next' ? nextPort : newPort; res.end(String(target)); return }
+  const [path, query = ''] = (req.url ?? '/').split('?')
+  if (path === '/__switch') { const to = new URLSearchParams(query).get('to'); target = to === 'old' ? oldPort : to === 'next' ? nextPort : newPort; res.end(String(target)); return }
   const up = http.request({ host: '127.0.0.1', port: target, method: req.method, path: req.url, headers: { ...req.headers, host: `127.0.0.1:${target}` } }, (r) => { res.writeHead(r.statusCode ?? 502, r.headers); r.pipe(res) })
   up.on('error', () => { res.statusCode = 502; res.end() })
   req.pipe(up)
