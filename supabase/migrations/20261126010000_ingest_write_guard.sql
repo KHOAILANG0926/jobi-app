@@ -1,0 +1,32 @@
+-- 통합 운영 정상화 J그룹 2순위(Lee 2026-11-26): 공고 쓰기 정식 입구(ingest_job)의 우회·덮어쓰기 구멍 두 군데를 기존 입구 본문 안에서 닫는다.
+-- 새 표·새 RPC·새 트리거 없음 — ingest_job 본문의 줄 두 곳만 바꾼다(20261112020000·20261124000000과 같은 방식: 줄이 없거나 둘이면 RAISE로 전체 취소).
+--  ① 기업(employer) 경로는 source_url을 받지 않는다 — 공고 원문 주소는 수집·관리자 경로만 쓴다. 임의 주소로 입구를 불러 그 주소를 선점해 나중에 들어오는 같은 주소의 수집 공고가
+--     '중복'으로 걸러지게 만드는 길을 막는다(기업 화면은 source_url을 보내지 않는다 — src/ 전체 검색으로 확인).
+--  ② 수집(crawler_*) 경로는 기업·관리자 공고의 칸을 다시 수집으로 덮어쓰지 않는다 — job_id 지정 또는 다시 수집(refresh)에서 대상 공고의 origin이 crawler가 아니면 쓸 칸을 비운다.
+--     (이미 active·공개 판정 칸은 origin이 다르면 빼고 있었다 — 같은 원칙을 나머지 칸으로 넓힘. 기업·관리자 공고는 자기 경로로만 고친다.)
+-- 위치(work_locations)는 그대로: 수집 경로가 비수집 공고에 보내면 replace_job_work_locations가 이미 거부한다(20261026231445).
+-- 데이터 변경 없음(함수 본문 교체만). 운영 DB 데이터·기존 공고는 바뀌지 않는다.
+begin;
+do $patch$
+declare definition text;
+ old_origin text := 'origin_v := case when ch like ''crawler_%'' then ''crawler'' when ch = ''employer'' then ''employer'' else ''admin'' end;';
+ new_origin text := 'origin_v := case when ch like ''crawler_%'' then ''crawler'' when ch = ''employer'' then ''employer'' else ''admin'' end;
+  -- 쓰기 입구 보호(2026-11-26): 기업 경로는 원문 주소(source_url)를 받지 않는다 — 임의 주소 선점 차단
+  if ch = ''employer'' then p := p - ''source_url''; end if;';
+ old_gate text := 'if st.origin is distinct from origin_v or st.admin_hidden then';
+ new_gate text := 'if ch like ''crawler_%'' and st.origin is distinct from ''crawler'' then
+        -- 쓰기 입구 보호(2026-11-26): 수집 경로는 기업·관리자 공고의 칸을 다시 수집으로 덮어쓰지 않는다
+        fields := ''{}''::jsonb;
+        perform ingest_private.log(raw_id, ''dedup'', ''refresh_skipped:origin:'' || coalesce(st.origin, ''?''));
+      end if;
+      if st.origin is distinct from origin_v or st.admin_hidden then';
+begin
+ select pg_get_functiondef('public.ingest_job(jsonb)'::regprocedure) into definition;
+ if position('refresh_skipped:origin' in definition) > 0 then raise exception 'ingest write guard: 이미 적용됨'; end if;
+ if position(old_origin in definition) = 0 then raise exception 'ingest write guard: ingest_job origin 줄을 찾지 못함'; end if;
+ if position(old_origin in substr(definition, position(old_origin in definition) + 1)) > 0 then raise exception 'ingest write guard: ingest_job origin 줄이 둘 이상'; end if;
+ if position(old_gate in definition) = 0 then raise exception 'ingest write guard: ingest_job 갱신 칸 보호 줄을 찾지 못함'; end if;
+ if position(old_gate in substr(definition, position(old_gate in definition) + 1)) > 0 then raise exception 'ingest write guard: ingest_job 갱신 칸 보호 줄이 둘 이상'; end if;
+ execute replace(replace(definition, old_origin, new_origin), old_gate, new_gate);
+end $patch$;
+commit;
