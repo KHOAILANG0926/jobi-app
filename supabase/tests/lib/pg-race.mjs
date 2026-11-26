@@ -49,8 +49,10 @@ export class Sess {
   }
   async pid() { return Number((await this.run('select pg_backend_pid();')).trim().split('\n').pop()) }
   // 역할·로그인 사용자로 트랜잭션 시작(Supabase와 같은 방식: 역할 전환 + auth.uid()가 읽는 설정값)
+  // 요청 역할(anon·authenticated·service_role)은 Supabase와 같은 연결 구조로 만든다: 로그인 역할 authenticator로 들어와 요청 역할로 바뀐다 → session_user=authenticator.
+  // (예전에는 세션 사용자가 시험 계정 그대로라 session_user로 호출자를 보는 확인이 실제와 다르게 통과했다 — job_duplicate_decide 수정 시험에서 발견.)
   async begin(role, sub, claims) {
-    let q = `begin; set local role ${role};`
+    let q = `begin;${['anon', 'authenticated', 'service_role'].includes(role) ? ' set local session authorization authenticator;' : ''} set local role ${role};`
     if (sub) q += ` select set_config('request.jwt.claim.sub', '${sub}', true) as x \\gset\n`
     if (claims) q += ` select set_config('request.jwt.claims', '${JSON.stringify(claims)}', true) as y \\gset\n`
     return this.run(q)
@@ -98,6 +100,8 @@ do $$ begin
   if not exists (select from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
 end $$;
 alter role service_role bypassrls; -- Supabase와 같게(다른 시험 fixture가 먼저 만든 역할이어도)
+do $r$ begin if not exists (select from pg_roles where rolname = 'authenticator') then create role authenticator nologin; end if; end $r$;
+grant anon, authenticated, service_role to authenticator;
 -- Supabase 기본 설정과 같게: public에 새로 만든 함수는 anon·authenticated·service_role이 실행 가능(migration이 revoke 한 것만 막힘)
 alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
 create schema auth;
