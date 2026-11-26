@@ -34,12 +34,13 @@ jobs:
         with: { version: latest }
       - name: 격리 스택 시작 (PostgreSQL 17 + GoTrue + PostgREST + Storage)
         run: |
-          STACK="$RUNNER_TEMP/stack"; mkdir -p "$STACK"
-          supabase init --workdir "$STACK"
-          CONF=$(find "$STACK" -name config.toml | head -1); echo "설정 파일: ${CONF#$STACK/}"
+          # supabase CLI는 .git이 있는 가장 가까운 폴더를 프로젝트 루트로 본다 — 저장소(supabase/ 폴더에 migration이 있음)와 섞이지 않게 빈 폴더를 따로 git 저장소로 만든다.
+          STACK="$RUNNER_TEMP/stack"; mkdir -p "$STACK" && git -C "$STACK" init -q
+          (cd "$STACK" && supabase init)
+          CONF="$STACK/supabase/config.toml"; ls -la "$STACK/supabase" || find "$STACK" "$GITHUB_WORKSPACE" -maxdepth 3 -name config.toml -not -path '*/node_modules/*'
           sed -i 's/^major_version = .*/major_version = 17/' "$CONF"
-          supabase start --workdir "$STACK" -x studio,imgproxy,mailpit,postgres-meta,edge-runtime,logflare,vector,supavisor,realtime
-          supabase status --workdir "$STACK" -o env > "$RUNNER_TEMP/stack.env"
+          (cd "$STACK" && supabase start -x studio,imgproxy,mailpit,postgres-meta,edge-runtime,logflare,vector,supavisor,realtime)
+          (cd "$STACK" && supabase status -o env) > "$RUNNER_TEMP/stack.env"
           set -a; . "$RUNNER_TEMP/stack.env"; set +a
           echo "::add-mask::$ANON_KEY"; echo "::add-mask::$SERVICE_ROLE_KEY"
           { echo "LOCAL_API_URL=$API_URL"; echo "LOCAL_DB_URL=$DB_URL"; echo "LOCAL_ANON_KEY=$ANON_KEY"; echo "LOCAL_SERVICE_KEY=$SERVICE_ROLE_KEY"; } >> "$GITHUB_ENV"
