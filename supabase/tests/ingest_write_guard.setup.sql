@@ -4,6 +4,7 @@ create schema if not exists ingest_private;
 create or replace function public.ingest_job(p jsonb) returns bigint language plpgsql as $f$
 declare ch text := p->>'channel'; origin_v text; st record; fields jsonb := '{}'::jsonb; raw_id bigint; hash text := 'h';
 begin
+  hash := coalesce(p->>'branch_location', 'h');   -- 운영 본문에 있는 지점 위치 줄(20261124000000)의 대역 — 운영 점검이 이 줄이 남아 있는지 본다
   raw_id := ingest_private.open_raw(ch, null, null, null, null, p, hash);
   origin_v := case when ch like 'crawler_%' then 'crawler' when ch = 'employer' then 'employer' else 'admin' end;
   if st.origin is distinct from origin_v or st.admin_hidden then
