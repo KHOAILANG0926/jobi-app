@@ -251,7 +251,7 @@ if (jobId) {
     const pe = { ...base('emp'), channel: 'employer', employer_id: users.employer.id, source_url: 'https://example.com/e2e-squat' }
     const a = await reg(et, pe), b = await reg(et, pe)
     rec('K3', '기업 경로 같은 내용 재등록은 같은 공고로 돌아옴(중복 판정)', a.status === 200 && b.status === 200 && a.json === b.json, `${a.json} / ${b.json}`)
-    const row = await call('GET', `/rest/v1/local_jobs?select=id,origin,source_url&id=eq.${a.json}`, { token: et })
+    const row = await call('GET', `/rest/v1/local_jobs?select=id,origin,source_url&id=eq.${a.json}`, { token: SERVICE }) // origin·source_url은 일반 로그인 사용자에게 열 권한이 없어 서버 키로 읽는다
     rec('K4', '기업 경로는 origin=employer로 저장되고 원문 주소(source_url)를 받지 않음', row.json?.[0]?.origin === 'employer' && row.json?.[0]?.source_url == null, JSON.stringify(row.json?.[0] ?? {}).slice(0, 100))
     // 수집 경로(서버 키)가 기업 공고를 다시 수집으로 덮어쓰지 못함
     const over = await reg(SERVICE, { ...base('emp'), channel: 'crawler_topcv', job_id: a.json, refresh: true, title: 'CRAWLER OVERWRITE', salary: '1 triệu', update_fields: ['title', 'salary'] })
@@ -376,6 +376,61 @@ if (BASE && jobId) {
       rec('J5', '웹 기업 관리 화면(/bang-dieu-khien)에도 같은 공고가 보임(앱 등록 → 웹 확인)', inWeb)
       await page.screenshot({ path: `${SHOTS}/web-dashboard-after-app-post.png` })
     } catch (e) { rec('J0', '앱 등록→웹 확인 교차', false, e.message.split('\n')[0]) }
+    await context.close()
+  }
+  // ── 앱·웹 업데이트 뒤 호환(G): 새 빌드가 올라간 뒤에도 ① 옛 캐시 조각이 새 화면을 가리지 않고 ② 옛 모양·깨진 저장값이 있어도 화면이 죽지 않고 ③ 만료된 접근 토큰은 새로고침 토큰으로 조용히 이어진다 ──
+  {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(context)
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 120)))
+    const tokenCalls = []
+    page.on('response', (r) => { if (/\/auth\/v1\/token\?grant_type=refresh_token/.test(r.url())) tokenCalls.push(r.status()) })
+    const alive = async (label, url, ready) => {
+      errors.length = 0
+      await page.goto(`${BASE}${url}`, { waitUntil: 'domcontentloaded' })
+      const ok = await page.locator(ready).first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
+      const rootText = await page.evaluate(() => (document.getElementById('root')?.innerText ?? '').length)
+      return { ok: ok && rootText > 20 && errors.length === 0, note: `${label}: 화면 ${ok ? '뜸' : '안 뜸'} / 글자 ${rootText} / 스크립트 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''}` }
+    }
+    try {
+      await page.goto(`${BASE}/dang-nhap`, { waitUntil: 'domcontentloaded' })
+      await page.locator('input[type="email"]').fill(users.seeker.email)
+      await page.locator('input[type="password"]').fill(PW)
+      await page.locator('button[type="submit"]').click()
+      await page.waitForFunction(() => Object.keys(localStorage).some((k) => /auth-token/.test(k)), null, { timeout: 30_000 })
+      // ① 옛 버전 캐시 조각(가짜 화면)을 심고 새로고침 — 서비스 워커는 항상 네트워크(sw.js), 옛 캐시는 쓰지 않아야 한다
+      await page.evaluate(async () => { for (const n of ['viecganban-v1', 'viecganban-v2']) { const c = await caches.open(n); await c.put('/', new Response('<html><body>STALE-BUILD</body></html>', { headers: { 'content-type': 'text/html' } })) } })
+      const staleBefore = await page.evaluate(async () => (await caches.keys()).filter((k) => /^viecganban-v[12]$/.test(k)).length)
+      const w = await alive('웹 홈', '/', 'header, [data-testid], main')
+      const stale = await page.evaluate(() => document.body.innerText.includes('STALE-BUILD'))
+      rec('L1', '옛 버전 캐시 조각이 남아 있어도 새 화면이 그대로 뜸(캐시가 화면을 가리지 않음)', staleBefore === 2 && w.ok && !stale, w.note)
+      // ② 옛 모양·깨진 저장값: 같은 키에 JSON이 아닌 글, 모양이 다른 값(배열↔객체), null을 넣는다
+      const uid = users.seeker.id
+      await page.evaluate((id) => {
+        const bad = ['{not json', '"str"', '123', '[]', '{"x":1}', 'null', '[1,"a",null]']
+        const keys = ['vgb:app:region', 'vgb:map-r1:viewport', 'vgb_notifications', 'vgb_notif_seen_statuses', 'vgb_notif_seen_deadlines', 'vgb_jobs_view_mode', 'vgb_posted_jobs', 'vgb_profile', 'vgb_saved_job_ids', 'vgb_near_me_address_history', 'vgb_location_prompt_v1', 'vgb_local_profile_cv_claimed_by', 'vgb_cv_draft', 'vgb:postjob-preview', 'vgb:postjob-draft', 'vgb:postjob-contact', 'vgb_account_import:' + id]
+        let i = 0
+        for (const k of keys) for (const scope of ['', ':' + id, ':guest']) localStorage.setItem(k + scope, bad[i++ % bad.length])
+      }, uid)
+      const results = []
+      for (const [label, url, ready] of [['웹 홈', '/', 'header, main'], ['웹 프로필', '/ho-so', 'header, main'], ['웹 공고 상세', `/viec-lam/sb-${jobId}`, 'header, main'], ['앱 홈', '/app/', '[data-testid="app-tabbar"]'], ['앱 내 정보', '/app/ho-so', '[data-testid="app-tabbar"]'], ['앱 기업', '/app/biz', '[data-testid="app-tabbar"]']]) results.push(await alive(label, url, ready))
+      rec('L2', '옛 모양·깨진 저장값(JSON 아님·모양 다름·null)이 있어도 웹 3화면·앱 3화면이 죽지 않음', results.every((r) => r.ok), results.filter((r) => !r.ok).map((r) => r.note).join(' / ') || `${results.length}화면 모두 정상`)
+      // ③ 접근 토큰 만료 + 새로고침 토큰 유효 → 새로고침 뒤 자동 갱신으로 로그인 유지
+      await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => /auth-token/.test(x)); const v = JSON.parse(localStorage.getItem(k)); v.expires_at = 1; v.expires_in = 0; localStorage.setItem(k, JSON.stringify(v)) })
+      tokenCalls.length = 0
+      await page.goto(`${BASE}/app/ho-so`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
+      await page.waitForTimeout(3000)
+      const after = await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => /auth-token/.test(x)); try { const v = JSON.parse(localStorage.getItem(k)); return { email: v.user?.email, exp: v.expires_at } } catch { return {} } })
+      rec('L3', '접근 토큰이 만료돼도 새로고침 토큰으로 조용히 갱신되어 로그인 유지(앱)', tokenCalls.includes(200) && after.email === users.seeker.email && after.exp > Math.floor(Date.now() / 1000), `갱신 요청 ${tokenCalls.join(',') || '없음'} / 만료 ${after.exp}`)
+      // ④ 새로고침 토큰까지 못 쓰게 된 세션(서버에서 전체 로그아웃) → 화면이 죽지 않고 로그아웃 상태로 열림
+      const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: users.seeker.email, password: PW } })
+      await call('POST', '/auth/v1/logout?scope=global', { token: l.json?.access_token })
+      const dead = await alive('앱 홈(세션 폐기)', '/app/', '[data-testid="app-tabbar"]')
+      const deadWeb = await alive('웹 홈(세션 폐기)', '/', 'header, main')
+      rec('L4', '서버에서 세션이 폐기돼도(옛 기기) 웹·앱이 죽지 않고 열림', dead.ok && deadWeb.ok, `${dead.note} / ${deadWeb.note}`)
+    } catch (e) { rec('L0', '업데이트 뒤 캐시·세션 호환', false, e.message.split('\n')[0]) }
     await context.close()
   }
   rec('G1', '브라우저에서 운영 주소(Supabase·서비스)로 나간 요청 없음(전부 로컬로 바꿔 보내거나 막음)', !reachedProd(), `바깥 호스트 ${[...outside].join(',') || '없음'}`)
