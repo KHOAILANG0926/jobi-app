@@ -169,6 +169,30 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertNotIn("--site", command)  # 기본 --site = vieclam24h(crawl_topcv.py는 vieclam24h 수집기)
         self.assertEqual(pure_namespace()["build_arg_parser"]().parse_args(command[2:]).site, "vieclam24h")
 
+    def test_catchup_slots_match_schedule_and_cap(self):
+        # #1071: 정기 예약·보충 호출이 같은 '오늘 자리' 2개(목록 위치 0=02:23, 10=08:23 UTC)를 쓰고 자리당 하루 1번(20건 상한)
+        wf = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
+        catchup = (ROOT / "scripts/ci/crawl-catchup.sh").read_text(encoding="utf-8")
+        crons = re.findall(r"- cron: '(\d+) (\d+) \* \* \*'", wf)
+        self.assertEqual(crons, [("23", "2"), ("23", "8")])
+        slots = re.search(r'SLOTS=\((.*?)\)', catchup).group(1)
+        self.assertEqual(re.findall(r'"(\d+) (\d\d:\d\d)"', slots), [("0", "02:23"), ("10", "08:23")], "보충 자리 시각이 예약과 같아야 함")
+        # 예약의 목록 위치(08:23=10, 그 밖=0)와 보충이 넘기는 목록 위치가 같은 식을 쓴다
+        self.assertIn("'23 8 * * *' && '10' || '0'", wf)
+        # 제목(run-name)에 목록 위치·건수 — 자리 판정(crawl-slot.sh)이 읽는 값
+        self.assertIn("run-name: ${{ format('채용공고 자동 크롤링 · 목록 위치 {0} · {1}건'", wf)
+        slot_job = wf.split("\n  slot:\n", 1)[1].split("\n  crawl:\n", 1)[0]
+        self.assertIn("scripts/ci/crawl-slot.sh taken", slot_job)
+        self.assertIn("CRAWL_SLOT_ME: ${{ github.run_id }}", slot_job)
+        self.assertNotIn("secrets.", slot_job)
+        self.assertIn("    needs: slot\n", wf)
+        # 보충은 수집·보관만(저장 잡을 돌리는 입력을 넘기지 않음) + 정기 DB 저장 중단 그대로
+        self.assertIn("-f dry_run=true", catchup)
+        self.assertIn("-f keep_for_save=true", catchup)
+        self.assertNotIn("verify_save_run_id", catchup)
+        self.assertNotIn("publish_one", catchup)
+        self.assertIn("if: false && github.event_name == 'schedule'", wf)
+
     def test_actions_manual_confirmation_is_opt_in(self):
         # Lee 2026-11-17 #872·#881: 열쇠 없는 VPS 수집 + Lee 2026-11-25 정기 수집 재개(하루 20건 = 10건 × 2번)
         source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
@@ -182,8 +206,10 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertNotIn("secrets.", crawl)
         self.assertNotIn("environment: ops-keys", crawl)
         job_if = [l.strip() for l in source.splitlines() if l.startswith("    if:")]
+        slot_if = "github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run && inputs.verify_save_run_id == '')"
         self.assertEqual(job_if, [
-            "if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run && inputs.verify_save_run_id == '')",
+            "if: " + slot_if,   # slot 잡(#1071: 오늘 자리 판정)
+            "if: needs.slot.outputs.skip != 'true' && (" + slot_if + ")",   # crawl 잡: 자리가 이미 찼으면 건너뜀
             # Lee 2026-11-26 「웹 정상화 종료 전 신규 공개 금지 … 정기 DB 저장만 일시 중단」: 정기 저장 잡은 꺼 둔다(수집·원문 보관은 그대로).
             "if: false && github.event_name == 'schedule'",
             "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.verify_save_run_id != ''"])
@@ -311,7 +337,7 @@ class ScheduledCallerTests(unittest.TestCase):
         reqs = (ROOT / "crawler/requirements.txt").read_text(encoding="utf-8")
         runs_on = [l.split(":", 1)[1].strip() for l in full.splitlines() if l.strip().startswith("runs-on:")]
         # Lee 2026-11-17 #872: GitHub 서버는 vieclam24h가 403으로 막음 → 기존 VPS 실행기에서 소량 시험(Facebook과 폴더 분리)
-        self.assertEqual(runs_on, ["[self-hosted, Linux, X64]", "ubuntu-22.04", "ubuntu-22.04"])  # 수집 VPS · 정기 저장 · 검증 저장
+        self.assertEqual(runs_on, ["ubuntu-22.04", "[self-hosted, Linux, X64]", "ubuntu-22.04", "ubuntu-22.04"])  # 자리 판정(slot, #1071, 열쇠 없음) · 수집 VPS · 정기 저장 · 검증 저장
         self.assertIn("path: vieclam24h-run", source)
         self.assertIn("working-directory: vieclam24h-run", source)
         self.assertNotIn("/tmp/", source)
