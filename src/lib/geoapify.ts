@@ -1,3 +1,4 @@
+import { kvLocal } from './kvStore'
 /**
  * Geoapify 지오코딩 — 기존에 JobLocationMap.tsx가 지도 타일용으로 쓰던
  * VITE_GEOAPIFY_API_KEY를 재사용한다(새 API 키/공급자 도입 없음). 이
@@ -55,7 +56,7 @@ const MAX_HISTORY = 5
 
 export function getAddressSearchHistory(): string[] {
   try {
-    const raw = localStorage.getItem(HISTORY_KEY)
+    const raw = kvLocal.get(HISTORY_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
@@ -69,14 +70,14 @@ export function addAddressSearchHistory(query: string): void {
   if (!q) return
   try {
     const existing = getAddressSearchHistory().filter((v) => v.toLowerCase() !== q.toLowerCase())
-    localStorage.setItem(HISTORY_KEY, JSON.stringify([q, ...existing].slice(0, MAX_HISTORY)))
+    kvLocal.set(HISTORY_KEY, JSON.stringify([q, ...existing].slice(0, MAX_HISTORY)))
   } catch {
     // ignore — 히스토리 저장 실패해도 검색 자체는 계속 동작해야 함
   }
 }
 
 export function clearAddressSearchHistory(): void {
-  try { localStorage.removeItem(HISTORY_KEY) } catch { /* ignore */ }
+  try { kvLocal.remove(HISTORY_KEY) } catch { /* ignore */ }
 }
 
 /** 주소/지역 텍스트 → 좌표 후보 목록(최대 5개, 베트남 내로 한정). 사용자가

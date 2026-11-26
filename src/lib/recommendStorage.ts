@@ -1,6 +1,8 @@
 import type { Job, JobCategory } from '../types/job'
 import { jobMatchesRegion, type JobRegionId } from '../data/jobRegions'
 import { normalizeViText } from './jobCoords'
+import { kvLocal } from './kvStore'
+import { emitEvent } from './eventBus'
 
 export type TimeSlot = 'morning' | 'afternoon' | 'evening' | 'weekend' | 'flexible'
 
@@ -68,7 +70,7 @@ const EMPTY: RecommendPrefs = {
 
 export function loadPrefs(): RecommendPrefs {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = kvLocal.get(KEY)
     if (!raw) return { ...EMPTY }
     return { ...EMPTY, ...JSON.parse(raw) }
   } catch {
@@ -77,8 +79,8 @@ export function loadPrefs(): RecommendPrefs {
 }
 
 export function savePrefs(prefs: RecommendPrefs): void {
-  localStorage.setItem(KEY, JSON.stringify(prefs))
-  window.dispatchEvent(new CustomEvent('vgb:recommend-prefs'))
+  kvLocal.set(KEY, JSON.stringify(prefs))
+  emitEvent('recommend-prefs')
 }
 
 export function hasPrefs(p: RecommendPrefs): boolean {

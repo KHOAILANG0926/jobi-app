@@ -1,3 +1,4 @@
+import { kvLocal } from './kvStore'
 // 2026-09-20 사용자 지시("Việc làm của tôi" 4개 페이지에 알바몬 스타일
 // 표 뷰 적용, "스타일은 알바몬하고 최대한 동일하게") — 카드/표 전환과 등록일
 // 필터를 4개 페이지가 공유하는 작은 헬퍼. 뷰 모드는 한 번 고르면 4개 페이지
@@ -10,7 +11,7 @@ const VIEW_KEY = 'vgb_jobs_view_mode'
 
 export function loadJobsViewMode(): JobsViewMode {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'grid'
+    return kvLocal.get(VIEW_KEY) === 'table' ? 'table' : 'grid'
   } catch {
     return 'grid'
   }
@@ -18,7 +19,7 @@ export function loadJobsViewMode(): JobsViewMode {
 
 export function saveJobsViewMode(mode: JobsViewMode): void {
   try {
-    localStorage.setItem(VIEW_KEY, mode)
+    kvLocal.set(VIEW_KEY, mode)
   } catch {
     // ignore — 저장 실패해도 화면 전환 자체는 계속 동작해야 함
   }

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { toAppJobId, toDbJobId } from './jobId'
+import { emitEvent } from './eventBus'
 
 export type ApplicationStatus =
   | 'submitted'
@@ -120,7 +121,7 @@ export async function addApplication(entry: {
     console.error('addApplication failed', error)
     return { ok: false, reason: 'error' }
   }
-  window.dispatchEvent(new CustomEvent('vgb:applications'))
+  emitEvent('applications')
   return { ok: true }
 }
 
@@ -144,7 +145,7 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
     console.error('updateApplicationStatus update failed', error)
     return false
   }
-  window.dispatchEvent(new CustomEvent('vgb:applications'))
+  emitEvent('applications')
   return true
 }
 
@@ -155,7 +156,7 @@ export async function cancelApplication(id: string): Promise<boolean> {
     console.error('cancelApplication failed', error)
     return false
   }
-  window.dispatchEvent(new CustomEvent('vgb:applications'))
+  emitEvent('applications')
   return true
 }
 
