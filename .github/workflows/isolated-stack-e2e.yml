@@ -90,11 +90,11 @@ jobs:
         run: |
           git worktree add "$RUNNER_TEMP/old" "$OLD_REF"
           (cd "$RUNNER_TEMP/old" && npm ci && npm run build)
-      - name: 다음 버전 빌드 (같은 소스에서 메시지 화면 파일 한 줄만 바꿔 조각 파일 이름이 달라지게 — 현재 버전에서 그다음 배포로 넘어가는 경우 시험용)
+      - name: 다음 버전 빌드 (같은 소스에서 내 정보 화면 파일 한 줄(실행되는 코드)만 바꿔 조각 파일 이름이 달라지게 — 현재 버전에서 그다음 배포로 넘어가는 경우 시험용)
         run: |
           git worktree add "$RUNNER_TEMP/next" HEAD
           ln -s "$PWD/node_modules" "$RUNNER_TEMP/next/node_modules"
-          echo "// next-build-marker" >> "$RUNNER_TEMP/next/src/app/inbox/MessagesScreen.tsx"
+          echo "console.debug('next-build-marker')" >> "$RUNNER_TEMP/next/src/app/account/MeScreen.tsx"
           (cd "$RUNNER_TEMP/next" && npm run build)
       - name: 앱 띄우기 (새 빌드 4173 · 옛 빌드 4174 · 다음 빌드 4175 · 전환 프록시 4180)
         run: |
