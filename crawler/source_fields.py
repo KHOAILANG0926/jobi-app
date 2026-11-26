@@ -4,6 +4,7 @@ DB 규칙 장치(job_posting_rules, PR #60·#62)가 요구하는 값을 수집 �
 - source_text: 원문 글자 그대로(제목+본문). 요약·번역·성조 추가 금지. 공백 줄이기 같은 가공도 하지 않는다(앞뒤 공백만 제거).
 - contact_name: 원문에 있으면 원문 글자 그대로의 부분 문자열, 없으면 None.
 - age_min/age_max: 원문에 연령 범위("14-50t", "18-35 tuổi", "tuổi: 18-35")가 있을 때 그 숫자. 없으면 None.
+- employment_type: 원문에 고용형태 낱말이 한 종류만 분명히 있을 때(full_time·part_time·seasonal). 없거나 여러 종류면 None(추정 금지).
 - 저장이 규칙(job_rule_Rx / job_posting_policy_excluded)에 걸려 거부되면 그 공고만 건너뛰고 사유별 건수를 센다.
 """
 from __future__ import annotations
@@ -54,8 +55,43 @@ def extract_contact_name(text: str | None) -> str | None:
     return None
 
 
+# 고용형태(Lee 2026-11-25): 원문에 적힌 낱말만 — DB 허용 값 full_time·part_time·seasonal(20261007013659 check).
+# 화면 직무 줄 판독(src/lib/sourceRecruitmentRoles.ts)과 같은 낱말(full/part time·toàn/bán thời gian)에 thời vụ만 더한다.
+_EMPLOYMENT_WORDS = (
+    ("full_time", re.compile(r"(?<![^\W_])(?:full\s*[- ]?time|toàn\s+thời\s+gian|toan\s+thoi\s+gian)(?![^\W_])", re.I)),
+    ("part_time", re.compile(r"(?<![^\W_])(?:part\s*[- ]?time|partime|bán\s+thời\s+gian|ban\s+thoi\s+gian)(?![^\W_])", re.I)),
+    ("seasonal", re.compile(r"(?<![^\W_])(?:thời\s+vụ|thoi\s+vu)(?![^\W_])", re.I)),
+)
+_EMPLOYMENT_LABEL = re.compile(r"^\s*[-•*]?\s*(?:hình\s+thức(?:\s+làm\s+việc)?|hinh\s+thuc(?:\s+lam\s+viec)?|loại\s+hình|loai\s+hinh)\s*[:：]\s*(.+)$", re.I | re.M)
+_PERMANENT = re.compile(r"(?<![^\W_])(?:chính\s+thức|chinh\s+thuc)(?![^\W_])", re.I)
+_NEGATED_EMPLOYMENT = re.compile(r"(?:không|khong|ko)\s+(?:phải\s+|phai\s+|nhận\s+|nhan\s+|tuyển\s+|tuyen\s+)?$", re.I)
+
+
+def _employment_kinds(text: str) -> set[str]:
+    kinds = set()
+    for kind, rx in _EMPLOYMENT_WORDS:
+        for m in rx.finditer(text):
+            if not _NEGATED_EMPLOYMENT.search(text[max(0, m.start() - 20):m.start()]):  # "không nhận part time"은 근거가 아니다
+                kinds.add(kind)
+    if "seasonal" in kinds and _PERMANENT.search(text):  # "Chính thức và Thời vụ"(FUSHAN 원문) = 두 종류 — 고르지 않는다
+        kinds.add("permanent")
+    return kinds
+
+
+def extract_employment_type(text: str | None) -> str | None:
+    """원문의 고용형태. 사이트 칸·이름표 줄("Hình thức làm việc: Toàn thời gian")이 한 종류면 그 값, 없으면 글 전체에서 한 종류만 나올 때.
+    두 종류 이상(예: 직무별 Fulltime/Parttime)이거나 낱말이 없으면 None — 고르거나 추정하지 않는다."""
+    t = text or ""
+    for m in _EMPLOYMENT_LABEL.finditer(t):
+        kinds = _employment_kinds(m.group(1))
+        if len(kinds) == 1:
+            return next(iter(kinds))
+    kinds = _employment_kinds(t)
+    return next(iter(kinds)) if len(kinds) == 1 else None
+
+
 def source_fields(title: str | None, body: str | None, extras: tuple | list = ()) -> dict:
-    """저장 payload에 합칠 원문 근거 칸 4개(+contact_name).
+    """저장 payload에 합칠 원문 근거 칸(source_text·contact_name·age_min·age_max·employment_type).
 
     extras: 원문 페이지의 구조화된 칸(회사명·연락처·급여·주소 등)에서 읽은 값. 가공 없이 제목과 본문 사이에 줄 단위로 넣는다.
     페이지에 없던 값(우리가 추정·보정한 값)은 넣지 않는다 — 넣으면 R5(원문 그대로) 대조가 무의미해진다."""
@@ -66,6 +102,7 @@ def source_fields(title: str | None, body: str | None, extras: tuple | list = ()
         "contact_name": extract_contact_name(text),
         "age_min": age_min,
         "age_max": age_max,
+        "employment_type": extract_employment_type(text),
     }
 
 
