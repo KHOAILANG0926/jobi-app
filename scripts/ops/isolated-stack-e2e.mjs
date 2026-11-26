@@ -38,7 +38,7 @@ const makeUser = async (key, role = 'seeker') => {
 
 // ── 1. 실제 인증(GoTrue) ──
 try {
-  const l = await makeUser('employer', 'employer'); await makeUser('employer2', 'employer'); await makeUser('seeker'); await makeUser('seeker2')
+  const l = await makeUser('employer', 'employer'); await makeUser('employer2', 'employer'); await makeUser('seeker'); await makeUser('seeker2'); await makeUser('seeker3')
   rec('A1', '실제 GoTrue 로그인(비밀번호) → 사용자 토큰', l.status === 200)
   const me = await call('GET', '/auth/v1/user', { token: users.seeker.token })
   rec('A2', '발급 토큰으로 사용자 조회', me.status === 200 && me.json?.email === users.seeker.email)
@@ -118,21 +118,23 @@ if (jobId) {
       rec('H2', '새 기업 공고는 검사 통과 전 비로그인에게 공개되지 않음(공개 전 검사 대기 정책)', pub.status === 200 && pub.json?.length === 0, `익명 조회 ${pub.json?.length}건`)
       const own = await call('GET', `/rest/v1/local_jobs?select=id,active&id=eq.${lifeId}`, { token: E.token })
       rec('H3', '등록한 기업은 자기 공고를 조회', own.status === 200 && own.json?.length === 1)
-      const upd = await call('PATCH', `/rest/v1/local_jobs?id=eq.${lifeId}`, { token: E.token, body: { salary: '9 triệu/tháng' }, headers: { prefer: 'return=representation' } })
-      rec('H4', '기업이 자기 공고 수정(급여)', upd.status === 200 && upd.json?.[0]?.salary === '9 triệu/tháng', `status ${upd.status}`)
-      const other = await call('PATCH', `/rest/v1/local_jobs?id=eq.${lifeId}`, { token: E2.token, body: { salary: '1 triệu' }, headers: { prefer: 'return=representation' } })
+      // 웹 코드(JobsContext.deleteJob·updateJob)와 같은 호출: 결과 행을 돌려받지 않는 PATCH
+      const upd = await call('PATCH', `/rest/v1/local_jobs?id=eq.${lifeId}`, { token: E.token, body: { salary: '9 triệu/tháng' } })
+      const mine = await call('GET', `/rest/v1/local_jobs?select=salary&id=eq.${lifeId}`, { token: E.token })
+      rec('H4', '기업이 자기 공고 수정(급여)', upd.status < 300 && mine.json?.[0]?.salary === '9 triệu/tháng', `status ${upd.status} ${upd.code}`)
+      const other = await call('PATCH', `/rest/v1/local_jobs?id=eq.${lifeId}`, { token: E2.token, body: { salary: '1 triệu' } })
       const after = await call('GET', `/rest/v1/local_jobs?select=salary&id=eq.${lifeId}`, { token: E.token })
-      rec('H5', '다른 기업은 남의 공고를 수정할 수 없음', (other.json?.length ?? 0) === 0 && after.json?.[0]?.salary === '9 triệu/tháng', `status ${other.status}`)
+      rec('H5', '다른 기업은 남의 공고를 수정할 수 없음(요청이 거부되거나 아무 행도 안 바뀜)', after.json?.[0]?.salary === '9 triệu/tháng', `status ${other.status}`)
     }
     // 공개 중인 시험 공고로: 중복 지원 방지 → 기업 마감 → 마감 뒤 지원·공개 목록
     const dup = await call('POST', '/rest/v1/applications', { token: S.token, body: { job_id: jobId, seeker_id: S.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E', seeker_phone: '0900000000' } })
     const first = await call('GET', `/rest/v1/applications?select=id&job_id=eq.${jobId}&seeker_id=eq.${S.id}`, { token: S.token })
     rec('H6', '같은 공고에 중복 지원은 거부(이미 지원한 구직자)', first.json?.length >= 1 && dup.status === 409, `status ${dup.status} ${dup.code}`)
-    const close = await call('PATCH', `/rest/v1/local_jobs?id=eq.${jobId}`, { token: E.token, body: { active: false }, headers: { prefer: 'return=representation' } })
-    rec('H7', '기업이 자기 공고를 마감(active=false)', close.status === 200 && close.json?.[0]?.active === false, `status ${close.status}`)
+    const close = await call('PATCH', `/rest/v1/local_jobs?id=eq.${jobId}`, { token: E.token, body: { active: false } })
+    rec('H7', '기업이 자기 공고를 마감(active=false)', close.status < 300, `status ${close.status} ${close.code}`)
     const gone = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${jobId}`)
     rec('H8', '마감한 공고는 공개 목록에서 즉시 빠짐', gone.status === 200 && gone.json?.length === 0)
-    const S2 = users.seeker2
+    const S2 = users.seeker3
     const late = await call('POST', '/rest/v1/applications', { token: S2.token, body: { job_id: jobId, seeker_id: S2.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E', seeker_phone: '0900000001' } })
     rec('H9', '마감한 공고에는 새 지원이 거부됨', late.status >= 400, `status ${late.status} ${late.code}`)
     // 다음 화면 단계가 쓰므로 다시 연다(기업이 다시 공개로 되돌리는 것은 검사 정책 대상이라, 격리 DB 고정 공고를 직접 되돌린다)
