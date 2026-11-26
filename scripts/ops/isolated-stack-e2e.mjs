@@ -26,9 +26,9 @@ const RUN = Date.now()
 const PW = `Pw-${RUN}-aA1!`
 const COMPANY = 'E2E Isolated Co', TITLE = 'E2E Isolated Role'
 const users = {}
-const makeUser = async (key) => {
+const makeUser = async (key, role = 'seeker') => {
   const email = `e2e-${key}-${RUN}@example.com`
-  const c = await call('POST', '/auth/v1/admin/users', { token: SERVICE, body: { email, password: PW, email_confirm: true } })
+  const c = await call('POST', '/auth/v1/admin/users', { token: SERVICE, body: { email, password: PW, email_confirm: true, user_metadata: { role } } })
   if (c.status !== 200 || !c.json?.id) throw new Error(`계정 생성 실패(${key}): ${c.status} ${c.code}`)
   const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email, password: PW } })
   if (l.status !== 200 || !l.json?.access_token) throw new Error(`로그인 실패(${key}): ${l.status} ${l.code}`)
@@ -38,7 +38,7 @@ const makeUser = async (key) => {
 
 // ── 1. 실제 인증(GoTrue) ──
 try {
-  const l = await makeUser('employer'); await makeUser('seeker'); await makeUser('seeker2')
+  const l = await makeUser('employer', 'employer'); await makeUser('employer2', 'employer'); await makeUser('seeker'); await makeUser('seeker2'); await makeUser('seeker3')
   rec('A1', '실제 GoTrue 로그인(비밀번호) → 사용자 토큰', l.status === 200)
   const me = await call('GET', '/auth/v1/user', { token: users.seeker.token })
   rec('A2', '발급 토큰으로 사용자 조회', me.status === 200 && me.json?.email === users.seeker.email)
@@ -77,6 +77,8 @@ const flows = (label) => [
   ['익명: 관리자 함수(admin_set_job_hidden) 호출은 거부되고 공고는 그대로', async () => { const r = await call('POST', '/rest/v1/rpc/admin_set_job_hidden', { body: { target_job_id: jobId, hidden: true, reason: 'e2e' } }); const s = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${jobId}`); return r.status >= 400 && s.json?.length === 1 }],
   ['익명: 관리자 목록(admin_list_users) 호출은 거부', async () => { const r = await call('POST', '/rest/v1/rpc/admin_list_users', { body: {} }); return r.status >= 400 }],
   ['일반 구직자: 관리자 함수(admin_set_job_hidden) 호출은 거부되고 공고는 그대로', async () => { const u = users[`seeker${label === 'after' ? '2' : ''}`]; const r = await call('POST', '/rest/v1/rpc/admin_set_job_hidden', { token: u.token, body: { target_job_id: jobId, hidden: true, reason: 'e2e' } }); const s = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${jobId}`); return r.status >= 400 && s.json?.length === 1 }],
+  ['익명·일반 구직자: 관리자 함수(admin_set_account_status) 호출은 거부되고 계정 상태 그대로', async () => { const u = users[`seeker${label === 'after' ? '2' : ''}`]; const a = await call('POST', '/rest/v1/rpc/admin_set_account_status', { body: { target_user_id: users.employer.id, next_status: 'suspended', reason: 'e2e' } }); const b = await call('POST', '/rest/v1/rpc/admin_set_account_status', { token: u.token, body: { target_user_id: users.employer.id, next_status: 'suspended', reason: 'e2e' } }); return a.status >= 400 && b.status >= 400 && sql(`select status from public.account_statuses where user_id = '${users.employer.id}'`) === 'active' }],
+  ['익명·일반 구직자: 관리자 함수(admin_handle_report) 호출은 거부', async () => { const u = users[`seeker${label === 'after' ? '2' : ''}`]; const id = '00000000-0000-0000-0000-000000000000'; const a = await call('POST', '/rest/v1/rpc/admin_handle_report', { body: { target_report_id: id, next_status: 'resolved', note: 'e2e' } }); const b = await call('POST', '/rest/v1/rpc/admin_handle_report', { token: u.token, body: { target_report_id: id, next_status: 'resolved', note: 'e2e' } }); return a.status >= 400 && b.status >= 400 && /admin access required|42501/.test(JSON.stringify([a.json, b.json])) }],
   ['구직자: 공고 목록', async () => { const r = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${jobId}`, { token: users[`seeker${label === 'after' ? '2' : ''}`].token }); return r.status === 200 && r.json?.length === 1 }],
   ['구직자: 사이트 안 지원(applications insert)', async () => { const u = users[`seeker${label === 'after' ? '2' : ''}`]; const r = await call('POST', '/rest/v1/applications', { token: u.token, body: { job_id: jobId, seeker_id: u.id, employer_id: users.employer.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E', seeker_phone: '0900000000' } }); flows.apply = r.status; return r.status === 201 }],
   ['구직자: 남의 이름으로 지원은 거부', async () => { const u = users[`seeker${label === 'after' ? '2' : ''}`]; const r = await call('POST', '/rest/v1/applications', { token: u.token, body: { job_id: jobId, seeker_id: users.employer.id, employer_id: users.employer.id } }); return r.status === 401 || r.status === 403 }],
@@ -102,6 +104,49 @@ if (jobId) {
     // 실험 결과(관찰): 격리 DB에서 anon 실행 권한을 회수해 본 것이므로 통과·실패가 아니라 '무엇이 깨지는지'를 남긴다 — 대표 결정 항목(0020 초안)의 근거.
     observe('E3', 'anon 회수 뒤에도 유지되는 익명 흐름', ['익명: 공개 공고 목록', '익명: 게스트 등록(ingest_job)', '익명: 게스트 관리 링크 조회(get_guest_job)'].filter((n) => after[n]).join(' / ') || '없음')
   } finally { if (had) sql(`grant execute on function public.is_account_active(uuid) to anon`) }
+}
+
+// ── 3-2. 기업 이용 과정(실제 인증·PostgREST·DB): 등록 → 공개 전 검사 대기 → 수정 → 남의 수정 차단 → 마감, 지원 중복 방지, 세션 만료 뒤 재로그인 ──
+if (jobId) {
+  const E = users.employer, E2 = users.employer2, S = users.seeker
+  try {
+    const reg = await call('POST', '/rest/v1/rpc/ingest_job', { token: E.token, body: { p: { channel: 'employer', employer_id: E.id, source_text: 'E2E Life Co\nTuyen nhan vien chay ban nha hang\nKCN Yen Phong, Bac Ninh\nLH 0912345678', company: 'E2E Life Co', title: 'Nhan vien chay ban nha hang', description: 'Phuc vu ban an tai nha hang', location: 'KCN Yen Phong, Bac Ninh', employer_phone: '0912345678', active: true, occupation_code: '5', occupation_evidence: 'Tuyen nhan vien chay ban nha hang' } } })
+    const lifeId = reg.json
+    rec('H1', '기업회원 공고 등록(실제 ingest_job, 기업 토큰)', reg.status === 200 && Number.isInteger(lifeId), `status ${reg.status} ${reg.code}`)
+    if (Number.isInteger(lifeId)) {
+      const pub = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${lifeId}`)
+      rec('H2', '새 기업 공고는 검사 통과 전 비로그인에게 공개되지 않음(공개 전 검사 대기 정책)', pub.status === 200 && pub.json?.length === 0, `익명 조회 ${pub.json?.length}건`)
+      const own = await call('GET', `/rest/v1/local_jobs?select=id,active&id=eq.${lifeId}`, { token: E.token })
+      rec('H3', '등록한 기업은 자기 공고를 조회', own.status === 200 && own.json?.length === 1)
+      // 웹 코드(JobsContext.deleteJob·updateJob)와 같은 호출: 결과 행을 돌려받지 않는 PATCH
+      const upd = await call('PATCH', `/rest/v1/local_jobs?id=eq.${lifeId}`, { token: E.token, body: { salary: '9 triệu/tháng' } })
+      const mine = await call('GET', `/rest/v1/local_jobs?select=salary&id=eq.${lifeId}`, { token: E.token })
+      rec('H4', '기업이 자기 공고 수정(급여)', upd.status < 300 && mine.json?.[0]?.salary === '9 triệu/tháng', `status ${upd.status} ${upd.code}`)
+      const other = await call('PATCH', `/rest/v1/local_jobs?id=eq.${lifeId}`, { token: E2.token, body: { salary: '1 triệu' } })
+      const after = await call('GET', `/rest/v1/local_jobs?select=salary&id=eq.${lifeId}`, { token: E.token })
+      rec('H5', '다른 기업은 남의 공고를 수정할 수 없음(요청이 거부되거나 아무 행도 안 바뀜)', after.json?.[0]?.salary === '9 triệu/tháng', `status ${other.status}`)
+    }
+    // 공개 중인 시험 공고로: 중복 지원 방지 → 기업 마감 → 마감 뒤 지원·공개 목록
+    const dup = await call('POST', '/rest/v1/applications', { token: S.token, body: { job_id: jobId, seeker_id: S.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E', seeker_phone: '0900000000' } })
+    const first = await call('GET', `/rest/v1/applications?select=id&job_id=eq.${jobId}&seeker_id=eq.${S.id}`, { token: S.token })
+    rec('H6', '같은 공고에 중복 지원은 거부(이미 지원한 구직자)', first.json?.length >= 1 && dup.status === 409, `status ${dup.status} ${dup.code}`)
+    const close = await call('PATCH', `/rest/v1/local_jobs?id=eq.${jobId}`, { token: E.token, body: { active: false } })
+    rec('H7', '기업이 자기 공고를 마감(active=false)', close.status < 300, `status ${close.status} ${close.code}`)
+    const gone = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${jobId}`)
+    rec('H8', '마감한 공고는 공개 목록에서 즉시 빠짐', gone.status === 200 && gone.json?.length === 0)
+    const S2 = users.seeker3
+    const late = await call('POST', '/rest/v1/applications', { token: S2.token, body: { job_id: jobId, seeker_id: S2.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E', seeker_phone: '0900000001' } })
+    rec('H9', '마감한 공고에는 새 지원이 거부됨', late.status >= 400, `status ${late.status} ${late.code}`)
+    // 다음 화면 단계가 쓰므로 다시 연다(기업이 다시 공개로 되돌리는 것은 검사 정책 대상이라, 격리 DB 고정 공고를 직접 되돌린다)
+    sql(`alter table public.local_jobs disable trigger user; update public.local_jobs set active = true where id = ${jobId}; alter table public.local_jobs enable trigger user;`)
+    // 세션: 로그아웃하면 새로고침 토큰이 더 이상 통하지 않고, 다시 로그인하면 정상
+    const sess = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: S.email, password: PW } })
+    const rt = sess.json?.refresh_token
+    const out = await call('POST', '/auth/v1/logout?scope=global', { token: sess.json?.access_token })
+    const refreshed = await call('POST', '/auth/v1/token?grant_type=refresh_token', { body: { refresh_token: rt } })
+    const again = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: S.email, password: PW } })
+    rec('H10', '로그아웃 뒤 예전 새로고침 토큰은 거부되고 다시 로그인하면 정상', out.status < 300 && refreshed.status >= 400 && again.status === 200, `logout ${out.status} refresh ${refreshed.status} relogin ${again.status}`)
+  } catch (e) { rec('H0', '기업 이용 과정', false, e.message) }
 }
 
 // ── 4. 웹·앱 화면(실제 브라우저, 실제 로컬 스택) ──
