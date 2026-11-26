@@ -20,7 +20,8 @@ export async function checkedLocalJobUpdate(
 }
 // 공고 등록은 DB 입구 public.ingest_job 하나만 (Lee 2026-10-29). local_jobs에 직접 INSERT하면 DB가 거부한다.
 // 원문(source_text): 붙여 넣은 글이 있으면 그 글, 없으면 입력한 칸을 그대로 묶은 글(Lee 2026-10-29 확인).
-const NOT_SOURCE = new Set(['guest_manage_token', 'employer_id', 'lat', 'lng', 'images', 'image_url', 'active', 'admin_hidden', 'origin', 'posted_at'])
+// 직업코드·근거 칸은 원문이 아니다(#717 B): 원문에 넣으면 근거가 '원문에 있음' 검사를 스스로 통과한다 — 근거는 제목·업무 내용 글자여야 한다.
+const NOT_SOURCE = new Set(['guest_manage_token', 'employer_id', 'lat', 'lng', 'images', 'image_url', 'active', 'admin_hidden', 'origin', 'posted_at', 'occupation_code', 'occupation_evidence'])
 export function ingestSourceText(fields: Record<string, unknown>, pastedText?: string): string {
   const pasted = pastedText?.trim()
   if (pasted) return pasted

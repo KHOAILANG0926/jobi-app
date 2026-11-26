@@ -18,7 +18,7 @@ import { RECRUITMENT_LABELS, SHIFT_LABELS } from '../lib/jobConditions'
 import { BENEFIT_TAG_OPTIONS, composeAge, composeDescription, composeHires, composeHours, composeLocation, composeSalary, normalizeVnPhone, type PayUnit } from '../lib/postJobForm'
 import type { PinPoint } from '../components/job-form/LocationPinPicker'
 import { PREVIEW_KEY } from '../lib/postJobPreview'
-import { addDays, buildJobFields, emptyPostForm, preferenceText as preferenceTextOf, processText as processTextOf, salaryNoteText as salaryNoteTextOf, saveJobPin, uploadJobPhotos, validatePostForm, type PostFieldKey } from '../lib/postJobSubmit'
+import { addDays, buildJobFields, emptyPostForm, occupationNotice, preferenceText as preferenceTextOf, processText as processTextOf, salaryNoteText as salaryNoteTextOf, saveJobPin, uploadJobPhotos, validatePostForm, type PostFieldKey } from '../lib/postJobSubmit'
 import { AlbamonTemplateEditor } from '../components/template/AlbamonTemplate'
 import { sanitizeTemplateHtml } from '../lib/templateHtml'
 import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
@@ -487,6 +487,8 @@ export function PostJob() {
                 <span className="pj-picked">{CATEGORY_LABELS[form.category]}{form.subcategory && subcategoryOptions?.[form.subcategory] ? ` › ${subcategoryOptions[form.subcategory]}` : ''}</span>
               )}
             </div>
+            {/* #717 B(Lee 2026-11-25): 업직종 아래 직업분류 안내 한 줄 — 저장 때와 같은 판정(lib/postJobSubmit.occupationNotice). 틀·순서 그대로. */}
+            {occupationNotice(form) && <p className="pj-hint">{occupationNotice(form)}</p>}
             <Check checked={form.beginner} onChange={(v) => set('beginner', v)}>Không cần kinh nghiệm</Check>
           </Row>
           <Row label="Hình thức" req count={`${(form.employmentType ? 1 : 0) + (form.employmentTypeExtra || conditions.recruitmentType === 'agency' ? 1 : 0)}/2`}>

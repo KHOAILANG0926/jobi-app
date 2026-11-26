@@ -22,3 +22,6 @@ android/project/
 # 개인 PC의 Claude Code 권한 설정(모든 권한 묻지 않기 등) — 저장소에 올리면 GitHub 자동 작업도 그 설정을 읽어 도구 제한이 무력해진다(#612)
 .claude/settings.local.json
 __pycache__/
+
+# TypeScript 증분 빌드 캐시(tsc -b가 매번 바꿈) — 추적하면 모든 PR이 이 파일에서 병합 충돌을 낸다(2026-11-25 구조 정리 1번)
+*.tsbuildinfo
