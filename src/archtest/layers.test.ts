@@ -16,11 +16,9 @@ function assert(c: unknown, m: string): asserts c {
 // ---- 지금 있는 위반(알려진 빚). 새로 생기는 위반만 실패시킨다. 고치면 여기서 지운다. -------------------------------------
 // 키 = 순수하지 않은 src 파일, 값 = 왜 아직 허용하는지.
 const KNOWN_API: Record<string, string> = {
-  'src/lib/adminVietmapClient.ts': '서버 위치 확인 묶음(autoLocationResolver → chototAutoLocate)이 관리자 화면용 VietMap 호출 함수를 끌어옴 — 그 함수는 브라우저 로그인 세션(supabase.auth)을 읽는다. 서버 쪽 호출과 갈라야 함(위치 처리 작업 창과 순서 조정 뒤). 해소: 오류 클래스를 순수 파일로 분리(#1074) — 진행표 #1070.',
 }
 const KNOWN_NODE: Record<string, string> = {
   'src/components/home/SearchRadiusInput.tsx': '화면 부품을 Node에서 직접 그려 보는 시험용 도구(scripts/fixtures/search-radius-commit.tsx) — 화면 시험 도구라 React가 필요함. 해소: 시험 도구 폴더(scripts/fixtures)를 R2 대상에서 제외하는 분류 규칙(영구 예외가 아니라 분류 문제) — 진행표 #1070.',
-  'src/lib/adminVietmapClient.ts': 'KNOWN_API와 같은 이유(서버 위치 확인 묶음이 끌어옴, 이 묶음을 쓰는 Node 도구도 같이 걸림). 해소: 위와 같음(#1074) — 진행표 #1070.',
 }
 // R3 예외: [가져오는 파일, 가져오는 대상]
 const KNOWN_LIB_TO_UI: Array<[string, string]> = [['src/lib/mapR1.ts', 'src/components/home/map/HomeMapTypes.ts']] // 해소: HomeMapViewport 타입을 src/types로 옮기고 컴포넌트가 재수출 — 진행표 #1070

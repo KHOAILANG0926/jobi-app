@@ -4,7 +4,7 @@
 // 여기서 구한 좌표는 "그 동네가 보이는 지도"의 중심일 뿐 — 핀·길찾기·거리 계산에는 쓰지 않는다.
 // 하루 250회 상한은 서버가 센다(chototAutoLocate와 같은 카운터). 한도에 닿으면 캐시를 저장하고 멈춘다.
 import { normalizePlaceText } from './locationCandidateMatch'
-import { DailyLimitError } from './adminVietmapClient'
+import { DailyLimitError } from './vietmapErrors'
 import type { WardUnit } from './wardArea'
 
 /** 검색 방식 버전 — 바꾸면 이전에 "못 찾음"으로 남은 항목만 다시 시도한다(찾은 항목은 그대로). */
