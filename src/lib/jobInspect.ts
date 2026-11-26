@@ -171,8 +171,13 @@ export function inspectJob(j: InspectInput): InspectResult {
   // — 같은 DB 값으로 판정하고 만드는 쪽 규칙(cleanSourceText)에 기대지 않는다(R2 #753).
   const aboveTexts = [j.company, j.title, j.contact_name, j.salary, ...(j.values ?? []), ...(j.valueGroups ?? []).flat(), ...(j.phones ?? []), ...(j.addresses ?? [])]
     .map((v) => String(v ?? '').trim()).filter(Boolean)
+  // 근무지 줄 "<성·시>:주소"(vieclam24h)는 수집기가 앞 이름표를 떼고 근무지 주소(raw_address)로 저장한다(crawler/job_quality.py
+  // split_work_locations, 같은 이름표 규칙 _WORK_LOCATION_REGION_PREFIX_RE) — 뗀 값이 근무지 주소와 같으면 빠짐이 아니다(2026-11-26 #6455·#6510 사례).
+  const addressTexts = (j.addresses ?? []).map((v) => String(v ?? '').trim()).filter(Boolean)
   const lost = srcLines.filter((line) => {
     if (aboveTexts.some((a) => sameLine(a, line))) return false
+    const unlabeled = line.replace(WORK_LOCATION_LABEL, '')
+    if (unlabeled !== line && addressTexts.some((a) => sameLine(a, unlabeled))) return false
     if (headingOf(line) || /[:：]\s*$/.test(line)) return false   // 소제목·값 없는 이름표(값 줄은 따로 검사)
     if (promoLike(line) || contactRepeat(line, shown)) return false   // 2026-11-04 Lee: 걸러낸 홍보 문구·반복 연락처는 빠짐이 아님(뺀 줄 목록은 detail_fill.dropped)
     const b = bare(line)
@@ -213,6 +218,8 @@ export function inspectJob(j: InspectInput): InspectResult {
  */
 /** 검사표엔 실패로 남기되 공개는 막지 않는 항목(R11: 10h-10h 같은 근무시간은 관리자 확인 대상, 공개 차단과 구분). */
 /** 화면 대조 대기 표시 — 이 항목만 남은 공고가 대조 대상(job-inspect가 screen_wait로 기록). */
+/** 근무지 줄 앞 "<성·시>:" 이름표 — crawler/job_quality.py _WORK_LOCATION_REGION_PREFIX_RE와 같은 규칙. */
+const WORK_LOCATION_LABEL = /^[^\d:]{2,25}:\s*/
 export const SCREEN_WAIT = '화면 대조 대기'
 export const REVIEW_ONLY = ['hours_review', 'card']
 /** 표시만 하는 항목: 공개도 연속 통과도 막지 않는다(사진은 등록·공개와 별개, Lee 2026-11-05·11-07). */

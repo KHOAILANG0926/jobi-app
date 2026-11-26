@@ -234,3 +234,15 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   } finally { (globalThis as { Date: DateConstructor }).Date = RealDate }
   console.log('jobInspect.test.ts: 공개 판정 기본 날짜 = 베트남 날짜(1-B F2) 통과')
 }
+
+// 2026-11-26 #6455·#6510(vieclam24h): 원문 근무지 줄 "<성·시>:주소"는 수집기가 이름표를 떼고 근무지 주소로 저장한다 → 빠짐이 아니다.
+// 이름표를 뗀 값이 근무지 주소와 다르면(정말 화면에 없는 줄) 그대로 잡는다.
+{
+  const base = { id: 21, title: 'Nhân viên kho', company: 'Công ty A', description: 'Mô tả công việc\nSắp xếp hàng hóa trong kho', pin: 'area', category: 'x', occupation_code: '1', active: false }
+  const src = 'Mô tả công việc\nSắp xếp hàng hóa trong kho\nHà Nội:Số 9 Phan Chu Trinh, Quận Hoàn Kiếm, Hà Nội'
+  const ok = inspectJob({ ...base, source_text: src, addresses: ['Số 9 Phan Chu Trinh, Quận Hoàn Kiếm, Hà Nội'] }).items.find((i) => i.key === 'source_lost')!
+  assert(ok.ok, '근무지 이름표 줄은 근무지 주소로 보임: ' + ok.detail)
+  const bad = inspectJob({ ...base, source_text: src, addresses: ['Số 12 Lê Lợi, Hà Nội'] }).items.find((i) => i.key === 'source_lost')!
+  assert(!bad.ok && /Phan Chu Trinh/.test(bad.detail!), '다른 주소면 빠짐으로 잡음')
+  console.log('jobInspect.test.ts: 근무지 이름표 줄(<성·시>:주소) 검사 통과')
+}
