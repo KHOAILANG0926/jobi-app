@@ -1,0 +1,255 @@
+{
+ "note": "공식 직업코드(QĐ 34/2020) 자동 분류 규칙 — 수집기(crawler/occupation_classifier.py)와 웹 등록(src/lib/occupationReader.ts)이 함께 읽는 한 곳(#717 B, Lee 2026-11-25 '규칙 공통화'). 순서가 우선순위(구체적인 것 먼저). pattern은 성조·대소문자를 뺀 글자 기준 정규식. title_only는 제목에서만 인정.",
+ "body_scan_chars": 1500,
+ "rules": [
+  {
+   "code": "82022",
+   "name_vi": "Thợ lắp ráp thiết bị điện tử/linh kiện điện tử",
+   "pattern": "(lam|lap rap|ghep|cam) linh kien( (dien tu|tai nghe|dien thoai|camera))?|linh kien (dien tu|tai nghe|dien thoai|camera)|lap rap (dien tu|bo mach)|bo mach dien tu"
+  },
+  {
+   "code": "7212",
+   "name_vi": "Thợ hàn và thợ cắt kim loại bằng nhiệt",
+   "pattern": "\\btho han\\b|\\bhan (tig|mig|co2|dien|inox)\\b|\\bcong nhan han\\b"
+  },
+  {
+   "code": "7223",
+   "name_vi": "Thợ lắp ráp và vận hành máy công cụ kim loại",
+   "pattern": "\\bcnc\\b|\\btien phay\\b|\\bvan hanh may (tien|phay)\\b"
+  },
+  {
+   "code": "8344",
+   "name_vi": "Thợ vận hành xe bốc dỡ",
+   "pattern": "\\blai xe nang\\b|\\bxe nang\\b"
+  },
+  {
+   "code": "8332",
+   "name_vi": "Lái xe tải hạng vừa và xe tải hạng nặng",
+   "pattern": "\\blai xe (tai|container|dau keo)\\b|\\btai xe (container|dau keo|xe tai)\\b"
+  },
+  {
+   "code": "8322",
+   "name_vi": "Lái xe con, taxi và xe tải hạng nhẹ",
+   "pattern": "\\blai xe\\b|\\btai xe\\b"
+  },
+  {
+   "code": "9621",
+   "name_vi": "Người đưa thư, người giao hàng và người khuân vác hành lý",
+   "pattern": "\\bshipper\\b|\\bgiao hang\\b"
+  },
+  {
+   "code": "3434",
+   "name_vi": "Đầu bếp trưởng",
+   "pattern": "\\bbep truong\\b"
+  },
+  {
+   "code": "9402",
+   "name_vi": "Người phụ bếp",
+   "pattern": "\\bphu bep\\b"
+  },
+  {
+   "code": "5120",
+   "name_vi": "Đầu bếp",
+   "pattern": "\\bdau bep\\b|\\bbep chinh\\b|\\bbep (au|a|viet|han|nhat)\\b"
+  },
+  {
+   "code": "5132",
+   "name_vi": "Nhân viên pha chế",
+   "pattern": "\\bpha che\\b|\\bbarista\\b|\\bbartender\\b"
+  },
+  {
+   "code": "5230",
+   "name_vi": "Nhân viên thu ngân và bán vé",
+   "pattern": "\\bthu ngan\\b"
+  },
+  {
+   "code": "5222",
+   "name_vi": "Nhân viên giám sát cửa hàng",
+   "pattern": "\\bquan ly cua hang\\b|\\bcua hang truong\\b|\\bgiam sat cua hang\\b"
+  },
+  {
+   "code": "5244",
+   "name_vi": "Nhân viên bán hàng qua trung tâm liên lạc",
+   "pattern": "\\btelesales?\\b|\\bban hang qua dien thoai\\b"
+  },
+  {
+   "code": "5131",
+   "name_vi": "Bồi bàn",
+   "pattern": "\\bboi ban\\b|\\bchay ban\\b|\\b(nhan vien )?phuc vu\\b",
+   "title_only": true
+  },
+  {
+   "code": "5223",
+   "name_vi": "Nhân viên trợ giúp bán hàng",
+   "pattern": "\\b(nhan vien |tu van )?ban hang\\b",
+   "title_only": true
+  },
+  {
+   "code": "5401",
+   "name_vi": "Nhân viên an ninh (trừ công an)",
+   "pattern": "\\bbao ve\\b",
+   "title_only": true
+  },
+  {
+   "code": "9111",
+   "name_vi": "Người quét dọn và giúp việc gia đình",
+   "pattern": "\\bgiup viec (gia dinh|nha)\\b|\\bosin\\b|\\bdon nha\\b"
+  },
+  {
+   "code": "9112",
+   "name_vi": "Người quét dọn và giúp việc trong văn phòng, khách sạn và các cơ sở khác",
+   "pattern": "\\btap vu\\b|\\blao cong\\b|\\bve sinh (cong nghiep|van phong|toa nha)\\b|\\bdon (dep|phong) (khach san|van phong)\\b|\\bbuong phong\\b"
+  },
+  {
+   "code": "9121",
+   "name_vi": "Thợ giặt là bằng tay",
+   "pattern": "\\bgiat (la|ui)\\b"
+  },
+  {
+   "code": "5311",
+   "name_vi": "Nhân viên chăm sóc trẻ em",
+   "pattern": "\\bbao mau\\b|\\btrong tre\\b|\\bcham soc tre\\b"
+  },
+  {
+   "code": "3221",
+   "name_vi": "Y tá/điều dưỡng, kỹ thuật viên chăm sóc bệnh nhân",
+   "pattern": "\\bdieu duong\\b|\\by ta\\b"
+  },
+  {
+   "code": "2341",
+   "name_vi": "Giáo viên tiểu học (cấp I)",
+   "pattern": "\\bgiao vien tieu hoc\\b"
+  },
+  {
+   "code": "5141",
+   "name_vi": "Thợ làm đầu",
+   "pattern": "\\bcat toc\\b|\\btho toc\\b|\\blam toc\\b|\\buon nhuom\\b"
+  },
+  {
+   "code": "5142",
+   "name_vi": "Nhân viên làm đẹp và nhân viên có liên quan",
+   "pattern": "\\bspa\\b|\\bnail\\b|\\blam mong\\b|\\bnoi mi\\b"
+  },
+  {
+   "code": "2411",
+   "name_vi": "Kế toán và các nhà chuyên môn có liên quan",
+   "pattern": "\\bke toan truong\\b"
+  },
+  {
+   "code": "4311",
+   "name_vi": "Nhân viên kế toán",
+   "pattern": "\\bke toan\\b"
+  },
+  {
+   "code": "4132",
+   "name_vi": "Nhân viên nhập dữ liệu",
+   "pattern": "\\bnhap lieu\\b"
+  },
+  {
+   "code": "4226",
+   "name_vi": "Lễ tân (tổng hợp)",
+   "pattern": "\\ble tan\\b"
+  },
+  {
+   "code": "4222",
+   "name_vi": "Nhân viên trung tâm thông tin liên lạc",
+   "pattern": "\\btong dai vien\\b|\\bcall ?center\\b"
+  },
+  {
+   "code": "4229",
+   "name_vi": "Nhân viên thông tin khách hàng chưa được phân vào đâu",
+   "pattern": "\\bcham soc khach hang\\b|\\bcskh\\b"
+  },
+  {
+   "code": "4406",
+   "name_vi": "Nhân viên tổ chức nhân sự",
+   "pattern": "\\bnhan vien nhan su\\b|\\bhanh chinh nhan su\\b|\\bhcns\\b"
+  },
+  {
+   "code": "4110",
+   "name_vi": "Nhân viên tổng hợp",
+   "pattern": "\\bhanh chinh\\b|\\bnhan vien van phong\\b",
+   "title_only": true
+  },
+  {
+   "code": "2512",
+   "name_vi": "Nhà phát triển phần mềm",
+   "pattern": "\\blap trinh\\b|\\bdeveloper\\b|\\bbackend\\b|\\bfrontend\\b"
+  },
+  {
+   "code": "2166",
+   "name_vi": "Nhà thiết kế đồ họa và truyền thông đa phương tiện",
+   "pattern": "\\bthiet ke do hoa\\b|\\bgraphic design"
+  },
+  {
+   "code": "2431",
+   "name_vi": "Nhà chuyên môn về quảng cáo và tiếp thị",
+   "pattern": "\\bmarketing\\b"
+  },
+  {
+   "code": "4321",
+   "name_vi": "Nhân viên ghi chép tồn kho",
+   "pattern": "\\bthu kho\\b|\\bnhan vien kho\\b|\\bquan ly kho\\b"
+  },
+  {
+   "code": "9333",
+   "name_vi": "Người mang vác hàng",
+   "pattern": "\\bboc (xep|vac)\\b|\\bkhuan vac\\b"
+  },
+  {
+   "code": "7411",
+   "name_vi": "Thợ lắp điện cho tòa nhà và thợ điện có liên quan",
+   "pattern": "\\btho dien\\b|\\bdien (dan dung|cong nghiep|nuoc)\\b"
+  },
+  {
+   "code": "7231",
+   "name_vi": "Thợ cơ khí và sửa chữa xe có động cơ",
+   "pattern": "\\bsua (xe|o to|xe may)\\b|\\bco khi o to\\b"
+  },
+  {
+   "code": "9313",
+   "name_vi": "Thợ phụ xây dựng",
+   "pattern": "\\bphu ho\\b|\\bphu xay dung\\b"
+  },
+  {
+   "code": "7112",
+   "name_vi": "Thợ nề và các thợ có liên quan",
+   "pattern": "\\btho (xay|ne)\\b"
+  },
+  {
+   "code": "7115",
+   "name_vi": "Thợ mộc và thợ làm đồ gỗ",
+   "pattern": "\\btho moc\\b|\\bmoc noi that\\b"
+  },
+  {
+   "code": "7131",
+   "name_vi": "Thợ sơn và thợ liên quan khác",
+   "pattern": "\\btho son\\b"
+  },
+  {
+   "code": "8153",
+   "name_vi": "Thợ vận hành máy may",
+   "pattern": "\\bcong nhan may\\b|\\bmay cong nghiep\\b"
+  },
+  {
+   "code": "7531",
+   "name_vi": "Thợ may, thợ làm da thú và thợ làm mũ",
+   "pattern": "\\btho may\\b"
+  },
+  {
+   "code": "7543",
+   "name_vi": "Thợ phân loại và kiểm tra sản phẩm (trừ thực phẩm và đồ uống)",
+   "pattern": "\\bkiem hang\\b|\\bkiem tra chat luong\\b|\\bkcs\\b|\\bqc\\b"
+  },
+  {
+   "code": "9321",
+   "name_vi": "Lao động đóng gói thủ công",
+   "pattern": "\\bdong goi\\b"
+  },
+  {
+   "code": "9329",
+   "name_vi": "Lao động công nghiệp khác chưa được phân vào đâu",
+   "pattern": "\\bcong nhan\\b|\\blao dong pho thong\\b|\\bldpt\\b"
+  }
+ ]
+}
