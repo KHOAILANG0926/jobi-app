@@ -11,3 +11,5 @@ begin
   end if;
   return 'ok';
 end $f$;
+revoke all on function public.job_duplicate_decide(bigint, text) from public, anon;
+grant execute on function public.job_duplicate_decide(bigint, text) to authenticated, service_role;
