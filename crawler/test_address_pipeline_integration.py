@@ -2112,7 +2112,15 @@ def test_verify_write_created_jobs_excluded_from_public_home_search_map_query() 
     # 600자(2026-09-24 실측: .select() 컬럼 목록이 길어 .eq('active', true)가
     # .from() 뒤 457자 지점에 있음 — 이전 400자 창은 이 실제 쿼리 형태에도
     # 못 미쳤던 stale 값이었다).
-    window = source[select_idx:select_idx + 600]
+    # 글자 수 창 대신 그 쿼리의 메서드 사슬(.from 다음에 '.'으로 시작하는 줄들)을 본다 — select 칸 목록이 늘 때마다
+    # 고정 창(400→600자)이 다시 모자라 거짓 실패하던 것을 없앤다(2026-11-26, 칸 목록이 600자를 넘음).
+    lines = source[select_idx:].splitlines()
+    chain = [lines[0]]
+    for line in lines[1:]:
+        if not line.strip().startswith("."):
+            break
+        chain.append(line)
+    window = "\n".join(chain)
     assert_true(
         ".eq('active', true)" in window,
         "the public local_jobs query in fetchJobsData.ts (shared by Home/search/map via useJobs()) must filter .eq('active', true) — "

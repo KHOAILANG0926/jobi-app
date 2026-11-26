@@ -10,6 +10,10 @@
 from __future__ import annotations
 
 import geocode as geocode_module
+
+# 키 없는 환경(CI·로컬)에서도 재시도·응답 처리 경로를 시험한다 — 이 시험은 httpx.get을 가짜로 바꿔 실제 요청을 보내지 않는다.
+# 키가 비어 있으면 _geocode_query_raw가 요청 전에 '스킵'으로 끝나 재시도 시험이 거짓 실패했다(2026-11-26, #701 로드맵 8).
+geocode_module.GEOAPIFY_API_KEY = geocode_module.GEOAPIFY_API_KEY or "test-key-not-real"
 from geocode import build_query_variants, peek_geocode_cache, strip_search_noise_phrases
 
 
