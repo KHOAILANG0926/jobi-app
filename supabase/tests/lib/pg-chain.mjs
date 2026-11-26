@@ -8,7 +8,7 @@
 import { spawnSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
-import { IDS, Sess, mig } from './pg-race.mjs'
+import { IDS, Sess, mig, ensurePgServer } from './pg-race.mjs'
 
 const dir = new URL('../../migrations/', import.meta.url)
 
@@ -90,6 +90,7 @@ const run = (url, sql, opts = []) => spawnSync('psql', [url, '-X', '-q', '-v', '
 export async function makeChain({ only } = {}) {
   const base = process.env.PG_TEST_URL
   assert.ok(base, 'PG_TEST_URL(폐기용 DB) 필요')
+  ensurePgServer()
   const name = `jobi_chain_${process.pid}_${Date.now()}`
   // location_single_source가 만드는 역할 location_writer는 서버 전체(데이터베이스 밖) 객체라 앞선 시험이 남긴 것이 있으면 migration이 거부한다 — 같은 서버에서 시험을 차례로 돌리므로(동시에 둘 아님) 먼저 치운다
   spawnSync('psql', [base, '-X', '-q', '-c', 'drop role if exists location_writer'], { encoding: 'utf8' })

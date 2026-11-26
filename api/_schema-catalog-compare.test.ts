@@ -80,5 +80,6 @@ const run = (a: Cat, b: Cat, allowed?: unknown) => runCompare(text(a), text(b), 
   assert.throws(() => compareFunctionLines(fl([{ schema: 'public', name: 'f' }]), fl([])), /필수 칸 lines 없음/, '필수 칸 누락')
   const sql = readFileSync(new URL('../scripts/ops/jobs/schema-function-lines-read.sql', import.meta.url), 'utf8').split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')
   assert.ok(!sql.replace(/md5\(t\.l\)/g, '').includes('t.l') && !/'body'/.test(sql), '줄 글자는 md5 안에서만 쓰임 — 본문 글자 출력 없음')
+  assert.ok(/select a\.prosrc from pg_catalog\.pg_proc a/.test(sql) && (sql.match(/prosrc/g) || []).length === 1 && !/'prosrc'/.test(sql), '본문은 pg_proc에서 읽되(소유·실행 권한 없어도 NULL 안 됨) 줄 지문 안에서만 쓰임 — 키로 출력 안 함')
   assert.ok(/r\.routine_name in \('write_location'/.test(sql), '대상 함수는 고정 목록') }
 console.log('schema catalog compare: 정상 일치·불일치(1)·입력 오류(2)·오버로드·허용 목록·조회 SQL 보안 모양 시험 통과')
