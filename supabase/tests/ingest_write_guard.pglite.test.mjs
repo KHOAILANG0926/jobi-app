@@ -59,6 +59,7 @@ assert.ok(def.includes(`if ch = 'employer' then p := p - 'source_url'; end if;`)
 assert.ok(def.includes(`ch like 'crawler_%' and st.origin is distinct from 'crawler'`), '수집 경로 비수집 공고 보호 줄')
 assert.ok(def.includes(`if st.origin is distinct from origin_v or st.admin_hidden then`), '기존 칸 보호 줄은 그대로')
 assert.ok(def.includes(`pg_advisory_xact_lock(hashtextextended(hash, 0))`), '같은 내용 동시 등록 직렬화 잠금(내용 해시) — 실제 동시 요청 시험은 PGlite 단일 연결로 재현 불가, 잠금 줄과 순차 중복 판정만 확인')
+assert.ok(def.includes(`pg_advisory_xact_lock(hashtextextended(p->>'source_url', 1))`), '같은 원문 주소 동시 수집 직렬화 잠금 — 실제 동시 시험은 ingest_write_guard.concurrent.mjs')
 await assert.rejects(db.exec(mig('20261126010000_ingest_write_guard.sql')), /이미 적용됨/, '두 번 적용은 막힘')
 await db.exec('rollback') // migration의 begin 안에서 RAISE → 열린 트랜잭션을 닫는다(운영은 파일 하나가 한 트랜잭션이라 전체 취소)
 

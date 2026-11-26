@@ -6,6 +6,7 @@ declare d text := pg_get_functiondef('public.ingest_job(jsonb)'::regprocedure);
 begin
  if position('p := p - ''source_url''' in d) = 0 then raise exception 'ingest write guard: 기업 경로 source_url 제거 줄이 없음'; end if;
  if position('pg_advisory_xact_lock(hashtextextended(hash, 0))' in d) = 0 then raise exception 'ingest write guard: 동시 등록 직렬화 잠금이 없음'; end if;
+ if position('pg_advisory_xact_lock(hashtextextended(p->>''source_url'', 1))' in d) = 0 then raise exception 'ingest write guard: 같은 원문 주소 동시 수집 직렬화 잠금이 없음'; end if;
  if position('refresh_skipped:origin' in d) = 0 then raise exception 'ingest write guard: 수집 경로 덮어쓰기 차단이 없음'; end if;
  if position('if st.origin is distinct from origin_v or st.admin_hidden then' in d) = 0 then raise exception 'ingest write guard: 기존 갱신 칸 보호 줄이 사라짐'; end if;
 end $$;

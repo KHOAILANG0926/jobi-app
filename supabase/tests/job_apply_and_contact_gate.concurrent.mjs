@@ -12,9 +12,9 @@ const step = (s) => { if (process.env.RACE_TRACE) console.error('·', s) }
 const EMP = ['authenticated', IDS.E1]
 
 // 공개 중인 기업 공고 하나를 입구로 등록(실제 등록 경로)
-async function newJob(tag, o = {}) {
-  const E = sess('seed'); await E.begin(...EMP)
-  const id = lastNum(await E.run(callSql(jobPayload(tag, { employer_id: IDS.E1, ...o })))); await E.run('commit'); E.close()
+async function newJob(tag, o = {}, sub = IDS.E1) {
+  const E = sess('seed'); await E.begin('authenticated', sub)
+  const id = lastNum(await E.run(callSql(jobPayload(tag, { employer_id: sub, ...o })))); await E.run('commit'); E.close()
   assert.ok(id > 0, `공고 준비 실패(${tag})`)
   return id
 }
@@ -179,11 +179,58 @@ async function suite(patched) {
   }
 }
 
+// ── 공개 판정 트리거 함수(enforce_job_publish_gate)를 definer로 바꾼 것의 권한 범위 — 실제 역할로 확인(적용 후에만) ──
+async function definerScope() {
+  const sql = (x) => db.scalar(x)
+  // 소유자·definer·search_path·실행 권한(PUBLIC·anon·authenticated 없음)
+  assert.equal(sql(`select p.prosecdef::text || '/' || pg_get_userbyid(p.proowner) || '/' || coalesce(array_to_string(p.proconfig, ','), '') from pg_proc p where p.oid = 'public.enforce_job_publish_gate()'::regprocedure`), 'true/postgres/search_path=pg_catalog, public', '소유자 postgres·definer·search_path 고정')
+  assert.equal(sql(`select count(*) from pg_proc p, aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where p.oid = 'public.enforce_job_publish_gate()'::regprocedure and a.privilege_type = 'EXECUTE' and (a.grantee = 0 or a.grantee in (select oid from pg_roles where rolname in ('anon', 'authenticated')))`), '0', 'PUBLIC·anon·authenticated는 직접 실행 권한 없음')
+  const S = sess('D')
+  for (const [role, sub] of [['anon'], ['authenticated', IDS.E1], ['service_role']]) {
+    await S.begin(role, sub)
+    const out = await S.run(`select public.enforce_job_publish_gate();`); await S.run('rollback')
+    assert.ok(isErr(out), `${role}: 트리거 함수를 직접 부를 수 없음 (${errText(out)})`)
+    if (role === 'service_role') continue // 서버 키의 판정 함수 직접 실행은 20261101190000부터 있던 상태(이 PR이 바꾸지 않음)
+    await S.begin(role, sub)
+    const out2 = await S.run(`select public.job_publish_gate_reason(l) from public.local_jobs l limit 1;`); await S.run('rollback')
+    assert.match(out2, /permission denied/, `${role}: 판정 계산 함수도 직접 부를 수 없음(트리거 안에서만 쓰임)`)
+  }
+  // 호출 경로: 기업이 자기 공고를 고칠 때만 도는 트리거 — 남의 공고·id 바꾸기·소유자 바꾸기·origin 바꾸기는 definer여도 열리지 않음
+  const mine = await newJob('D1'); const others = await newJob('D2', { employer_id: IDS.E2 }, IDS.E2)
+  const E = sess('E')
+  await E.begin('authenticated', IDS.E1)
+  assert.equal((await E.run(`update public.local_jobs set title = 'x' where id = ${others} returning id;`)).trim(), '', 'definer여도 남의 공고 수정은 RLS가 막음')
+  await E.run('rollback'); await E.begin('authenticated', IDS.E1)
+  assert.match(await E.run(`update public.local_jobs set id = ${others + 1000} where id = ${mine};`), /permission denied|can only be updated to DEFAULT/, 'id는 못 바꿈(근무지 행을 남의 번호로 읽게 만드는 길 없음)')
+  await E.run('rollback'); await E.begin('authenticated', IDS.E1)
+  assert.match(await E.run(`update public.local_jobs set employer_id = '${IDS.E2}' where id = ${mine};`), /permission denied/, '소유자 못 바꿈')
+  await E.run('rollback')
+  // 근무지 행은 RLS 없이 읽지만 결과(공개 판정 값)는 자기 공고 한 줄에만 기록 — 남의 근무지 유무가 새지 않음
+  db.admin(`insert into public.job_work_locations(job_id, raw_address, normalized_address) values (${others}, 'x', 'x')`)
+  await E.begin('authenticated', IDS.E1)
+  assert.ok(!isErr(await E.run(`update public.local_jobs set title = '내 공고 수정' where id = ${mine};`)), '자기 공고 수정은 그대로')
+  await E.run('commit')
+  assert.equal(sql(`select coalesce(publish_gate_reason,'∅') from public.local_jobs where id = ${mine}`), 'ok', '자기 공고 판정값만 기록')
+  // search_path 바꿔치기: public에 같은 이름 함수를 만들어도(최악 가정) pg_catalog가 먼저라 판정이 속지 않음
+  db.admin(`create function public.regexp_replace(text, text, text, text) returns text language sql as $$ select '0123456789' $$`)
+  try {
+    const id = await newJob('D3')
+    await E.begin(...EMP)
+    assert.match(await E.run(`update public.local_jobs set employer_phone = null where id = ${id};`), /공개 중인 공고에서 연락처·주소를 없앨 수 없음/, '가짜 public 함수가 있어도 판정이 속지 않음')
+    await E.run('rollback')
+  } finally { db.admin(`drop function public.regexp_replace(text, text, text, text)`) }
+  // 수집 경로 판정은 그대로(연락처 없는 수집 공고는 비공개로 저장)
+  const C = sess('C'); await C.begin('service_role')
+  const cid = lastNum(await C.run(callSql(jobPayload('D4', { channel: 'crawler_topcv', employer_phone: null })))); await C.run('commit')
+  assert.equal(sql(`select active::text || '/' || publish_gate_reason from public.local_jobs where id = ${cid}`), 'false/no_application_path', '수집 공고의 연락처 없음 → 비공개 규칙 그대로')
+}
+
 try {
   await suite(false)
   console.log('적용 전: 닫힌 공고 지원 저장·연락처/주소 삭제가 실제로 재현됨')
   db.admin(mig('20261126020000_job_apply_and_contact_gate.sql'))
   await suite(true)
+  await definerScope()
   console.log('job_apply_and_contact_gate.concurrent: 실제 연결 2개 이상 동시 요청·권한 시험 통과 (적용 전 재현 → 적용 후 차단)')
 } finally {
   opened.forEach((s) => { try { s.close() } catch {} })

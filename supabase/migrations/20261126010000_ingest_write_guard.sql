@@ -6,6 +6,8 @@
 --     (이미 active·공개 판정 칸은 origin이 다르면 빼고 있었다 — 같은 원칙을 나머지 칸으로 넓힘. 기업·관리자 공고는 자기 경로로만 고친다.)
 --  ③ 같은 내용의 동시 등록은 한 줄씩 순서대로 — 내용 해시로 거는 DB 잠금(트랜잭션 끝까지)을 원문 보존 앞에 둔다. 두 요청이 거의 동시에 들어와 둘 다 '없음'으로 보고 둘 다 새 공고가 되던
 --     경쟁(같은 해시)을 막는다: 뒤 요청은 앞 요청이 끝난 뒤 '같은 공고'를 찾아 duplicate_of로 돌아간다. 다른 내용·다른 지점 공고는 서로 기다리지 않는다(해시가 다름).
+--     같은 원문 주소(source_url)가 있으면 그 주소로도 한 번 더 건다 — 내용이 다른 글(수정본·재수집)이 같은 주소로 동시에 와도 공고가 둘로 갈라지거나 일부 칸만 바뀐 채 남지 않는다
+--     (잠금은 해시 → 원문 주소 순서로만 잡아 서로 얽혀 멈추지 않는다).
 -- 위치(work_locations)는 그대로: 수집 경로가 비수집 공고에 보내면 replace_job_work_locations가 이미 거부한다(20261026231445).
 -- 데이터 변경 없음(함수 본문 교체만). 운영 DB 데이터·기존 공고는 바뀌지 않는다.
 begin;
@@ -17,6 +19,8 @@ declare definition text;
   if ch = ''employer'' then p := p - ''source_url''; end if;';
  old_raw text := 'raw_id := ingest_private.open_raw(';
  new_raw text := 'perform pg_advisory_xact_lock(hashtextextended(hash, 0));
+  -- 같은 원문 주소(source_url)의 동시 수집도 한 줄씩(내용이 달라 해시가 다른 재수집·수정본 포함). 지점이 다른 형제 공고는 순서만 지킬 뿐 서로 막지 않는다(find_existing이 지점 위치로 가름).
+  if nullif(p->>''source_url'', '''') is not null then perform pg_advisory_xact_lock(hashtextextended(p->>''source_url'', 1)); end if;
   raw_id := ingest_private.open_raw(';
  old_gate text := 'if st.origin is distinct from origin_v or st.admin_hidden then';
  new_gate text := 'if ch like ''crawler_%'' and st.origin is distinct from ''crawler'' then

@@ -139,11 +139,79 @@ async function suite(patched) {
       await E1.run('rollback')
     }
   }
+  // ── R10 같은 source_url에 내용이 다른 글이 동시에 들어온다(수집 두 번·내용이 고쳐진 재수집) — 공고 둘이 생기거나 잘못 갱신되면 안 된다 ──
+  {
+    const url = `https://src.example/r10-${tag}`
+    const a = jobPayload(`R10${tag}`, { channel: 'crawler_topcv', source_url: url, source_text: `원문 버전1 ${tag}`, salary: '8 triệu' })
+    const b = { ...a, source_text: `원문 버전2 ${tag}`, salary: '9 triệu' }
+    const r = await raceCall({ a: { ...CRAWLER, p: a }, b: { ...CRAWLER, p: b } })
+    const n = count(`source_url = '${url}'`)
+    if (patched) { assert.ok(r.blocked, 'R10: 같은 원문 주소의 동시 요청은 DB 잠금에서 순서대로'); assert.equal(n, 1, 'R10: 공고 1개'); assert.equal(r.idB, r.idA, 'R10: 뒤 요청은 같은 공고 번호') }
+    else assert.equal(n, 2, 'R10(적용 전): 같은 원문 주소 공고가 2개로 등록됨 — 경쟁 재현')
+    // 뒤 요청이 다시 수집(refresh)이면 같은 공고의 칸을 고친다(공고는 여전히 1개, 일부만 바뀐 상태가 없음)
+    const url2 = `https://src.example/r10r-${tag}`
+    const a2 = jobPayload(`R10r${tag}`, { channel: 'crawler_topcv', source_url: url2, source_text: `원문 A ${tag}`, salary: '8 triệu', title: '제목A' })
+    const b2 = { ...a2, source_text: `원문 B ${tag}`, salary: '9 triệu', title: '제목B', refresh: true }
+    await raceCall({ a: { ...CRAWLER, p: a2 }, b: { ...CRAWLER, p: b2 } })
+    const rows = q(`select count(*) || '/' || max(salary) || '/' || max(title) from public.local_jobs where source_url = '${url2}'`)
+    if (patched) assert.equal(rows, '1/9 triệu/제목B', 'R10: 재수집은 같은 공고 한 개를 통째로 고침(공고 1개, 칸이 섞이지 않음)')
+    else assert.match(rows, /^2\//, 'R10(적용 전): 공고가 둘로 갈라짐 — 재현')
+    // 같은 원문 글의 형제 지점(지점 위치가 다름)은 서로의 중복이 아니다: 동시에 와도 둘 다 독립 공고
+    const url3 = `https://src.example/r10b-${tag}`
+    const brA = { ...jobPayload(`R10s${tag}`, { channel: 'crawler_topcv', source_url: url3 }), branch_location: 'Chi nhánh A, Bắc Ninh', work_locations: [{ raw_address: 'Chi nhánh A, Bắc Ninh' }] }
+    const brB = { ...brA, branch_location: 'Chi nhánh B, Bắc Giang', work_locations: [{ raw_address: 'Chi nhánh B, Bắc Giang' }] }
+    const rb = await raceCall({ a: { ...CRAWLER, p: brA }, b: { ...CRAWLER, p: brB } })
+    assert.equal(count(`source_url = '${url3}'`), 2, 'R10: 같은 글의 다른 지점은 독립 공고 2개')
+    assert.notEqual(rb.idA, rb.idB, 'R10: 지점별 공고 번호가 다름')
+    assert.equal(Number(q(`select count(*) from public.job_work_locations w join public.local_jobs j on j.id = w.job_id where j.source_url = '${url3}'`)), 2, 'R10: 지점마다 자기 근무지 줄')
+  }
+  // ── R11 지점별 독립 공고: 같은 글·같은 지점이 동시에 오면 1개, 같은 글·다른 지점은 서로 기다리지 않고 2개 ──
+  {
+    const base = { ...jobPayload(`R11${tag}`, { employer_id: IDS.E1 }), branch_location: 'Cơ sở 1, Hà Nội', work_locations: [{ raw_address: 'Cơ sở 1, Hà Nội' }] }
+    const same = await raceCall({ a: { ...EMP, p: base }, b: { ...EMP, p: base } })
+    const n1 = count(`company = 'CTY R11${tag}'`)
+    if (patched) assert.ok(same.blocked && n1 === 1 && same.idB === same.idA, `R11: 같은 글·같은 지점 동시 → 1개(${n1})`)
+    else assert.equal(n1, 2, 'R11(적용 전): 같은 지점이 2개로 등록됨 — 경쟁 재현')
+    const other = { ...jobPayload(`R11o${tag}`, { employer_id: IDS.E1 }), branch_location: 'Cơ sở 1, Hà Nội', work_locations: [{ raw_address: 'Cơ sở 1, Hà Nội' }] }
+    const other2 = { ...other, branch_location: 'Cơ sở 2, Hải Phòng', work_locations: [{ raw_address: 'Cơ sở 2, Hải Phòng' }] }
+    const diff = await raceCall({ a: { ...EMP, p: other }, b: { ...EMP, p: other2 } })
+    assert.ok(!diff.blocked, 'R11: 다른 지점은 서로 기다리지 않음')
+    assert.equal(count(`company = 'CTY R11o${tag}'`), 2, 'R11: 다른 지점은 독립 공고 2개')
+  }
+  // ── R12 같은 내용 동시 등록 뒤 공고 소유권·관리 토큰·수정·마감 권한이 엉뚱한 쪽으로 넘어가지 않는다(두 순서 모두) ──
+  if (patched) {
+    const T1 = 'a'.repeat(24), T2 = 'b'.repeat(24)
+    const owner = (id) => q(`select coalesce(employer_id::text,'∅') || '/' || coalesce(guest_manage_token,'∅') || '/' || origin || '/' || active from public.local_jobs where id = ${id}`)
+    const empEdit = async (sub, id) => { const S = sess('S'); await S.begin('authenticated', sub); const o = (await S.run(`update public.local_jobs set title = '탈취', active = false where id = ${id} returning id;`)).trim(); await S.run('rollback'); return o }
+    const guestCall = async (id, tok) => { const G = sess('G'); await G.begin('anon'); const o = (await G.run(`select id from public.update_guest_job(${id}, '${tok}', null, null, null, null, null, null, null, null, false);`)).trim(); await G.run('commit'); return o }
+    // (a) 게스트가 먼저 → 기업이 같은 내용 등록
+    { const base = jobPayload(`R12a${tag}`); const r = await raceCall({ a: { ...GUEST, p: { ...base, guest_manage_token: T1 } }, b: { ...EMP, p: { ...base, employer_id: IDS.E1 } } })
+      assert.equal(r.idB, r.idA); assert.equal(owner(r.idA), `∅/${T1}/employer/true`, 'R12a: 게스트 공고의 소유·토큰이 그대로(기업 등록이 가져가지 못함)')
+      assert.equal(await empEdit(IDS.E1, r.idA), '', 'R12a: 뒤에 온 기업은 이 공고를 수정·마감 못 함')
+      assert.equal(await guestCall(r.idA, T2), '', 'R12a: 다른 토큰은 관리 못 함'); assert.equal(await guestCall(r.idA, T1), String(r.idA), 'R12a: 게스트 본인 토큰은 관리 가능(마감)') }
+    // (b) 기업이 먼저 → 게스트가 같은 내용 등록
+    { const base = jobPayload(`R12b${tag}`); const r = await raceCall({ a: { ...EMP, p: { ...base, employer_id: IDS.E1 } }, b: { ...GUEST, p: { ...base, guest_manage_token: T1 } } })
+      assert.equal(r.idB, r.idA); assert.equal(owner(r.idA), `${IDS.E1}/∅/employer/true`, 'R12b: 기업 공고에 게스트 토큰이 붙지 않음')
+      assert.equal(await guestCall(r.idA, T1), '', 'R12b: 게스트 토큰으로 기업 공고 관리 불가')
+      const N = sess('N'); await N.begin('anon'); assert.match(await N.run(`select guest_manage_token from public.local_jobs where id = ${r.idA};`), /permission denied/, 'R12b: 토큰 칸은 비로그인이 읽지 못함'); await N.run('rollback')
+      assert.equal(await empEdit(IDS.E2, r.idA), '', 'R12b: 다른 회사 기업은 수정·마감 못 함') }
+    // (c) 수집이 먼저 → 기업이 같은 내용 등록 / (d) 기업이 먼저 → 수집이 다시 수집(refresh)
+    { const base = jobPayload(`R12c${tag}`); const r = await raceCall({ a: { ...CRAWLER, p: { ...base, channel: 'crawler_topcv' } }, b: { ...EMP, p: { ...base, employer_id: IDS.E1 } } })
+      assert.equal(r.idB, r.idA); assert.equal(owner(r.idA), '∅/∅/crawler/true', 'R12c: 수집 공고의 소유가 기업으로 넘어가지 않음')
+      assert.equal(await empEdit(IDS.E1, r.idA), '', 'R12c: 기업은 수집 공고를 수정·마감 못 함') }
+    { const base = jobPayload(`R12d${tag}`, { salary: '10 triệu' }); const r = await raceCall({ a: { ...EMP, p: { ...base, employer_id: IDS.E1 } }, b: { ...CRAWLER, p: { ...base, channel: 'crawler_topcv', refresh: true, salary: '1 triệu' } } })
+      assert.equal(r.idB, r.idA); assert.equal(q(`select salary from public.local_jobs where id = ${r.idA}`), '10 triệu', 'R12d: 수집 재수집이 기업 공고를 덮어쓰지 못함')
+      assert.equal(owner(r.idA), `${IDS.E1}/∅/employer/true`, 'R12d: 소유 그대로') }
+    // (e) 서로 다른 기업 둘이 같은 내용을 동시에: 먼저 확정된 쪽이 소유, 뒤 기업은 같은 번호를 받지만 수정 권한 없음
+    { const base = jobPayload(`R12e${tag}`); const r = await raceCall({ a: { ...EMP, p: { ...base, employer_id: IDS.E1 } }, b: { role: 'authenticated', sub: IDS.E2, p: { ...base, employer_id: IDS.E2 } } })
+      assert.equal(r.idB, r.idA); assert.equal(owner(r.idA), `${IDS.E1}/∅/employer/true`, 'R12e: 먼저 등록한 기업이 소유')
+      assert.equal(await empEdit(IDS.E2, r.idA), '', 'R12e: 뒤 기업은 수정·마감 못 함') }
+  }
   // ── R9 입구 도중 실패(근무지 저장 실패) → 공고·원문 기록 모두 취소 ──
   {
     const E = sess('E')
     await E.begin('authenticated', IDS.E1)
-    const out = await E.run(callSql(jobPayload(`R9${tag}`, { employer_id: IDS.E1, work_locations: [{ x: 1 }] })))
+    const out = await E.run(callSql(jobPayload(`R9${tag}`, { employer_id: IDS.E1, work_locations: [{ raw_address: 'x', fail: true }] })))
     assert.ok(isErr(out), 'R9: 근무지 저장 실패는 오류로 돌아옴')
     await E.run('rollback')
     assert.equal(count(`company = 'CTY R9${tag}'`), 0, 'R9: 공고가 남지 않음')

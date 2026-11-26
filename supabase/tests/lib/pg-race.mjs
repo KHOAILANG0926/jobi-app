@@ -17,6 +17,8 @@ export function grab(text, start, end) {
   return rest.slice(0, m.index + m[0].length)
 }
 
+export const repoFile = (f) => readFileSync(new URL(`../../../${f}`, import.meta.url), 'utf8')
+
 export const IDS = {
   E1: '11111111-1111-1111-1111-111111111111', E2: '22222222-2222-2222-2222-222222222222',
   S1: '33333333-3333-3333-3333-333333333333', S2: '44444444-4444-4444-4444-444444444444',
@@ -84,6 +86,9 @@ export async function makeScratch() {
   const appsFix = mig('20260920043000_fix_applications_insert_employer_check.sql')
   const apps1 = mig('0001_applications.sql')
   const posting = mig('20261013100000_job_posting_rules.sql')
+  const refloc = repoFile('scripts/ci/reference-location-fixed.sql')
+  const dedup = mig('20261108000000_agency_workplace_dedup.sql')
+  const colpriv = mig('20261014100000_local_jobs_column_privileges.sql')
   const stmt = /;\s*\n/
 
   admin(url, `
@@ -115,16 +120,29 @@ create table public.local_jobs (
   num_hires text, company_verified boolean, company_founded_year int, hire_count int, images jsonb,
   recruitment_regions jsonb, source_url text, source_text text, origin text not null default 'crawler', admin_hidden boolean not null default false,
   employer_id uuid references auth.users(id), occupation_code text, publish_gate_reason text, policy_decision text, ocr_text text, ocr_check jsonb,
-  crawler_version text, last_verified_at timestamptz, guest_manage_token text, created_at timestamptz default now(), updated_at timestamptz default now());
+  crawler_version text, last_verified_at timestamptz, guest_manage_token text, posted_at date, created_at timestamptz default now(), updated_at timestamptz default now());
 alter table public.local_jobs enable row level security;
-create table public.job_work_locations (id bigint generated always as identity primary key, job_id bigint not null references public.local_jobs(id) on delete cascade);
+create extension if not exists unaccent;
+create table public.job_work_locations (id bigint generated always as identity primary key, job_id bigint not null references public.local_jobs(id) on delete cascade, raw_address text not null default '', normalized_address text, unique (job_id, normalized_address));
+create schema dedupe_private;
 create table public.admin_audit_logs (id bigint generated always as identity primary key, admin_user_id uuid, action text, target_type text, target_id text, metadata jsonb);
--- 시험용 대역 1: 입구가 근무지를 저장하는 함수(운영은 위치 원본 DB 함수) — 이 시험의 대상이 아니라서 호출하면 항상 실패해 '저장 도중 실패' 때의 되돌림을 본다.
-create function public.replace_job_work_locations(p_job bigint, p_rows jsonb) returns void language plpgsql as $f$ begin raise exception 'test double: replace_job_work_locations always fails'; end $f$;
+-- 시험용 대역 1: 입구가 근무지를 저장하는 함수(운영은 위치 원본 DB 함수 — 이 시험의 대상이 아님). 근무지 행(정규화 주소는 운영과 같은 admin_location_key)을 넣고, 항목에 fail:true가 있으면 실패해 '저장 도중 실패' 때의 되돌림을 본다.
+create function public.replace_job_work_locations(p_job bigint, p_rows jsonb) returns void language plpgsql security definer set search_path = pg_catalog, public as $f$
+declare r jsonb;
+begin
+  for r in select * from jsonb_array_elements(p_rows) loop
+    if coalesce((r->>'fail')::boolean, false) then raise exception 'test double: forced failure'; end if;
+    insert into public.job_work_locations(job_id, raw_address, normalized_address) values (p_job, r->>'raw_address', public.admin_location_key(r->>'raw_address'));
+  end loop;
+end $f$;
 -- 시험용 대역 2: preflight 통과용 옛 입구(실제 migration이 바로 대체한다)
 create function public.ingest_job(p jsonb) returns bigint language sql as $f$ select 0::bigint $f$;
 -- 글자 그대로 읽은 운영 정의
 ${grab(posting, /create or replace function public\.job_phone_digits/, /\$f\$;/)}
+${grab(refloc, /create or replace function public\.admin_location_key/, /\$\$;/)}
+${grab(dedup, /create or replace function dedupe_private\.verdict/, /\nend \$\$;/)}
+${grab(guest, /create or replace function public\.get_guest_job/, /grant execute on function public\.get_guest_job[^\n]*;/)}
+${grab(guest, /create or replace function public\.update_guest_job/, /grant execute on function public\.update_guest_job[^\n]*;/)}
 ${grab(ops, /create or replace function public\.is_account_active/, /\$\$;/)}
 ${grab(ops, /create or replace function public\.is_admin/, /\$\$;/)}
 ${grab(gateway, /create table public\.job_ingest_raw/, stmt)}
@@ -141,6 +159,8 @@ ${grab(ops, /create policy local_jobs_employer_delete/, stmt)}
 ${grab(ops, /revoke all privileges on table public\.local_jobs/, /\) on table public\.local_jobs to authenticated;/)}
 ${grab(guest, /create policy local_jobs_guest_insert/, stmt)}
 grant insert on public.local_jobs to anon;
+${grab(guest, /revoke select \(guest_manage_token\)/, /;\s*\n/)}
+${colpriv} -- 운영의 열 단위 읽기 권한(원문 주소·원문·관리 토큰 등은 anon·authenticated가 못 읽음) 그대로
 create table public.applications (
   id uuid primary key default gen_random_uuid(),
   job_id bigint not null references public.local_jobs(id),
@@ -164,6 +184,7 @@ insert into public.account_roles(user_id, role) values ('${IDS.E1}','employer'),
 `)
   // 운영 정의 그대로: 입구(ingest_job)·비공개 도우미·입구 전용 트리거(20261029010000 전체), 공개 판정 함수·트리거(20261101190000)
   admin(url, one)
+  admin(url, mig('20261124000000_branch_job_identity.sql')) // 지점별 독립 공고 식별자(운영에 이미 적용된 본문과 같은 구조 — 입구 해시·find_existing 7자리·중복 판정)
   admin(url, grab(pubgate, /create or replace function public\.job_publish_gate_reason/, /for each row execute function public\.enforce_job_publish_gate\(\);/))
   return {
     url,
