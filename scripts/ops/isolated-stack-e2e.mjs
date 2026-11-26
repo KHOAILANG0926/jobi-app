@@ -149,6 +149,136 @@ if (jobId) {
   } catch (e) { rec('H0', '기업 이용 과정', false, e.message) }
 }
 
+// ── 3-3. 구직자 이력서·프로필·메시지·면접 흐름(웹 accountCvStorage·accountProfileStorage·messagesStorage·interviewStorage와 같은 호출) ──
+// 세션 만료 시험(H10)이 전체 로그아웃을 했으므로 새로 로그인해 쓴다.
+if (jobId) {
+  const fresh = async (u) => { const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: u.email, password: PW } }); if (l.status !== 200) throw new Error(`재로그인 실패: ${l.status}`); return l.json.access_token }
+  try {
+    const S = users.seeker, S3 = users.seeker3, E = users.employer, E2 = users.employer2
+    const st = await fresh(S), s3t = await fresh(S3), et = await fresh(E), e2t = await fresh(E2)
+    // 웹·앱의 저장(lib/ownRowSave.saveOwnRow)과 같은 호출: 본인 줄을 먼저 고치고(PATCH), 줄이 없으면 넣는다(POST). upsert는 user_id 열 UPDATE 권한이 없어 거부된다.
+    const own = async (table, token, userId, values) => {
+      const u = await call('PATCH', `/rest/v1/${table}?user_id=eq.${userId}`, { token, headers: { prefer: 'return=representation' }, body: values })
+      if (u.status < 300 && (u.json ?? []).length > 0) return u
+      return call('POST', `/rest/v1/${table}`, { token, headers: { prefer: 'return=minimal' }, body: { user_id: userId, ...values } })
+    }
+    const rawUpsert = (table, token, body) => call('POST', `/rest/v1/${table}?on_conflict=user_id`, { token, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body })
+    // 프로필·이력서: 저장(upsert) → 다시 읽기 → 남의 것은 못 읽고 못 덮어씀
+    const up = await own('user_profiles', st, S.id, { full_name: 'E2E Seeker', phone: '0900000000', email: S.email, city: 'Bắc Ninh', bio: 'e2e', updated_at: new Date().toISOString() })
+    const rd = await call('GET', `/rest/v1/user_profiles?select=full_name,city&user_id=eq.${S.id}`, { token: st })
+    rec('I1', '구직자 프로필 저장 → 다시 읽기', up.status < 300 && rd.json?.[0]?.full_name === 'E2E Seeker', `저장 ${up.status} ${up.code}`)
+    const other = await call('GET', `/rest/v1/user_profiles?select=user_id&user_id=eq.${S.id}`, { token: s3t })
+    const forge = await own('user_profiles', s3t, S.id, { full_name: 'HACK', updated_at: new Date().toISOString() })
+    const still = await call('GET', `/rest/v1/user_profiles?select=full_name&user_id=eq.${S.id}`, { token: st })
+    rec('I2', '다른 구직자는 남의 프로필을 읽지도 덮어쓰지도 못함', (other.json ?? []).length === 0 && forge.status >= 400 && still.json?.[0]?.full_name === 'E2E Seeker', `읽기 ${(other.json ?? []).length}건 / 덮어쓰기 status ${forge.status}`)
+    const ups = await rawUpsert('user_cvs', st, { user_id: S.id, cv_data: { summary: 'x' }, photo_path: null, updated_at: new Date().toISOString() })
+    observe('I2b', '이력서를 upsert(ON CONFLICT)로 저장하면', `status ${ups.status} ${ups.code} — 웹·앱은 고치고→넣기(saveOwnRow)를 씀`)
+    const cvData = { fullName: 'E2E Seeker', summary: 'e2e cv', experiences: [] }
+    const cv = await own('user_cvs', st, S.id, { cv_data: cvData, photo_path: null, updated_at: new Date().toISOString() })
+    const cvRead = await call('GET', `/rest/v1/user_cvs?select=cv_data&user_id=eq.${S.id}`, { token: st })
+    rec('I3', '이력서 저장 → 다시 읽기(수정 후 재저장 포함)', cv.status < 300 && cvRead.json?.[0]?.cv_data?.summary === 'e2e cv', `저장 ${cv.status} ${cv.code}`)
+    const cv2 = await own('user_cvs', st, S.id, { cv_data: { ...cvData, summary: 'e2e cv v2' }, photo_path: null, updated_at: new Date().toISOString() })
+    const cvRead2 = await call('GET', `/rest/v1/user_cvs?select=cv_data&user_id=eq.${S.id}`, { token: st })
+    rec('I4', '이력서 수정 저장이 한 줄로 갱신됨(중복 줄 없음)', cv2.status < 300 && cvRead2.json?.length === 1 && cvRead2.json[0].cv_data.summary === 'e2e cv v2')
+    const cvOther = await call('GET', `/rest/v1/user_cvs?select=user_id&user_id=eq.${S.id}`, { token: s3t })
+    const cvForge = await own('user_cvs', s3t, S.id, { cv_data: { summary: 'HACK' }, photo_path: null, updated_at: new Date().toISOString() })
+    const cvAfter = await call('GET', `/rest/v1/user_cvs?select=cv_data&user_id=eq.${S.id}`, { token: st })
+    rec('I5', '다른 구직자는 남의 이력서를 읽지도 덮어쓰지도 못함', (cvOther.json ?? []).length === 0 && cvForge.status >= 400 && cvAfter.json?.[0]?.cv_data?.summary === 'e2e cv v2', `읽기 ${(cvOther.json ?? []).length}건 / 덮어쓰기 status ${cvForge.status}`)
+
+    // 메시지: 구직자가 스레드를 열고 첫 글 → 고용주가 보고 답글 → 구직자가 읽음 처리, 제3자는 못 봄
+    const th = await call('POST', '/rest/v1/message_threads', { token: st, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: S.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E', unread_by_employer: true } })
+    const threadId = th.json?.[0]?.id
+    const m1 = threadId ? await call('POST', '/rest/v1/messages', { token: st, body: { thread_id: threadId, from_role: 'seeker', body: 'Xin chào, tôi muốn ứng tuyển' } }) : { status: 0 }
+    rec('I6', '구직자가 대화를 열고 첫 메시지 전송', th.status === 201 && !!threadId && m1.status === 201, `스레드 ${th.status} ${th.code} / 메시지 ${m1.status}`)
+    const eSee = await call('GET', `/rest/v1/message_threads?select=id,unread_by_employer&job_id=eq.${jobId}`, { token: et })
+    const eMsgs = threadId ? await call('GET', `/rest/v1/messages?select=body,from_role&thread_id=eq.${threadId}`, { token: et }) : { json: [] }
+    rec('I7', '고용주가 자기 공고의 대화와 메시지를 봄(읽지 않음 표시)', eSee.json?.some((t) => t.id === threadId && t.unread_by_employer === true) && eMsgs.json?.length === 1)
+    const eRe = threadId ? await call('POST', '/rest/v1/messages', { token: et, body: { thread_id: threadId, from_role: 'employer', body: 'Mời bạn đến phỏng vấn' } }) : { status: 0 }
+    const eUp = threadId ? await call('PATCH', `/rest/v1/message_threads?id=eq.${threadId}`, { token: et, body: { unread_by_seeker: true, unread_by_employer: false, updated_at: new Date().toISOString() } }) : { status: 0 }
+    const sSee = await call('GET', `/rest/v1/message_threads?select=id,unread_by_seeker&seeker_id=eq.${S.id}`, { token: st })
+    const sMsgs = threadId ? await call('GET', `/rest/v1/messages?select=body,from_role&thread_id=eq.${threadId}&order=sent_at.asc`, { token: st }) : { json: [] }
+    rec('I8', '고용주 답글 → 구직자가 두 메시지를 순서대로 봄(읽지 않음 표시)', eRe.status === 201 && eUp.status < 300 && sSee.json?.some((t) => t.id === threadId && t.unread_by_seeker === true) && sMsgs.json?.map((m) => m.from_role).join() === 'seeker,employer', `답글 ${eRe.status} 갱신 ${eUp.status}`)
+    const readUp = await call('PATCH', `/rest/v1/message_threads?job_id=eq.${jobId}&seeker_id=eq.${S.id}`, { token: st, body: { unread_by_seeker: false } })
+    const readNow = await call('GET', `/rest/v1/message_threads?select=unread_by_seeker&id=eq.${threadId}`, { token: st })
+    rec('I9', '구직자가 읽음 처리', readUp.status < 300 && readNow.json?.[0]?.unread_by_seeker === false)
+    const t3 = await call('GET', `/rest/v1/message_threads?select=id&id=eq.${threadId}`, { token: s3t })
+    const t3m = await call('GET', `/rest/v1/messages?select=id&thread_id=eq.${threadId}`, { token: s3t })
+    const e2 = await call('GET', `/rest/v1/message_threads?select=id&id=eq.${threadId}`, { token: e2t })
+    const e2m = await call('GET', `/rest/v1/messages?select=id&thread_id=eq.${threadId}`, { token: e2t })
+    const inject = await call('POST', '/rest/v1/messages', { token: s3t, body: { thread_id: threadId, from_role: 'seeker', body: 'HACK' } })
+    const inject2 = await call('POST', '/rest/v1/messages', { token: e2t, body: { thread_id: threadId, from_role: 'employer', body: 'HACK' } })
+    rec('I10', '제3자(다른 구직자·다른 기업)는 남의 대화·메시지를 읽지도 끼어들지도 못함', [t3, t3m, e2, e2m].every((r) => (r.json ?? []).length === 0) && inject.status >= 400 && inject2.status >= 400, `끼어들기 구직자 ${inject.status} / 기업 ${inject2.status}`)
+
+    // 면접: 기업이 일정 등록 → 구직자가 확인·수락 → 취소하면 목록에서 빠짐, 제3자는 못 봄·못 바꿈
+    const when = new Date(Date.now() + 3 * 86400_000).toISOString()
+    const iv = await call('POST', '/rest/v1/interviews', { token: et, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: S.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E', datetime: when, location: 'KCN Yên Phong', notes: 'e2e', status: 'pending' } })
+    const ivId = iv.json?.[0]?.id
+    rec('I11', '기업이 지원자에게 면접 일정 등록', iv.status === 201 && !!ivId, `status ${iv.status} ${iv.code}`)
+    const ivDup = await call('POST', '/rest/v1/interviews', { token: et, body: { job_id: jobId, seeker_id: S.id, employer_id: E.id, job_title: TITLE, company: COMPANY, datetime: when, location: 'x', notes: '', status: 'pending' } })
+    const sIv = await call('GET', `/rest/v1/interviews?select=id,status&seeker_id=eq.${S.id}&status=neq.cancelled`, { token: st })
+    rec('I12', '같은 공고·지원자의 면접이 두 줄로 생기지 않고, 구직자가 자기 면접을 봄', ivDup.status === 409 && sIv.json?.length === 1 && sIv.json[0].id === ivId, `중복 등록 status ${ivDup.status}`)
+    // 면접 상태는 기업만 바꾼다(웹·앱 모두 구직자 수락 화면 없음 — updateInterviewStatus는 기업 화면 전용)
+    const acc = await call('PATCH', `/rest/v1/interviews?id=eq.${ivId}`, { token: et, body: { status: 'confirmed' } })
+    const accNow = await call('GET', `/rest/v1/interviews?select=status&id=eq.${ivId}`, { token: st })
+    rec('I13', '기업이 면접을 확정으로 바꾸면 구직자 화면에 확정으로 보임', acc.status < 300 && accNow.json?.[0]?.status === 'confirmed', `status ${acc.status} ${acc.code}`)
+    const iv3 = await call('GET', `/rest/v1/interviews?select=id&id=eq.${ivId}`, { token: s3t })
+    const iv3p = await call('PATCH', `/rest/v1/interviews?id=eq.${ivId}`, { token: s3t, body: { status: 'cancelled' } })
+    const ivSp = await call('PATCH', `/rest/v1/interviews?id=eq.${ivId}`, { token: st, body: { status: 'cancelled' } })
+    const iv2p = await call('PATCH', `/rest/v1/interviews?id=eq.${ivId}`, { token: e2t, body: { status: 'cancelled' } })
+    const ivKeep = await call('GET', `/rest/v1/interviews?select=status&id=eq.${ivId}`, { token: et })
+    const ivForge = await call('POST', '/rest/v1/interviews', { token: s3t, body: { job_id: jobId, seeker_id: S3.id, employer_id: E.id, job_title: TITLE, company: COMPANY, datetime: when, location: 'x', notes: '', status: 'confirmed' } })
+    rec('I14', '면접 상태는 기업만 바꿈(구직자·제3자 시도는 반영 안 됨), 제3자는 보지 못하고 기업 이름으로 면접을 만들 수 없음', (iv3.json ?? []).length === 0 && ivKeep.json?.[0]?.status === 'confirmed' && ivForge.status >= 400, `취소 시도 제3자 ${iv3p.status} / 지원자 ${ivSp.status} / 다른 기업 ${iv2p.status}, 위조 등록 ${ivForge.status}`)
+    const cancel = await call('PATCH', `/rest/v1/interviews?id=eq.${ivId}`, { token: et, body: { status: 'cancelled' } })
+    const gone = await call('GET', `/rest/v1/interviews?select=id&seeker_id=eq.${S.id}&status=neq.cancelled`, { token: st })
+    rec('I15', '기업이 면접 취소 → 구직자 면접 목록에서 빠짐', cancel.status < 300 && gone.json?.length === 0)
+  } catch (e) { rec('I0', '이력서·메시지·면접 흐름', false, e.message) }
+}
+
+// ── 3-4. 공고 유형(경로)별 등록·덮어쓰기 규칙(실제 PostgREST·실제 토큰): 수집(crawler_*)·기업(employer)·관리자(admin)·SQL/Lee 확인 경로가 서로의 공고를 덮어쓰지 못하고, 경로 사칭이 막히는지 ──
+if (jobId) {
+  try {
+    const login = async (u) => (await call('POST', '/auth/v1/token?grant_type=password', { body: { email: u.email, password: PW } })).json.access_token
+    const et = await login(users.employer), st = await login(users.seeker)
+    const reg = (token, p) => call('POST', '/rest/v1/rpc/ingest_job', { token, body: { p } })
+    const base = (tag) => ({ source_text: `E2E Type Co ${tag}\nTuyen nhan vien chay ban nha hang\nKCN Yen Phong, Bac Ninh\nLH 0912345678`, company: `E2E Type Co ${tag}`, title: `Nhan vien chay ban ${tag}`, description: 'Phuc vu ban an', location: 'KCN Yen Phong, Bac Ninh', employer_phone: '0912345678', active: true, occupation_code: '5', occupation_evidence: 'Tuyen nhan vien chay ban nha hang' })
+    // 경로 사칭: 수집·관리자·SQL·Lee 확인 경로는 일반 사용자·비로그인이 쓸 수 없다
+    const imp = []
+    for (const [who, token] of [['비로그인', undefined], ['구직자', st], ['기업', et]]) for (const ch of ['crawler_topcv', 'crawler_facebook', 'admin', 'sql_file', 'lee_confirmed']) { const r = await reg(token, { ...base('imp'), channel: ch }); if (!(r.status >= 400 && /42501|insufficient/.test(JSON.stringify(r.json)))) imp.push(`${who}→${ch}:${r.status}`) }
+    rec('K1', '수집·관리자·SQL·Lee 확인 경로를 비로그인·구직자·기업이 쓰면 모두 권한 거부(15개 조합)', imp.length === 0, imp.join(' / '))
+    const unk = await reg(et, { ...base('unk'), channel: 'made_up' })
+    rec('K2', '알 수 없는 경로 이름은 거부', unk.status >= 400)
+    // 기업 경로: 같은 내용 두 번 등록 → 같은 공고(중복), source_url은 무시
+    const pe = { ...base('emp'), channel: 'employer', employer_id: users.employer.id, source_url: 'https://example.com/e2e-squat' }
+    const a = await reg(et, pe), b = await reg(et, pe)
+    rec('K3', '기업 경로 같은 내용 재등록은 같은 공고로 돌아옴(중복 판정)', a.status === 200 && b.status === 200 && a.json === b.json, `${a.json} / ${b.json}`)
+    const row = await call('GET', `/rest/v1/local_jobs?select=id,origin,source_url&id=eq.${a.json}`, { token: SERVICE }) // origin·source_url은 일반 로그인 사용자에게 열 권한이 없어 서버 키로 읽는다
+    rec('K4', '기업 경로는 origin=employer로 저장되고 원문 주소(source_url)를 받지 않음', row.json?.[0]?.origin === 'employer' && row.json?.[0]?.source_url == null, JSON.stringify(row.json?.[0] ?? {}).slice(0, 100))
+    // 수집 경로(서버 키)가 기업 공고를 다시 수집으로 덮어쓰지 못함
+    const over = await reg(SERVICE, { ...base('emp'), channel: 'crawler_topcv', job_id: a.json, refresh: true, title: 'CRAWLER OVERWRITE', salary: '1 triệu', update_fields: ['title', 'salary'] })
+    const after = await call('GET', `/rest/v1/local_jobs?select=title,salary&id=eq.${a.json}`, { token: et })
+    rec('K5', '수집 경로가 기업 공고를 다시 수집(job_id 지정)해도 제목·급여가 바뀌지 않음', over.status === 200 && after.json?.[0]?.title === base('emp').title && after.json?.[0]?.salary !== '1 triệu', `status ${over.status} 제목 "${after.json?.[0]?.title}"`)
+    // 수집 경로 자기 공고: 새로 등록 → 같은 수집 경로의 다시 수집은 갱신됨 → 기업 경로는 수집 공고를 바꾸지 못함
+    const cr = await reg(SERVICE, { ...base('crw'), channel: 'crawler_topcv', source_url: `https://example.com/e2e-crw-${RUN}` })
+    rec('K6', '수집 경로(서버 키) 새 공고 등록', cr.status === 200 && Number.isInteger(cr.json), `status ${cr.status} ${cr.code}`)
+    const crRow = await call('GET', `/rest/v1/local_jobs?select=origin&id=eq.${cr.json}`, { token: SERVICE })
+    rec('K7', '수집 경로 공고는 origin=crawler로 저장', crRow.json?.[0]?.origin === 'crawler')
+    const refresh = await reg(SERVICE, { ...base('crw'), channel: 'crawler_topcv', job_id: cr.json, refresh: true, salary: '9 triệu/tháng', update_fields: ['salary'] })
+    const crAfter = await call('GET', `/rest/v1/local_jobs?select=salary&id=eq.${cr.json}`, { token: SERVICE })
+    rec('K8', '수집 경로의 자기 공고 다시 수집은 지정한 칸만 갱신', refresh.status === 200 && crAfter.json?.[0]?.salary === '9 triệu/tháng', `status ${refresh.status}`)
+    const empOverCrawler = await reg(et, { ...base('crw'), channel: 'employer', employer_id: users.employer.id, job_id: cr.json, refresh: true, title: 'EMPLOYER OVERWRITE', update_fields: ['title'] })
+    const crTitle = await call('GET', `/rest/v1/local_jobs?select=title&id=eq.${cr.json}`, { token: SERVICE })
+    rec('K9', '기업 경로로 수집 공고(남의 공고)를 고칠 수 없음', crTitle.json?.[0]?.title !== 'EMPLOYER OVERWRITE', `status ${empOverCrawler.status}`)
+    // 다른 기업이 내 공고를 job_id로 다시 등록해 덮어쓰기
+    const e2 = await login(users.employer2)
+    const hij = await reg(e2, { ...base('emp'), channel: 'employer', employer_id: users.employer2.id, job_id: a.json, refresh: true, title: 'HIJACK', update_fields: ['title'] })
+    const hijAfter = await call('GET', `/rest/v1/local_jobs?select=title&id=eq.${a.json}`, { token: et })
+    rec('K10', '다른 기업이 남의 공고 번호로 다시 등록해도 내용이 바뀌지 않음', hijAfter.json?.[0]?.title === base('emp').title, `status ${hij.status} ${hij.code}`)
+    // 공개 판정: 기업·수집 공고는 직업분류 근거가 있어도 검사 전에는 익명에게 안 보임(공개 규칙은 경로와 무관한 한 곳)
+    const pubE = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${a.json}`)
+    observe('K11', '익명이 보는 공개 상태', `기업 공고 ${pubE.json?.length ?? 0}건`)
+  } catch (e) { rec('K0', '공고 유형별 등록 규칙', false, e.message) }
+}
+
 // ── 4. 웹·앱 화면(실제 브라우저, 실제 로컬 스택) ──
 if (BASE && jobId) {
   const browser = await chromium.launch()
@@ -200,6 +330,107 @@ if (BASE && jobId) {
       const card = page.locator(`[data-job-id="sb-${jobId}"], a[href$="/viec-lam/sb-${jobId}"]`)
       await card.first().waitFor({ state: 'attached', timeout: 30_000 }).then(() => rec('F5', `앱(${name}) 홈에 시험 공고 카드가 보임`, true), async () => rec('F5', `앱(${name}) 홈에 시험 공고 카드가 보임`, false, `홈에 나온 공고 카드 ${await page.locator('[data-job-id]').count()}개 중 없음`))
     } catch (e) { rec('F0', `웹·앱 화면(${name})`, false, e.message.split('\n')[0]) }
+    await context.close()
+  }
+  // ── 앱 등록 → 웹 확인 교차(실제 브라우저·실제 로컬 스택): 기업이 앱(/app/biz/dang-tin)에서 공고를 등록하면 같은 계정의 앱 관리 화면·웹 관리 화면·DB에 같은 공고가 보이고, 비로그인에게는 검사 전이라 안 보인다.
+  {
+    const APP_TITLE = `Tuyen app ${RUN}`.slice(0, 40)
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(context)
+    const page = await context.newPage()
+    try {
+      await page.goto(`${BASE}/dang-nhap`, { waitUntil: 'domcontentloaded' })
+      await page.locator('input[type="email"]').fill(users.employer.email)
+      await page.locator('input[type="password"]').fill(PW)
+      await page.locator('button[type="submit"]').click()
+      await page.waitForFunction(() => Object.keys(localStorage).some((k) => /auth-token/.test(k)), null, { timeout: 30_000 })
+      await page.goto(`${BASE}/app/biz/dang-tin`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-pj"]').waitFor({ state: 'visible', timeout: 30_000 })
+      await page.locator('#app-pj-title').fill(APP_TITLE)
+      await page.locator('#app-pj-company').fill('E2E App Co')
+      await page.getByRole('button', { name: 'Chính thức', exact: true }).click()
+      await page.locator('#app-pj-hires').fill('5')
+      await page.locator('#app-pj-salary').fill('8000000')
+      const pickTime = async (label, re) => { const sel = page.getByLabel(label); const v = await sel.evaluate((el, src) => { const r = new RegExp(src); const o = [...el.options].find((x) => r.test(x.value || x.text)); return o ? o.value || o.text : null }, re.source); await sel.selectOption(v) }
+      await pickTime('Giờ bắt đầu', /^08/); await pickTime('Giờ kết thúc', /^17/)
+      await page.locator('#app-pj-deadline').fill(new Date(Date.now() + 14 * 86400_000).toISOString().slice(0, 10))
+      await page.getByLabel('Tỉnh / Thành phố').selectOption({ index: 1 })
+      await page.getByLabel('Phường / Xã').selectOption({ index: 1 })
+      await page.locator('#app-pj-street').fill('12 Nguyễn Văn Cừ')
+      await page.locator('#app-pj-phone').fill('0912345678')
+      await page.locator('#app-pj-description').fill('Phục vụ bàn tại nhà hàng, làm theo ca')
+      await page.getByRole('button', { name: 'Đăng tin', exact: true }).click()
+      const ok = await page.locator('[data-testid="app-pj-done"]').waitFor({ state: 'visible', timeout: 45_000 }).then(() => true, () => false)
+      const err = ok ? '' : (await page.locator('#app-pj-error').textContent({ timeout: 2000 }).catch(() => '')) || ''
+      rec('J1', '앱 공고 등록 화면에서 필수 칸을 채워 등록(실제 ingest_job)', ok, err.slice(0, 120))
+      const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: users.employer.email, password: PW } })
+      const et = l.json?.access_token
+      const mine = await call('GET', `/rest/v1/local_jobs?select=id,title,active,employer_id&title=eq.${encodeURIComponent(APP_TITLE)}`, { token: et })
+      rec('J2', '웹과 같은 DB 줄로 저장됨(작성 기업 소유, 기업 토큰으로 조회)', mine.json?.length === 1 && mine.json[0].employer_id === users.employer.id, `${mine.json?.length ?? 0}건`)
+      const pub = await call('GET', `/rest/v1/local_jobs?select=id&title=eq.${encodeURIComponent(APP_TITLE)}`)
+      rec('J3', '앱에서 등록한 새 공고도 검사 전에는 비로그인에게 안 보임(웹과 같은 공개 규칙)', pub.status === 200 && (pub.json ?? []).length === 0)
+      await page.goto(`${BASE}/app/biz/quan-ly-tin`, { waitUntil: 'domcontentloaded' })
+      const inApp = await page.locator('[data-testid="app-biz-job"]', { hasText: APP_TITLE }).first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
+      rec('J4', '앱 관리 화면(Quản lý tin)에 방금 등록한 공고가 보임', inApp)
+      await page.goto(`${BASE}/bang-dieu-khien`, { waitUntil: 'domcontentloaded' })
+      const inWeb = await page.waitForFunction((t) => document.body.innerText.includes(t), APP_TITLE, { timeout: 30_000 }).then(() => true, () => false)
+      rec('J5', '웹 기업 관리 화면(/bang-dieu-khien)에도 같은 공고가 보임(앱 등록 → 웹 확인)', inWeb)
+      await page.screenshot({ path: `${SHOTS}/web-dashboard-after-app-post.png` })
+    } catch (e) { rec('J0', '앱 등록→웹 확인 교차', false, e.message.split('\n')[0]) }
+    await context.close()
+  }
+  // ── 앱·웹 업데이트 뒤 호환(G): 새 빌드가 올라간 뒤에도 ① 옛 캐시 조각이 새 화면을 가리지 않고 ② 옛 모양·깨진 저장값이 있어도 화면이 죽지 않고 ③ 만료된 접근 토큰은 새로고침 토큰으로 조용히 이어진다 ──
+  {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(context)
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 120)))
+    const tokenCalls = []
+    page.on('response', (r) => { if (/\/auth\/v1\/token\?grant_type=refresh_token/.test(r.url())) tokenCalls.push(r.status()) })
+    const alive = async (label, url, ready) => {
+      errors.length = 0
+      await page.goto(`${BASE}${url}`, { waitUntil: 'domcontentloaded' })
+      const ok = await page.locator(ready).first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
+      const rootText = await page.evaluate(() => (document.getElementById('root')?.innerText ?? '').length)
+      return { ok: ok && rootText > 20 && errors.length === 0, note: `${label}: 화면 ${ok ? '뜸' : '안 뜸'} / 글자 ${rootText} / 스크립트 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''}` }
+    }
+    try {
+      await page.goto(`${BASE}/dang-nhap`, { waitUntil: 'domcontentloaded' })
+      await page.locator('input[type="email"]').fill(users.seeker.email)
+      await page.locator('input[type="password"]').fill(PW)
+      await page.locator('button[type="submit"]').click()
+      await page.waitForFunction(() => Object.keys(localStorage).some((k) => /auth-token/.test(k)), null, { timeout: 30_000 })
+      // ① 옛 버전 캐시 조각(가짜 화면)을 심고 새로고침 — 서비스 워커는 항상 네트워크(sw.js), 옛 캐시는 쓰지 않아야 한다
+      await page.evaluate(async () => { for (const n of ['viecganban-v1', 'viecganban-v2']) { const c = await caches.open(n); await c.put('/', new Response('<html><body>STALE-BUILD</body></html>', { headers: { 'content-type': 'text/html' } })) } })
+      const staleBefore = await page.evaluate(async () => (await caches.keys()).filter((k) => /^viecganban-v[12]$/.test(k)).length)
+      const w = await alive('웹 홈', '/', 'header, [data-testid], main')
+      const stale = await page.evaluate(() => document.body.innerText.includes('STALE-BUILD'))
+      rec('L1', '옛 버전 캐시 조각이 남아 있어도 새 화면이 그대로 뜸(캐시가 화면을 가리지 않음)', staleBefore === 2 && w.ok && !stale, w.note)
+      // ② 옛 모양·깨진 저장값: 같은 키에 JSON이 아닌 글, 모양이 다른 값(배열↔객체), null을 넣는다
+      const uid = users.seeker.id
+      await page.evaluate((id) => {
+        const bad = ['{not json', '"str"', '123', '[]', '{"x":1}', 'null', '[1,"a",null]']
+        const keys = ['vgb:app:region', 'vgb:map-r1:viewport', 'vgb_notifications', 'vgb_notif_seen_statuses', 'vgb_notif_seen_deadlines', 'vgb_jobs_view_mode', 'vgb_posted_jobs', 'vgb_profile', 'vgb_saved_job_ids', 'vgb_near_me_address_history', 'vgb_location_prompt_v1', 'vgb_local_profile_cv_claimed_by', 'vgb_cv_draft', 'vgb:postjob-preview', 'vgb:postjob-draft', 'vgb:postjob-contact', 'vgb_account_import:' + id]
+        let i = 0
+        for (const k of keys) for (const scope of ['', ':' + id, ':guest']) localStorage.setItem(k + scope, bad[i++ % bad.length])
+      }, uid)
+      const results = []
+      for (const [label, url, ready] of [['웹 홈', '/', 'header, main'], ['웹 프로필', '/ho-so', 'header, main'], ['웹 공고 상세', `/viec-lam/sb-${jobId}`, 'header, main'], ['앱 홈', '/app/', '[data-testid="app-tabbar"]'], ['앱 내 정보', '/app/ho-so', '[data-testid="app-tabbar"]'], ['앱 기업', '/app/biz', '[data-testid="app-tabbar"]']]) results.push(await alive(label, url, ready))
+      rec('L2', '옛 모양·깨진 저장값(JSON 아님·모양 다름·null)이 있어도 웹 3화면·앱 3화면이 죽지 않음', results.every((r) => r.ok), results.filter((r) => !r.ok).map((r) => r.note).join(' / ') || `${results.length}화면 모두 정상`)
+      // ③ 접근 토큰 만료 + 새로고침 토큰 유효 → 새로고침 뒤 자동 갱신으로 로그인 유지
+      await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => /auth-token/.test(x)); const v = JSON.parse(localStorage.getItem(k)); v.expires_at = 1; v.expires_in = 0; localStorage.setItem(k, JSON.stringify(v)) })
+      tokenCalls.length = 0
+      await page.goto(`${BASE}/app/ho-so`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
+      await page.waitForTimeout(3000)
+      const after = await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => /auth-token/.test(x)); try { const v = JSON.parse(localStorage.getItem(k)); return { email: v.user?.email, exp: v.expires_at } } catch { return {} } })
+      rec('L3', '접근 토큰이 만료돼도 새로고침 토큰으로 조용히 갱신되어 로그인 유지(앱)', tokenCalls.includes(200) && after.email === users.seeker.email && after.exp > Math.floor(Date.now() / 1000), `갱신 요청 ${tokenCalls.join(',') || '없음'} / 만료 ${after.exp}`)
+      // ④ 새로고침 토큰까지 못 쓰게 된 세션(서버에서 전체 로그아웃) → 화면이 죽지 않고 로그아웃 상태로 열림
+      const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: users.seeker.email, password: PW } })
+      await call('POST', '/auth/v1/logout?scope=global', { token: l.json?.access_token })
+      const dead = await alive('앱 홈(세션 폐기)', '/app/', '[data-testid="app-tabbar"]')
+      const deadWeb = await alive('웹 홈(세션 폐기)', '/', 'header, main')
+      rec('L4', '서버에서 세션이 폐기돼도(옛 기기) 웹·앱이 죽지 않고 열림', dead.ok && deadWeb.ok, `${dead.note} / ${deadWeb.note}`)
+    } catch (e) { rec('L0', '업데이트 뒤 캐시·세션 호환', false, e.message.split('\n')[0]) }
     await context.close()
   }
   rec('G1', '브라우저에서 운영 주소(Supabase·서비스)로 나간 요청 없음(전부 로컬로 바꿔 보내거나 막음)', !reachedProd(), `바깥 호스트 ${[...outside].join(',') || '없음'}`)
