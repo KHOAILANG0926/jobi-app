@@ -2,6 +2,8 @@
 set -euo pipefail
 : "${PG_TEST_URL:?PG_TEST_URL is required}"
 : "${PR_BASE_SHA:?PR_BASE_SHA is required}"
+# 이벤트 뒤 기준 브랜치가 앞으로 가도 남이 한 migration이 이 PR의 것으로 섞이지 않게 기준 커밋을 한 곳(effective-base.mjs)에서 보정(2026-11-26)
+PR_BASE_SHA=$(node scripts/ci/effective-base.mjs "$PR_BASE_SHA" "${GITHUB_BASE_REF:-master}" 2>/dev/null || echo "$PR_BASE_SHA")
 psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/postgres-location-fixture.sql
 mapfile -t changed < <(git diff --name-only "$PR_BASE_SHA" HEAD -- 'supabase/migrations/*.sql')
 echo "Regression: always apply the current location-memory migration on fresh PostgreSQL" 

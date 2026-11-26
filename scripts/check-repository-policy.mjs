@@ -4,6 +4,8 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { isApprovedMigration, MANIFEST_PATH } from './approved-migrations.mjs'
 import { STRICT_PATHS } from './decision-approval-gate.mjs'
+import { resolveBase } from './ci/effective-base.mjs'
+export { effectiveBase } from './ci/effective-base.mjs'
 
 // STATUS 보호(보고 위조 대상): STATUS.md·scripts/status/는 대표 승인이 있어도 예외 없이 막는다.
 // status-*.yml 워크플로는 여기서 막지 않는다 — 대표 공식 Approve 판정은 기존 approval-gate(decision-approval-gate.mjs, .github/ = 검사·보호 장치)가 한 곳에서 한다(S1, Lee 2026-11-20).
@@ -160,30 +162,13 @@ export function nameStatusEntries(raw) {
 export const parseNameStatusZ = (raw) => [...new Set(nameStatusEntries(raw).flatMap((e) => e.paths))]
 
 
-/** PR 검사가 바뀐 파일을 셀 때 쓸 기준 커밋.
- *  pull_request 검사의 HEAD는 GitHub이 만든 병합본(첫째 부모 = 그때의 기준 브랜치 끝)인데, 이벤트의 base.sha는 이벤트 때 값이라 그 사이 기준 브랜치가
- *  앞으로 가면(수집 작업이 몇 분마다 커밋함) 옛 base.sha ↔ 병합본 비교에 남이 한 변경이 PR 변경으로 섞여 들어와 잘못 차단된다(2026-11-26 #1074 run 45731277070).
- *  그래서 ① HEAD가 병합본이고 ② 첫째 부모가 이벤트 기준의 후손이며 ③ 기준 브랜치 현재 끝의 조상일 때만(= 기준 브랜치 역사 위에서 앞으로만) 첫째 부모를 쓴다.
- *  하나라도 어긋나면 이벤트 값 그대로 — 후보가 기준을 스스로 고를 수 없다(승인 기록은 여전히 기준 브랜치 쪽 파일에서 읽음). */
-export function effectiveBase({ eventBase, parents, isAncestor }) {
-  if (!eventBase || !Array.isArray(parents) || parents.length !== 2) return eventBase
-  const [first] = parents
-  if (first === eventBase) return eventBase
-  return isAncestor(eventBase, first) && isAncestor(first, 'BASE_TIP') ? first : eventBase
-}
-
 if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
   const eventBase = event.pull_request?.base?.sha
   if (!eventBase) process.exit(0)
-  const git = (...a) => execFileSync('git', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
-  let base = eventBase
-  try {
-    const tip = git('rev-parse', `origin/${event.pull_request.base.ref}`)
-    const isAncestor = (a, b) => { try { execFileSync('git', ['merge-base', '--is-ancestor', a, b === 'BASE_TIP' ? tip : b], { stdio: 'ignore' }); return true } catch { return false } }
-    base = effectiveBase({ eventBase, parents: git('rev-list', '--parents', '-n', '1', 'HEAD').split(' ').slice(1), isAncestor })
-    if (base !== eventBase) console.log(`기준 커밋: 이벤트 ${eventBase.slice(0, 7)} → 병합본 첫째 부모 ${base.slice(0, 7)} (그 사이 기준 브랜치가 앞으로 감)`)
-  } catch { base = eventBase }
+  // 기준 커밋: 이벤트 뒤 기준 브랜치가 앞으로 가도 남이 한 변경이 섞이지 않게 한 곳(scripts/ci/effective-base.mjs)에서 보정
+  const base = resolveBase(eventBase, event.pull_request.base.ref ?? 'master')
+  if (base !== eventBase) console.log(`기준 커밋: 이벤트 ${eventBase.slice(0, 7)} → 병합본 첫째 부모 ${base.slice(0, 7)} (그 사이 기준 브랜치가 앞으로 감)`)
   const entries = nameStatusEntries(execFileSync('git', ['diff', '--no-ext-diff', '--name-status', '-z', '--find-renames', base, 'HEAD', '--'], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }))
   const files = [...new Set(entries.flatMap((e) => e.paths))]
   // 파일 내용(바뀐 줄)도 diff 글의 머리줄로 나누지 않고 파일마다 정확한 경로(:(literal))로 따로 받는다 — 경로를 잘못 읽어 내용을 못 찾으면
