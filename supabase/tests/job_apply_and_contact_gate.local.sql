@@ -7,5 +7,6 @@ begin
  if position('FOR SHARE' in upper(pg_get_functiondef('public.applications_job_open_gate()'::regprocedure))) = 0 then raise exception 'apply gate: 공고 행 잠금(FOR SHARE)이 없음'; end if;
  if position('publish gate: 공개 중인 공고에서' in pg_get_functiondef('public.enforce_job_publish_gate()'::regprocedure)) = 0 then raise exception 'contact gate: 기업 공개 중 연락처 제거 거부 줄이 없음'; end if;
  if position('not in (''crawler'', ''admin'')' in pg_get_functiondef('public.enforce_job_publish_gate()'::regprocedure)) = 0 then raise exception 'contact gate: 수집·관리자 기존 줄이 사라짐'; end if;
+if not (select p.prosecdef from pg_proc p where p.oid = 'public.enforce_job_publish_gate()'::regprocedure) then raise exception 'contact gate: 공개 판정 트리거 함수가 definer가 아님(기업·게스트 계정이 판정 함수 권한 오류로 등록·수정 실패)'; end if;
 end $$;
 select 'PASS: job_apply_and_contact_gate local' as result;

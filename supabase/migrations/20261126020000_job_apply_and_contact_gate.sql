@@ -6,7 +6,10 @@
 --     같은 기준(job_publish_gate_reason)으로 기업 경로에도 적용하되, '공개 중이던 공고가 판정을 통과하다가 못 통과하게 되는 수정'만 막는다 — 새로 등록하는 공고·이미 비어 있던 옛 공고·
 --     위치가 확정되지 않았다는 이유는 이 규칙의 대상이 아니다(위치 미확정 공개 정책은 그대로, 새 공개 차단 규칙 없음). 관리자 공고는 기존 결정(2026-10-14 A: 계산 기록만)대로 그대로.
 --     기업 경로는 계산값(publish_gate_reason)도 기록한다(관리자와 같은 방식).
--- 데이터 변경 없음. 되돌리기: 트리거 삭제 + 공개 판정 함수를 이전 본문으로(이전 20261101190000 그대로).
+--     ※ 공개 판정 트리거 함수는 부른 사람 권한(invoker)이라 기업·게스트 계정(authenticated·anon)이 job_publish_gate_reason 실행 권한이 없어(20261101190000이 회수) 이 줄을 넣으면
+--     기업·게스트 등록·수정이 모두 'permission denied'로 실패한다(실제 PostgreSQL 연결 2개 이상 시험으로 확인 — 최고 권한 한 계정인 PGlite는 못 봄). 그래서 같은 함수를 definer로 바꾼다:
+--     본문은 NEW로 계산만 하고 호출 계정을 보지 않으므로(수집·관리자 줄 포함) 결과는 같고, 위치 행(job_work_locations)을 RLS 없이 정확히 읽는다.
+-- 데이터 변경 없음. 되돌리기: 트리거 삭제 + 공개 판정 함수를 이전 본문으로(이전 20261101190000 그대로, invoker).
 begin;
 
 create or replace function public.applications_job_open_gate() returns trigger
@@ -48,6 +51,7 @@ begin
  if position(old_line in definition) = 0 then raise exception 'apply/contact gate: 공개 판정 함수의 대상 줄을 찾지 못함'; end if;
  if position(old_line in substr(definition, position(old_line in definition) + 1)) > 0 then raise exception 'apply/contact gate: 공개 판정 함수의 대상 줄이 둘 이상'; end if;
  execute replace(definition, old_line, new_line);
+ alter function public.enforce_job_publish_gate() security definer;
 end $patch$;
 
 commit;
