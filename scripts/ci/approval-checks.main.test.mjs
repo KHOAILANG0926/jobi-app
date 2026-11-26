@@ -276,8 +276,13 @@ globalThis.fetch = async (url) => { const u = String(url)
   const seg = yml.slice(yml.lastIndexOf('lock_rc=0', merge), mergeLine).replace(/^ {12}/gm, '')
   const bin = join(dir, 'b3bin'); (await import('node:fs')).mkdirSync(bin)
   wf(join(bin, 'node'), '#!/bin/sh\necho "가짜 판정 $FAKE_RC"\nexit "$FAKE_RC"\n'); (await import('node:fs')).chmodSync(join(bin, 'node'), 0o755)
+  const fnStart = yml.indexOf('recheck_or_block() {'), fnEnd = yml.indexOf('\n          }\n', fnStart) + '\n          }\n'.length
+  assert.ok(fnStart > 0 && fnEnd > fnStart, '봇 워크플로에 재확인 상한 함수가 있음')
+  const fn = yml.slice(fnStart, fnEnd).replace(/^ {10}/gm, '')
+  const fsx = await import('node:fs')
+  fsx.mkdirSync(join(dir, 'scripts/ci'), { recursive: true }); fsx.copyFileSync(new URL('./recheck-since.jq', import.meta.url).pathname, join(dir, 'scripts/ci/recheck-since.jq')); wf(join(dir, 'reviews.json'), '[]')
   const sh = (rc) => { const summary = join(dir, `summary-${rc}.md`); wf(summary, '')
-    const r = spawnSync('bash', ['-c', `set -euo pipefail\nREPO=o/r; GH_TOKEN=t; author=a; sha=${sha}\nfor num in 1 2; do\n${seg}\necho "MERGE_REACHED $num"\ndone\necho LOOP_DONE`], { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_RC: String(rc), GITHUB_STEP_SUMMARY: summary } })
+    const r = spawnSync('bash', ['-c', `set -euo pipefail\nREPO=o/r; GH_TOKEN=t; author=a; sha=${sha}; head_date=$(date -u +%Y-%m-%dT%H:%M:%SZ); : > codex-wait.txt\nblock() { echo "BLOCKED $3"; }\n${fn}\nfor num in 1 2; do\n${seg}\necho "MERGE_REACHED $num"\ndone\necho LOOP_DONE`], { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_RC: String(rc), GITHUB_STEP_SUMMARY: summary } })
     return { code: r.status, out: r.stdout, summary: rf(summary, 'utf8') } }
   let o = sh(0); assert.deepEqual([o.code, /MERGE_REACHED 1/.test(o.out), /MERGE_REACHED 2/.test(o.out)], [0, true, true], 'B3 셸: 종료 0 → 병합 단계로 진행')
   o = sh(3); assert.deepEqual([o.code, /MERGE_REACHED/.test(o.out), /LOOP_DONE/.test(o.out)], [0, false, true], 'B3 셸: 종료 3 → 이 PR 병합 생략, 다음 PR로 계속(단계 전체가 멈추지 않음)')
@@ -285,6 +290,16 @@ globalThis.fetch = async (url) => { const u = String(url)
   o = sh(4); assert.deepEqual([o.code, /MERGE_REACHED/.test(o.out), /LOOP_DONE/.test(o.out)], [0, false, true], 'B3 셸: 종료 4 → 보류, 다음 PR로 계속')
   assert.match(o.out, /::error::PR #1 병합 직전 운영 배포 잠금 재확인 실패\(코드 4\)/); assert.match(o.summary, /PR #1 운영 배포 잠금 재확인 실패 — 병합 보류/)
   o = sh(1); assert.equal(/MERGE_REACHED/.test(o.out), false, 'B3 셸: 예상 밖 종료 코드(1)도 보류 — 실패를 통과로 보지 않음')
+  // (2026-11-26) 조회 실패(코드 4)는 6분 뒤 다시 확인을 예약한다(상한 60분) — 영구 차단 조건(코드 3 잠금 있음·그 밖의 코드)은 재시도를 예약하지 않는다.
+  //   실제 사고: 병합 직전 잠금 조회가 API 한도로 실패 → 다시 부를 예약이 없어 #1092가 20분 넘게 멈춤. 봇 워크플로의 함수·셸 조각을 그대로 꺼내 실행한다.
+  const sh2 = (rc, minutesAgo) => { fsx.writeFileSync(join(dir, 'codex-wait.txt'), ''); wf(join(dir, 'sum.md'), '')
+    const headDate = new Date(Date.now() - minutesAgo * 60000).toISOString()
+    const r = spawnSync('bash', ['-c', `set -euo pipefail\nREPO=o/r; GH_TOKEN=t; author=a; sha=${sha}; head_date=${headDate}\nblock() { echo "BLOCKED $3: $4"; }\n${fn}\nfor num in 1; do\n${seg}\necho "MERGE_REACHED $num"\ndone\necho LOOP_DONE`], { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_RC: String(rc), GITHUB_STEP_SUMMARY: join(dir, 'sum.md') } })
+    return { code: r.status, out: r.stdout + r.stderr, wait: fsx.readFileSync(join(dir, 'codex-wait.txt'), 'utf8').trim() } }
+  let q = sh2(4, 10); assert.deepEqual([q.code, q.wait, /MERGE_REACHED/.test(q.out), /LOOP_DONE/.test(q.out)], [0, '6', false, true], '잠금 조회 실패(4) 60분 안: 6분 뒤 다시 확인 예약 + 병합 보류')
+  q = sh2(4, 120); assert.deepEqual([q.wait, /BLOCKED lock-check-timeout/.test(q.out), /MERGE_REACHED/.test(q.out)], ['', true, false], '조회 실패가 60분 넘게 이어지면 예약 없이 사유 기록(무제한 재시도 없음)')
+  q = sh2(3, 10); assert.equal(q.wait, '', '잠금 있음(3)은 영구 차단 — 재확인 예약 안 함(재시도로 우회 안 함)')
+  q = sh2(1, 10); assert.deepEqual([q.wait, /MERGE_REACHED/.test(q.out)], ['', false], '그 밖의 종료 코드는 예약 없이 보류')
 }
 // ④ 기준 커밋 계산(2026-11-26, J그룹): 의존성·워크플로 기준 내용은 PR 객체 base.sha(옛 값일 수 있음)가 아니라 PR head와의 분기점에서 읽는다
 {
