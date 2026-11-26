@@ -39,3 +39,10 @@ def test_other_stores_only_returns_branches_not_already_registered():
     assert other_stores([{"raw_address": a}], [a, b, c]) == [b, c]
     assert other_stores([{"raw_address": a}, {"raw_address": b}], [a, b]) == []
     assert other_stores([], [a, b]) == [a, b]
+
+
+if __name__ == "__main__":
+    for n, f in list(globals().items()):
+        if n.startswith("test_") and callable(f):
+            f()
+    print("test_pin_guard: all passed")
