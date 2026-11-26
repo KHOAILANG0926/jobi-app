@@ -141,7 +141,9 @@ try {
       continue
     }
     // 관리자가 숨긴 공고는 알림하지 않는다(Lee가 이미 뺀 공고). 화면 대조 대기만 남은 공고는 같은 실행에서 대조 뒤 다시 검사하므로 그때 알린다.
-    if (!screenWaitOnly && !job.admin_hidden) reports.push(inspectReport({ id: job.id, title: job.title }, r))
+    // 결과·내용이 지난번과 같으면(검사 보류 공고는 공개 재시도로 매번 다시 기록된다) 같은 검사표를 또 알리지 않는다 — 2026-11-26 #237에 같은 검사표 113번.
+    const sameAsLast = job.prev?.hash === hash && job.prev?.content_hash === job.content_hash
+    if (!screenWaitOnly && !job.admin_hidden && !sameAsLast) reports.push(inspectReport({ id: job.id, title: job.title }, r))
     console.log(`#${job.id} ${r.ok ? '통과' : '문제 ' + r.items.filter((i) => !i.ok).length + '개'}`)
   }
   // 연속 통과: 최근 공고부터(숨긴 공고 제외) 통과가 몇 개 이어지는지
