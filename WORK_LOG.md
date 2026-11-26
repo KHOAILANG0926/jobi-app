@@ -1,3 +1,9 @@
+## 2026-11-26 — C·D·E 이어서(Claude): 직업분류 공용화·추가 고용형태·관리자 자동 채우기·수집기 시험 CI
+- 요청(Lee 11-25·26): #717 B ①(근거 있을 때만 코드·근거 전달, 규칙 공통화, 업직종 아래 안내 줄), C·D·E 잔여, 수집기 시험 2개 CI 연결.
+- 변경: #1072(data/occupations/occupation_rules.json 한 곳을 Python·웹이 함께 읽음, 고용주 등록 buildJobFields·안내 줄) / #1073(시험 2개 수정) / #1080(employment_type_extra) / #1083(AdminDashboard 자동 채우기 = companyReader·addressReader·salaryReader·phonesIn·occupationReader) / #1079(crawl-install에 시험 2개) / #1084(admin-line-pick-e2e에 자동 채우기 확인, 저장 없음).
+- 검증 [직접 확인]: 규칙 이동 전후 동일·공용 사례 32건 같은 결과, npm test 138/138·tsc·build, 로컬 화면 PC·모바일, crawl-install에서 시험 실제 실행, deploy-verify 34af3dbc·75c8d24a 성공.
+- 남은 것: 실제 고용주·관리자 계정 운영 확인(#1084 병합 뒤 E2E), #728 A4, 규칙 없는 후보 코드, Actions 한도 소진 반복(봇 병합 실행 수 — 승인 영역, 원인 추정).
+
 ## 2026-11-25 — C·D 잔여·#701 후속(Claude): #973 연락처·마감, 고용형태, 보류함 이력, #717 B 초안, 수집기 시험 CI
 - 요청(Lee 11-25): #973 부분(연락처 8자리 통일·마감 지난 공고 제외+원문 보존), #717 B 대응표 초안, 오류 기록 축적(기존 구조), 고용형태 판독, E 작업·정기 수집 실증.
 - 변경: #1056 검사표 '연락처' = DB 공개 게이트와 같은 8자리 / #1057 마감 지난 새 공고는 등록 입구 한 곳에서 보류함(rejected·deadline_expired)에 원문 보존·미등록, 기존 공고 다시 수집은 갱신 안 함(수집기별 마감 처리 3곳 합침, Facebook '지난 날짜 빼기' 결함 수정) / #1059 원문에 고용형태 낱말이 한 종류일 때만 employment_type / #1060 보류함 줄 meta.history(판정이 바뀐 때만, 최근 10) / #1061 docs/plans/2026-11-25-717b-category-occupation-map.md(A33·B4·C67·D55, 대표 확인 6개) / #1063 CI 누락 수집기 시험 9개를 crawl-install에(Lee Approve 대상).
@@ -50,9 +56,4 @@
 - 변경: `src/lib/applySubmit.ts`(웹 `useApply`의 buildProfile·제출을 그대로 옮긴 공용 함수, 웹은 그 함수를 부름 — 동작 변경 없음) / `src/app/account/` — 로그인·가입(웹 같은 AuthContext·문구·검사, 이동은 /app 안 경로만), 지원 시트(`useAppApply`, 상세 하단 "Ứng tuyển ngay"가 웹 상세로 보내던 임시 연결을 대체), 마이 탭(`/ho-so`), 지원 내역(`/ho-so/ung-tuyen`: 웹과 같은 `applicationsStorage` 목록·실시간·철회).
 - 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 흐름 14/14(마이·지원 내역 로그인 유도·로그인/가입 검증 문구·외부 redirect 차단). 로그인 후 지원 제출은 이 환경에 인증 열쇠가 없어 직접 못 봄(병합 뒤 운영 확인 불가 — 계정 필요).
 - 남은 것: Zalo 로그인·비밀번호 찾기·CV는 웹 화면 연결(다음 PR), 이력서(CV)·커뮤니티·기업 기능.
-
-## 2026-11-25 — JOBI 앱 지도 카메라: 핀이 가장 많은 곳에 맞춤(운영 확인 후 수정)
-- 원인 [직접 확인 — 운영 `/app` 화면]: 전국 핀 전체에 카메라를 맞추면(웹 방식) 평균 위치가 라오스 쪽 빈 땅으로 떨어져 홈 지도·지도 탭에 핀이 안 보임.
-- 변경: `src/app/map/useMapData.ts`의 `fitViewport`가 1° 격자에서 핀이 가장 많은 칸과 이웃 칸에만 맞춤(+`fitViewport.test.ts`). 지도 부품·핀 계산·크기는 그대로.
-- 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 11/11.
 
