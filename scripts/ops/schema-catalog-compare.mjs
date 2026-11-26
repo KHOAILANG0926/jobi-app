@@ -1,5 +1,5 @@
 // 운영 DB 구조 지문(scripts/ops/jobs/schema-catalog-read.sql 실행 결과)과 격리 시험 DB의 같은 조회 결과를 항목별로 대조한다(읽기만, DB 접속 없음).
-// 사용: node scripts/ops/schema-catalog-compare.mjs <운영 결과 파일> <격리 결과 파일> [--json]
+// 사용: node scripts/ops/schema-catalog-compare.mjs <운영 결과 파일> <격리 결과 파일> [--json | --lines(함수 줄 지문 대조)]
 // 입력은 psql 출력 또는 GitHub Actions 실행 기록 글(줄 앞 시각 접두는 무시) — `{"kind": ...}` JSON 줄만 읽는다.
 // 종료 코드: 0 = 허용되지 않은 불일치 없음 · 1 = 허용되지 않은 불일치 있음 · 2 = 입력 오류(JSON 잘림·파싱 실패·필수 항목 누락·중복 항목) — 입력이 틀리면 '일치'로 보지 않는다.
 // 환경 특성상 허용되는 차이는 ALLOWED에 근거(reason)와 함께 적는다(없으면 모든 차이가 불일치).
@@ -73,6 +73,34 @@ export function compareCatalogs(prod, iso, allowed = ALLOWED) {
   return report
 }
 export const mismatchCount = (report) => Object.values(report).reduce((n, r) => n + r.differ.length + r.onlyProd.length + r.onlyIso.length, 0)
+
+// 함수 본문 줄 단위 지문 대조(scripts/ops/jobs/schema-function-lines-read.sql 결과): 본문 글자 없이 어느 줄 번호가 다른지만 낸다.
+export function compareFunctionLines(prodText, isoText) {
+  const load = (text, label) => {
+    let found = null
+    for (const line of text.split('\n')) {
+      const i = line.indexOf('{"kind"'); if (i < 0 || !line.includes('fn_lines')) continue
+      let o; try { o = JSON.parse(line.slice(i)) } catch { throw new CatalogInputError(`${label}: JSON이 잘렸거나 파싱 실패`) }
+      if (found) throw new CatalogInputError(`${label}: fn_lines가 두 번 나옴`)
+      if (!Array.isArray(o.rows ?? null)) throw new CatalogInputError(`${label}: fn_lines.rows 없음`)
+      found = o
+    }
+    if (!found) throw new CatalogInputError(`${label}: fn_lines 없음(출력이 잘렸거나 문장이 실행되지 않음)`)
+    const m = new Map()
+    for (const r of found.rows) { for (const k of ['schema', 'name', 'lines']) if (!(k in r)) throw new CatalogInputError(`${label}: fn_lines 행에 필수 칸 ${k} 없음`); const key = `${r.schema}.${r.name}(${(r.params ?? []).map((p) => `${p.mode}:${p.udt}`).join(',')})`; if (m.has(key)) throw new CatalogInputError(`${label}: 같은 함수가 두 번(${key})`); m.set(key, r.lines ?? []) }
+    return { major: found.server_major ?? null, m }
+  }
+  const p = load(prodText, '운영 결과'), i = load(isoText, '격리 결과')
+  const out = { prodMajor: p.major, isoMajor: i.major, functions: [] }
+  for (const [k, pl] of p.m) {
+    const il = i.m.get(k)
+    if (!il) { out.functions.push({ fn: k, status: '격리에 없음' }); continue }
+    const diff = []; for (let n = 0; n < Math.max(pl.length, il.length); n++) if (pl[n] !== il[n]) diff.push(n + 1)
+    out.functions.push({ fn: k, prodLines: pl.length, isoLines: il.length, differingLines: diff, status: diff.length ? '다름' : '같음' })
+  }
+  for (const k of i.m.keys()) if (!p.m.has(k)) out.functions.push({ fn: k, status: '운영에 없음' })
+  return out
+}
 // 입력 텍스트 두 개 → { code, report }. 입력 오류는 code 2(예외를 밖으로 내보내지 않고 메시지와 함께 돌려줌).
 export function runCompare(prodText, isoText, allowed = ALLOWED) {
   try {
@@ -86,6 +114,7 @@ export function runCompare(prodText, isoText, allowed = ALLOWED) {
 if (process.argv[1]?.endsWith('schema-catalog-compare.mjs')) {
   const [p, i] = process.argv.slice(2).filter((x) => !x.startsWith('--'))
   if (!p || !i) { console.error('사용: node scripts/ops/schema-catalog-compare.mjs <운영 결과> <격리 결과> [--json]'); process.exit(2) }
+  if (process.argv.includes('--lines')) { try { console.log(JSON.stringify(compareFunctionLines(readFileSync(p, 'utf8'), readFileSync(i, 'utf8')), null, 1)); process.exit(0) } catch (e) { console.error(`입력 오류: ${e.message}`); process.exit(2) } }
   const { code, report, error } = runCompare(readFileSync(p, 'utf8'), readFileSync(i, 'utf8'))
   if (error) { console.error(`입력 오류: ${error}`); process.exit(2) }
   if (process.argv.includes('--json')) console.log(JSON.stringify(report))
