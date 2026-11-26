@@ -34,11 +34,18 @@ jobs:
         shell: bash
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           list="${RUNNER_TEMP:-/tmp}/status-guard-changed.z"
+          # 기준 커밋 보정은 PR 사본이 아니라 기준 커밋의 사본으로 계산한다(PR이 보정 코드를 고쳐 STATUS 변경을 숨기지 못하게). 기준에 아직 없거나 실패하면 이벤트 값 그대로.
+          base="$BASE_SHA"
+          if git show "$BASE_SHA:scripts/ci/effective-base.mjs" > "${RUNNER_TEMP:-/tmp}/effective-base.mjs" 2>/dev/null; then
+            base=$(node "${RUNNER_TEMP:-/tmp}/effective-base.mjs" "$BASE_SHA" "$BASE_REF" "$HEAD_SHA" 2>/dev/null || echo "$BASE_SHA")
+          fi
           # 목록을 못 만들면 여기서 실패한다(set -e) — 목록 없이 통과하지 않는다.
-          git diff --no-renames --name-only -z "$BASE_SHA" HEAD > "$list"
+          git diff --no-renames --name-only -z "$base" HEAD > "$list"
           if grep -zqE '^(STATUS\.md$|scripts/status/)' "$list"; then
             hit=$(grep -zE '^(STATUS\.md$|scripts/status/)' "$list" | tr '\0' '\n')
             echo "::error::PR이 STATUS.md 또는 scripts/status/를 고칩니다(예외 없음, 이름 바꾸기·복사 포함): $hit — STATUS.md는 status 브랜치에서 봇만 씁니다."

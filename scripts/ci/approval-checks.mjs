@@ -115,11 +115,16 @@ async function collect(token, repo, num, framePaths, locks = []) {
   const [files, reviews, reviewComments, comments] = await Promise.all([pages(token, `repos/${repo}/pulls/${num}/files`), pages(token, `repos/${repo}/pulls/${num}/reviews`), pages(token, `repos/${repo}/pulls/${num}/comments`), pages(token, `repos/${repo}/issues/${num}/comments`)])
   const commit = await ghFetch(token, `repos/${repo}/commits/${sha}`)
   const labels = pr.labels.map((l) => l.name)
+  // 의존성·워크플로 기준 내용은 PR 객체의 base.sha(마지막 동기화 때의 기준 브랜치 끝 — 그 뒤 기준 브랜치가 앞으로 가면 옛 값)가 아니라 PR head와 기준 브랜치의 분기점에서 읽는다.
+  // 그래야 남이 기준 브랜치에서 고친 package.json·워크플로가 이 PR의 변경으로 섞이지 않는다(GitHub의 세 점 비교와 같은 기준). 못 구하면 base.sha 그대로(기존 동작).
+  let baseRef = pr.base.sha
+  const needBase = files.some((f) => f.filename === 'package.json' || f.filename === 'package-lock.json' || (f.status === 'modified' && /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f.filename)))
+  if (needBase) { try { baseRef = (await ghFetch(token, `repos/${repo}/compare/${pr.base.sha}...${sha}?per_page=1`)).merge_base_commit?.sha || pr.base.sha } catch { baseRef = pr.base.sha } }
   let deps = {}
   if (files.some((f) => f.filename === 'package.json' || f.filename === 'package-lock.json')) {
     try {
       const raw = (p, ref) => ghFetch(token, `repos/${repo}/contents/${p}?ref=${ref}`, 'application/vnd.github.raw').then(JSON.parse)
-      deps = { basePkg: await raw('package.json', pr.base.sha), headPkg: await raw('package.json', sha), baseLock: await raw('package-lock.json', pr.base.sha), headLock: await raw('package-lock.json', sha) }
+      deps = { basePkg: await raw('package.json', baseRef), headPkg: await raw('package.json', sha), baseLock: await raw('package-lock.json', baseRef), headLock: await raw('package-lock.json', sha) }
     } catch { deps = {} }  // 못 받으면 빈 값 → 판정기가 '판단 불가'(닫힌 실패)
   }
   // 일반 워크플로 수정 판정(Lee 2026-11-23): 바뀐 워크플로(수정만)의 기준·head 전체 내용을 같이 넘긴다 — 환경·권한·비밀값·트리거 경계가 실제로 바뀌었는지 판정기가 본다. 못 받은 파일은 빠뜨려 판정기가 '조회 실패(자동 재확인)'로 본다.
@@ -129,7 +134,7 @@ async function collect(token, repo, num, framePaths, locks = []) {
     for (const f of wfFiles) {
       try {
         const rawText = (ref) => ghFetch(token, `repos/${repo}/contents/${f.filename}?ref=${ref}`, 'application/vnd.github.raw')
-        workflows[f.filename] = { base: await rawText(pr.base.sha), head: await rawText(sha) }
+        workflows[f.filename] = { base: await rawText(baseRef), head: await rawText(sha) }
       } catch { /* 못 받으면 빠뜨림 → 재확인 */ }
     }
     deps = { ...deps, workflows }
