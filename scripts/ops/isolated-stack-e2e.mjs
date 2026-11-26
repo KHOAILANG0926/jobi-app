@@ -156,23 +156,32 @@ if (jobId) {
   try {
     const S = users.seeker, S3 = users.seeker3, E = users.employer, E2 = users.employer2
     const st = await fresh(S), s3t = await fresh(S3), et = await fresh(E), e2t = await fresh(E2)
+    // 웹·앱의 저장(lib/ownRowSave.saveOwnRow)과 같은 호출: 본인 줄을 먼저 고치고(PATCH), 줄이 없으면 넣는다(POST). upsert는 user_id 열 UPDATE 권한이 없어 거부된다.
+    const own = async (table, token, userId, values) => {
+      const u = await call('PATCH', `/rest/v1/${table}?user_id=eq.${userId}`, { token, headers: { prefer: 'return=representation' }, body: values })
+      if (u.status < 300 && (u.json ?? []).length > 0) return u
+      return call('POST', `/rest/v1/${table}`, { token, headers: { prefer: 'return=minimal' }, body: { user_id: userId, ...values } })
+    }
+    const rawUpsert = (table, token, body) => call('POST', `/rest/v1/${table}?on_conflict=user_id`, { token, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body })
     // 프로필·이력서: 저장(upsert) → 다시 읽기 → 남의 것은 못 읽고 못 덮어씀
-    const up = await call('POST', '/rest/v1/user_profiles?on_conflict=user_id', { token: st, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, full_name: 'E2E Seeker', phone: '0900000000', email: S.email, city: 'Bắc Ninh', bio: 'e2e', updated_at: new Date().toISOString() } })
+    const up = await own('user_profiles', st, S.id, { full_name: 'E2E Seeker', phone: '0900000000', email: S.email, city: 'Bắc Ninh', bio: 'e2e', updated_at: new Date().toISOString() })
     const rd = await call('GET', `/rest/v1/user_profiles?select=full_name,city&user_id=eq.${S.id}`, { token: st })
     rec('I1', '구직자 프로필 저장 → 다시 읽기', up.status < 300 && rd.json?.[0]?.full_name === 'E2E Seeker', `저장 ${up.status} ${up.code}`)
     const other = await call('GET', `/rest/v1/user_profiles?select=user_id&user_id=eq.${S.id}`, { token: s3t })
-    const forge = await call('POST', '/rest/v1/user_profiles?on_conflict=user_id', { token: s3t, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, full_name: 'HACK', updated_at: new Date().toISOString() } })
+    const forge = await own('user_profiles', s3t, S.id, { full_name: 'HACK', updated_at: new Date().toISOString() })
     const still = await call('GET', `/rest/v1/user_profiles?select=full_name&user_id=eq.${S.id}`, { token: st })
     rec('I2', '다른 구직자는 남의 프로필을 읽지도 덮어쓰지도 못함', (other.json ?? []).length === 0 && forge.status >= 400 && still.json?.[0]?.full_name === 'E2E Seeker', `읽기 ${(other.json ?? []).length}건 / 덮어쓰기 status ${forge.status}`)
+    const ups = await rawUpsert('user_cvs', st, { user_id: S.id, cv_data: { summary: 'x' }, photo_path: null, updated_at: new Date().toISOString() })
+    observe('I2b', '이력서를 upsert(ON CONFLICT)로 저장하면', `status ${ups.status} ${ups.code} — 웹·앱은 고치고→넣기(saveOwnRow)를 씀`)
     const cvData = { fullName: 'E2E Seeker', summary: 'e2e cv', experiences: [] }
-    const cv = await call('POST', '/rest/v1/user_cvs?on_conflict=user_id', { token: st, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, cv_data: cvData, photo_path: null, updated_at: new Date().toISOString() } })
+    const cv = await own('user_cvs', st, S.id, { cv_data: cvData, photo_path: null, updated_at: new Date().toISOString() })
     const cvRead = await call('GET', `/rest/v1/user_cvs?select=cv_data&user_id=eq.${S.id}`, { token: st })
     rec('I3', '이력서 저장 → 다시 읽기(수정 후 재저장 포함)', cv.status < 300 && cvRead.json?.[0]?.cv_data?.summary === 'e2e cv', `저장 ${cv.status} ${cv.code}`)
-    const cv2 = await call('POST', '/rest/v1/user_cvs?on_conflict=user_id', { token: st, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, cv_data: { ...cvData, summary: 'e2e cv v2' }, photo_path: null, updated_at: new Date().toISOString() } })
+    const cv2 = await own('user_cvs', st, S.id, { cv_data: { ...cvData, summary: 'e2e cv v2' }, photo_path: null, updated_at: new Date().toISOString() })
     const cvRead2 = await call('GET', `/rest/v1/user_cvs?select=cv_data&user_id=eq.${S.id}`, { token: st })
     rec('I4', '이력서 수정 저장이 한 줄로 갱신됨(중복 줄 없음)', cv2.status < 300 && cvRead2.json?.length === 1 && cvRead2.json[0].cv_data.summary === 'e2e cv v2')
     const cvOther = await call('GET', `/rest/v1/user_cvs?select=user_id&user_id=eq.${S.id}`, { token: s3t })
-    const cvForge = await call('POST', '/rest/v1/user_cvs?on_conflict=user_id', { token: s3t, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, cv_data: { summary: 'HACK' }, photo_path: null, updated_at: new Date().toISOString() } })
+    const cvForge = await own('user_cvs', s3t, S.id, { cv_data: { summary: 'HACK' }, photo_path: null, updated_at: new Date().toISOString() })
     const cvAfter = await call('GET', `/rest/v1/user_cvs?select=cv_data&user_id=eq.${S.id}`, { token: st })
     rec('I5', '다른 구직자는 남의 이력서를 읽지도 덮어쓰지도 못함', (cvOther.json ?? []).length === 0 && cvForge.status >= 400 && cvAfter.json?.[0]?.cv_data?.summary === 'e2e cv v2', `읽기 ${(cvOther.json ?? []).length}건 / 덮어쓰기 status ${cvForge.status}`)
 
