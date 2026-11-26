@@ -23,6 +23,11 @@
    "pattern": "\\blai xe nang\\b|\\bxe nang\\b"
   },
   {
+   "code": "8331",
+   "name_vi": "Lái xe buýt và xe điện",
+   "pattern": "\\blai xe (buyt|bus|dua don|dua ruoc)\\b|\\btai xe (buyt|bus|dua don|dua ruoc)\\b"
+  },
+  {
    "code": "8332",
    "name_vi": "Lái xe tải hạng vừa và xe tải hạng nặng",
    "pattern": "\\blai xe (tai|container|dau keo)\\b|\\btai xe (container|dau keo|xe tai)\\b"
@@ -89,6 +94,117 @@
    "name_vi": "Nhân viên an ninh (trừ công an)",
    "pattern": "\\bbao ve\\b",
    "title_only": true
+  },
+  {
+   "code": "7512",
+   "name_vi": "Thợ nướng bánh, thợ làm bánh ngọt và bánh kẹo",
+   "pattern": "\\btho (lam |nuong )?banh\\b"
+  },
+  {
+   "code": "5242",
+   "name_vi": "Nhân viên thuyết minh giới thiệu hàng hóa",
+   "pattern": "\\bnhan vien (pg|pb)\\b|\\b(pg|pb)\\b|\\bthuyet minh (quang cao|san pham)\\b",
+   "title_only": true
+  },
+  {
+   "code": "9510",
+   "name_vi": "Lao động trên đường phố và lao động có liên quan",
+   "pattern": "\\bphat to roi\\b"
+  },
+  {
+   "code": "9629",
+   "name_vi": "Lao động giản đơn khác chưa được phân vào đâu",
+   "pattern": "\\bcaddy\\b"
+  },
+  {
+   "code": "5164",
+   "name_vi": "Nhân viên chăm sóc và làm đẹp động vật",
+   "pattern": "\\bcham soc thu cung\\b|\\bgrooming\\b"
+  },
+  {
+   "code": "3332",
+   "name_vi": "Nhân viên tổ chức hội thảo và sự kiện",
+   "pattern": "\\bnhan vien su kien\\b|\\bto chuc su kien\\b"
+  },
+  {
+   "code": "5241",
+   "name_vi": "Nhân viên làm mẫu",
+   "pattern": "\\bnguoi mau\\b"
+  },
+  {
+   "code": "3334",
+   "name_vi": "Nhân viên môi giới bất động sản và quản lý tài sản/bất động sản",
+   "pattern": "\\bmoi gioi (bat dong san|bds|nha dat)\\b"
+  },
+  {
+   "code": "4221",
+   "name_vi": "Nhân viên và tư vấn viên du lịch",
+   "pattern": "\\btu van (vien )?du lich\\b|\\bapp du lich\\b|\\b(kinh doanh|sale|ban) tour\\b|\\bdat tour\\b"
+  },
+  {
+   "code": "3322",
+   "name_vi": "Nhân viên đại diện bán hàng hóa thương mại",
+   "pattern": "\\bnhan vien kinh doanh\\b|\\bnv kinh doanh\\b|\\bsales executive\\b"
+  },
+  {
+   "code": "2643",
+   "name_vi": "Nhà biên dịch, phiên dịch và nhà ngôn ngữ khác",
+   "pattern": "\\bphien dich\\b|\\bbien dich\\b|\\bthong dich\\b"
+  },
+  {
+   "code": "4227",
+   "name_vi": "Phỏng vấn viên điều tra và nghiên cứu thị trường",
+   "pattern": "\\b(khao sat|nghien cuu) thi truong\\b|\\bphong van vien\\b"
+  },
+  {
+   "code": "2519",
+   "name_vi": "Nhà chuyên môn về phát triển phần mềm ứng dụng và nhà phân tích chưa được phân vào đâu",
+   "pattern": "\\bkiem thu phan mem\\b|\\btester\\b"
+  },
+  {
+   "code": "2163",
+   "name_vi": "Nhà thiết kế sản phẩm và may mặc",
+   "pattern": "\\bthiet ke (thoi trang|san pham|phu kien)\\b"
+  },
+  {
+   "code": "2655",
+   "name_vi": "Diễn viên",
+   "pattern": "\\bdien vien\\b"
+  },
+  {
+   "code": "3431",
+   "name_vi": "Nhiếp ảnh gia",
+   "pattern": "\\bnhiep anh( gia)?\\b|\\btho chup anh\\b|\\bphotographer\\b"
+  },
+  {
+   "code": "3521",
+   "name_vi": "Kỹ thuật viên truyền hình và nghe - nhìn",
+   "pattern": "\\bky thuat (anh sang|am thanh)\\b|\\b(am thanh anh sang|anh sang am thanh)\\b"
+  },
+  {
+   "code": "3240",
+   "name_vi": "Kỹ thuật viên thú y và phụ tá",
+   "pattern": "\\b(ky thuat vien|phu ta) thu y\\b"
+  },
+  {
+   "code": "2396",
+   "name_vi": "Giáo viên công nghệ thông tin",
+   "pattern": "\\bgiao vien tin hoc\\b"
+  },
+  {
+   "code": "3423",
+   "name_vi": "Người hướng dẫn tập luyện và giải trí, người chỉ đạo chương trình",
+   "pattern": "\\b(giao vien|huan luyen vien|hlv|huong dan vien) (yoga|pilates)\\b"
+  },
+  {
+   "code": "34223",
+   "name_vi": "Nhân viên hướng dẫn tập thể hình",
+   "pattern": "\\b(huan luyen vien|hlv) (the hinh|gym|ca nhan)\\b|\\bpersonal trainer\\b"
+  },
+  {
+   "code": "5312",
+   "name_vi": "Người phụ tá cho giáo viên",
+   "pattern": "\\btro giang\\b"
   },
   {
    "code": "9111",
@@ -170,6 +286,11 @@
    "name_vi": "Nhân viên tổng hợp",
    "pattern": "\\bhanh chinh\\b|\\bnhan vien van phong\\b",
    "title_only": true
+  },
+  {
+   "code": "2513",
+   "name_vi": "Nhà phát triển web và truyền thông đa phương tiện",
+   "pattern": "\\blap trinh (web|html)\\b|\\bweb developer\\b"
   },
   {
    "code": "2512",
