@@ -1,6 +1,9 @@
 name: 채용공고 자동 크롤링
 # 대상 = vieclam24h.vn — crawler/crawl_topcv.py는 이름과 달리 vieclam24h 수집기다(파일 첫 줄 설명, --site 기본값 vieclam24h).
 
+# 제목에 목록 위치·건수를 남긴다 — 정기·보충 실행의 '오늘 자리' 판정(scripts/ci/crawl-slot.sh)이 이 제목을 읽는다(#1071).
+run-name: ${{ format('채용공고 자동 크롤링 · 목록 위치 {0} · {1}건', inputs.sample_offset || (github.event.schedule == '23 8 * * *' && '10' || '0'), inputs.sample_limit || '10') }}
+
 on:
   # Lee 2026-11-25: vieclam24h 정기 수집 재개 — 하루 20건(아침 목록 앞 10건 + 오후 그다음 10건).
   # 수집은 VPS(DB 열쇠 없음), 저장은 GitHub 서버(ops-keys, 사이트 접속 없음) — #884 B안 그대로.
@@ -19,8 +22,13 @@ on:
         type: string
         required: true
         default: '3'
+      sample_offset:
+        description: '목록 시작 위치(0=앞 10건, 10=그다음 10건) — 비우면 0. 정기 수집 보충(#1071)이 번갈아 넘긴다'
+        type: string
+        required: false
+        default: ''
       keep_for_save:
-        description: '검증 저장용(#884 B안): 시험 수집한 상세 결과를 1일 비공개 보관(DB 열쇠 없음, 저장 안 함)'
+        description: '검증 저장용(#884 B안): 시험 수집한 상세 결과를 30일 비공개 보관(DB 열쇠 없음, 저장 안 함)'
         type: boolean
         required: false
         default: false
@@ -44,11 +52,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  slot:
+    # 오늘 이 목록 위치(자리)를 다른 실행이 이미 수집했거나 수집 중이면 이 실행은 건너뛴다(정기 예약과 보충 호출이 겹쳐도 하루 20건 상한, #1071).
+    # 판정은 scripts/ci/crawl-slot.sh 한 곳(보충 호출도 같은 것). 조회 실패는 건너뜀(닫힌 방향 — 상한 확인 불가면 수집 안 함, 빠진 자리는 보충이 채움). 10건이 아닌 시험 실행은 판정하지 않는다.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run && inputs.verify_save_run_id == '')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      skip: ${{ steps.slot.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: slot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CRAWL_SLOT_ME: ${{ github.run_id }}
+          OFFSET: ${{ inputs.sample_offset || (github.event.schedule == '23 8 * * *' && '10' || '0') }}
+          LIMIT: ${{ inputs.sample_limit || '10' }}
+        run: bash scripts/ci/crawl-slot.sh gate "$OFFSET" "$LIMIT" >> "$GITHUB_OUTPUT"
+
   crawl:
+    needs: slot
     # 열쇠를 쓰지 않으므로 운영 열쇠 환경(ops-keys)도 쓰지 않는다
     # Lee 2026-11-17 #872에서 예약을 없앴고, Lee 2026-11-25 지시로 정기 수집을 다시 켠다(예약 2번 × 10건, 이 잡은 수집만).
     # 이 잡은 DB 열쇠 없이 실제 사이트 수집·파싱만(저장 없음, 1~10건). 저장은 아래 save(정기)·verify-save(수동) 잡이 GitHub 서버에서.
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run && inputs.verify_save_run_id == '')
+    if: needs.slot.outputs.skip != 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run && inputs.verify_save_run_id == ''))
     # Lee 2026-11-17 #872 승인: GitHub 서버(미국)에서는 vieclam24h 목록 24쪽 모두 403 Forbidden(run 44031120005, 데이터센터 주소 차단) →
     # 기존 베트남 VPS 실행기(Facebook 미리 보기와 같은 실행기, 새 서버 없음)에서 소량 시험만 한다.
     # Facebook과 분리: 받는 폴더는 작업 폴더 안 vieclam24h-run/(Facebook은 작업 폴더 맨 위), 임시 파일은 그 안에만(/tmp 안 씀),
@@ -93,12 +123,12 @@ jobs:
         if: github.event_name == 'schedule' || inputs.dry_run
         env:
           SAMPLE_LIMIT: ${{ inputs.sample_limit || '10' }}
-          SAMPLE_OFFSET: ${{ github.event.schedule == '23 8 * * *' && '10' || '0' }}
+          SAMPLE_OFFSET: ${{ inputs.sample_offset || (github.event.schedule == '23 8 * * *' && '10' || '0') }}
         # 상세 결과(details.json)는 이 수집이 받은 것을 그대로 남긴다(2026-11-26 #701·#1071) — 예전에는 다음 단계가 같은 공고를
         # 사이트에 다시 접속해 받았고, 11-26 실행 45811184938에서 그 두 번째 접속이 출력 없이 58분 멈춰 잡 한도로 취소됐다.
         run: python crawler/crawl_topcv.py --confirm-full-crawl --sample-limit "$SAMPLE_LIMIT" --sample-offset "$SAMPLE_OFFSET" --save-details-to details.json
 
-      - name: 상세 결과 보관(1일, 비공개)
+      - name: 상세 결과 보관(30일, 비공개)
         if: github.event_name == 'schedule' || (inputs.dry_run && inputs.keep_for_save)
         uses: actions/upload-artifact@v4
         with:
