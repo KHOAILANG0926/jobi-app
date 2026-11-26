@@ -1350,12 +1350,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
             "_failure_reason": detail.get("fetchError"),
         }
 
-    deadline = detail.get("deadline")
-    if deadline and deadline_passed(deadline, TODAY):  # 마감 당일은 열림(1-B F2)
-        return {
-            "source_url": url, "title": title, "company": company,
-            "_skip": True, "_skip_reason": "deadline_expired", "_skip_detail": deadline,
-        }
+    deadline = detail.get("deadline")  # 마감 지난 새 공고는 등록 입구가 원문과 함께 보류함에 남기고 등록하지 않는다(#973, ingest_gateway.ingest_job)
     # 2026-09-05 사용자 지시로 제거: 직급(팀장/부장/이사/대표)·고연봉·경력
     # 요건·전문성(IT/법률/의료/교육/부동산 등)만으로 정상 공고를 수집
     # 단계에서 제외하던 is_blacklisted() 체크를 삭제했다(실사례 오제외
@@ -2017,12 +2012,7 @@ def build_vietnamworks_job_record(url: str, detail: dict, listing_hint: dict | N
             "_failure_reason": detail.get("fetchError"),
         }
 
-    deadline = detail.get("deadline")
-    if deadline and deadline_passed(deadline, TODAY):  # 마감 당일은 열림(1-B F2)
-        return {
-            "source_url": url, "title": title, "company": company,
-            "_skip": True, "_skip_reason": "deadline_expired", "_skip_detail": deadline,
-        }
+    deadline = detail.get("deadline")  # 마감 지난 새 공고는 등록 입구가 원문과 함께 보류함에 남기고 등록하지 않는다(#973, ingest_gateway.ingest_job)
 
     sections = detail.get("sections", {})
     desc_text = format_description(sections, order=["Mô tả công việc", "Yêu cầu công việc", "Các phúc lợi dành cho bạn"])
@@ -2528,6 +2518,10 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     if policy_errors:
         print(f"    ⛔ 정책 수집 제외: {policy_errors}")
         return {"action": "policy_skipped", "id": existing.get("id") if existing else None}
+    if existing is not None and deadline_passed(job.get("application_deadline"), TODAY):
+        # 마감 지난 기존 공고는 다시 수집 갱신하지 않는다(공개 상태를 되살리지 않게, 예전 수집 제외와 같음 — DB 만료 처리가 내린다).
+        print(f"    ⏩ 마감 지남({job.get('application_deadline')}): 기존 id={existing['id']} 갱신 안 함(기존 값 유지)")
+        return {"action": "expired_existing_untouched", "id": existing["id"]}
 
     resolved = job.get("_resolved_locations") or []
     had_transient = job.get("_had_transient_geocode_failure", False)
