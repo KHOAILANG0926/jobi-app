@@ -35,6 +35,19 @@ jobs:
         run: python -c "import crawl_topcv, crawl_facebook, ingest_gateway; print('import ok')"
       - name: 오류 격리 시험 (실제 패키지 위에서)
         run: python crawler/test_job_error_isolation.py
+      # #701 로드맵 8(C9): 저장소에 있지만 어느 검사에서도 돌지 않던 수집기 시험 9개(실제 패키지가 필요한 것이 많아 이 잡에서). 열쇠·사이트 접속 없음.
+      # test_address_pipeline_integration·test_geocode는 master에서도 실패해 고친 뒤 더함(#701 후속).
+      - name: 수집기 단위 시험 (실제 패키지 위에서)
+        run: |
+          python crawler/test_cli_safety.py
+          python crawler/test_facebook_quality.py
+          python crawler/test_occupation_classifier.py
+          python crawler/test_pin_guard.py
+          python crawler/test_refresh_store_rows.py
+          python crawler/test_regeocode_work_locations.py
+          python crawler/test_source_fields.py
+          python crawler/test_vietnamworks_extraction.py
+          python crawler/test_work_location_protection.py
       # 상세 화면 읽기 시험(실제 크롬, 가짜 화면) — 섹션 읽기·vieclam24h 공개 연락처 버튼(#896). 열쇠·사이트 접속 없음.
       - name: 상세 화면 읽기 시험 (실제 크롬, 가짜 화면)
         run: python crawler/test_detail_section_parser_dom.py
