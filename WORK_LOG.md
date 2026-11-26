@@ -1,3 +1,8 @@
+## 2026-11-26 오후 — API 한도·직업분류 재판정·크롤링 정리(Claude)
+- 변경: #1091(봇 병합: 깨운 PR만·검사 먼저) / #1094(규칙 24개, ①③ 결정) / #1098(occupation-r8-apply가 공용 규칙 파일 변경에도 돌게 — 실행 45806011018: 9건 코드, 공개 상태 비교 통과) / #1099(같은 조회로 승인 전 대상 확정) / #1110(수집이 받은 상세 그대로 보관, 재접속 단계 제거, 원문 30일, 정기 DB 저장 일시 중단 — 승인 대기) / read-inspect-failures(이 PR).
+- 확인 [직접 확인]: 봇 실행당 대상 PR 15→1~2·한도 오류 0, S6 잠금 해제(#1092는 다른 창), vieclam24h 5건 모두 연락처 없음.
+- 남은 것: #1110 Approve, Facebook 계정(보류), 고용주·구직자 시험 계정, 검사 공통 실패 원인(조회 실행 뒤), #1071 A안은 정기 저장 재개 때.
+
 ## 2026-11-26 — C·D·E 이어서(Claude): 직업분류 공용화·추가 고용형태·관리자 자동 채우기·수집기 시험 CI
 - 요청(Lee 11-25·26): #717 B ①(근거 있을 때만 코드·근거 전달, 규칙 공통화, 업직종 아래 안내 줄), C·D·E 잔여, 수집기 시험 2개 CI 연결.
 - 변경: #1072(data/occupations/occupation_rules.json 한 곳을 Python·웹이 함께 읽음, 고용주 등록 buildJobFields·안내 줄) / #1073(시험 2개 수정) / #1080(employment_type_extra) / #1083(AdminDashboard 자동 채우기 = companyReader·addressReader·salaryReader·phonesIn·occupationReader) / #1079(crawl-install에 시험 2개) / #1084(admin-line-pick-e2e에 자동 채우기 확인, 저장 없음).
@@ -50,10 +55,4 @@
 - 변경: `src/lib/cvAccountSync.ts`(웹 `CvBuilder`의 계정 CV 읽기·저장 순서를 그대로 옮긴 공용 함수, 웹도 이 함수를 부름 — 동작 변경 없음) / `src/app/account/CvScreen.tsx`(`/ho-so/cv`: 기본 정보·사진·경력·학력·기술·추천인, 로그인 전 이 기기 저장·로그인 후 계정 저장, 자료 모양은 `lib/cvStorage` 그대로). 마이·메뉴의 CV 링크를 웹 화면에서 앱 화면으로 교체.
 - 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 CV 흐름 10/10(저장 키가 웹과 같은 `vgb_cv_draft`, 새로고침 유지, 항목 추가·삭제). 계정 저장·사진 업로드는 이 환경에 인증 열쇠가 없어 직접 못 봄.
 - 남은 것: CV PDF 내려받기·미리보기(웹 CvBuilder 전용 화면), 기기 CV를 계정으로 가져오기 제안(웹 Profile), 맞춤 조건·커뮤니티·기업.
-
-## 2026-11-25 — JOBI 앱 2단계 ①: 로그인·가입·마이 탭·지원 내역·사이트 안 지원
-- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 구직자 핵심 다음 단계(회원·지원). 진행표 #1031.
-- 변경: `src/lib/applySubmit.ts`(웹 `useApply`의 buildProfile·제출을 그대로 옮긴 공용 함수, 웹은 그 함수를 부름 — 동작 변경 없음) / `src/app/account/` — 로그인·가입(웹 같은 AuthContext·문구·검사, 이동은 /app 안 경로만), 지원 시트(`useAppApply`, 상세 하단 "Ứng tuyển ngay"가 웹 상세로 보내던 임시 연결을 대체), 마이 탭(`/ho-so`), 지원 내역(`/ho-so/ung-tuyen`: 웹과 같은 `applicationsStorage` 목록·실시간·철회).
-- 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 흐름 14/14(마이·지원 내역 로그인 유도·로그인/가입 검증 문구·외부 redirect 차단). 로그인 후 지원 제출은 이 환경에 인증 열쇠가 없어 직접 못 봄(병합 뒤 운영 확인 불가 — 계정 필요).
-- 남은 것: Zalo 로그인·비밀번호 찾기·CV는 웹 화면 연결(다음 PR), 이력서(CV)·커뮤니티·기업 기능.
 
