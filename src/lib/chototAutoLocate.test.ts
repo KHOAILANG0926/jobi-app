@@ -1,5 +1,5 @@
 import { runAutoLocate, judgePois, pickHitToResolve, queryKey, districtOf, reportJobLoad, CHOTOT_EXPECTED_TOTAL, MAX_CALLS_PER_TARGET, MAX_CONSECUTIVE_FAILURES, type AutoLocateDeps, type AutoLocateJob, type SearchCache } from './chototAutoLocate.ts'
-import { DailyLimitError, VietmapRequestError } from './adminVietmapClient.ts'
+import { DailyLimitError, VietmapRequestError } from './vietmapErrors.ts'
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`FAIL: ${msg}`)
