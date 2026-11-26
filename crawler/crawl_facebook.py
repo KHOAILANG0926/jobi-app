@@ -1391,6 +1391,7 @@ FB_DB_COLUMNS = {
     "employer_id",
     "employer_phone",
     "employment_type",
+    "employment_type_extra",
     "hire_count",
     "hours",
     "image_url",
