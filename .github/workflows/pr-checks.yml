@@ -154,7 +154,6 @@ jobs:
           python -m py_compile crawler/job_posting_policy.py crawler/job_quality.py crawler/crawl_topcv.py crawler/crawl_facebook.py crawler/reclassify_db.py scripts/research/bn_apply_chotot_rest.py
           python -m py_compile crawler/reprocess_queue.py crawler/finalize_reprocess_queue.py crawler/refresh_facebook_existing.py
           node --check src/lib/jobPostingPolicy.mjs
-          node --check register_job.mjs
           node --check crawler/reclassify_node.mjs
           node --check scripts/crawl.mjs
           node --check api/admin.js
