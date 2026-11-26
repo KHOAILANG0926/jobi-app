@@ -58,6 +58,7 @@ const def = (await db.query(`select pg_get_functiondef('public.ingest_job(jsonb)
 assert.ok(def.includes(`if ch = 'employer' then p := p - 'source_url'; end if;`), '기업 경로 source_url 제거 줄')
 assert.ok(def.includes(`ch like 'crawler_%' and st.origin is distinct from 'crawler'`), '수집 경로 비수집 공고 보호 줄')
 assert.ok(def.includes(`if st.origin is distinct from origin_v or st.admin_hidden then`), '기존 칸 보호 줄은 그대로')
+assert.ok(def.includes(`pg_advisory_xact_lock(hashtextextended(hash, 0))`), '같은 내용 동시 등록 직렬화 잠금(내용 해시) — 실제 동시 요청 시험은 PGlite 단일 연결로 재현 불가, 잠금 줄과 순차 중복 판정만 확인')
 await assert.rejects(db.exec(mig('20261126010000_ingest_write_guard.sql')), /이미 적용됨/, '두 번 적용은 막힘')
 await db.exec('rollback') // migration의 begin 안에서 RAISE → 열린 트랜잭션을 닫는다(운영은 파일 하나가 한 트랜잭션이라 전체 취소)
 
@@ -88,6 +89,12 @@ const newId = Number(r.rows[0].id)
 assert.equal((await db.query(`select count(*)::int c from public.local_jobs where id = $1 and source_url = 'https://squat.example/post/2'`, [newId])).rows[0].c, 1, '같은 주소의 수집 공고가 새 공고로 등록됨')
 // 수집·관리자 경로의 source_url은 그대로 받는다
 assert.equal((await db.query(`select count(*)::int c from public.job_ingest_raw where source_url = 'https://squat.example/post/2'`)).rows[0].c, 1, '수집 경로는 source_url을 그대로 남김')
+
+// ── ③ 같은 내용은 두 번째가 같은 공고로 돌아온다(잠금 아래에서 순차) ──
+const dup1 = Number((await call({ channel: 'employer', source_text: 'same body', company: 'CTY D', employer_phone: '0988000111', title: 'd1' })).rows[0].id)
+const dup2 = Number((await call({ channel: 'employer', source_text: 'same body', company: 'CTY D', employer_phone: '0988000111', title: 'd1' })).rows[0].id)
+assert.equal(dup2, dup1, '같은 내용 두 번째 등록은 같은 공고 번호로 돌아옴(중복 등록 없음)')
+assert.equal((await db.query(`select count(*)::int c from public.local_jobs where company = 'CTY D'`)).rows[0].c, 1, '공고는 한 개만')
 
 // ── 줄이 본문에 없으면 RAISE(운영 본문이 바뀌었을 때 조용히 지나가지 않음) ──
 const d2 = new PGlite()
