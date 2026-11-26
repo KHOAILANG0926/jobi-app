@@ -574,9 +574,10 @@ if (BASE && jobId) {
       const sess = await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => /auth-token/.test(x)); try { return JSON.parse(localStorage.getItem(k)).user?.email } catch { return null } })
       const saved = await page.locator('[data-testid="app-actionbar"] button[aria-label="Bỏ lưu tin"]').waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false)
       rec('U3', '업데이트 뒤에도 로그인이 유지되고 옛 버전에서 저장한 공고가 그대로 저장됨', sess === users.upd.email && saved, `세션 ${sess === users.upd.email} / 저장표시 ${saved}`)
+      errors.length = 0
       await page.goto(`${UB}/`, { waitUntil: 'domcontentloaded' })
       const webOk = await page.locator('header, main').first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
-      rec('U4', '업데이트 뒤 웹 화면도 정상(같은 세션)', webOk && errors.filter((e) => !/tin-nhan/.test(e)).length === 0, `오류 ${errors.length}`)
+      rec('U4', '업데이트 뒤 웹 화면도 정상(같은 세션)', webOk && errors.length === 0, `오류 ${errors.length}`)
       void oldHome
     } catch (e) { rec('U0', '구버전→신버전 업데이트', false, e.message.split('\n')[0]) }
     await context.close()
