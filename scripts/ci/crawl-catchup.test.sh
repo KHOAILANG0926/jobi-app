@@ -58,4 +58,15 @@ runs;  FAIL_RUNS=1 catchup ${TODAY}T05:00:00Z; ok_ev "기록 조회 실패 → �
 runs;  FAIL_DISPATCH=1 catchup ${TODAY}T05:00:00Z; ok_ev "호출 실패 → 종료 0" 1
 # 같은 시각에 운영 검사 두 번 성공(두 번째는 첫 호출 뒤): 첫 호출이 실행으로 보이는 순간부터 두 번째는 부르지 않음
 runs "$(r 12 0 10 queued null ${TODAY}T05:00:05Z)"; catchup ${TODAY}T05:00:30Z; ok_ev "첫 보충 호출 직후의 두 번째 운영 검사 → 부르지 않음" 0
+
+# ── crawl-slot.sh gate: crawl.yml slot 잡이 쓰는 판정 — 조회 실패에서도 하루 20건 상한을 지킨다(닫힌 방향)
+gate() { D="$D" PATH="$D:$PATH" REPO=o/r GH_TOKEN=x TODAY_UTC=$TODAY CRAWL_SLOT_ME="${ME:-0}" bash "$ROOT/scripts/ci/crawl-slot.sh" gate "$1" "$2" 2>/dev/null; echo "rc=$?"; }
+runs;                                                         expect "gate: 빈 자리 → 진행(skip=false)" "$(gate 0 10 | tr '\n' ' ')" "skip=false rc=0 "
+runs "$(r 10 0 10 completed '"success"' ${TODAY}T03:10:00Z)"; expect "gate: 찬 자리 → 건너뜀(skip=true)" "$(gate 0 10 | tr '\n' ' ')" "skip=true rc=0 "
+runs;                                                         expect "gate: 조회 실패 → 건너뜀(skip=true) — 상한 확인 불가면 수집 안 함" "$(FAIL_RUNS=1 gate 0 10 | tr '\n' ' ')" "skip=true rc=0 "
+FAIL_RUNS=1 expect "gate: 조회 실패에서 두 자리 모두 건너뜀(20건 초과 불가)" "$(FAIL_RUNS=1 gate 0 10 | head -1)$(FAIL_RUNS=1 gate 10 10 | head -1)" "skip=trueskip=true"
+runs;                                                         expect "gate: 10건이 아닌 시험 실행은 판정 대상 아님(조회 실패여도 진행)" "$(FAIL_RUNS=1 gate 0 3 | tr '\n' ' ')" "skip=false rc=0 "
+runs;                                                         expect "gate: 자리 밖 목록 위치(20)는 판정 대상 아님" "$(gate 20 10 | tr '\n' ' ')" "skip=false rc=0 "
+# 조회 실패로 건너뛴 자리는 조회가 되는 때 보충이 채운다(상한은 그대로 — 그 자리는 아직 안 찼으므로)
+runs;                                                         catchup ${TODAY}T05:00:00Z; ok_ev "조회 실패로 건너뛴 자리 → 조회되면 보충이 같은 자리를 채움" 1 "sample_offset=0"
 exit $fail

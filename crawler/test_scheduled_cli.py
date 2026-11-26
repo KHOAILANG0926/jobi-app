@@ -182,7 +182,11 @@ class ScheduledCallerTests(unittest.TestCase):
         # 제목(run-name)에 목록 위치·건수 — 자리 판정(crawl-slot.sh)이 읽는 값
         self.assertIn("run-name: ${{ format('채용공고 자동 크롤링 · 목록 위치 {0} · {1}건'", wf)
         slot_job = wf.split("\n  slot:\n", 1)[1].split("\n  crawl:\n", 1)[0]
-        self.assertIn("scripts/ci/crawl-slot.sh taken", slot_job)
+        self.assertIn('scripts/ci/crawl-slot.sh gate "$OFFSET" "$LIMIT"', slot_job)
+        # 조회 실패는 건너뜀(닫힌 방향) — 하루 20건 상한이 조회 성공 여부에 기대지 않는다
+        slot_sh = (ROOT / "scripts/ci/crawl-slot.sh").read_text(encoding="utf-8")
+        self.assertIn('*) echo "::warning::오늘 수집 기록을 조회하지 못해', slot_sh)
+        self.assertNotIn("건너뛰지 않고 진행", slot_job + slot_sh)
         self.assertIn("CRAWL_SLOT_ME: ${{ github.run_id }}", slot_job)
         self.assertNotIn("secrets.", slot_job)
         self.assertIn("    needs: slot\n", wf)
