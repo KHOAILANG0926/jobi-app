@@ -97,12 +97,21 @@ try {
    for(const j of fixture.jobs) assertPoints(sourcePoints(fixture.locations.filter(w=>w.job_id===j.id)),pointsForJob(groups.map(g=>g.map(p=>({...p,jobId:String(p.jobId).replace(/^sb-/,'' )}))),j.id),fixture.name+' grouped job ownership')
    if(fixture.name==='multi') {
     assert.ok(groups.some(g=>new Set(g.map(p=>p.jobId)).size>1),'coincident jobs share a real grouped marker')
-    const grouped=page.locator('.hme-map [data-location-points]').filter({has:page.locator('.hme-map__job-count')}).first()
-    await grouped.click({force:true})
-    await page.locator('.hme-map__job-picker button').first().waitFor()
-    assert.equal(await page.locator('.hme-map__job-picker button').count(),2,'both grouped jobs are selectable')
-    await page.locator('.hme-map__job-picker button').first().click()
-    await page.locator('.hme-job__actions').waitFor()
+    // 여러 공고가 한 점에 겹친 마커(#934 후속): force 없이 눌러(덮이면 실패) 선택 목록이 열리고, 공고마다 그 공고의 상세가 열려야 한다.
+    const groupedMarker=()=>page.locator('.hme-map [data-location-points]').filter({has:page.locator('.hme-map__job-count')}).first()
+    const jobsInGroup=[...new Set(groups.filter(g=>new Set(g.map(p=>p.jobId)).size>1).flatMap(g=>g.map(p=>String(p.jobId).replace(/^sb-/,''))))].sort()
+    assert.deepEqual(jobsInGroup,fixture.jobs.map(j=>String(j.id)).sort().filter(id=>jobsInGroup.includes(id)),'grouped marker holds fixture jobs only')
+    assert.ok(jobsInGroup.length>=2,'grouped marker holds at least two jobs')
+    const picker=page.locator('.hme-map__job-picker button')
+    for(const id of jobsInGroup) {
+     await groupedMarker().click()
+     await picker.first().waitFor()
+     assert.equal(await picker.count(),jobsInGroup.length,'every grouped job is selectable')
+     await picker.filter({hasText:`Synthetic operator ${id}`}).click()
+     const links=page.locator('.hme-job__actions a[href^="/viec-lam/"]')
+     await page.locator(`.hme-job__actions a[href="/viec-lam/sb-${id}"]`).waitFor()  // 방금 고른 공고의 상세 주소(앞서 고른 공고의 것이 남아 있어도 통과하지 않음)
+     assert.deepEqual(await links.evaluateAll(els=>els.map(el=>el.getAttribute('href'))),[`/viec-lam/sb-${id}`],`selecting grouped job ${id} opens only that job's detail`)
+    }
    }
    }
    await page.screenshot({path:`${out}/${proofName}-main.png`})
