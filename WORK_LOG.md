@@ -1,3 +1,9 @@
+## 2026-11-26 저녁 — 크롤링 원문 보관 실증·검사표 원문 줄 빠짐(Claude)
+- 요청(Lee 11-26): #1110 실제 실행 검증, read-inspect-failures 결과 재사용, 원문 누락 12건 원인 묶어 해결(검사 기준 완화 금지·지점별 독립 공고·원문 보존), #701 체크리스트 갱신.
+- 변경: #1117(jobInspect 근무지 이름표 줄·job-inspect 같은 검사표 재알림 안 함) / #1118(read-source-lost-branches 조회) / #1119 Draft(jobDescriptionBuild가 inspectReading 기준으로도 빠짐 아닌 줄만 뺌, detail-fill RULE_FILES에 inspectReading) / 이 기록.
+- 검증 [직접 확인]: 수집 45852160573(재접속 없음·30일·save skipped), #1117 새 시험 수정 전 실패→후 통과·병합 뒤 #6512 해소·#237 반복 중단, #1119 원문 JSON 3건 재현 빠짐 3→0·npm test 144/144·tsc·build, #1118 폐기용 PostgreSQL 16 가짜 자료.
+- 남은 것: 예약 실행 확인(11-27), Lee 조회 실행, #1119 병합은 웹 정상화 뒤, #1071.
+
 ## 2026-11-26 오후 — API 한도·직업분류 재판정·크롤링 정리(Claude)
 - 변경: #1091(봇 병합: 깨운 PR만·검사 먼저) / #1094(규칙 24개, ①③ 결정) / #1098(occupation-r8-apply가 공용 규칙 파일 변경에도 돌게 — 실행 45806011018: 9건 코드, 공개 상태 비교 통과) / #1099(같은 조회로 승인 전 대상 확정) / #1110(수집이 받은 상세 그대로 보관, 재접속 단계 제거, 원문 30일, 정기 DB 저장 일시 중단 — 승인 대기) / read-inspect-failures(이 PR).
 - 확인 [직접 확인]: 봇 실행당 대상 PR 15→1~2·한도 오류 0, S6 잠금 해제(#1092는 다른 창), vieclam24h 5건 모두 연락처 없음.
@@ -49,10 +55,3 @@
 - 변경: `src/app/community/` — 목록(`/cong-dong`: 분류·검색·정렬, 웹과 같은 `lib/communityStorage.loadPosts`), 상세(`/cong-dong/:id`: 조회수·좋아요·댓글·신고 = 웹과 같은 `communityStorage`·`adminOperations.createReport`), 글쓰기 시트(웹과 같은 항목·검사·`addPost`, 사진 4장). 분류·검색·정렬·상대 시간은 순수 함수 `communityView.ts`(+시험). 로그인 안 한 글쓰기·좋아요·댓글·신고는 앱 로그인 화면으로.
 - 검증 [직접 확인]: tsc·build·npm test 134/134, Playwright 10/10(실제 글 6건 표시·분류·검색·비로그인 글쓰기→로그인·상세·없는 글 안내). 주의: 이 시험이 실제 글 1건을 열어 운영 조회수가 1 올라감(읽기 전용 아님을 몰랐음, 이후 시험은 글 열기 생략). 글쓰기·댓글·좋아요·신고 제출은 계정이 없어 직접 못 봄.
 - 남은 것: 맞춤 조건 설정(JobAlertsPanel), 기업 기능.
-
-## 2026-11-25 — JOBI 앱 2단계 ②: CV(이력서) 작성 화면
-- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 이력서. 진행표 #1031.
-- 변경: `src/lib/cvAccountSync.ts`(웹 `CvBuilder`의 계정 CV 읽기·저장 순서를 그대로 옮긴 공용 함수, 웹도 이 함수를 부름 — 동작 변경 없음) / `src/app/account/CvScreen.tsx`(`/ho-so/cv`: 기본 정보·사진·경력·학력·기술·추천인, 로그인 전 이 기기 저장·로그인 후 계정 저장, 자료 모양은 `lib/cvStorage` 그대로). 마이·메뉴의 CV 링크를 웹 화면에서 앱 화면으로 교체.
-- 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 CV 흐름 10/10(저장 키가 웹과 같은 `vgb_cv_draft`, 새로고침 유지, 항목 추가·삭제). 계정 저장·사진 업로드는 이 환경에 인증 열쇠가 없어 직접 못 봄.
-- 남은 것: CV PDF 내려받기·미리보기(웹 CvBuilder 전용 화면), 기기 CV를 계정으로 가져오기 제안(웹 Profile), 맞춤 조건·커뮤니티·기업.
-
