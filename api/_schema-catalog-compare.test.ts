@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 // @ts-expect-error — 순수 JS 도구(타입 선언 없음)
-import { runCompare, parseCatalog, ALLOWED } from '../scripts/ops/schema-catalog-compare.mjs'
+import { runCompare, parseCatalog, compareFunctionLines, ALLOWED } from '../scripts/ops/schema-catalog-compare.mjs'
 
 const col = (t: string, c: string, o: Record<string, unknown> = {}) => ({ t, c, n: 1, udt: 'text', len: null, null: 'YES', def_md5: null, ident: 'NO', gen: false, ...o })
 const routine = (name: string, udts: string[], o: Record<string, unknown> = {}) => ({
@@ -65,4 +65,18 @@ const run = (a: Cat, b: Cat, allowed?: unknown) => runCompare(text(a), text(b), 
   assert.ok(/unnest\(a\.proconfig\)/.test(code) && /like 'search_path=%'/.test(code), 'search_path 항목만 추출')
   assert.ok(!/proconfig::text/.test(code), '함수 설정 배열 전체를 출력하지 않음')
   assert.ok(!code.replace(/md5\(coalesce\(r\.routine_definition,''\)\)/g, '').includes('routine_definition') && /body_md5/.test(code), '함수 본문(routine_definition)은 md5 안에서만 쓰임 — 글자 출력 없음') }
+
+// 함수 본문 줄 지문 대조: 같은 줄은 같음, 다른 줄은 번호만, 입력 오류는 예외(종료 코드 2로 이어짐)
+{ const fl = (rows: unknown[], major = '17') => '2026-11-26T00:00:00Z ' + JSON.stringify({ kind: 'fn_lines', server_major: major, rows })
+  const fn = (name: string, lines: string[]) => ({ schema: 'public', name, params: [{ udt: 'text', mode: 'IN' }], lines })
+  const same = compareFunctionLines(fl([fn('f', ['a', 'b', 'c'])]), fl([fn('f', ['a', 'b', 'c'])], '16')); assert.equal(same.functions[0].status, '같음'); assert.equal(same.prodMajor, '17'); assert.equal(same.isoMajor, '16', '서버 주 버전도 함께 돌려줌')
+  const diff = compareFunctionLines(fl([fn('f', ['a', 'b', 'c', 'd'])]), fl([fn('f', ['a', 'X', 'c'])])); assert.deepEqual(diff.functions[0].differingLines, [2, 4], '다른 줄 번호만(글자 없음)'); assert.equal(diff.functions[0].status, '다름')
+  assert.equal(compareFunctionLines(fl([fn('f', ['a'])]), fl([])).functions[0].status, '격리에 없음')
+  assert.throws(() => compareFunctionLines(fl([fn('f', ['a'])]).slice(0, -8), fl([])), /잘렸거나 파싱 실패/, 'JSON 잘림')
+  assert.throws(() => compareFunctionLines('', fl([])), /fn_lines 없음/, '빈 입력')
+  assert.throws(() => compareFunctionLines(fl([fn('f', ['a']), fn('f', ['b'])]), fl([])), /같은 함수가 두 번/, '함수 중복')
+  assert.throws(() => compareFunctionLines(fl([{ schema: 'public', name: 'f' }]), fl([])), /필수 칸 lines 없음/, '필수 칸 누락')
+  const sql = readFileSync(new URL('../scripts/ops/jobs/schema-function-lines-read.sql', import.meta.url), 'utf8').split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')
+  assert.ok(!sql.replace(/md5\(t\.l\)/g, '').includes('t.l') && !/'body'/.test(sql), '줄 글자는 md5 안에서만 쓰임 — 본문 글자 출력 없음')
+  assert.ok(/r\.routine_name in \('write_location'/.test(sql), '대상 함수는 고정 목록') }
 console.log('schema catalog compare: 정상 일치·불일치(1)·입력 오류(2)·오버로드·허용 목록·조회 SQL 보안 모양 시험 통과')

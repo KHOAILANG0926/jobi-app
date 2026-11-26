@@ -1,0 +1,5 @@
+-- 읽기 전용: 운영 함수 본문이 저장소 migration 원문과 다른 후보 6개만, 본문 글자 없이 '줄 단위 md5 지문'을 낸다(다른 줄 번호만 가려내기 위함 — 대표 2026-11-26 지시: 민감 가능 항목은 제한적으로).
+-- 공개 실행 기록이라 글자는 내지 않는다. 출력 = 함수 이름·오버로드·줄 수·줄마다 md5. 대상 함수 이름은 고정 목록(다른 함수는 읽지 않음).
+\pset tuples_only on
+\pset format unaligned
+select jsonb_build_object('kind','fn_lines','server_major',substring(version() from 'PostgreSQL ([0-9]+)'),'rows',(select jsonb_agg(jsonb_build_object('schema',r.routine_schema,'name',r.routine_name,'params',(select jsonb_agg(jsonb_build_object('udt',p.udt_name,'mode',p.parameter_mode) order by p.ordinal_position) from information_schema.parameters p where p.specific_schema=r.specific_schema and p.specific_name=r.specific_name),'lines',(select jsonb_agg(md5(t.l) order by t.n) from unnest(string_to_array(coalesce(r.routine_definition,''),chr(10))) with ordinality as t(l,n))) order by r.routine_schema,r.routine_name,r.specific_name) from information_schema.routines r where r.routine_schema in ('public','location_private') and r.routine_name in ('write_location','admin_upsert_brand','job_alert_evaluate','job_alert_preferences_before_write','parse_salary_vi','parse_work_hours_vi')))::text;
