@@ -11,10 +11,11 @@ const leeOk = { user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: 
 const pr = (number, extra = {}) => ({ number, draft: false, state: 'open', base: { ref: 'master', sha: 'b'.repeat(40) }, head: { sha, repo: { full_name: repo } }, user: { login: 'viecganban-bot' }, labels: [], body, ...extra })
 
 function world({ prs, reviews, comments, existing = {}, failFiles = false, gate = null, issues = [], files = null, deployOk = null, compare = {}, mergeBase = null }) {
-  const writes = [], runs = { ...existing }, compareCalls = [], contentRefs = []
+  const writes = [], runs = { ...existing }, compareCalls = [], contentRefs = [], calls = [], fileOrder = []
   const res = (data, status = 200) => ({ ok: status < 400, status, json: async () => data, text: async () => (typeof data === 'string' ? data : JSON.stringify(data)) })
   globalThis.fetch = async (url, init = {}) => {
     const path = String(url).replace('https://api.github.com/', ''), method = init.method ?? 'GET'
+    calls.push(`${method} ${path}`)
     if (method === 'GET') {
       let m
       if (/^repos\/[^/]+\/[^/]+\/pulls\?/.test(path)) return res(path.includes('page=1') ? prs : [])
@@ -22,26 +23,29 @@ function world({ prs, reviews, comments, existing = {}, failFiles = false, gate 
       if (/actions\/workflows\/deploy-verify\.yml\/runs\?branch=master&status=success/.test(path)) return res({ workflow_runs: deployOk ? [{ head_sha: deployOk }] : [] })
       if ((m = path.match(/compare\/([0-9a-f]+)\.\.\.([0-9a-f]+)/))) { compareCalls.push(path); return res({ status: compare[m[1]] ?? 'diverged', ...(mergeBase ? { merge_base_commit: { sha: mergeBase } } : {}) }) }
       if ((m = path.match(/^repos\/[^/]+\/[^/]+\/contents\/[^?]+\?ref=([0-9a-f]+)/))) { contentRefs.push(m[1]); return res('{"name":"x"}') }
+      if ((m = path.match(/pulls\/(\d+)\/files/))) { if (path.includes('page=1')) fileOrder.push(Number(m[1])) } 
       if ((m = path.match(/pulls\/(\d+)\/files/))) return failFiles ? res({ message: 'unavailable' }, 503) : res(path.includes('page=1') ? (files ?? [{ filename: 'scripts/ci/x.mjs', status: 'modified', patch: '@@\n+x' }]) : [])
-      if ((m = path.match(/pulls\/(\d+)\/reviews/))) return res(path.includes('page=1') ? (reviews[m[1]] ?? []) : [])
-      if (/pulls\/\d+\/comments/.test(path)) return res([])
-      if ((m = path.match(/issues\/(\d+)\/comments/))) {
-        const snap = path.includes('page=1') ? JSON.parse(JSON.stringify(comments[m[1]] ?? [])) : []
-        // 시험용 지연: 첫 조회는 '그 시점 자료'를 쥔 채 풀어 줄 때까지 응답을 늦춘다(오래된 실행 흉내)
+      if ((m = path.match(/pulls\/(\d+)\/reviews/))) {
+        const snap = path.includes('page=1') ? JSON.parse(JSON.stringify(reviews[m[1]] ?? [])) : []
+        // 시험용 지연(③): 첫 승인(리뷰) 조회는 '그 시점 자료'를 쥔 채 풀어 줄 때까지 응답을 늦춘다(오래된 실행 흉내). 예전에는 같은 자리를 안 쓰게 된 댓글 조회에 걸었다 — 판정 입력인 승인 목록으로 옮김.
         if (gate && !gate.used && path.includes('page=1')) { gate.used = true; gate.started(); await gate.release }
         return res(snap)
       }
+      if (/pulls\/\d+\/comments/.test(path)) return res([])
+      if ((m = path.match(/issues\/(\d+)\/comments/))) {
+        return res(path.includes('page=1') ? JSON.parse(JSON.stringify(comments[m[1]] ?? [])) : [])
+      }
       if ((m = path.match(/pulls\/(\d+)(\?|$)/))) return res(prs.find((p) => p.number === Number(m[1])))
-      if (/\/commits\/[0-9a-f]+\/check-runs/.test(path)) { const n = path.match(/check_name=([\w-]+)/)[1]; return res({ check_runs: runs[n] ? [{ id: runs[n].id, app: { slug: 'claude' } }] : [] }) }
+      if (/\/commits\/[0-9a-f]+\/check-runs/.test(path)) { const n = path.match(/check_name=([\w-]+)/)[1]; return res({ check_runs: runs[n] ? [{ id: runs[n].id, app: { slug: runs[n].app ?? 'claude' }, status: runs[n].state === 'in_progress' ? 'in_progress' : 'completed', conclusion: runs[n].state === 'in_progress' ? null : runs[n].state, external_id: runs[n].externalId ?? '' }] : [] }) }
       if (/\/commits\/[0-9a-f]+$/.test(path)) return res({ commit: { committer: { date: '2026-11-15T10:00:00Z' } } })
       return res({ message: `unmocked ${path}` }, 404)
     }
     const body = JSON.parse(init.body), name = body.name ?? Object.keys(runs).find((k) => String(path).endsWith(`/${runs[k].id}`))
-    const rec = { name, state: body.status === 'completed' ? body.conclusion : body.status, summary: body.output?.summary }
-    writes.push(rec); runs[name] = { id: runs[name]?.id ?? Object.keys(runs).length + 1, ...rec }
+    const rec = { name, state: body.status === 'completed' ? body.conclusion : body.status, summary: body.output?.summary, externalId: body.external_id }
+    writes.push(rec); runs[name] = { id: method === 'POST' ? 1000 + writes.length : (runs[name]?.id ?? Object.keys(runs).length + 1), ...rec } // 새로 만들면(POST) 새 번호 — 다른 앱이 만든 같은 이름 검사의 번호를 물려받지 않음(진짜 GitHub와 같게)
     return res({ id: runs[name].id })
   }
-  return { writes, runs, compareCalls, contentRefs }
+  return { writes, runs, compareCalls, contentRefs, calls, fileOrder }
 }
 process.env.GITHUB_TOKEN = 'x'
 const opts = { getAppToken: async () => 'app', framePaths: [] }
@@ -314,3 +318,78 @@ globalThis.fetch = async (url) => { const u = String(url)
   assert.ok(w2.contentRefs.includes('b'.repeat(40)), '분기점을 못 구하면 base.sha 그대로(기존 동작)')
 }
 console.log('approval-checks main: S1 B3 병합 직전 잠금 재확인 시험 통과')
+// ⑤ 판정 재사용·이벤트 PR 우선(4순위 A+B, Lee 2026-11-26): 같은 입력이면 다시 판정하지 않고, 승인·라벨·커밋·정책·잠금이 바뀌면 다시 판정한다. PR updated_at은 보지 않는다.
+{
+  const quiet = async (fn) => { const log = console.log; console.log = () => {}; try { return await fn() } finally { console.log = log } }
+  const normal = [{ filename: 'src/lib/x.ts', status: 'modified', additions: 1, deletions: 0, changes: 1, patch: '+x' }]
+  const N = [251, 252, 253, 254, 255, 256]                                   // --all은 번호 251 이상만 대상
+  const shaN = (n) => String(n % 10).repeat(40).slice(0, 40)
+  const mk = (n, extra = {}) => pr(n, { head: { sha: shaN(n), repo: { full_name: repo } }, body: 'x', updated_at: '2026-11-26T00:00:00Z', ...extra })
+  const needsLee = { labels: [{ name: 'needs-lee' }] }
+  const leeFor = (n) => ({ ...leeOk, commit_id: shaN(n) })
+  // 열린 PR 6개: 일반 3 · 승인 필요(라벨) 2 · 승인 필요 + Lee 승인 1
+  const prs = [mk(251), mk(252), mk(253), mk(254, needsLee), mk(255, needsLee), mk(256, needsLee)]
+  const reviews = { 256: [leeFor(256)] }, issues = []
+  const w = world({ prs, reviews, comments: {}, files: normal, issues })
+  // 커밋별로 검사 기록을 따로 두는 가짜(같은 이름 검사를 커밋마다 하나씩 — 진짜 GitHub와 같게). 위 world 가짜 위에 씌운다.
+  const R = new Map(), inner = globalThis.fetch
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url), method = init.method ?? 'GET', short = u.replace('https://api.github.com/', '')
+    const sha3 = (u.match(/commits\/([0-9a-f]{40})\/check-runs/) ?? [])[1]
+    if (method === 'GET' && sha3) { w.calls.push(`GET ${short}`); const r = R.get(sha3); return { ok: true, status: 200, json: async () => ({ check_runs: r ? [{ id: r.id, app: { slug: r.app ?? 'claude' }, status: r.state === 'in_progress' ? 'in_progress' : 'completed', conclusion: r.state === 'in_progress' ? null : r.state, external_id: r.externalId ?? '' }] : [] }) } }
+    if (method !== 'GET' && /\/check-runs/.test(u)) {
+      w.calls.push(`${method} ${short}`)
+      const b = JSON.parse(init.body)
+      const key = method === 'POST' ? b.head_sha : [...R.entries()].find(([, v]) => u.endsWith(`/${v.id}`))?.[0]
+      const rec = { id: R.get(key)?.id ?? 100 + R.size, state: b.status === 'completed' ? b.conclusion : b.status, externalId: b.external_id }
+      R.set(key, rec); w.writes.push({ name: b.name, sha: key, state: rec.state })
+      return { ok: true, status: 200, json: async () => ({ id: rec.id }), text: async () => '' }
+    }
+    return inner(url, init)
+  }
+  const st = (n) => R.get(shaN(n))?.state
+  const run = async (argv = ['--repo', repo, '--all'], o = opts) => { const c0 = w.calls.length, w0 = w.writes.length; w.fileOrder.length = 0; await quiet(() => main(argv, o)); return { calls: w.calls.length - c0, writes: w.writes.length - w0, order: [...w.fileOrder] } }
+
+  // 1) 첫 실행은 전부 판정 / 같은 입력으로 다시 실행하면 전부 재사용 — 같은 판정, 쓰기 0, 호출 수 크게 줄어듦
+  const first = await run()
+  assert.deepEqual(N.map(st), ['success', 'success', 'success', 'action_required', 'action_required', 'success'], '첫 실행 판정: 일반 성공 · 라벨만 있는 PR은 승인 대기 · Lee 승인 PR은 성공')
+  const second = await run()
+  assert.equal(second.writes, 0, '입력이 같으면 검사를 다시 올리지 않음(판정 유지)')
+  assert.deepEqual(N.map(st), ['success', 'success', 'success', 'action_required', 'action_required', 'success'], '재사용한 판정이 그대로')
+  assert.ok(second.calls * 4 < first.calls, `두 번째 실행 호출 ${second.calls}회 < 첫 실행 ${first.calls}회의 1/4`)
+  assert.ok(second.calls <= N.length * 2 + 6, `재사용 실행은 PR마다 약 2회(검사 조회·승인 목록) + 공통 조회 — 실제 ${second.calls}회`)
+  console.log(`approval-checks 재사용 호출량: PR ${N.length}개 첫 실행 ${first.calls}회(쓰기 ${first.writes}) → 같은 입력 재실행 ${second.calls}회(쓰기 ${second.writes})`)
+
+  // 2) PR updated_at만 바뀌면 판정에 영향이 없어 재사용(updated_at을 근거로 삼지 않음)
+  prs.forEach((p) => { p.updated_at = '2026-11-26T09:00:00Z' })
+  assert.equal((await run()).writes, 0, 'updated_at만 바뀐 것은 재사용')
+  // 3) 승인(리뷰)이 바뀌면(updated_at은 그대로) 그 PR만 다시 판정: 승인 대기 → 성공 → 승인 취소 → 대기
+  reviews[254] = [leeFor(254)]
+  let r = await run(); assert.equal(st(254), 'success', '승인이 생기면 그 PR 판정이 성공으로'); assert.ok(r.writes >= 2 && r.writes <= 4, `그 PR만 다시 판정(쓰기 ${r.writes})`)
+  assert.deepEqual([251, 252, 253, 255].map(st), ['success', 'success', 'success', 'action_required'], '나머지 판정 그대로')
+  reviews[254] = [{ ...leeFor(254), state: 'DISMISSED' }]; await run(); assert.equal(st(254), 'action_required', '승인 취소 즉시 반영')
+  // 4) 라벨이 바뀌면 다시 판정: needs-lee 제거 → 일반 PR로 성공
+  prs[4].labels = []; await run(); assert.equal(st(255), 'success', '라벨 제거 → 다시 판정')
+  // 5) 새 커밋(head 변경): 새 커밋에는 기존 판정이 없어 새로 판정
+  prs[0].head.sha = 'e'.repeat(40); await run(); assert.equal(R.get('e'.repeat(40))?.state, 'success', '새 커밋은 새로 판정')
+  // 6) 운영 배포 잠금이 생기면 잠금 상태가 지문에 들어 있어 일반 PR이 다시 판정되어 승인 대기(S6), 잠금이 그대로면 재사용, 풀리면 다시 성공
+  issues.push({ number: 900, state: 'open', title: '운영 배포 검증 실패: abcdef1', user: { login: 'github-actions[bot]' } })
+  await run(); assert.equal(st(252), 'action_required', '잠금이 생기면 일반 PR도 즉시 병합 잠금 판정(S6)')
+  assert.equal((await run()).writes, 0, '잠금 상태가 그대로면 다시 재사용')
+  issues.length = 0; await run(); assert.equal(st(252), 'success', '잠금이 풀리면 다시 판정되어 성공')
+  // 7) 정책(판정 규칙·보호 경로·화면 틀 소스)이 바뀌면 전부 다시 판정, 한 번 판정한 뒤에는 다시 재사용
+  const p2 = { ...opts, policy: 'policy-v2' }
+  assert.ok((await run(['--repo', repo, '--all'], p2)).writes >= N.length * 2, '정책 지문이 바뀌면 모든 PR 다시 판정')
+  assert.equal((await run(['--repo', repo, '--all'], p2)).writes, 0, '바뀐 정책으로 한 번 판정한 뒤에는 다시 재사용')
+  // 8) 이벤트 PR(--pr)은 지문이 같아도 늘 다시 판정하고 가장 먼저 판정한다(나머지는 재사용)
+  const ev = await run(['--repo', repo, '--all', '--pr', '253'], p2)
+  assert.ok(ev.writes >= 2, '이벤트 PR은 입력이 같아도 다시 판정'); assert.equal(ev.order[0], 253, '이벤트 PR이 가장 먼저 판정됨'); assert.deepEqual([...new Set(ev.order)], [253], '나머지는 재사용(다시 판정 안 함 — 이 PR만 파일 목록을 받음)')
+  // 9) 재사용하면 안 되는 경우: 대기·실패 판정, 지문 없는 옛 판정, 다른 앱이 만든 검사, 다른 지문 — 다시 판정
+  const reeval = async (mut) => { const key = shaN(252); R.set(key, mut(R.get(key))); return (await run(['--repo', repo, '--all'], p2)).writes }
+  assert.ok(await reeval((k) => ({ ...k, state: 'in_progress' })) >= 2, '대기(pending) 판정은 재사용 안 함')
+  assert.ok(await reeval((k) => ({ ...k, state: 'failure' })) >= 2, '실패 판정은 재사용 안 함')
+  assert.ok(await reeval((k) => ({ ...k, externalId: '' })) >= 2, '지문 없는 옛 판정은 재사용 안 함')
+  assert.ok(await reeval((k) => ({ ...k, app: 'other-app' })) >= 2, '다른 앱이 만든 검사의 지문은 믿지 않음')
+  assert.ok(await reeval((k) => ({ ...k, externalId: 'ag1:' + '0'.repeat(40) })) >= 2, '지문이 다르면 재사용 안 함')
+}
+console.log('approval-checks main: 판정 재사용·이벤트 PR 우선·무효화 시험 통과')

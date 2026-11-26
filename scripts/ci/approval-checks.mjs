@@ -9,6 +9,7 @@
 //       node approval-checks.mjs --merge-lock-check --repo o/r --sha S --author A --reviews reviews.json [--cache 파일]  (S1 B3: 봇 병합 직전 잠금 재확인, 종료 코드 0·3·4)
 import { decisionApproval, approvedFramePaths, leeApprovedAt } from '../decision-approval-gate.mjs'
 import { readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 
 export const CHECK_APPROVAL = 'approval-gate'
 
@@ -94,7 +95,9 @@ export function verdicts({ files, reviews, reviewComments, comments, labels, dep
   return { approval }
 }
 
+export const stats = { calls: 0 } // 한 실행의 GitHub API 호출 수(읽기·쓰기 모두) — 실행 끝에 한 줄로 남겨 전후 비교에 쓴다
 const ghFetch = async (token, path, accept = 'application/vnd.github+json') => {
+  stats.calls++
   const r = await fetch(`https://api.github.com/${path}`, { headers: { Authorization: `Bearer ${token}`, Accept: accept } })
   if (!r.ok) throw new Error(`GET ${path} → ${r.status}`)
   return accept.includes('raw') ? r.text() : r.json()
@@ -112,7 +115,9 @@ const pages = async (token, path) => {
 async function collect(token, repo, num, framePaths, locks = []) {
   const pr = await ghFetch(token, `repos/${repo}/pulls/${num}`)
   const sha = pr.head.sha
-  const [files, reviews, reviewComments, comments] = await Promise.all([pages(token, `repos/${repo}/pulls/${num}/files`), pages(token, `repos/${repo}/pulls/${num}/reviews`), pages(token, `repos/${repo}/pulls/${num}/comments`), pages(token, `repos/${repo}/issues/${num}/comments`)])
+  // 판정 입력은 파일·승인(리뷰)·라벨·본문뿐이다(decisionApproval이 댓글을 보지 않음) — 안 쓰는 댓글 두 종류는 더 받지 않는다(호출 수 절감, 판정 그대로).
+  const [files, reviews] = await Promise.all([pages(token, `repos/${repo}/pulls/${num}/files`), pages(token, `repos/${repo}/pulls/${num}/reviews`)])
+  const reviewComments = [], comments = []
   const commit = await ghFetch(token, `repos/${repo}/commits/${sha}`)
   const labels = pr.labels.map((l) => l.name)
   // 의존성·워크플로 기준 내용은 PR 객체의 base.sha(마지막 동기화 때의 기준 브랜치 끝 — 그 뒤 기준 브랜치가 앞으로 가면 옛 값)가 아니라 PR head와 기준 브랜치의 분기점에서 읽는다.
@@ -145,19 +150,41 @@ async function collect(token, repo, num, framePaths, locks = []) {
 /** 이 앱이 이 커밋에 이미 올린 같은 이름 검사가 있으면 갱신, 없으면 만든다. 커밋이 그 사이 바뀌었으면(옛 커밋 판정) 올리지 않는다.
  *  검사 전용 앱 토큰은 checks 권한만 있으므로 PR 조회는 읽기 토큰(GITHUB_TOKEN, pull-requests: read)으로 한다 — 앱 토큰은 check-runs 조회·생성·갱신에만 쓴다(검토관 지적 1854918).
  *  고칠 대상은 이 검사 전용 앱이 만든 검사만(CHECKS_APP_SLUG) — 다른 앱·GitHub Actions가 만든 같은 이름 검사는 건드리지 않는다. */
-export async function publish(appTok, repo, num, sha, name, v, readTok = appTok) {
+export async function publish(appTok, repo, num, sha, name, v, readTok = appTok, known = {}) {
   const live = await ghFetch(readTok, `repos/${repo}/pulls/${num}`)
   if (live.head.sha !== sha) { console.log(`PR #${num}: 판정하는 사이 새 커밋 — ${name} 올리지 않음`); return 'stale' }
-  const base = { name, head_sha: sha, output: { title: `${name}: ${v.state}`, summary: v.summary.slice(0, 1000) } }
+  // external_id = 이 판정이 근거한 입력의 지문(재사용 판단용). 대기·실패 등 지문 없는 판정은 빈 값으로 덮어 이전 지문이 남지 않게 한다.
+  const base = { name, head_sha: sha, external_id: v.externalId ?? '', output: { title: `${name}: ${v.state}`, summary: v.summary.slice(0, 1000) } }
   const payload = v.state === 'success' ? { ...base, status: 'completed', conclusion: 'success' }
     : v.state === 'neutral' ? { ...base, status: 'completed', conclusion: 'neutral' }
     : v.state === 'pending' ? { ...base, status: 'in_progress' }
       : { ...base, status: 'completed', conclusion: v.state === 'blocked' ? 'action_required' : 'failure' }
-  const found = await ghFetch(appTok, `repos/${repo}/commits/${sha}/check-runs?check_name=${name}&per_page=100`)
-  const mine = found.check_runs.filter((c) => c.app?.slug === checksAppSlug()).sort((a, b) => b.id - a.id)[0]
+  const mine = known.id ? { id: known.id } : await findMine(appTok, repo, sha, name)
+  stats.calls++
   const r = await fetch(`https://api.github.com/repos/${repo}/check-runs${mine ? `/${mine.id}` : ''}`, { method: mine ? 'PATCH' : 'POST', headers: { Authorization: `Bearer ${appTok}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
   if (!r.ok) throw new Error(`${name} 검사 올리기 실패 ${r.status} ${(await r.text()).slice(0, 200)}`)
+  try { known.id = (await r.json())?.id ?? known.id } catch { /* 응답 본문이 없어도 게시는 성공 — 다음 게시 때 다시 찾음 */ }
   return 'ok'
+}
+
+/** 이 검사 전용 앱이 그 커밋에 올린 같은 이름 검사 중 가장 최근 것(없으면 undefined). 다른 앱·Actions가 만든 같은 이름 검사는 보지 않는다. */
+export async function findMine(appTok, repo, sha, name) {
+  const found = await ghFetch(appTok, `repos/${repo}/commits/${sha}/check-runs?check_name=${name}&per_page=100`)
+  return found.check_runs.filter((c) => c.app?.slug === checksAppSlug()).sort((a, b) => b.id - a.id)[0]
+}
+
+// ── 판정 재사용(4순위 A+B, Lee 2026-11-26) ──────────────────────────────────────────────────────────────────────
+// 같은 입력이면 같은 판정이다(verdicts는 순수 함수 + 시간은 '정보 조회 실패 재확인 60분'에서만 쓰이고 그 판정은 pending이라 재사용하지 않음).
+// 그래서 판정을 올릴 때 '근거 입력의 지문'을 검사(external_id)에 같이 남기고, 정기·신호 실행이 다른 PR을 볼 때 지문이 같으면 다시 판정하지 않는다.
+// 지문 = 정책(판정·보호 경로·화면 틀 소스 파일 내용) + 커밋 + 운영 배포 잠금 상태 + PR마다(기준 브랜치·작성자·라벨·본문·승인(리뷰) 목록 요약). PR의 updated_at은 쓰지 않는다 —
+// 리뷰·라벨·커밋·정책·잠금이 바뀌면 지문이 바뀌고, 그것들이 안 바뀐 채 updated_at만 바뀐 것은 판정에 영향이 없다.
+// 이벤트로 깨운 PR(--pr)은 지문과 무관하게 늘 다시 판정한다(승인·커밋 신호의 즉시 반영). 지문이 없거나 달라진 PR만 정기 실행이 채운다.
+const sha256 = (x) => createHash('sha256').update(x).digest('hex')
+export const policyDigest = () => sha256(['../decision-approval-gate.mjs', './protected-paths.mjs', './approval-checks.mjs', '../test-desktop-baseline.mjs'].map((f) => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\0'))
+export const reviewsDigest = (reviews) => sha256(JSON.stringify((reviews ?? []).map((r) => [r.id, r.user?.login, r.state, r.commit_id, r.submitted_at])))
+export const prPart = (pr, reviews) => ({ number: pr.number, base: pr.base?.ref ?? '', author: pr.user?.login ?? '', labels: (pr.labels ?? []).map((l) => l.name).sort(), body: sha256(pr.body ?? ''), reviews: reviewsDigest(reviews) })
+export function verdictFingerprint({ policy, sha, locks = [], parts }) {
+  return 'ag1:' + sha256(JSON.stringify([policy, sha, locks.map((l) => `${l.number}:${l.sha}`).sort(), [...parts].sort((x, y) => x.number - y.number)])).slice(0, 40)
 }
 
 // 같은 커밋을 쓰는 PR이 여럿이면 검사 결과(커밋당 이름당 하나)는 공유된다 → 가장 나쁜 판정을 올린다(Codex P1: 한 PR의 승인이 다른 PR의 미승인을 덮어쓰지 않게).
@@ -178,10 +205,11 @@ export function checksAppToken() {
   return t
 }
 
-export async function main(argv, { getAppToken = checksAppToken, framePaths: fp } = {}) {
+export async function main(argv, { getAppToken = checksAppToken, framePaths: fp, policy: policyOpt } = {}) {
   const a = {}
   for (let i = 0; i < argv.length; i++) { const k = argv[i]; if (k === '--dry-run' || k === '--all' || k === '--merge-lock-check') a[k.slice(2)] = true; else a[k.slice(2)] = argv[++i] }
   if (a['merge-lock-check']) return mergeLockCli(a)
+  stats.calls = 0 // 이 실행의 호출 수만 센다
   const repo = a.repo, readTok = process.env.GITHUB_TOKEN
   if (!repo || !readTok || (!a.pr && !a.all)) throw new Error('사용: --repo o/r (--pr N | --all), 환경변수 GITHUB_TOKEN(읽기)')
   const framePaths = fp ?? approvedFramePaths(readFileSync(new URL('../test-desktop-baseline.mjs', import.meta.url), 'utf8'))
@@ -190,27 +218,52 @@ export async function main(argv, { getAppToken = checksAppToken, framePaths: fp 
   const eligible = open.filter((p) => !p.draft && p.number >= 251)
   const targets = a.all ? [...new Map([...eligible, ...open.filter((p) => a.pr && p.number === Number(a.pr))].map((p) => [p.number, p])).values()] : open.filter((p) => p.number === Number(a.pr))
   if (a.pr && !targets.length) { console.log(`PR #${a.pr}: 열린 PR 아님(대상 아님)`); return }
-  let appTok = null, errors = 0
+  let appTok = null, errors = 0, reused = 0, evaluated = 0, runLocks = null
   const compares = new Map() // 잠금 풀림 비교 기억(이 실행 동안) — activeLocks 설명
-  for (const sha of new Set(targets.map((p) => p.head.sha))) {
+  const policy = policyOpt ?? policyDigest()
+  const eventNum = a.pr ? Number(a.pr) : null
+  const hasEvent = (sha) => eventNum != null && open.some((p) => p.number === eventNum && p.head.sha === sha)
+  // 이벤트로 깨운 PR(--pr)의 커밋을 먼저 판정한다(한도가 모자라 중간에 끊겨도 신호를 준 PR의 판정은 먼저 올라감). 나머지는 그 뒤 — 지문이 같으면 다시 판정하지 않는다.
+  const shas = [...new Set(targets.map((p) => p.head.sha))].sort((x, y) => Number(hasEvent(y)) - Number(hasEvent(x)))
+  for (const sha of shas) {
     const group = open.filter((p) => p.head.sha === sha)
     const nums = group.map((p) => p.number)
-    const post = async (name, v) => { appTok ??= await getAppToken(); return publish(appTok, repo, nums[0], sha, name, v, readTok) }
+    const known = {}
+    const post = async (name, v) => { appTok ??= await getAppToken(); return publish(appTok, repo, nums[0], sha, name, v, readTok, known) }
     try {
+      if (!a['dry-run'] && !a['no-reuse'] && !hasEvent(sha)) {
+        // 정기·신호 실행: 이 커밋의 기존 판정이 근거한 입력 지문이 지금과 같으면 그 판정을 그대로 둔다(성공·승인 대기만 — 대기·실패는 다시 판정).
+        // 이 확인이 실패하면(조회 오류 등) 재사용하지 않고 아래에서 다시 판정한다(닫힌 방향).
+        try {
+          appTok ??= await getAppToken()
+          const mine = await findMine(appTok, repo, sha, CHECK_APPROVAL)
+          if (mine) known.id = mine.id
+          if (mine?.status === 'completed' && (mine.conclusion === 'success' || mine.conclusion === 'action_required') && String(mine.external_id ?? '').startsWith('ag1:')) {
+            runLocks ??= await activeLocks(readTok, repo, compares)
+            const parts = []
+            for (const p of group) parts.push(prPart(p, await pages(readTok, `repos/${repo}/pulls/${p.number}/reviews`)))
+            if (verdictFingerprint({ policy, sha, locks: runLocks, parts }) === mine.external_id) { reused++; console.log(`PR ${nums.map((n) => `#${n}`).join('·')} ${sha.slice(0, 7)}: ${CHECK_APPROVAL} 재사용(근거 입력 지문 같음)`); continue }
+          }
+        } catch (e) { console.log(`PR ${nums.map((n) => `#${n}`).join('·')} ${sha.slice(0, 7)}: 재사용 확인 실패(${String(e.message).slice(0, 80)}) — 다시 판정`) }
+      }
+      evaluated++
       // 재판정을 시작하기 전에 이 커밋의 기존 판정을 '대기'로 내린다 — 아래 수집이 중간에 끊겨도 옛 성공이 남지 않는다(Codex P1).
       if (!a['dry-run']) await post(CHECK_APPROVAL, { state: 'pending', summary: '재판정 중(이전 판정은 무효)' })
       // 판정은 두 번 한다: 게시 직전에 자료를 다시 모아 다시 판정하고 더 나쁜 쪽을 올린다(Codex P1: 오래된 실행이 늦게 끝나 최신 판정을 success로 덮지 못하게).
       // 워크플로의 직렬 실행(concurrency 한 줄)이 1차 방어, 이 재판정이 2차 방어 — 둘 다 기존 승인 검사 안에서만.
       const evaluate = async () => {
-        const list = []
+        const list = [], parts = []
         // 잠금 이슈는 판정마다 새로 읽는다(두 번 판정하는 사이 잠금이 생겨도 더 나쁜 쪽이 올라감). 못 읽으면 예외 → 닫힌 실패.
         const locks = await activeLocks(readTok, repo, compares)
-        for (const p of group) { const { input } = await collect(readTok, repo, p.number, framePaths, locks); list.push({ num: p.number, v: verdicts(input) }) }
-        return { approval: combine(list.map((x) => ({ num: x.num, v: x.v.approval }))) }
+        for (const p of group) { const { pr: livePr, input } = await collect(readTok, repo, p.number, framePaths, locks); list.push({ num: p.number, v: verdicts(input) }); parts.push(prPart(livePr, input.reviews)) }
+        return { approval: combine(list.map((x) => ({ num: x.num, v: x.v.approval }))), parts, locks }
       }
       const first = await evaluate(), second = await evaluate()
       const worse = (x, y) => (SEVERITY[y.state] > SEVERITY[x.state] ? y : x)
       const approval = worse(first.approval, second.approval)
+      // 두 번 모은 입력(지문 재료)이 같을 때만 지문을 남긴다 — 판정하는 사이 입력이 바뀌었으면 지문 없음 → 다음 실행이 다시 판정. 대기·실패 판정에는 지문을 붙이지 않는다.
+      const fpOf = (x) => verdictFingerprint({ policy, sha, locks: x.locks, parts: x.parts })
+      if ((approval.state === 'success' || approval.state === 'blocked') && fpOf(first) === fpOf(second)) approval.externalId = fpOf(second)
       console.log(`PR ${nums.map((n) => `#${n}`).join('·')} ${sha.slice(0, 7)}: ${CHECK_APPROVAL}=${approval.state}(${approval.summary})`)
       if (a['dry-run']) continue
       await post(CHECK_APPROVAL, approval)
@@ -221,6 +274,7 @@ export async function main(argv, { getAppToken = checksAppToken, framePaths: fp 
       if (!a['dry-run']) for (const name of [CHECK_APPROVAL]) { try { await post(name, { state: 'failure', summary: `재판정 수집 실패(닫힌 실패): ${String(e.message).slice(0, 150)}` }) } catch (e2) { console.error(`::error::${name} 실패 표시도 못 올림: ${e2.message}`) } }
     }
   }
+  console.log(`approval-checks 요약: 재사용 ${reused}개 · 재판정 ${evaluated}개 · GitHub API 호출 ${stats.calls}회`)
   if (errors) throw new Error(`${errors}개 커밋 재판정 실패`)
 }
 
