@@ -2,6 +2,7 @@
 import { REQUIRED_FIELDS, MIN_CONTACT_DIGITS, DEADLINE_OPEN_THROUGH_DAY, DEADLINE_TIMEZONE } from './jobCriteria.mjs'
 import { isJobOpen, todayVn } from './jobDetailView.ts'
 import { inspectJob } from './jobInspect.ts'
+import { INSPECT_CONTACT_DIGITS, enoughContact } from './inspectReading.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 
 // 필수 9개 항목 = CLAUDE.md '공고 상세페이지 구성·공고 작성 체크리스트 최종 확정'(변경 금지). 이 목록을 바꾸려면 Lee 지시가 있어야 한다.
@@ -19,6 +20,16 @@ assert(REQUIRED_FIELDS.map((f) => f.label).join(',') === '급여,근무시간,�
 
 // 마감·연락처 값(Python crawler/job_criteria.py와 같은 파일을 읽는다 — Python 쪽 시험도 같은 값을 확인)
 assert(MIN_CONTACT_DIGITS === 8, 'contact needs 8 digits (the DB publish gate value)')
+// #973: 검사표 필수 항목 '연락처'도 같은 8자리 기준 — 3자리 같은 짧은 숫자는 누락으로 알린다(예전엔 빈칸만 아니면 통과).
+assert(INSPECT_CONTACT_DIGITS === MIN_CONTACT_DIGITS, 'inspector contact digits equal the shared criteria')
+assert(enoughContact('0388 492 985') && enoughContact('Zalo: 0912.345.678') && !enoughContact('123') && !enoughContact('') && !enoughContact(null), 'enoughContact counts digits like the DB gate')
+{
+  const base = { id: 1, title: 'x', company: 'y', addresses: [], salary: '', values: [], description: '', source_text: 'x', postingFields: { reviewOnly: true } }
+  const short = inspectJob({ ...base, phones: ['123'] } as never).items.find((i) => i.key === 'required_fields')
+  const full = inspectJob({ ...base, phones: ['0388492985'] } as never).items.find((i) => i.key === 'required_fields')
+  assert(String(short?.detail).includes('연락처'), 'a 3-digit contact is reported missing: ' + short?.detail)
+  assert(!String(full?.detail).includes('연락처'), 'a 10-digit phone is a contact: ' + full?.detail)
+}
 assert(DEADLINE_OPEN_THROUGH_DAY === true && DEADLINE_TIMEZONE === 'Asia/Ho_Chi_Minh', 'deadline day is open, in Vietnam time')
 assert(isJobOpen('2026-11-23', '2026-11-23') && !isJobOpen('2026-11-22', '2026-11-23') && isJobOpen(null, '2026-11-23'), 'screen helper follows the shared deadline rule')
 assert(todayVn(new Date('2026-11-22T18:30:00Z')) === '2026-11-23' && todayVn(new Date('2026-11-22T16:59:00Z')) === '2026-11-22', 'todayVn is the Vietnam date')
