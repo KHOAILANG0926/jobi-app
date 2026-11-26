@@ -1,4 +1,4 @@
-import { addDays, buildJobFields, emptyPostForm, preferenceText, processText, salaryNoteText, validatePostForm, type PostForm } from './postJobSubmit.ts'
+import { addDays, buildJobFields, emptyPostForm, occupationNotice, preferenceText, processText, salaryNoteText, validatePostForm, type PostForm } from './postJobSubmit.ts'
 import type { JobConditions } from './jobConditions.ts'
 
 // jobConditions.ts는 node 시험에서 못 불러오는 import가 있어 필요한 칸(workSchedule)만 가진 값으로 대신한다.
@@ -45,6 +45,29 @@ if (ok.ok) {
   assert(f.employerPhone === '0912345678' && f.zalo === '0912345678', '전화 정규화·Zalo 같음')
   assert(f.location === '12 Nguyễn Trãi, Phường 1, Bắc Ninh' && f.images === undefined && f.imageUrl === undefined, '주소·사진 없음')
   assert(f.hours === '08:00 - 17:00' && f.numHires === '5 người', '근무시간·인원')
+}
+
+// #717 B ①(Lee 2026-11-25): 고른 업직종의 후보 안에서 고용주가 쓴 업무 내용에 근거가 있을 때만 직업코드·근거를 등록 입구로 보낸다.
+{
+  const form = valid({ category: 'am_thuc_do_uong', subcategory: 'phuc_vu_ban', title: 'Tuyển nhân viên phục vụ', work: 'Phục vụ khách tại quán' })
+  const v = validatePostForm(form, false)
+  assert(v.ok, '정상 폼(업직종 선택)')
+  if (v.ok) {
+    const f = buildJobFields(form, NO_CONDITIONS, v.composed, { imagePaths: [] })
+    assert(f.occupationCode === '5131' && f.occupationEvidence === 'nhân viên phục vụ', '근거가 있으면 코드·근거(원문 글자 그대로): ' + f.occupationCode + ' ' + f.occupationEvidence)
+    const { ingestSourceText } = await import('./jobPolicyWrite.ts')
+    const source = ingestSourceText({ title: f.title, description: f.description, occupation_code: f.occupationCode, occupation_evidence: f.occupationEvidence })
+    assert(!source.includes('occupation') && source.includes(String(f.occupationEvidence)), '직업코드 칸은 원문에 넣지 않고, 근거는 제목·업무 글에 그대로 있음')
+  }
+  assert(occupationNotice(form) === 'Nghề phù hợp: Bồi bàn (5131) · xác nhận theo nội dung công việc', '안내 줄(근거 있음): ' + occupationNotice(form))
+  assert(occupationNotice(valid({ category: 'am_thuc_do_uong', subcategory: 'nha_hang', title: 'Tuyển gấp' })) === 'Sẽ được kiểm tra sau khi đăng', '안내 줄(못 정함)')
+  assert(occupationNotice(emptyPostForm) === null, '업직종 고르기 전엔 줄 없음')
+  const noDuty = valid({ category: 'am_thuc_do_uong', subcategory: 'phuc_vu_ban', title: 'Tuyển gấp', work: 'Làm tại quán, lương tốt' })
+  const v2 = validatePostForm(noDuty, false)
+  if (v2.ok) assert(buildJobFields(noDuty, NO_CONDITIONS, v2.composed, { imagePaths: [] }).occupationCode === undefined, '업무 근거 없으면 보내지 않음(기존 보류)')
+  const venue = valid({ category: 'am_thuc_do_uong', subcategory: 'nha_hang', title: 'Tuyển nhân viên phục vụ', work: 'Phục vụ' })
+  const v3 = validatePostForm(venue, false)
+  if (v3.ok) assert(buildJobFields(venue, NO_CONDITIONS, v3.composed, { imagePaths: [] }).occupationCode === undefined, '업장 종류만으로는 코드 없음')
 }
 
 // 기존 칸에 넣는 글

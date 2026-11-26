@@ -1,0 +1,957 @@
+{
+ "note": "#717 B안(Lee 2026-11-25): 작성 화면 소분류별 공식 직업코드 후보 — 원본 docs/plans/2026-11-25-717b-category-occupation-map.md(#1061)의 A·B·C 줄. D(업장 종류)는 후보 없음(업무 내용으로만, 가게 예외는 기존 서버 판정 그대로). 후보는 '업무 내용에서 규칙이 찾은 코드가 이 안(같거나 하위)에 있을 때만' 쓴다 — 선택만으로 확정하지 않는다.",
+ "candidates": {
+  "am_thuc_do_uong": {
+   "phuc_vu_ban": [
+    {
+     "code": "5131",
+     "name_vi": "Bồi bàn"
+    }
+   ],
+   "dau_bep": [
+    {
+     "code": "5120",
+     "name_vi": "Đầu bếp"
+    },
+    {
+     "code": "3434",
+     "name_vi": "Đầu bếp trưởng"
+    }
+   ],
+   "phu_bep_rua_bat": [
+    {
+     "code": "9402",
+     "name_vi": "Người phụ bếp"
+    }
+   ],
+   "barista": [
+    {
+     "code": "5132",
+     "name_vi": "Nhân viên pha chế"
+    }
+   ],
+   "tho_lam_banh": [
+    {
+     "code": "7512",
+     "name_vi": "Thợ nướng bánh, thợ làm bánh ngọt và bánh kẹo"
+    }
+   ]
+  },
+  "quan_ly_ban_hang": {
+   "thu_ngan": [
+    {
+     "code": "5230",
+     "name_vi": "Nhân viên thu ngân và bán vé"
+    }
+   ],
+   "pg_pb": [
+    {
+     "code": "5242",
+     "name_vi": "Nhân viên thuyết minh giới thiệu hàng hóa"
+    }
+   ],
+   "md_tmdt": [
+    {
+     "code": "3323",
+     "name_vi": "Nhân viên/đại lý mua hàng"
+    },
+    {
+     "code": "5249",
+     "name_vi": "Nhân viên bán hàng khác chưa được phân vào đâu"
+    }
+   ]
+  },
+  "dich_vu": {
+   "le_tan": [
+    {
+     "code": "4224",
+     "name_vi": "Nhân viên lễ tân khách sạn"
+    },
+    {
+     "code": "4226",
+     "name_vi": "Lễ tân (tổng hợp)"
+    }
+   ],
+   "huong_dan_do_xe": [
+    {
+     "code": "962",
+     "name_vi": "Lao động giản đơn khác"
+    }
+   ],
+   "bao_ve": [
+    {
+     "code": "5401",
+     "name_vi": "Nhân viên an ninh (trừ công an)"
+    }
+   ],
+   "cay_xang_rua_xe": [
+    {
+     "code": "5245",
+     "name_vi": "Nhân viên phục vụ ở các trạm dịch vụ"
+    },
+    {
+     "code": "9122",
+     "name_vi": "Thợ rửa xe cộ"
+    }
+   ],
+   "phat_to_roi": [
+    {
+     "code": "9510",
+     "name_vi": "Lao động trên đường phố và lao động có liên quan"
+    }
+   ],
+   "ve_sinh_don_dep": [
+    {
+     "code": "9111",
+     "name_vi": "Người quét dọn và giúp việc gia đình"
+    },
+    {
+     "code": "9112",
+     "name_vi": "Người quét dọn và giúp việc trong văn phòng, khách sạn và các cơ sở khác"
+    }
+   ],
+   "quan_ly_cho_thue_as": [
+    {
+     "code": "3334",
+     "name_vi": "Nhân viên môi giới bất động sản và quản lý tài sản/bất động sản"
+    },
+    {
+     "code": "7421",
+     "name_vi": "Thợ cơ khí và thợ dịch vụ điện tử"
+    }
+   ],
+   "caddy_golf": [
+    {
+     "code": "9629",
+     "name_vi": "Lao động giản đơn khác chưa được phân vào đâu"
+    }
+   ],
+   "toc_lam_dep_nail": [
+    {
+     "code": "5141",
+     "name_vi": "Thợ làm đầu"
+    },
+    {
+     "code": "5142",
+     "name_vi": "Nhân viên làm đẹp và nhân viên có liên quan"
+    }
+   ],
+   "cham_soc_da_massage": [
+    {
+     "code": "5142",
+     "name_vi": "Nhân viên làm đẹp và nhân viên có liên quan"
+    },
+    {
+     "code": "3255",
+     "name_vi": "Kỹ thuật viên vật lý trị liệu và phụ tá"
+    }
+   ],
+   "cham_soc_thu_cung": [
+    {
+     "code": "5164",
+     "name_vi": "Nhân viên chăm sóc và làm đẹp động vật"
+    }
+   ],
+   "trong_tre_giup_viec": [
+    {
+     "code": "5311",
+     "name_vi": "Nhân viên chăm sóc trẻ em"
+    },
+    {
+     "code": "9111",
+     "name_vi": "Người quét dọn và giúp việc gia đình"
+    }
+   ],
+   "tiec_cuoi_tang_le": [
+    {
+     "code": "5163",
+     "name_vi": "Người làm nghề phục vụ tang lễ và ướp xác"
+    },
+    {
+     "code": "5246",
+     "name_vi": "Nhân viên phục vụ đồ ăn uống"
+    }
+   ],
+   "nhan_vien_su_kien": [
+    {
+     "code": "3332",
+     "name_vi": "Nhân viên tổ chức hội thảo và sự kiện"
+    }
+   ],
+   "thuyet_minh_quang_cao": [
+    {
+     "code": "5242",
+     "name_vi": "Nhân viên thuyết minh giới thiệu hàng hóa"
+    }
+   ],
+   "nguoi_mau_thu_do": [
+    {
+     "code": "5241",
+     "name_vi": "Nhân viên làm mẫu"
+    }
+   ],
+   "moi_gioi_bds": [
+    {
+     "code": "3334",
+     "name_vi": "Nhân viên môi giới bất động sản và quản lý tài sản/bất động sản"
+    }
+   ]
+  },
+  "van_phong": {
+   "tro_ly_van_phong": [
+    {
+     "code": "4110",
+     "name_vi": "Nhân viên tổng hợp"
+    },
+    {
+     "code": "3343",
+     "name_vi": "Thư ký hành chính và điều hành"
+    }
+   ],
+   "soan_thao_van_ban": [
+    {
+     "code": "4131",
+     "name_vi": "Nhân viên đánh máy"
+    },
+    {
+     "code": "4409",
+     "name_vi": "Nhân viên hỗ trợ văn phòng khác chưa được phân vào đâu"
+    }
+   ],
+   "thu_thap_du_lieu": [
+    {
+     "code": "4132",
+     "name_vi": "Nhân viên nhập dữ liệu"
+    },
+    {
+     "code": "4227",
+     "name_vi": "Phỏng vấn viên điều tra và nghiên cứu thị trường"
+    }
+   ],
+   "tro_ly_ke_toan": [
+    {
+     "code": "4311",
+     "name_vi": "Nhân viên kế toán"
+    }
+   ],
+   "nhan_su_hanh_chinh": [
+    {
+     "code": "4406",
+     "name_vi": "Nhân viên tổ chức nhân sự"
+    },
+    {
+     "code": "2423",
+     "name_vi": "Nhà chuyên môn về nhân sự và nghề nghiệp"
+    }
+   ],
+   "marketing_quang_cao": [
+    {
+     "code": "2431",
+     "name_vi": "Nhà chuyên môn về quảng cáo và tiếp thị"
+    },
+    {
+     "code": "2432",
+     "name_vi": "Nhà chuyên môn về quan hệ công chúng"
+    }
+   ],
+   "marketing_sns": [
+    {
+     "code": "2431",
+     "name_vi": "Nhà chuyên môn về quảng cáo và tiếp thị"
+    }
+   ],
+   "bien_dich_phien_dich": [
+    {
+     "code": "2643",
+     "name_vi": "Nhà biên dịch, phiên dịch và nhà ngôn ngữ khác"
+    }
+   ],
+   "photocopy_in_an": [
+    {
+     "code": "4405",
+     "name_vi": "Nhân viên văn thư và phô tô"
+    },
+    {
+     "code": "7322",
+     "name_vi": "Thợ in"
+    }
+   ],
+   "bien_tap_hieu_dinh": [
+    {
+     "code": "2642",
+     "name_vi": "Nhà báo, biên tập viên"
+    },
+    {
+     "code": "4403",
+     "name_vi": "Nhân viên đánh mã, đọc và sửa bản in thử"
+    }
+   ]
+  },
+  "cskh_kinh_doanh": {
+   "cskh_inbound": [
+    {
+     "code": "4222",
+     "name_vi": "Nhân viên trung tâm thông tin liên lạc"
+    },
+    {
+     "code": "4229",
+     "name_vi": "Nhân viên thông tin khách hàng chưa được phân vào đâu"
+    }
+   ],
+   "telesale_outbound": [
+    {
+     "code": "5244",
+     "name_vi": "Nhân viên bán hàng qua trung tâm liên lạc"
+    }
+   ],
+   "cskh_tmdt": [
+    {
+     "code": "4222",
+     "name_vi": "Nhân viên trung tâm thông tin liên lạc"
+    },
+    {
+     "code": "4229",
+     "name_vi": "Nhân viên thông tin khách hàng chưa được phân vào đâu"
+    }
+   ],
+   "kinh_doanh_tai_chinh": [
+    {
+     "code": "3321",
+     "name_vi": "Nhân viên đại diện bảo hiểm"
+    },
+    {
+     "code": "2412",
+     "name_vi": "Nhà tư vấn tài chính và đầu tư"
+    }
+   ],
+   "ban_hang_truc_tiep": [
+    {
+     "code": "3322",
+     "name_vi": "Nhân viên đại diện bán hàng hóa thương mại"
+    },
+    {
+     "code": "5243",
+     "name_vi": "Nhân viên bán hàng tận nhà"
+    }
+   ],
+   "khao_sat_nghien_cuu": [
+    {
+     "code": "4227",
+     "name_vi": "Phỏng vấn viên điều tra và nghiên cứu thị trường"
+    }
+   ],
+   "quan_ly_tong_dai": [
+    {
+     "code": "4222",
+     "name_vi": "Nhân viên trung tâm thông tin liên lạc"
+    },
+    {
+     "code": "4223",
+     "name_vi": "Nhân viên vận hành tổng đài điện thoại"
+    }
+   ],
+   "ho_tro_kinh_doanh": [
+    {
+     "code": "3339",
+     "name_vi": "Nhân viên/đại lý dịch vụ kinh doanh khác chưa được phân vào đâu"
+    },
+    {
+     "code": "3341",
+     "name_vi": "Giám sát viên văn phòng"
+    }
+   ]
+  },
+  "san_xuat_xay_dung": {
+   "san_xuat_gia_cong": [
+    {
+     "code": "8",
+     "name_vi": "Thợ lắp ráp và vận hành máy móc, thiết bị"
+    },
+    {
+     "code": "82",
+     "name_vi": "Thợ lắp ráp"
+    }
+   ],
+   "dong_goi_kiem_tra": [
+    {
+     "code": "9321",
+     "name_vi": "Lao động đóng gói thủ công"
+    },
+    {
+     "code": "8183",
+     "name_vi": "Thợ vận hành thiết bị đóng gói, đóng chai và dán nhãn"
+    },
+    {
+     "code": "7543",
+     "name_vi": "Thợ phân loại và kiểm tra sản phẩm (trừ thực phẩm và đồ uống)"
+    }
+   ],
+   "xuat_nhap_kho": [
+    {
+     "code": "4321",
+     "name_vi": "Nhân viên ghi chép tồn kho"
+    },
+    {
+     "code": "9333",
+     "name_vi": "Người mang vác hàng"
+    }
+   ],
+   "boc_xep_hang": [
+    {
+     "code": "9333",
+     "name_vi": "Người mang vác hàng"
+    },
+    {
+     "code": "9621",
+     "name_vi": "Người đưa thư, người giao hàng và người khuân vác hành lý"
+    }
+   ],
+   "nhat_hang_logistics": [
+    {
+     "code": "9333",
+     "name_vi": "Người mang vác hàng"
+    },
+    {
+     "code": "9321",
+     "name_vi": "Lao động đóng gói thủ công"
+    },
+    {
+     "code": "4132",
+     "name_vi": "Nhân viên nhập dữ liệu"
+    }
+   ],
+   "lai_xe_nang": [
+    {
+     "code": "8344",
+     "name_vi": "Thợ vận hành xe bốc dỡ"
+    }
+   ],
+   "khuon_mau_ep_nhua": [
+    {
+     "code": "7211",
+     "name_vi": "Thợ tạo khuôn và lõi kim loại"
+    },
+    {
+     "code": "8142",
+     "name_vi": "Thợ vận hành máy sản xuất sản phẩm nhựa"
+    },
+    {
+     "code": "7223",
+     "name_vi": "Thợ lắp ráp và vận hành máy công cụ kim loại"
+    }
+   ],
+   "san_xuat_ban_dan": [
+    {
+     "code": "8202",
+     "name_vi": "Thợ lắp ráp thiết bị điện và điện tử"
+    },
+    {
+     "code": "3114",
+     "name_vi": "Kỹ thuật viên kỹ thuật điện tử"
+    }
+   ],
+   "van_hanh_may_moc": [
+    {
+     "code": "81",
+     "name_vi": "Thợ vận hành máy móc và thiết bị"
+    }
+   ],
+   "bao_tri_sua_chua": [
+    {
+     "code": "7233",
+     "name_vi": "Thợ cơ khí và sửa chữa máy móc nông nghiệp và công nghiệp"
+    },
+    {
+     "code": "7412",
+     "name_vi": "Thợ lắp ráp và thợ cơ khí điện"
+    },
+    {
+     "code": "7421",
+     "name_vi": "Thợ cơ khí và thợ dịch vụ điện tử"
+    }
+   ],
+   "dien_co_so_vat_chat": [
+    {
+     "code": "7411",
+     "name_vi": "Thợ lắp điện cho tòa nhà và thợ điện có liên quan"
+    },
+    {
+     "code": "5153",
+     "name_vi": "Người chăm sóc, bảo vệ tòa nhà"
+    }
+   ],
+   "van_chuyen_lap_dat": [
+    {
+     "code": "9333",
+     "name_vi": "Người mang vác hàng"
+    },
+    {
+     "code": "9313",
+     "name_vi": "Thợ phụ xây dựng"
+    }
+   ],
+   "thi_cong_dien_ong_nuoc": [
+    {
+     "code": "7411",
+     "name_vi": "Thợ lắp điện cho tòa nhà và thợ điện có liên quan"
+    },
+    {
+     "code": "7126",
+     "name_vi": "Thợ ống nước"
+    },
+    {
+     "code": "7123",
+     "name_vi": "Thợ thạch cao"
+    }
+   ],
+   "noi_that_sua_chua_nha": [
+    {
+     "code": "7115",
+     "name_vi": "Thợ mộc và thợ làm đồ gỗ"
+    },
+    {
+     "code": "712",
+     "name_vi": "Thợ hoàn thiện công trình và thợ có liên quan"
+    }
+   ],
+   "cat_may": [
+    {
+     "code": "7532",
+     "name_vi": "Thợ tạo mẫu và cắt quần áo và các thợ có liên quan"
+    },
+    {
+     "code": "7531",
+     "name_vi": "Thợ may, thợ làm da thú và thợ làm mũ"
+    },
+    {
+     "code": "8153",
+     "name_vi": "Thợ vận hành máy may"
+    }
+   ]
+  },
+  "cntt_ky_thuat": {
+   "len_ke_hoach_web": [
+    {
+     "code": "2513",
+     "name_vi": "Nhà phát triển web và truyền thông đa phương tiện"
+    },
+    {
+     "code": "2431",
+     "name_vi": "Nhà chuyên môn về quảng cáo và tiếp thị"
+    }
+   ],
+   "quan_tri_website": [
+    {
+     "code": "3514",
+     "name_vi": "Kỹ thuật viên web"
+    },
+    {
+     "code": "3512",
+     "name_vi": "Kỹ thuật viên hỗ trợ người sử dụng công nghệ thông tin và truyền thông"
+    }
+   ],
+   "lap_trinh_vien": [
+    {
+     "code": "2512",
+     "name_vi": "Nhà phát triển phần mềm"
+    },
+    {
+     "code": "2514",
+     "name_vi": "Nhà lập trình các ứng dụng"
+    }
+   ],
+   "lap_trinh_html": [
+    {
+     "code": "2513",
+     "name_vi": "Nhà phát triển web và truyền thông đa phương tiện"
+    }
+   ],
+   "kiem_thu_phan_mem": [
+    {
+     "code": "2519",
+     "name_vi": "Nhà chuyên môn về phát triển phần mềm ứng dụng và nhà phân tích chưa được phân vào đâu"
+    }
+   ],
+   "he_thong_mang_bao_mat": [
+    {
+     "code": "2522",
+     "name_vi": "Nhà quản trị hệ thống"
+    },
+    {
+     "code": "2523",
+     "name_vi": "Nhà chuyên môn về mạng máy tính"
+    },
+    {
+     "code": "3513",
+     "name_vi": "Kỹ thuật viên hệ thống và mạng máy tính"
+    }
+   ],
+   "lap_dat_thiet_bi_so": [
+    {
+     "code": "3512",
+     "name_vi": "Kỹ thuật viên hỗ trợ người sử dụng công nghệ thông tin và truyền thông"
+    },
+    {
+     "code": "7422",
+     "name_vi": "Thợ lắp đặt và dịch vụ kỹ thuật thông tin và truyền thông"
+    }
+   ]
+  },
+  "thiet_ke": {
+   "thiet_ke_web_mobile": [
+    {
+     "code": "2166",
+     "name_vi": "Nhà thiết kế đồ họa và truyền thông đa phương tiện"
+    },
+    {
+     "code": "2513",
+     "name_vi": "Nhà phát triển web và truyền thông đa phương tiện"
+    }
+   ],
+   "thiet_ke_do_hoa_video": [
+    {
+     "code": "2166",
+     "name_vi": "Nhà thiết kế đồ họa và truyền thông đa phương tiện"
+    },
+    {
+     "code": "3521",
+     "name_vi": "Kỹ thuật viên truyền hình và nghe - nhìn"
+    }
+   ],
+   "thiet_ke_san_pham": [
+    {
+     "code": "2163",
+     "name_vi": "Nhà thiết kế sản phẩm và may mặc"
+    }
+   ],
+   "cad_cam_noi_that": [
+    {
+     "code": "3432",
+     "name_vi": "Nhà thiết kế và trang trí nội thất"
+    },
+    {
+     "code": "3118",
+     "name_vi": "Kỹ thuật viên phác thảo kỹ thuật"
+    }
+   ],
+   "thiet_ke_nhan_vat": [
+    {
+     "code": "2166",
+     "name_vi": "Nhà thiết kế đồ họa và truyền thông đa phương tiện"
+    },
+    {
+     "code": "2651",
+     "name_vi": "Nghệ sỹ hình ảnh"
+    }
+   ],
+   "thiet_ke_thoi_trang": [
+    {
+     "code": "2163",
+     "name_vi": "Nhà thiết kế sản phẩm và may mặc"
+    }
+   ]
+  },
+  "truyen_thong": {
+   "dien_vien_quan_chung": [
+    {
+     "code": "2655",
+     "name_vi": "Diễn viên"
+    }
+   ],
+   "nhan_vien_hau_truong": [
+    {
+     "code": "3521",
+     "name_vi": "Kỹ thuật viên truyền hình và nghe - nhìn"
+    },
+    {
+     "code": "2654",
+     "name_vi": "Đạo diễn, nhà sản xuất phim, sân khấu và các nghề liên quan"
+    }
+   ],
+   "quay_dung_video": [
+    {
+     "code": "3521",
+     "name_vi": "Kỹ thuật viên truyền hình và nghe - nhìn"
+    },
+    {
+     "code": "2654",
+     "name_vi": "Đạo diễn, nhà sản xuất phim, sân khấu và các nghề liên quan"
+    }
+   ],
+   "chup_anh_chinh_sua": [
+    {
+     "code": "3431",
+     "name_vi": "Nhiếp ảnh gia"
+    }
+   ],
+   "anh_sang_am_thanh": [
+    {
+     "code": "3521",
+     "name_vi": "Kỹ thuật viên truyền hình và nghe - nhìn"
+    }
+   ]
+  },
+  "lai_xe_giao_hang": {
+   "van_chuyen_chuyen_nha": [
+    {
+     "code": "8332",
+     "name_vi": "Lái xe tải hạng vừa và xe tải hạng nặng"
+    },
+    {
+     "code": "9333",
+     "name_vi": "Người mang vác hàng"
+    }
+   ],
+   "tai_xe_giao_hang": [
+    {
+     "code": "8322",
+     "name_vi": "Lái xe con, taxi và xe tải hạng nhẹ"
+    },
+    {
+     "code": "8321",
+     "name_vi": "Lái xe máy"
+    }
+   ],
+   "tai_xe_giao_dai_ly": [
+    {
+     "code": "8322",
+     "name_vi": "Lái xe con, taxi và xe tải hạng nhẹ"
+    },
+    {
+     "code": "8332",
+     "name_vi": "Lái xe tải hạng vừa và xe tải hạng nặng"
+    }
+   ],
+   "xe_chuyen_dung": [
+    {
+     "code": "8332",
+     "name_vi": "Lái xe tải hạng vừa và xe tải hạng nặng"
+    },
+    {
+     "code": "8342",
+     "name_vi": "Thợ vận hành máy đào đất và thợ vận hành thiết bị có liên quan"
+    },
+    {
+     "code": "8343",
+     "name_vi": "Thợ vận hành cần trục và thợ vận hành các thiết bị có liên quan"
+    }
+   ],
+   "do_xe_ho": [
+    {
+     "code": "8322",
+     "name_vi": "Lái xe con, taxi và xe tải hạng nhẹ"
+    },
+    {
+     "code": "9629",
+     "name_vi": "Lao động giản đơn khác chưa được phân vào đâu"
+    }
+   ],
+   "taxi_lai_xe_ho": [
+    {
+     "code": "8322",
+     "name_vi": "Lái xe con, taxi và xe tải hạng nhẹ"
+    }
+   ],
+   "lai_xe_buyt": [
+    {
+     "code": "8331",
+     "name_vi": "Lái xe buýt và xe điện"
+    }
+   ],
+   "giao_hang_nhanh": [
+    {
+     "code": "8321",
+     "name_vi": "Lái xe máy"
+    },
+    {
+     "code": "9621",
+     "name_vi": "Người đưa thư, người giao hàng và người khuân vác hành lý"
+    }
+   ],
+   "giao_do_an_shipper": [
+    {
+     "code": "8321",
+     "name_vi": "Lái xe máy"
+    },
+    {
+     "code": "83212",
+     "name_vi": "Người chở người, chở hàng bằng xe máy sử dụng các thiết bị di động cá nhân (lái xe máy công nghệ)"
+    }
+   ],
+   "giao_hang_di_bo": [
+    {
+     "code": "9621",
+     "name_vi": "Người đưa thư, người giao hàng và người khuân vác hành lý"
+    }
+   ]
+  },
+  "y_te_dieu_duong": {
+   "dieu_duong_y_ta": [
+    {
+     "code": "3221",
+     "name_vi": "Y tá/điều dưỡng, kỹ thuật viên chăm sóc bệnh nhân"
+    },
+    {
+     "code": "2221",
+     "name_vi": "Y tá/Điều dưỡng (cao cấp)"
+    }
+   ],
+   "ky_thuat_vien_y_te": [
+    {
+     "code": "321",
+     "name_vi": "Kỹ thuật viên y tế và dược"
+    }
+   ],
+   "cham_soc_benh_nhan": [
+    {
+     "code": "5321",
+     "name_vi": "Nhân viên hỗ trợ về chăm sóc sức khỏe"
+    },
+    {
+     "code": "5322",
+     "name_vi": "Nhân viên chăm sóc cá nhân tại nhà"
+    }
+   ],
+   "hanh_chinh_benh_vien": [
+    {
+     "code": "3344",
+     "name_vi": "Thư ký y tế"
+    },
+    {
+     "code": "4229",
+     "name_vi": "Nhân viên thông tin khách hàng chưa được phân vào đâu"
+    }
+   ],
+   "tro_ly_khoa_kham": [
+    {
+     "code": "5321",
+     "name_vi": "Nhân viên hỗ trợ về chăm sóc sức khỏe"
+    },
+    {
+     "code": "3221",
+     "name_vi": "Y tá/điều dưỡng, kỹ thuật viên chăm sóc bệnh nhân"
+    }
+   ],
+   "ky_thuat_vien_thu_y": [
+    {
+     "code": "3240",
+     "name_vi": "Kỹ thuật viên thú y và phụ tá"
+    }
+   ],
+   "tro_ly_thi_nghiem": [
+    {
+     "code": "3212",
+     "name_vi": "Kỹ thuật viên phòng thí nghiệm y tế"
+    },
+    {
+     "code": "3141",
+     "name_vi": "Kỹ thuật viên khoa học sự sống (không kể y tế)"
+    },
+    {
+     "code": "3111",
+     "name_vi": "Kỹ thuật viên khoa học hóa học và vật lý"
+    }
+   ]
+  },
+  "giao_duc_giang_day": {
+   "tin_hoc_cntt": [
+    {
+     "code": "2396",
+     "name_vi": "Giáo viên công nghệ thông tin"
+    }
+   ],
+   "giao_vien_yoga": [
+    {
+     "code": "3423",
+     "name_vi": "Người hướng dẫn tập luyện và giải trí, người chỉ đạo chương trình"
+    }
+   ],
+   "hlv_the_hinh": [
+    {
+     "code": "34223",
+     "name_vi": "Nhân viên hướng dẫn tập thể hình"
+    }
+   ],
+   "giao_vien_the_thao": [
+    {
+     "code": "3422",
+     "name_vi": "Huấn luyện viên, nhân viên hướng dẫn thể thao và làm việc trong lĩnh vực thể thao"
+    },
+    {
+     "code": "2399",
+     "name_vi": "Nhà chuyên môn giảng dạy khác chưa được phân vào đâu"
+    }
+   ],
+   "giao_vien_nang_khieu": [
+    {
+     "code": "2394",
+     "name_vi": "Giáo viên âm nhạc khác"
+    },
+    {
+     "code": "2395",
+     "name_vi": "Giáo viên nghệ thuật khác"
+    }
+   ],
+   "mam_non_mau_giao": [
+    {
+     "code": "2342",
+     "name_vi": "Giáo viên mầm non"
+    },
+    {
+     "code": "3620",
+     "name_vi": "Giáo viên mầm non"
+    },
+    {
+     "code": "5311",
+     "name_vi": "Nhân viên chăm sóc trẻ em"
+    }
+   ],
+   "ho_tro_dua_don": [
+    {
+     "code": "5312",
+     "name_vi": "Người phụ tá cho giáo viên"
+    },
+    {
+     "code": "5311",
+     "name_vi": "Nhân viên chăm sóc trẻ em"
+    }
+   ],
+   "gia_su_tai_nha": [
+    {
+     "code": "2399",
+     "name_vi": "Nhà chuyên môn giảng dạy khác chưa được phân vào đâu"
+    },
+    {
+     "code": "3642",
+     "name_vi": "Giáo viên đào tạo khác"
+    }
+   ],
+   "tro_giang": [
+    {
+     "code": "5312",
+     "name_vi": "Người phụ tá cho giáo viên"
+    }
+   ],
+   "ho_tro_van_hanh_trung_tam": [
+    {
+     "code": "4110",
+     "name_vi": "Nhân viên tổng hợp"
+    },
+    {
+     "code": "5312",
+     "name_vi": "Người phụ tá cho giáo viên"
+    }
+   ],
+   "bien_soan_giao_trinh": [
+    {
+     "code": "2391",
+     "name_vi": "Chuyên gia về phương pháp giáo dục"
+    },
+    {
+     "code": "2641",
+     "name_vi": "Nhà văn và nghề có liên quan"
+    }
+   ]
+  }
+ }
+}
