@@ -53,10 +53,9 @@ try {
 // ── 2. 시험 데이터(격리 DB 전용): 등록 관문은 별도 시험이 검증하므로 여기선 사용자 트리거를 잠시 끄고 고정 공고 1건을 둔다 ──
 let jobId
 try {
-  jobId = Number(sql(`alter table public.local_jobs disable trigger user;
-insert into public.local_jobs (title, company, category, location, employer_phone, active, origin, publish_gate_reason, source_text, description, lat, lng, occupation_code, occupation_evidence, employer_id)
-values ('${TITLE}', '${COMPANY}', 'dich_vu', 'KCN Yên Phong, Bắc Ninh', '0912345678', true, 'employer', 'ok', '${COMPANY} tuyen nhan vien', 'E2E', 21.2, 106.0, '5', 'NHÂN VIÊN CHẠY BÀN', '${users.employer.id}') returning id;
-alter table public.local_jobs enable trigger user;`).split('\n').find((l) => /^\d+$/.test(l)))
+  const r = spawnSync('psql', [DB, '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-v', `employer_id=${users.employer.id}`, '-f', 'supabase/tests/baseline/isolated_stack_fixture.sql'], { encoding: 'utf8' })
+  if (r.status !== 0) throw new Error(`psql 실패: ${(r.stderr.match(/ERROR:.*/) || [''])[0]}`)
+  jobId = Number(r.stdout.split('\n').find((l) => /^\d+$/.test(l)))
   rec('B0', '시험 공고 1건 준비(격리 DB)', Number.isInteger(jobId) && jobId > 0, `id ${jobId}`)
 } catch (e) { rec('B0', '시험 공고 준비', false, e.message) }
 

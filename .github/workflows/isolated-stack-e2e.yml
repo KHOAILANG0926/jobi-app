@@ -34,11 +34,12 @@ jobs:
         with: { version: latest }
       - name: 격리 스택 시작 (PostgreSQL 17 + GoTrue + PostgREST + Storage)
         run: |
-          mkdir -p "$RUNNER_TEMP/stack" && cd "$RUNNER_TEMP/stack"
-          supabase init
-          sed -i 's/^major_version = .*/major_version = 17/' supabase/config.toml
-          supabase start -x studio,imgproxy,mailpit,postgres-meta,edge-runtime,logflare,vector,supavisor,realtime
-          supabase status -o env > "$RUNNER_TEMP/stack.env"
+          STACK="$RUNNER_TEMP/stack"; mkdir -p "$STACK"
+          supabase init --workdir "$STACK"
+          CONF=$(find "$STACK" -name config.toml | head -1); echo "설정 파일: ${CONF#$STACK/}"
+          sed -i 's/^major_version = .*/major_version = 17/' "$CONF"
+          supabase start --workdir "$STACK" -x studio,imgproxy,mailpit,postgres-meta,edge-runtime,logflare,vector,supavisor,realtime
+          supabase status --workdir "$STACK" -o env > "$RUNNER_TEMP/stack.env"
           set -a; . "$RUNNER_TEMP/stack.env"; set +a
           echo "::add-mask::$ANON_KEY"; echo "::add-mask::$SERVICE_ROLE_KEY"
           { echo "LOCAL_API_URL=$API_URL"; echo "LOCAL_DB_URL=$DB_URL"; echo "LOCAL_ANON_KEY=$ANON_KEY"; echo "LOCAL_SERVICE_KEY=$SERVICE_ROLE_KEY"; } >> "$GITHUB_ENV"
