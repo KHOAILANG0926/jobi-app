@@ -19,8 +19,13 @@ on:
         type: string
         required: true
         default: '3'
+      sample_offset:
+        description: '목록 시작 위치(0=앞 10건, 10=그다음 10건) — 비우면 0. 정기 수집 보충(#1071)이 번갈아 넘긴다'
+        type: string
+        required: false
+        default: ''
       keep_for_save:
-        description: '검증 저장용(#884 B안): 시험 수집한 상세 결과를 1일 비공개 보관(DB 열쇠 없음, 저장 안 함)'
+        description: '검증 저장용(#884 B안): 시험 수집한 상세 결과를 30일 비공개 보관(DB 열쇠 없음, 저장 안 함)'
         type: boolean
         required: false
         default: false
@@ -93,12 +98,12 @@ jobs:
         if: github.event_name == 'schedule' || inputs.dry_run
         env:
           SAMPLE_LIMIT: ${{ inputs.sample_limit || '10' }}
-          SAMPLE_OFFSET: ${{ github.event.schedule == '23 8 * * *' && '10' || '0' }}
+          SAMPLE_OFFSET: ${{ inputs.sample_offset || (github.event.schedule == '23 8 * * *' && '10' || '0') }}
         # 상세 결과(details.json)는 이 수집이 받은 것을 그대로 남긴다(2026-11-26 #701·#1071) — 예전에는 다음 단계가 같은 공고를
         # 사이트에 다시 접속해 받았고, 11-26 실행 45811184938에서 그 두 번째 접속이 출력 없이 58분 멈춰 잡 한도로 취소됐다.
         run: python crawler/crawl_topcv.py --confirm-full-crawl --sample-limit "$SAMPLE_LIMIT" --sample-offset "$SAMPLE_OFFSET" --save-details-to details.json
 
-      - name: 상세 결과 보관(1일, 비공개)
+      - name: 상세 결과 보관(30일, 비공개)
         if: github.event_name == 'schedule' || (inputs.dry_run && inputs.keep_for_save)
         uses: actions/upload-artifact@v4
         with:

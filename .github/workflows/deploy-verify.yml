@@ -98,6 +98,13 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
         run: bash scripts/ci/deploy-success-pickup.sh
+      - name: 정기 수집 보충 (최근 10시간 수집이 없을 때만 crawl.yml 1회, 수집·보관만)
+        # #1071 A안: GitHub 예약 실행이 빠져도 운영 검사 성공 때 보충한다. dry_run·보관 고정이라 DB 저장 잡은 돌지 않는다(정기 DB 저장 중단 유지).
+        # 이 스크립트는 실패해도 항상 성공으로 끝난다 — 운영 검사 결과·S6 잠금에 영향 없음.
+        if: success() && github.ref == 'refs/heads/master'
+        env:
+          REPO: ${{ github.repository }}
+        run: bash scripts/ci/crawl-catchup.sh
       - name: 실패 기록 (이슈)
         if: failure()
         env:

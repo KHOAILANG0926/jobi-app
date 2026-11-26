@@ -78,6 +78,8 @@ jobs:
         run: node scripts/ci/post-merge-chain.test.mjs
       - name: 자동 병합 실패 복구·운영 성공 뒤 다음 작업 1건 연결 시험 (영구 차단 재확인 중단·60분 상한·중복 착수 방지, Lee 2026-11-24 1순위)
         run: node scripts/ci/automerge-recovery.test.mjs
+      - name: 정기 수집 보충 시험 (최근 수집 있음·진행 중·조회 실패는 부르지 않음, 호출은 수집·보관만, #1071)
+        run: bash scripts/ci/crawl-catchup.test.sh
       - name: 운영 검사 알림 시험 (완료 1번·실패 이슈 중복 방지·멘션 범위·승인 안내 링크, #1004)
         run: node scripts/ci/deploy-notify.test.mjs
       - name: 변경 영향 범위 판정 시험 (화면·지도·메뉴 검사 선택, 닫힌 방향, 3순위)
