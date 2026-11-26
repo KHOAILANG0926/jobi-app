@@ -56,6 +56,7 @@ const fx = (e: Record<string, string>): Files => new Map(Object.entries(e))
   assert(chain.length === 1 && chain[0].chain.join('>') === 'src/lib/a.ts>src/lib/b.ts>src/lib/c.ts', '가져오기 사슬을 따라가며 위반 파일과 경로를 알려야 함: ' + JSON.stringify(chain))
   const typeOnly = fx({ 'src/lib/f.ts': "import type { C } from '../components/C'\nexport type X = C", 'src/components/C.tsx': 'export type C = {}' })
   assert(impurityOf(typeOnly, 'src/lib/f.ts').length === 0, '타입만 가져오는 것은 순수성 위반이 아님(R3이 따로 봄)')
+  assert(impurityOf(new Map([['src/archtest/x.ts', 'const re = /localStorage|window\\./']]), 'src/archtest/x.ts').length === 0, 'src/archtest(검사 도구)는 자기 정규식 글자 때문에 걸리지 않아야 함')
   const starts = nodeRunStarts(fx({ 'api/a.js': "import { f } from '../src/lib/f.ts'", 'api/a.test.js': "import { f } from '../src/lib/g.ts'", 'scripts/s.mjs': "import { f } from '../src/lib/h.ts'", 'src/lib/f.ts': '', 'src/lib/g.ts': '', 'src/lib/h.ts': '' }), ['api/'])
   assert(starts.length === 1 && starts[0].to === 'src/lib/f.ts', 'api의 시험 파일·다른 폴더는 시작점이 아님')
 }

@@ -75,6 +75,8 @@ export const isUiZone = (p: string) => /^src\/(?:components|pages|context|app)\/
 export function impurityOf(files: Files, path: string): string[] {
   const src = files.get(path)
   if (src === undefined || !isSource(path)) return []
+  // src/archtest는 검사 도구 자체(Node 전용)다 — 검사 정규식 글자(localStorage 등)가 자기 자신을 걸지 않게 제외한다.
+  if (path.startsWith('src/archtest/')) return []
   const text = stripComments(src)
   const out: string[] = []
   if (REACT_IMPORT.test(text)) out.push('react')
