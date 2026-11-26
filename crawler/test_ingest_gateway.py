@@ -326,6 +326,13 @@ def run_hold():
     out = g.retry_held(c)
     assert out["registered"] == 1 and out["rejected"] == 1, out
     assert c.calls[-1][1]["p"]["company"] == "Cty Y" and len(c.rows) == 4
+    # 오류 기록 축적(Lee 2026-11-25): 같은 줄에 판정이 바뀐 이력이 남는다 — 원문 그대로 + 처음 사유 → 결과(등록 번호)
+    y = c.rows[g._hold_name({"source_url": "https://example.invalid/y"})]
+    assert y["meta"]["status"] == "registered" and y["meta"]["job_id"], y["meta"]
+    assert [h["status"] for h in y["meta"]["history"]] == ["unfound"] and y["meta"]["history"][0]["reason"] == "approximate_only", y["meta"]
+    cty1 = next(r for r in c.rows.values() if r["payload"].get("company") == "Cty 1")
+    assert [h["status"] for h in cty1["meta"]["history"]][-1] == "unfound" and cty1["meta"]["status"] == "rejected", cty1["meta"]
+    assert all(len(r["meta"].get("history") or []) <= g.HOLD_HISTORY_LIMIT for r in c.rows.values())
     # 끝난 줄(registered·rejected)은 다시 보지 않는다
     before = len(c.calls)
     g.retry_held(c)
@@ -837,6 +844,48 @@ def run_site_rows_kept_in_hold():
     print("test_ingest_gateway: site rows kept in hold passed")
 
 
+def run_past_deadline_kept_not_registered():
+    """#973(Lee 2026-11-25): 마감일이 분명히 지난 새 공고는 수집원 공통으로 등록하지 않고(위치 확인 전 — Google 한도를 쓰지 않음)
+    원문을 보류함에 rejected(deadline_expired, 자동 재시도 없음)로 남긴다. 마감 당일·마감 없음·날짜 아닌 값은 그대로 진행, 기존 공고 다시 수집은 건드리지 않는다."""
+    from source_fields import rule_code
+    g._HOLDS_RETRIED = True
+    asked = []
+    g.PRECHECK = lambda j: asked.append(j) or {"findable": False, "reason": "not_found"}
+    job = {"title": "Công nhân", "company": "CTY B", "location": "Bắc Ninh", "source": "vieclam24h",
+           "source_url": "https://example.invalid/d/1", "source_text": "ORIGINAL 1", "description": "[source:vieclam24h] ORIGINAL 1"}
+    from job_criteria import today_vn
+    today = today_vn()
+    from datetime import date as _d, timedelta as _t
+    past = (_d.fromisoformat(today) - _t(days=1)).isoformat()
+    c = HoldClient()
+    try:
+        g.ingest_job(c, {**job, "application_deadline": past}, work_location_rows=[{"raw_address": "A"}])
+        raise AssertionError("마감 지난 새 공고는 등록되지 않아야 한다")
+    except g.DeadlinePassed as exc:
+        assert rule_code(exc) == "deadline_expired", exc
+    (row,) = c.rows.values()
+    assert row["meta"]["status"] == "rejected" and row["meta"]["reason"] == f"deadline_expired: {past}", row["meta"]
+    assert row["payload"]["source_text"] == "ORIGINAL 1" and row["payload"]["work_locations"] == [{"raw_address": "A"}], row["payload"]
+    assert asked == [] and c.calls == [], "위치 확인·입구를 부르지 않는다"
+    row["meta"]["next_at"] = "2000-01-01T00:00:00+00:00"
+    assert sum(g.retry_held(c).values()) == 0 and row["meta"]["status"] == "rejected", "자동 재시도 없음"
+    # 마감 당일·마감 없음·날짜 모양이 아닌 값은 거르지 않는다(위치 확인까지 감 — 여기서는 못 찾음으로 끝남)
+    for value in (today, None, "", "Thỏa thuận"):
+        c = HoldClient()
+        try:
+            g.ingest_job(c, {**job, "application_deadline": value})
+        except g.DeadlinePassed:
+            raise AssertionError(f"{value!r}는 마감 지남이 아니다")
+        except g.LocationNotFound:
+            pass
+    assert len(asked) == 4, asked
+    # 기존 공고 다시 수집(job_id)은 이 판정을 거치지 않는다(갱신 여부는 수집기 쪽 판단)
+    c = HoldClient()
+    g.ingest_job(c, {**job, "application_deadline": past}, job_id=7)
+    assert c.rows == {} and c.calls and c.calls[0][0] == "ingest_job", c.calls
+    print("test_ingest_gateway: past deadline kept, not registered passed")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
@@ -849,3 +898,4 @@ if __name__ == "__main__":
     run_review_status_stored()
     run_db_rule_rejection_kept()
     run_site_rows_kept_in_hold()
+    run_past_deadline_kept_not_registered()

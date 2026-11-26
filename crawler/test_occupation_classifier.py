@@ -15,6 +15,19 @@ class OccupationClassifierTests(unittest.TestCase):
             self.assertIn(rule.code, CODES, f'공식 목록에 없는 코드: {rule.code}')
             self.assertGreaterEqual(CODES[rule.code]['level'], 4, f'4·5단계만 사용: {rule.code}')
 
+    def test_shared_rules_file_names_are_official(self):
+        # #717 B: 규칙은 data/occupations/occupation_rules.json 한 곳(웹 등록과 공용). 명칭은 공식 목록 그대로.
+        data = json.loads((ROOT / 'data/occupations/occupation_rules.json').read_text('utf-8'))
+        self.assertEqual([r['code'] for r in data['rules']], [r.code for r in RULES])
+        for r in data['rules']:
+            self.assertEqual(r['name_vi'], CODES[r['code']]['name_vi'], r['code'])
+
+    def test_shared_cases_same_as_web(self):
+        # 웹(src/lib/occupationReader.test.ts)도 같은 사례 파일로 같은 결과를 확인한다.
+        cases = json.loads((ROOT / 'data/occupations/occupation_rule_cases.json').read_text('utf-8'))['cases']
+        for c in cases:
+            self.assertEqual(classify_occupation(c['title'], c['source_text']), c['expected'], c['title'])
+
     def test_job_4824_original_text(self):
         # 운영 #4824 제목 원문 그대로 (2026-10-15 운영 DB 읽기로 확인)
         got = classify_occupation('CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong')
