@@ -183,8 +183,12 @@ class ScheduledCallerTests(unittest.TestCase):
         job_if = [l.strip() for l in source.splitlines() if l.startswith("    if:")]
         self.assertEqual(job_if, [
             "if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run && inputs.verify_save_run_id == '')",
-            "if: github.event_name == 'schedule'",
+            # Lee 2026-11-26 「웹 정상화 종료 전 신규 공개 금지 … 정기 DB 저장만 일시 중단」: 정기 저장 잡은 꺼 둔다(수집·원문 보관은 그대로).
+            "if: false && github.event_name == 'schedule'",
             "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.verify_save_run_id != ''"])
+        # 상세 결과는 수집이 받은 것을 그대로 남긴다(다시 접속하는 단계 없음, 2026-11-26)
+        self.assertNotIn("--dry-run-urls", crawl)
+        self.assertIn("--save-details-to details.json", crawl)
         # 정기 저장: 같은 실행의 상세만 받아(사이트 접속 없음) 정기 저장 경로로, 열쇠는 저장 단계 하나에만
         self.assertIn("    needs: crawl\n", sched)
         self.assertIn("    environment: ops-keys\n    runs-on: ubuntu-22.04\n", sched)
