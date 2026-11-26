@@ -1,0 +1,246 @@
+{
+ "note": "직업분류 규칙 공용 사례(#717 B) — 수집기(test_occupation_classifier.py)와 웹(occupationReader.test.ts)이 같은 결과를 내는지 둘 다 이 파일로 확인한다. 기대값은 규칙 이동 전 수집기 결과.",
+ "cases": [
+  {
+   "title": "CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "82022",
+    "occupation_evidence": "làm linh kiện tai nghe"
+   }
+  },
+  {
+   "title": "Tuyển THỢ HÀN gấp",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "7212",
+    "occupation_evidence": "THỢ HÀN"
+   }
+  },
+  {
+   "title": "Cần tuyển Phụ Bếp nhà hàng",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "9402",
+    "occupation_evidence": "Phụ Bếp"
+   }
+  },
+  {
+   "title": "tuyen tai xe container",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "8332",
+    "occupation_evidence": "tai xe container"
+   }
+  },
+  {
+   "title": "Tuyển Shipper khu vực Bắc Ninh",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "9621",
+    "occupation_evidence": "Shipper"
+   }
+  },
+  {
+   "title": "Nhân viên pha chế ca tối",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "5132",
+    "occupation_evidence": "pha chế"
+   }
+  },
+  {
+   "title": "Tuyển công nhân đóng gói",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "9321",
+    "occupation_evidence": "đóng gói"
+   }
+  },
+  {
+   "title": "TUYỂN LỄ TÂN KHÁCH SẠN",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "4226",
+    "occupation_evidence": "LỄ TÂN"
+   }
+  },
+  {
+   "title": "Tuyển công nhân hàn",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "7212",
+    "occupation_evidence": "công nhân hàn"
+   }
+  },
+  {
+   "title": "Tuyển công nhân sản xuất",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "9329",
+    "occupation_evidence": "công nhân"
+   }
+  },
+  {
+   "title": "Lái xe tải 5 tấn",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "8332",
+    "occupation_evidence": "Lái xe tải"
+   }
+  },
+  {
+   "title": "Tuyển lái xe 7 chỗ",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "8322",
+    "occupation_evidence": "lái xe"
+   }
+  },
+  {
+   "title": "Tuyển lái xe nâng",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "8344",
+    "occupation_evidence": "lái xe nâng"
+   }
+  },
+  {
+   "title": "Kế toán trưởng",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "2411",
+    "occupation_evidence": "Kế toán trưởng"
+   }
+  },
+  {
+   "title": "Nhân viên kế toán",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "4311",
+    "occupation_evidence": "kế toán"
+   }
+  },
+  {
+   "title": "Tuyển gấp nhiều vị trí lương cao",
+   "source_text": "Liên hệ 0901234567",
+   "expected": null
+  },
+  {
+   "title": "",
+   "source_text": "",
+   "expected": null
+  },
+  {
+   "title": "KCN VSIP Bắc Ninh tuyển dụng",
+   "source_text": "Công ty TNHH Điện tử Samsung",
+   "expected": null
+  },
+  {
+   "title": "Tuyển gấp",
+   "source_text": "Có bảo vệ trông xe, gần chợ bán hàng",
+   "expected": null
+  },
+  {
+   "title": "Tuyển bảo vệ ca đêm",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "5401",
+    "occupation_evidence": "bảo vệ"
+   }
+  },
+  {
+   "title": "TUYỂN GẤP 20 NGƯỜI",
+   "source_text": "Vị trí: thợ hàn TIG\nLương 12tr",
+   "expected": {
+    "occupation_code": "7212",
+    "occupation_evidence": "thợ hàn"
+   }
+  },
+  {
+   "title": "tuyen tho han luong cao",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "7212",
+    "occupation_evidence": "tho han"
+   }
+  },
+  {
+   "title": "Nhân viên phục vụ bàn",
+   "source_text": "Phục vụ khách, dọn bàn",
+   "expected": {
+    "occupation_code": "5131",
+    "occupation_evidence": "Nhân viên phục vụ"
+   }
+  },
+  {
+   "title": "Tuyển nhân viên",
+   "source_text": "Công việc: Phục vụ bàn tại quán",
+   "expected": null
+  },
+  {
+   "title": "Tuyển Barista",
+   "source_text": "Pha chế đồ uống",
+   "expected": {
+    "occupation_code": "5132",
+    "occupation_evidence": "Barista"
+   }
+  },
+  {
+   "title": "Đầu Bếp Chính nhà hàng Hàn",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "5120",
+    "occupation_evidence": "Đầu Bếp"
+   }
+  },
+  {
+   "title": "Tuyển nhân viên",
+   "source_text": "Nhập liệu đơn hàng, đóng gói sản phẩm",
+   "expected": {
+    "occupation_code": "4132",
+    "occupation_evidence": "Nhập liệu"
+   }
+  },
+  {
+   "title": "Thu ngân siêu thị",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "5230",
+    "occupation_evidence": "Thu ngân"
+   }
+  },
+  {
+   "title": "TUYỂN ĐIỀU DƯỠNG",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "3221",
+    "occupation_evidence": "ĐIỀU DƯỠNG"
+   }
+  },
+  {
+   "title": "Tuyển nhân viên CSKH",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "4229",
+    "occupation_evidence": "CSKH"
+   }
+  },
+  {
+   "title": "Giúp việc nhà theo giờ",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "9111",
+    "occupation_evidence": "Giúp việc nhà"
+   }
+  },
+  {
+   "title": "Nhân viên bán hàng Fulltime",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "5223",
+    "occupation_evidence": "Nhân viên bán hàng"
+   }
+  }
+ ]
+}
