@@ -74,6 +74,19 @@ export function compareCatalogs(prod, iso, allowed = ALLOWED) {
 }
 export const mismatchCount = (report) => Object.values(report).reduce((n, r) => n + r.differ.length + r.onlyProd.length + r.onlyIso.length, 0)
 
+
+// 줄 지문 두 배열의 LCS 차이(줄 수가 수백 이하라 O(n·m) 표로 충분): 운영에만 있는 줄 번호·격리에만 있는 줄 번호(1부터)를 돌려준다.
+export function lcsDiff(a, b) {
+  const n = a.length, m = b.length
+  const t = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) t[i][j] = a[i] === b[j] ? t[i + 1][j + 1] + 1 : Math.max(t[i + 1][j], t[i][j + 1])
+  const onlyProd = [], onlyIso = []
+  let i = 0, j = 0
+  while (i < n && j < m) { if (a[i] === b[j]) { i++; j++ } else if (t[i + 1][j] >= t[i][j + 1]) onlyProd.push(++i); else onlyIso.push(++j) }
+  while (i < n) onlyProd.push(++i)
+  while (j < m) onlyIso.push(++j)
+  return { onlyProd, onlyIso }
+}
 // 함수 본문 줄 단위 지문 대조(scripts/ops/jobs/schema-function-lines-read.sql 결과): 본문 글자 없이 어느 줄 번호가 다른지만 낸다.
 export function compareFunctionLines(prodText, isoText) {
   const load = (text, label) => {
@@ -95,8 +108,11 @@ export function compareFunctionLines(prodText, isoText) {
   for (const [k, pl] of p.m) {
     const il = i.m.get(k)
     if (!il) { out.functions.push({ fn: k, status: '격리에 없음' }); continue }
-    const diff = []; for (let n = 0; n < Math.max(pl.length, il.length); n++) if (pl[n] !== il[n]) diff.push(n + 1)
-    out.functions.push({ fn: k, prodLines: pl.length, isoLines: il.length, differingLines: diff, status: diff.length ? '다름' : '같음' })
+    // 줄이 끼거나 빠지면 뒤 줄 번호가 전부 밀리므로 번호 비교 대신 최장 공통 부분열(LCS)로 맞춘다: 격리 쪽에만 있는 줄 번호(onlyIso)와 운영 쪽에만 있는 줄 번호(onlyProd)를 낸다.
+    // 운영 줄이 0개면 운영 접속 계정이 본문을 읽지 못한 것(정보 스키마는 소유자·권한 있는 계정에만 본문을 줌)이라 '본문 없음(읽기 불가)'로 구분한다.
+    if (!pl.length && il.length) { out.functions.push({ fn: k, prodLines: 0, isoLines: il.length, status: '운영 본문 읽기 불가' }); continue }
+    const { onlyProd, onlyIso } = lcsDiff(pl, il)
+    out.functions.push({ fn: k, prodLines: pl.length, isoLines: il.length, onlyProd, onlyIso, differingLines: onlyIso, status: onlyProd.length || onlyIso.length ? '다름' : '같음' })
   }
   for (const k of i.m.keys()) if (!p.m.has(k)) out.functions.push({ fn: k, status: '운영에 없음' })
   return out
