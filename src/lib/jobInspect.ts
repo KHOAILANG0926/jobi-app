@@ -6,7 +6,7 @@
  */
 // 화면이 실제로 보여 주는 것(detailSections)과 그 소제목 낱말(headingOf)만 만드는 쪽에서 읽는다 — 검사 대상 자체이기 때문. 나머지 읽기는 검사기 전용(inspectReading, R2 #753).
 import { bare, detailSections, headingOf, type ShownAbove } from './jobDetailSections.ts'
-import { sourceLines, covers, sameLine, timeRanges, promoLike, contactRepeat, hasPayAmount, MEAL_WORDS, cardReadableSalary } from './inspectReading.ts'
+import { sourceLines, covers, sameLine, timeRanges, promoLike, contactRepeat, hasPayAmount, MEAL_WORDS, cardReadableSalary, enoughContact } from './inspectReading.ts'
 
 export interface InspectInput extends ShownAbove {
   id: number
@@ -78,7 +78,7 @@ export function inspectJob(j: InspectInput): InspectResult {
       ['급여', filled(j.salary)], ['근무시간', filled(p.hours)], ['고용형태', filled(p.employment_type)],
       ['업직종', filled(j.occupation_code) && filled(j.category)], ['모집마감', filled(p.application_deadline)],
       ['모집인원', filled(p.num_hires)], ['주소', (j.addresses ?? []).some(filled)],
-      ['업무 내용', (view.sections.find(s => s.key === '01')?.lines.length ?? 0) > 0], ['연락처', (j.phones ?? []).some(filled)],
+      ['업무 내용', (view.sections.find(s => s.key === '01')?.lines.length ?? 0) > 0], ['연락처', (j.phones ?? []).some(enoughContact)],
     ]
     const missing = mandatory.filter(([, ok]) => !ok).map(([name]) => name)
     add('required_fields', '필수 9개 항목', missing.length === 0, missing.length ? `누락: ${missing.join(', ')} — 원문에 없으면 확인 필요(추정 입력 금지)` : undefined)
