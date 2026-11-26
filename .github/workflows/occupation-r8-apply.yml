@@ -9,6 +9,7 @@ on:
     paths:
       - supabase/tests/local_jobs_occupation_r8_check.sql
       - crawler/occupation_classifier.py
+      - data/occupations/occupation_rules.json  # #1072부터 분류 규칙은 이 파일 한 곳(웹·수집기 공용) — 규칙이 바뀌면 같은 보충 분류를 다시 돌린다
       - scripts/occupations/backfill_occupations.py
       - scripts/occupations/backfill_occupations_test.py
       - config/auto-processing-cutoff.json

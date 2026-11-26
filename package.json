@@ -13,7 +13,9 @@
     "test:shared": "node --experimental-strip-types scripts/run-tests.mjs --scope=shared",
     "test:changed": "node --experimental-strip-types scripts/run-tests.mjs --changed",
     "typecheck": "tsc --noEmit",
-    "build:app": "vite build -c vite.app.config.mjs"
+    "build:app": "vite build -c vite.app.config.mjs",
+    "typecheck:app": "tsc -p tsconfig.app.json",
+    "typecheck:web": "tsc -p tsconfig.web.json"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.3",
