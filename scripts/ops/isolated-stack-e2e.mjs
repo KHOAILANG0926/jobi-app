@@ -110,6 +110,7 @@ if (BASE && jobId) {
   const outside = new Set()
   const prepare = async (context) => {
     await context.route('**/*', async (route) => {
+    try {
       const u = new URL(route.request().url())
       if (u.host === PROD_HOST) {
         const headers = { ...route.request().headers() }
@@ -118,10 +119,11 @@ if (BASE && jobId) {
         headers.apikey = ANON
         // 운영 anon 열쇠(웹 코드에 박혀 있음)로 온 요청만 로컬 anon 열쇠로 바꾼다. 사용자 로그인 토큰은 로컬 GoTrue가 발급한 것이라 그대로 둔다.
         if (!bearer || ref === 'edhuesdnuxlbcfephutq') headers.authorization = `Bearer ${ANON}`
-        try { return await route.fetch({ url: API + u.pathname + u.search, headers }).then((resp) => route.fulfill({ response: resp })) } catch { return route.abort() }
+        try { return await route.fetch({ url: API + u.pathname + u.search, headers }).then((resp) => route.fulfill({ response: resp })) } catch { return await route.abort() }
       }
-      if (u.host === new URL(BASE).host || u.hostname === '127.0.0.1' || u.hostname === 'localhost' || u.protocol === 'data:' || u.protocol === 'blob:') return route.continue()
-      outside.add(u.host); return route.abort()
+      if (u.host === new URL(BASE).host || u.hostname === '127.0.0.1' || u.hostname === 'localhost' || u.protocol === 'data:' || u.protocol === 'blob:') return await route.continue()
+      outside.add(u.host); return await route.abort()
+    } catch { /* 페이지가 닫히는 중에 이미 처리된 요청 — 무시 */ }
     })
   }
   const reachedProd = () => [...outside].some((h) => /supabase\.co$|viecganban\.vn$/.test(h))
