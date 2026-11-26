@@ -174,7 +174,8 @@ class ScheduledCallerTests(unittest.TestCase):
         source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", source)
         self.assertEqual(re.findall(r"- cron: '([^']+)'", source), ["23 2 * * *", "23 8 * * *"])
-        self.assertIn("SAMPLE_OFFSET: ${{ github.event.schedule == '23 8 * * *' && '10' || '0' }}", source)
+        # #1071 A안: 수동 실행도 목록 위치(sample_offset 입력)를 받는다 — 비우면 예약 규칙(08:23은 10, 그 밖은 0)
+        self.assertIn("SAMPLE_OFFSET: ${{ inputs.sample_offset || (github.event.schedule == '23 8 * * *' && '10' || '0') }}", source)
         # #884 B안: VPS 수집 잡(crawl)에는 열쇠·ops-keys가 없고, 열쇠는 GitHub 서버 저장 잡(save·verify-save)의 저장 단계에만
         crawl, rest = source.split("\n  save:\n", 1)
         sched, save = rest.split("\n  verify-save:\n", 1)
