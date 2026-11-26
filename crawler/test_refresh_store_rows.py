@@ -52,3 +52,10 @@ def test_refresh_keeps_confirmed_location_on_notation_only_change():
     assert not keep(old, "152 Trần Hưng Đạo", [{"raw_address": "다른 줄", "lat": 1.0, "lng": 2.0, "location_verified": True}])  # 그 글자의 줄이 아님
     assert not keep(old, "152 Trần Hưng Đạo", [])
 
+
+
+if __name__ == "__main__":
+    for n, f in list(globals().items()):
+        if n.startswith("test_") and callable(f):
+            f()
+    print("test_refresh_store_rows: all passed")

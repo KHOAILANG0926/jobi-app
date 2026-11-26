@@ -1,3 +1,5 @@
+import { kvLocal } from './kvStore'
+import { emitEvent } from './eventBus'
 const KEY = 'vgb_view_history'
 const MAX_ENTRIES = 100
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30일
@@ -11,7 +13,7 @@ export interface ViewHistoryEntry {
 // 30일 · 100건만 보관하고, 읽을 때마다 30일이 지난 항목은 잘라낸다.
 function readRaw(): ViewHistoryEntry[] {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = kvLocal.get(KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as ViewHistoryEntry[]
     if (!Array.isArray(parsed)) return []
@@ -23,8 +25,8 @@ function readRaw(): ViewHistoryEntry[] {
 }
 
 function writeRaw(entries: ViewHistoryEntry[]): void {
-  localStorage.setItem(KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)))
-  window.dispatchEvent(new CustomEvent('vgb:view-history'))
+  kvLocal.set(KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)))
+  emitEvent('view-history')
 }
 
 /** 최근 본 순(내림차순)으로 반환 — 30일 경과분은 이미 제외됨. */

@@ -1,9 +1,9 @@
 import { CATEGORY_LABELS } from '../../data/categories'
-import { mealLabel } from '../../lib/mealBenefit'
+import { activeBenefitText as activeBenefitTextOf, benefitFlags, type BenefitFlag, conditionSalaryLines as conditionSalaryLinesOf, employmentText as employmentTextOf, isAllowanceNote as isAllowanceNoteOf } from '../../lib/jobDetailDerive'
 import { companyLine, detailTitle } from '../../lib/companyBranch'
 import { conditionItems, itemsCoveredBy, salaryParts } from '../../lib/conditionLines'
 import { balanceConditionColumns, detailSections, salaryAmounts, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailSection, type DetailTextKey } from '../../lib/jobDetailSections'
-import { deadlineBadge, EMPLOYMENT_TYPE_EXTRA_LABEL, EMPLOYMENT_TYPE_LABEL, JOB_TABS, SALARY_BASIS_LABEL, contactOf, jobTags, salaryPeriodLabel, shiftLabel, weekendLabel } from '../../lib/jobDetailView'
+import { deadlineBadge, JOB_TABS, SALARY_BASIS_LABEL, contactOf, jobTags, salaryPeriodLabel, shiftLabel, weekendLabel } from '../../lib/jobDetailView'
 import { formatDeadlineVi } from '../../lib/jobUtils'
 import { RECRUITMENT_LABELS } from '../../lib/jobConditions'
 import { albamonCompose, albamonConditionLines, insuranceTags, sourceAgeValue, usesAlbamonLayout } from '../../lib/jobQuyenLoi'
@@ -17,7 +17,7 @@ import type { Job } from '../../types/job'
  *  승인된 구성(상단 카드 + 4구역, 2026-10-30 확정)은 그대로이고, 여기서는 글자·줄만 만들고 모양은 화면(DetailScreen)이 그린다.
  *  원문이 채운 값만 행으로 만든다 — 없는 행은 숨기고 값을 지어내지 않는다. */
 export interface DetailRow { key: string; label: string; text?: string; lines?: string[]; salary?: { period?: string; amount: string; rows?: { label: string; amount: string }[]; parts?: string[]; overtimeNote?: string; sub?: string[]; note?: string; basis?: string }; tone?: 'soon' }
-export interface DetailBenefit { key: string; label: string; active: boolean }
+export type DetailBenefit = BenefitFlag
 
 export interface DetailModel {
   title: string
@@ -47,7 +47,7 @@ export function buildDetailModel(job: Job): DetailModel {
   const salaryText = roleSummary?.salary ?? nonEmpty(job.rawSalary)
   const roleSalary = roleSummary ? roleSalaryLines(job.description) : []
   const salaryRows = roleSummary && albamonLayout ? roleSalaryRows(job.description) : []
-  const conditionSalaryLines = roleSalary.length > 3 ? [...roleSalary.slice(0, 2), `${roleSalary[2]} +${roleSalary.length - 3}`] : roleSalary
+  const conditionSalaryLines = conditionSalaryLinesOf(roleSalary)
   const locationText = nonEmpty(job.rawLocation)
   const preferenceText = nonEmpty(job.rawPreference)
   const educationText = nonEmpty(job.rawEducation)
@@ -77,23 +77,12 @@ export function buildDetailModel(job: Job): DetailModel {
   const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
-  const employmentText = roleSummary?.workPeriod ?? (sourceRoles.workTypes.length > 1 ? sourceRoles.workTypes.join(' / ') : (job.employmentType ? [EMPLOYMENT_TYPE_LABEL[job.employmentType], job.employmentTypeExtra ? EMPLOYMENT_TYPE_EXTRA_LABEL[job.employmentTypeExtra] : undefined].filter(Boolean).join(' · ') : (nonEmpty(job.workPeriod) ?? sourceRoles.workTypes[0])))
+  const employmentText = employmentTextOf(job, roleSummary, sourceRoles, nonEmpty(job.workPeriod))
   const salaryNote = nonEmpty(job.salaryNote)
-  const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
+  const isAllowanceNote = isAllowanceNoteOf(salaryNote)
 
-  const evidence = [job.description ?? '', ...(job.benefitTags ?? [])].join(' ').normalize('NFC')
-  const aiTags = new Set(job.benefitTags ?? [])
-  const explicit = (pattern: RegExp, label?: string) => (!!label && aiTags.has(label)) || pattern.test(evidence)
-  const benefits: DetailBenefit[] = [
-    { key: 'bus', label: 'Xe đưa đón', active: job.shuttleBus === true },
-    { key: 'dorm', label: 'Ký túc xá', active: job.dormitory === true },
-    { key: 'meal', label: roleSummary?.mealBenefit ?? mealLabel(job.description), active: !!roleSummary?.mealBenefit || job.mealProvided === true },
-    { key: 'attendance', label: 'Chuyên cần', active: explicit(/(?:chuyên cần|chuyen can)(?:\s*[:：-]?\s*[\d.,]+\s*(?:k|đ|vnd|đồng))?/i, 'Chuyên cần') },
-    { key: 'housing', label: 'Nhà ở', active: explicit(/(?:phụ cấp nhà ở|hỗ trợ nhà ở|tiền nhà|phu cap nha o|ho tro nha o)/i, 'Nhà ở') },
-    { key: 'fuel', label: 'Xăng xe', active: explicit(/(?:phụ cấp xăng xe|hỗ trợ xăng xe|tiền xăng|phu cap xang xe|ho tro xang xe)/i, 'Xăng xe') },
-    { key: 'performance', label: 'Năng suất', active: explicit(/(?:thưởng năng suất|thuong nang suat|thưởng sản lượng)/i, 'Năng suất') },
-  ]
-  const activeBenefitText = benefits.filter((b) => b.active).map((b) => b.label).join(' · ')
+  const benefits: DetailBenefit[] = benefitFlags(job, roleSummary)
+  const activeBenefitText = activeBenefitTextOf(benefits)
 
   // 근무조건 칸(웹 ConditionLines): 한 항목 = 한 줄. 앱은 칸을 접지 않고 항목마다 한 줄로 모두 보여 준다.
   const condRow = (key: string, label: string, text: string | undefined): DetailRow | null => {

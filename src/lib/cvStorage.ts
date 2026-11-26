@@ -1,4 +1,6 @@
 import { loadProfile } from './storage'
+import { kvLocal } from './kvStore'
+import { emitEvent } from './eventBus'
 
 const CV_KEY = 'vgb_cv_draft'
 
@@ -7,7 +9,7 @@ function cvKey(scope?: string): string {
 }
 
 export function hasStoredCv(scope?: string): boolean {
-  return localStorage.getItem(cvKey(scope)) !== null
+  return kvLocal.get(cvKey(scope)) !== null
 }
 
 export interface CvExperience {
@@ -166,7 +168,7 @@ function normalizeFromStorage(parsed: Record<string, unknown>, base: CvData): Cv
 export function loadCv(scope?: string): CvData {
   const base = createEmptyCv()
   try {
-    const raw = localStorage.getItem(cvKey(scope))
+    const raw = kvLocal.get(cvKey(scope))
     if (!raw) {
       return { ...base, ...seedFromProfile(scope) }
     }
@@ -178,6 +180,6 @@ export function loadCv(scope?: string): CvData {
 }
 
 export function saveCv(data: CvData, scope?: string): void {
-  localStorage.setItem(cvKey(scope), JSON.stringify(data))
-  window.dispatchEvent(new CustomEvent('vgb:cv-saved'))
+  kvLocal.set(cvKey(scope), JSON.stringify(data))
+  emitEvent('cv-saved')
 }

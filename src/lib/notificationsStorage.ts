@@ -1,5 +1,7 @@
 import type { Job } from '../types/job'
 import type { JobApplication } from './applicationsStorage'
+import { kvLocal } from './kvStore'
+import { emitEvent } from './eventBus'
 
 // 'job_match'는 localStorage가 아니라 서버(job_alert_notifications)에서 오는
 // 희망조건 매칭 알림 — NotificationContext가 이 목록에 합쳐서 보여준다.
@@ -33,7 +35,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function loadNotifications(scope: string): AppNotification[] {
   try {
-    const raw = localStorage.getItem(scopedKey(NOTIF_KEY, scope))
+    const raw = kvLocal.get(scopedKey(NOTIF_KEY, scope))
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
@@ -43,8 +45,8 @@ export function loadNotifications(scope: string): AppNotification[] {
 }
 
 function persistNotifications(list: AppNotification[], scope: string): void {
-  localStorage.setItem(scopedKey(NOTIF_KEY, scope), JSON.stringify(list.slice(0, 50)))
-  window.dispatchEvent(new CustomEvent('vgb:notifications'))
+  kvLocal.set(scopedKey(NOTIF_KEY, scope), JSON.stringify(list.slice(0, 50)))
+  emitEvent('notifications')
 }
 
 export function markRead(id: string, scope: string): void {
@@ -65,7 +67,7 @@ export function clearAll(scope: string): void {
 
 function loadSeenStatuses(scope: string): Record<string, string> {
   try {
-    const raw = localStorage.getItem(scopedKey(SEEN_STATUS_KEY, scope))
+    const raw = kvLocal.get(scopedKey(SEEN_STATUS_KEY, scope))
     return raw ? (JSON.parse(raw) as Record<string, string>) : {}
   } catch {
     return {}
@@ -74,7 +76,7 @@ function loadSeenStatuses(scope: string): Record<string, string> {
 
 function loadSeenDeadlines(scope: string): Set<string> {
   try {
-    const raw = localStorage.getItem(scopedKey(SEEN_DEADLINE_KEY, scope))
+    const raw = kvLocal.get(scopedKey(SEEN_DEADLINE_KEY, scope))
     return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
   } catch {
     return new Set()
@@ -154,8 +156,8 @@ export function generateNotifications(savedJobs: Job[], applications: JobApplica
   }
 
   if (changed) {
-    localStorage.setItem(scopedKey(SEEN_STATUS_KEY, scope), JSON.stringify(seenStatuses))
-    localStorage.setItem(scopedKey(SEEN_DEADLINE_KEY, scope), JSON.stringify([...seenDeadlines]))
+    kvLocal.set(scopedKey(SEEN_STATUS_KEY, scope), JSON.stringify(seenStatuses))
+    kvLocal.set(scopedKey(SEEN_DEADLINE_KEY, scope), JSON.stringify([...seenDeadlines]))
     persistNotifications(notifs, scope)
   }
 }

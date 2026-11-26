@@ -1,6 +1,7 @@
 import type { Job } from '../types/job'
 import { toAppJobId, toDbJobId } from './jobId'
 import { supabase } from './supabase'
+import { emitEvent } from './eventBus'
 
 export type MessageFrom = 'seeker' | 'employer'
 
@@ -31,7 +32,7 @@ async function currentUserId(): Promise<string | null> {
 }
 
 function dispatch() {
-  window.dispatchEvent(new CustomEvent('vgb:messages'))
+  emitEvent('messages')
 }
 
 async function attachMessages(threadRows: Record<string, unknown>[]): Promise<MessageThread[]> {

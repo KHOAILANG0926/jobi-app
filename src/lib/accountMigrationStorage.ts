@@ -1,3 +1,4 @@
+import { kvLocal } from './kvStore'
 export type LocalImportDecision = 'accepted' | 'declined'
 
 const IMPORT_KEY_PREFIX = 'vgb_account_import:'
@@ -8,7 +9,7 @@ function importKey(userId: string): string {
 }
 
 export function loadLocalImportDecision(userId: string): LocalImportDecision | null {
-  const value = localStorage.getItem(importKey(userId))
+  const value = kvLocal.get(importKey(userId))
   return value === 'accepted' || value === 'declined' ? value : null
 }
 
@@ -17,7 +18,7 @@ export function shouldOfferLocalImport(
   serverHasData: boolean,
   localHasData: boolean,
 ): boolean {
-  const claimedBy = localStorage.getItem(CLAIMED_BY_KEY)
+  const claimedBy = kvLocal.get(CLAIMED_BY_KEY)
   return !serverHasData
     && localHasData
     && (!claimedBy || claimedBy === userId)
@@ -28,6 +29,6 @@ export function markLocalImportDecision(
   userId: string,
   decision: LocalImportDecision,
 ): void {
-  localStorage.setItem(importKey(userId), decision)
-  if (decision === 'accepted') localStorage.setItem(CLAIMED_BY_KEY, userId)
+  kvLocal.set(importKey(userId), decision)
+  if (decision === 'accepted') kvLocal.set(CLAIMED_BY_KEY, userId)
 }

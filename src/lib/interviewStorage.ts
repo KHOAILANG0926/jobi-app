@@ -1,5 +1,6 @@
 import { toAppJobId, toDbJobId } from './jobId'
 import { supabase } from './supabase'
+import { emitEvent } from './eventBus'
 
 export type InterviewStatus = 'pending' | 'confirmed' | 'cancelled'
 
@@ -112,7 +113,7 @@ export async function scheduleInterview(input: Omit<InterviewSlot, 'id' | 'creat
   if (error || !data) {
     throw error ?? new Error('scheduleInterview failed')
   }
-  window.dispatchEvent(new CustomEvent('vgb:interviews'))
+  emitEvent('interviews')
   return rowToSlot(data)
 }
 
@@ -122,7 +123,7 @@ export async function updateInterviewStatus(id: string, status: InterviewStatus)
     console.error('updateInterviewStatus failed', error)
     return
   }
-  window.dispatchEvent(new CustomEvent('vgb:interviews'))
+  emitEvent('interviews')
 }
 
 let interviewsChannelSeq = 0

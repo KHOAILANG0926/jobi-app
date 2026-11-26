@@ -119,6 +119,8 @@ jobs:
             echo '{}' > deps.json
             if jq -e 'any(.[]; .filename=="package.json" or .filename=="package-lock.json")' files.json >/dev/null; then
               base_sha=$(gh api "repos/$REPO/pulls/$num" --jq .base.sha) || base_sha=""
+              # PR 객체 base.sha는 마지막 동기화 때 값이라 기준 브랜치가 앞으로 가면 옛 값 — 남의 변경이 섞이지 않게 PR head와의 분기점에서 읽는다(못 구하면 base.sha 그대로).
+              [ -n "$base_sha" ] && base_sha=$(gh api "repos/$REPO/compare/$base_sha...$sha?per_page=1" --jq '.merge_base_commit.sha // empty' 2>/dev/null || echo "$base_sha")
               raw() { gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/$1?ref=$2"; }
               if [ -n "$base_sha" ] && raw package.json "$base_sha" > base-pkg.json && raw package.json "$sha" > head-pkg.json \
                 && raw package-lock.json "$base_sha" > base-lock.json && raw package-lock.json "$sha" > head-lock.json; then
@@ -136,6 +138,7 @@ jobs:
             jq -r '.[] | select(.status=="modified" and (.filename|test("^\\.github/workflows/[^/]+\\.ya?ml$"))) | .filename' files.json > wf-list.txt
             if [ -s wf-list.txt ]; then
               wf_base=$(gh api "repos/$REPO/pulls/$num" --jq .base.sha) || wf_base=""
+              [ -n "$wf_base" ] && wf_base=$(gh api "repos/$REPO/compare/$wf_base...$sha?per_page=1" --jq '.merge_base_commit.sha // empty' 2>/dev/null || echo "$wf_base")
               echo '{}' > wf.json
               while IFS= read -r wf; do
                 if [ -n "$wf_base" ] && gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/$wf?ref=$wf_base" > wf-base.txt && gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/$wf?ref=$sha" > wf-head.txt; then

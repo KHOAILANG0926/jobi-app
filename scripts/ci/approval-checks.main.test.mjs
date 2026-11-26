@@ -10,8 +10,8 @@ const claudeOk = { user: { login: 'claude[bot]' }, body: `<!-- claude-fallback-r
 const leeOk = { user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: sha, submitted_at: later }
 const pr = (number, extra = {}) => ({ number, draft: false, state: 'open', base: { ref: 'master', sha: 'b'.repeat(40) }, head: { sha, repo: { full_name: repo } }, user: { login: 'viecganban-bot' }, labels: [], body, ...extra })
 
-function world({ prs, reviews, comments, existing = {}, failFiles = false, gate = null, issues = [], files = null, deployOk = null, compare = {} }) {
-  const writes = [], runs = { ...existing }, compareCalls = []
+function world({ prs, reviews, comments, existing = {}, failFiles = false, gate = null, issues = [], files = null, deployOk = null, compare = {}, mergeBase = null }) {
+  const writes = [], runs = { ...existing }, compareCalls = [], contentRefs = []
   const res = (data, status = 200) => ({ ok: status < 400, status, json: async () => data, text: async () => (typeof data === 'string' ? data : JSON.stringify(data)) })
   globalThis.fetch = async (url, init = {}) => {
     const path = String(url).replace('https://api.github.com/', ''), method = init.method ?? 'GET'
@@ -20,7 +20,8 @@ function world({ prs, reviews, comments, existing = {}, failFiles = false, gate 
       if (/^repos\/[^/]+\/[^/]+\/pulls\?/.test(path)) return res(path.includes('page=1') ? prs : [])
       if (/^repos\/[^/]+\/[^/]+\/issues\?state=open/.test(path)) return res(path.includes('page=1') ? issues : [])
       if (/actions\/workflows\/deploy-verify\.yml\/runs\?branch=master&status=success/.test(path)) return res({ workflow_runs: deployOk ? [{ head_sha: deployOk }] : [] })
-      if ((m = path.match(/compare\/([0-9a-f]+)\.\.\.([0-9a-f]+)/))) { compareCalls.push(path); return res({ status: compare[m[1]] ?? 'diverged' }) }
+      if ((m = path.match(/compare\/([0-9a-f]+)\.\.\.([0-9a-f]+)/))) { compareCalls.push(path); return res({ status: compare[m[1]] ?? 'diverged', ...(mergeBase ? { merge_base_commit: { sha: mergeBase } } : {}) }) }
+      if ((m = path.match(/^repos\/[^/]+\/[^/]+\/contents\/[^?]+\?ref=([0-9a-f]+)/))) { contentRefs.push(m[1]); return res('{"name":"x"}') }
       if ((m = path.match(/pulls\/(\d+)\/files/))) return failFiles ? res({ message: 'unavailable' }, 503) : res(path.includes('page=1') ? (files ?? [{ filename: 'scripts/ci/x.mjs', status: 'modified', patch: '@@\n+x' }]) : [])
       if ((m = path.match(/pulls\/(\d+)\/reviews/))) return res(path.includes('page=1') ? (reviews[m[1]] ?? []) : [])
       if (/pulls\/\d+\/comments/.test(path)) return res([])
@@ -40,7 +41,7 @@ function world({ prs, reviews, comments, existing = {}, failFiles = false, gate 
     writes.push(rec); runs[name] = { id: runs[name]?.id ?? Object.keys(runs).length + 1, ...rec }
     return res({ id: runs[name].id })
   }
-  return { writes, runs, compareCalls }
+  return { writes, runs, compareCalls, contentRefs }
 }
 process.env.GITHUB_TOKEN = 'x'
 const opts = { getAppToken: async () => 'app', framePaths: [] }
@@ -284,5 +285,17 @@ globalThis.fetch = async (url) => { const u = String(url)
   o = sh(4); assert.deepEqual([o.code, /MERGE_REACHED/.test(o.out), /LOOP_DONE/.test(o.out)], [0, false, true], 'B3 셸: 종료 4 → 보류, 다음 PR로 계속')
   assert.match(o.out, /::error::PR #1 병합 직전 운영 배포 잠금 재확인 실패\(코드 4\)/); assert.match(o.summary, /PR #1 운영 배포 잠금 재확인 실패 — 병합 보류/)
   o = sh(1); assert.equal(/MERGE_REACHED/.test(o.out), false, 'B3 셸: 예상 밖 종료 코드(1)도 보류 — 실패를 통과로 보지 않음')
+}
+// ④ 기준 커밋 계산(2026-11-26, J그룹): 의존성·워크플로 기준 내용은 PR 객체 base.sha(옛 값일 수 있음)가 아니라 PR head와의 분기점에서 읽는다
+{
+  const mb = 'c'.repeat(40)
+  const pkgFiles = [{ filename: 'package.json', status: 'modified', additions: 1, deletions: 0, changes: 1, patch: '' }]
+  const w = world({ prs: [pr(1)], reviews: { 1: [leeOk] }, comments: { 1: [claudeOk] }, files: pkgFiles, mergeBase: mb })
+  await main(['--repo', repo, '--pr', '1'], opts)
+  assert.ok(w.contentRefs.includes(mb), '기준 내용은 분기점에서 읽음')
+  assert.ok(!w.contentRefs.includes('b'.repeat(40)), '옛 base.sha에서는 읽지 않음')
+  const w2 = world({ prs: [pr(1)], reviews: { 1: [leeOk] }, comments: { 1: [claudeOk] }, files: pkgFiles })
+  await main(['--repo', repo, '--pr', '1'], opts)
+  assert.ok(w2.contentRefs.includes('b'.repeat(40)), '분기점을 못 구하면 base.sha 그대로(기존 동작)')
 }
 console.log('approval-checks main: S1 B3 병합 직전 잠금 재확인 시험 통과')
