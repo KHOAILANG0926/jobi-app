@@ -7,66 +7,11 @@
 //  4) 앱 입구(app.html)·스타일(app.css 클래스 app-)·파일 이름(auth·rls 금지)·하단 탭 수·배포 규칙 확인.
 // 타입만 가져오는 것(import type / { type A })은 실행 코드가 아니므로 허용한다.
 
-type Files = Map<string, string> // 저장소 루트 기준 경로(/ 구분) → 소스. src 아래 파일만.
-type Edge = { from: string; to: string }
-
 function assert(c: unknown, m: string): asserts c {
   if (!c) throw new Error('FAIL: ' + m)
 }
-
-// ---- 가져오기 읽기 ----------------------------------------------------------------------------
-const SRC_EXT = ['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs']
-const isSource = (p: string) => SRC_EXT.some((e) => p.endsWith(e))
-const isTest = (p: string) => /\.test\.[cm]?[jt]sx?$/.test(p)
-
-function isTypeOnlyClause(clause: string): boolean {
-  const c = clause.trim()
-  if (!c.startsWith('{')) return false
-  const items = c.slice(1, c.lastIndexOf('}')).split(',').map((s) => s.trim()).filter(Boolean)
-  return items.length > 0 && items.every((s) => /^type\s/.test(s))
-}
-
-// 실행 코드로 가져오는 상대 경로만 돌려준다(패키지 이름·타입 가져오기는 제외).
-export function valueImports(source: string): string[] {
-  const out: string[] = []
-  const stmt = /^[ \t]*(import|export)\s+(type\s+)?((?:(?!\n[ \t]*(?:import|export)\b)[^'";])*?)\s*from\s*['"]([^'"]+)['"]/gm
-  for (const m of source.matchAll(stmt)) {
-    if (m[2]) continue
-    if (isTypeOnlyClause(m[3])) continue
-    out.push(m[4])
-  }
-  for (const m of source.matchAll(/^[ \t]*import\s+['"]([^'"]+)['"]/gm)) out.push(m[1])
-  for (const m of source.matchAll(/\bimport\(\s*['"]([^'"]+)['"]\s*\)/g)) out.push(m[1])
-  return out.filter((s) => s.startsWith('./') || s.startsWith('../'))
-}
-
-// 타입 가져오기까지 모두(웹이 src/app을 가져오는지 볼 때 쓴다).
-export function allImports(source: string): string[] {
-  const out: string[] = []
-  for (const m of source.matchAll(/^[ \t]*(?:import|export)\s+(?:type\s+)?(?:(?:(?!\n[ \t]*(?:import|export)\b)[^'";])*?\s*from\s*)?['"]([^'"]+)['"]/gm)) out.push(m[1])
-  for (const m of source.matchAll(/\bimport\(\s*['"]([^'"]+)['"]\s*\)/g)) out.push(m[1])
-  return out.filter((s) => s.startsWith('./') || s.startsWith('../'))
-}
-
-function dirOf(p: string): string {
-  const i = p.lastIndexOf('/')
-  return i < 0 ? '' : p.slice(0, i)
-}
-function normalize(p: string): string {
-  const out: string[] = []
-  for (const seg of p.split('/')) {
-    if (seg === '' || seg === '.') continue
-    if (seg === '..') out.pop()
-    else out.push(seg)
-  }
-  return out.join('/')
-}
-const RESOLVE_SUFFIX = ['', '.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs', '.css', '/index.ts', '/index.tsx', '/index.js']
-export function resolveImport(files: Files, from: string, spec: string): string | null {
-  const base = normalize(dirOf(from) + '/' + spec)
-  for (const s of RESOLVE_SUFFIX) if (files.has(base + s)) return base + s
-  return null
-}
+import { allImports, isSource, isTest, resolveImport, valueImports, type Edge, type Files } from '../archtest/importGraph'
+export { allImports, resolveImport, valueImports }
 
 // ---- 구역 ---------------------------------------------------------------------------------
 const WEB_ENTRIES = ['src/App.tsx', 'src/main.tsx', 'src/entry-server.tsx', 'src/index.css']
