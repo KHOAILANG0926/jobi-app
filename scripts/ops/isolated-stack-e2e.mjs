@@ -38,7 +38,7 @@ const makeUser = async (key, role = 'seeker') => {
 
 // ── 1. 실제 인증(GoTrue) ──
 try {
-  const l = await makeUser('employer', 'employer'); await makeUser('employer2', 'employer'); await makeUser('seeker'); await makeUser('seeker2'); await makeUser('seeker3')
+  const l = await makeUser('employer', 'employer'); await makeUser('employer2', 'employer'); await makeUser('seeker'); await makeUser('seeker2'); await makeUser('seeker3'); for (const k of ['chain', 'retry', 'upd']) await makeUser(k)
   rec('A1', '실제 GoTrue 로그인(비밀번호) → 사용자 토큰', l.status === 200)
   const me = await call('GET', '/auth/v1/user', { token: users.seeker.token })
   rec('A2', '발급 토큰으로 사용자 조회', me.status === 200 && me.json?.email === users.seeker.email)
@@ -279,6 +279,56 @@ if (jobId) {
   } catch (e) { rec('K0', '공고 유형별 등록 규칙', false, e.message) }
 }
 
+// ── 3-5. 등록→공개→지원→메시지→면접 한 줄 연결 + 폐기된 세션의 권한(대표 추가 검토 3·2번) ──
+// 기존 시험이 따로 본 것: 등록(H)·공개 조회·지원(D)·메시지(I6~)·면접(I11~)·세션 폐기 화면(L4). 여기서는 같은 (공고, 구직자) 한 쌍으로 이어서 보고, 공개 단계(관리자)와 폐기된 접근 토큰을 본다.
+if (jobId) {
+  try {
+    const login = async (u) => (await call('POST', '/auth/v1/token?grant_type=password', { body: { email: u.email, password: PW } })).json.access_token
+    const E = users.employer, C = users.chain
+    const et = await login(E), ct = await login(C)
+    // 공개 단계: 기업이 등록한 새 공고를 관리자(JWT app_metadata.role=admin)가 공개로 돌릴 수 있는지 — 공개 규칙은 DB 트리거 한 곳
+    const adminEmail = `e2e-admin-${RUN}@example.com`
+    const ac = await call('POST', '/auth/v1/admin/users', { token: SERVICE, body: { email: adminEmail, password: PW, email_confirm: true, app_metadata: { role: 'admin' } } })
+    const adminTok = (await call('POST', '/auth/v1/token?grant_type=password', { body: { email: adminEmail, password: PW } })).json?.access_token
+    const reg = await call('POST', '/rest/v1/rpc/ingest_job', { token: et, body: { p: { channel: 'employer', employer_id: E.id, source_text: `E2E Chain Co ${RUN}\nTuyen nhan vien chay ban\nKCN Yen Phong, Bac Ninh\nLH 0912345678`, company: `E2E Chain Co ${RUN}`, title: `Chain ${RUN}`, description: 'Phuc vu ban', location: 'KCN Yen Phong, Bac Ninh', employer_phone: '0912345678', active: true, occupation_code: '5', occupation_evidence: 'Tuyen nhan vien chay ban' } } })
+    const pubBefore = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${reg.json}`)
+    const pub = await call('PATCH', `/rest/v1/local_jobs?id=eq.${reg.json}`, { token: adminTok, headers: { prefer: 'return=representation' }, body: { active: true } })
+    const pubAfter = await call('GET', `/rest/v1/local_jobs?select=id,active&id=eq.${reg.json}`)
+    observe('M0', '기업 등록 → 관리자 공개 전환 → 익명 조회', `등록 ${reg.status} / 공개 전 ${pubBefore.json?.length ?? '?'}건 / 관리자 수정 status ${pub.status} ${pub.code} 수정행 ${pub.json?.length ?? '?'} / 공개 뒤 ${pubAfter.json?.length ?? '?'}건`)
+    // 한 쌍 연결(공개 중인 고정 공고로): 지원 → 중복 거부 → 기업이 지원자로 봄 → 메시지 → 면접이 모두 같은 (job_id, seeker_id)
+    const ap = await call('POST', '/rest/v1/applications', { token: ct, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', seeker_phone: '0900000009' } })
+    const dup = await call('POST', '/rest/v1/applications', { token: ct, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', seeker_phone: '0900000009' } })
+    const rowsMine = await call('GET', `/rest/v1/applications?select=id&job_id=eq.${jobId}&seeker_id=eq.${C.id}`, { token: ct })
+    rec('M1', '지원 → 같은 공고 중복 지원은 거부되고 지원 줄은 1개', ap.status === 201 && dup.status === 409 && rowsMine.json?.length === 1, `지원 ${ap.status} 중복 ${dup.status}`)
+    const th = await call('POST', '/rest/v1/message_threads', { token: ct, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', unread_by_employer: true } })
+    const thId = th.json?.[0]?.id
+    const msg = thId ? await call('POST', '/rest/v1/messages', { token: ct, body: { thread_id: thId, from_role: 'seeker', body: 'chain hello' } }) : { status: 0 }
+    const thDup = await call('POST', '/rest/v1/message_threads', { token: ct, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, unread_by_employer: true } })
+    rec('M2', '같은 공고·지원자의 대화는 한 줄만 생김(두 번째 만들기는 거부)', th.status === 201 && msg.status === 201 && thDup.status === 409, `대화 ${th.status} 중복 ${thDup.status}`)
+    const when = new Date(Date.now() + 2 * 86400_000).toISOString()
+    const iv = await call('POST', '/rest/v1/interviews', { token: et, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', datetime: when, location: 'KCN Yên Phong', notes: 'chain', status: 'pending' } })
+    const eApps = await call('GET', `/rest/v1/applications?select=job_id,seeker_id&job_id=eq.${jobId}&seeker_id=eq.${C.id}`, { token: et })
+    const eThreads = await call('GET', `/rest/v1/message_threads?select=job_id,seeker_id&job_id=eq.${jobId}&seeker_id=eq.${C.id}`, { token: et })
+    const eIv = await call('GET', `/rest/v1/interviews?select=job_id,seeker_id&job_id=eq.${jobId}&seeker_id=eq.${C.id}`, { token: et })
+    const sIv = await call('GET', `/rest/v1/interviews?select=job_id&seeker_id=eq.${C.id}&status=neq.cancelled`, { token: ct })
+    rec('M3', '기업이 같은 (공고, 구직자) 한 쌍의 지원·대화·면접을 모두 보고, 구직자도 자기 면접을 봄', iv.status === 201 && eApps.json?.length === 1 && eThreads.json?.length === 1 && eIv.json?.length === 1 && sIv.json?.some((x) => x.job_id === jobId), `면접 ${iv.status} / 지원 ${eApps.json?.length} 대화 ${eThreads.json?.length} 면접 ${eIv.json?.length}`)
+
+    // 폐기된 세션(서버에서 전체 로그아웃)의 접근 토큰: GoTrue는 거부하지만 PostgREST는 서명·만료만 보므로 남은 유효시간 동안 통할 수 있다 — 실제로 어떤지와 권한 경계(RLS·관리자)가 그대로인지 본다
+    const l2 = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: C.email, password: PW } })
+    const oldTok = l2.json?.access_token
+    const outR = await call('POST', '/auth/v1/logout?scope=global', { token: oldTok })
+    const gt = await call('GET', '/auth/v1/user', { token: oldTok })
+    rec('R1', '폐기된 세션의 접근 토큰은 GoTrue(/auth/v1/user)에서 거부됨', outR.status < 300 && gt.status >= 400, `logout ${outR.status} / 조회 ${gt.status} ${gt.code}`)
+    const rd = await call('GET', `/rest/v1/applications?select=id&seeker_id=eq.${C.id}`, { token: oldTok })
+    const wr = await call('POST', '/rest/v1/messages', { token: oldTok, body: { thread_id: thId, from_role: 'seeker', body: 'after-logout' } })
+    const adm = await call('POST', '/rest/v1/rpc/admin_list_users', { token: oldTok, body: {} })
+    const other = await call('GET', `/rest/v1/applications?select=seeker_id`, { token: oldTok })
+    observe('R2', '폐기된 세션의 접근 토큰으로 PostgREST 호출', `내 지원 읽기 ${rd.status} / 메시지 쓰기 ${wr.status} (실제 서버가 거부했는지 확인용)`)
+    rec('R3', '폐기된 토큰이어도 권한 경계는 그대로(관리자 함수 거부, 남의 지원 못 봄)', adm.status >= 400 && (other.json ?? []).every((x) => x.seeker_id === C.id))
+    // 쓰기가 통했다면 정리(시험 데이터라 영향 없음)
+  } catch (e) { rec('M0x', '연결 과정·폐기 세션', false, e.message) }
+}
+
 // ── 4. 웹·앱 화면(실제 브라우저, 실제 로컬 스택) ──
 if (BASE && jobId) {
   const browser = await chromium.launch()
@@ -431,6 +481,103 @@ if (BASE && jobId) {
       const deadWeb = await alive('웹 홈(세션 폐기)', '/', 'header, main')
       rec('L4', '서버에서 세션이 폐기돼도(옛 기기) 웹·앱이 죽지 않고 열림', dead.ok && deadWeb.ok, `${dead.note} / ${deadWeb.note}`)
     } catch (e) { rec('L0', '업데이트 뒤 캐시·세션 호환', false, e.message.split('\n')[0]) }
+    await context.close()
+  }
+  // ── 저장 실패 재시도(앱 화면): 지원·메시지 보내기 요청이 한 번 끊기면 오류가 보이고, 다시 시도하면 정확히 한 줄만 저장된다(중복 저장 없음) ──
+  {
+    const loginUi = async (page, u) => {
+      await page.goto(`${BASE}/dang-nhap`, { waitUntil: 'domcontentloaded' })
+      await page.locator('input[type="email"]').fill(u.email); await page.locator('input[type="password"]').fill(PW)
+      await page.locator('button[type="submit"]').click()
+      await page.waitForFunction(() => Object.keys(localStorage).some((k) => /auth-token/.test(k)), null, { timeout: 30_000 })
+    }
+    const cutOnce = async (page, re) => { let cut = 0; await page.route(re, async (route) => { if (route.request().method() === 'POST' && cut === 0) { cut++; return route.abort('failed') } return route.fallback() }); return () => cut }
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(context)
+    const page = await context.newPage()
+    try {
+      // 지원
+      await loginUi(page, users.retry)
+      await page.goto(`${BASE}/app/viec-lam/sb-${jobId}`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-actionbar"]').waitFor({ state: 'visible', timeout: 30_000 })
+      const kind = await page.locator('[data-testid="app-actionbar"]').getAttribute('data-action')
+      if (kind !== 'internal') observe('N1', '앱 사이트 안 지원 재시도', `이 시험 공고의 지원 방식이 '${kind}'라 건너뜀`)
+      else {
+        const cuts = await cutOnce(page, '**/rest/v1/applications*')
+        await page.getByRole('button', { name: 'Ứng tuyển ngay', exact: true }).click()
+        await page.getByRole('button', { name: 'Xác nhận ứng tuyển' }).click()
+        const sawError = await page.locator('[data-testid="app-apply"][data-phase="error"]').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+        const none = await call('GET', `/rest/v1/applications?select=id&job_id=eq.${jobId}&seeker_id=eq.${users.retry.id}`, { token: SERVICE })
+        await page.getByRole('button', { name: 'Thử lại' }).click()
+        await page.getByRole('button', { name: 'Xác nhận ứng tuyển' }).click()
+        const ok = await page.locator('[data-testid="app-apply"][data-phase="success"]').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+        const rows = await call('GET', `/rest/v1/applications?select=id&job_id=eq.${jobId}&seeker_id=eq.${users.retry.id}`, { token: SERVICE })
+        rec('N1', '앱 지원: 요청이 끊기면 오류 → 다시 시도하면 성공, 저장된 지원은 정확히 1줄(끊긴 동안 0줄)', cuts() === 1 && sawError && none.json?.length === 0 && ok && rows.json?.length === 1, `끊김 ${cuts()} 오류 ${sawError} 끊긴 뒤 ${none.json?.length}줄 성공 ${ok} 최종 ${rows.json?.length}줄`)
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        const applied = await page.getByText('Đã ứng tuyển', { exact: true }).first().waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+        rec('N2', '지원한 공고를 다시 열면 "Đã ứng tuyển"(재지원 버튼 없음)', applied)
+      }
+      // 메시지(스레드는 위 연결 시험에서 만든 chain 사용자 것)
+      await page.context().clearCookies(); await page.evaluate(() => localStorage.clear())
+      await loginUi(page, users.chain)
+      await page.goto(`${BASE}/app/ho-so/tin-nhan?job=sb-${jobId}`, { waitUntil: 'domcontentloaded' })
+      const box = page.getByLabel('Tin nhắn')
+      await box.waitFor({ state: 'visible', timeout: 30_000 })
+      const body = `retry-msg-${RUN}`
+      const cutsM = await cutOnce(page, '**/rest/v1/messages*')
+      await box.fill(body); await page.getByRole('button', { name: 'Gửi' }).click()
+      const err = await page.getByText('Không gửi được tin nhắn').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+      const restored = (await box.inputValue()) === body
+      const before = await call('GET', `/rest/v1/messages?select=id&body=eq.${body}`, { token: SERVICE })
+      await page.getByRole('button', { name: 'Gửi' }).click()
+      const shown = await page.locator('.app-conv__bubble p', { hasText: body }).first().waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+      const after = await call('GET', `/rest/v1/messages?select=id&body=eq.${body}`, { token: SERVICE })
+      rec('N3', '앱 메시지: 보내기가 끊기면 오류+쓴 글 복원 → 다시 보내면 1개만 저장(끊긴 동안 0개)', cutsM() === 1 && err && restored && before.json?.length === 0 && shown && after.json?.length === 1, `끊김 ${cutsM()} 오류 ${err} 복원 ${restored} 끊긴 뒤 ${before.json?.length}개 화면 ${shown} 최종 ${after.json?.length}개`)
+    } catch (e) { rec('N0', '저장 실패 재시도', false, e.message.split('\n')[0]) }
+    await context.close()
+  }
+  // ── 실제 구버전 → 신버전 업데이트(같은 주소에서 옛 빌드를 새 빌드로 바꿔 끼움): 로그인·저장값 유지, 새 코드가 실제로 뜸, 옛 탭에서 안 받은 화면으로 가도 안 죽음 ──
+  if (process.env.UPDATE_BASE) {
+    const UB = process.env.UPDATE_BASE
+    const sw = (to) => fetch(`${UB}/__switch?to=${to}`).then((r) => r.text())
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(context)
+    const page = await context.newPage()
+    const errors = []; page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 140)))
+    const mainScript = () => page.evaluate(() => [...document.scripts].map((x) => x.src).find((x) => /\/assets\/.*\.js/.test(x)) ?? '')
+    try {
+      await sw('old')
+      await page.goto(`${UB}/dang-nhap`, { waitUntil: 'domcontentloaded' })
+      await page.locator('input[type="email"]').fill(users.upd.email); await page.locator('input[type="password"]').fill(PW)
+      await page.locator('button[type="submit"]').click()
+      await page.waitForFunction(() => Object.keys(localStorage).some((k) => /auth-token/.test(k)), null, { timeout: 30_000 })
+      await page.goto(`${UB}/app/viec-lam/sb-${jobId}`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-actionbar"]').waitFor({ state: 'visible', timeout: 30_000 })
+      await page.getByRole('button', { name: 'Lưu tin' }).click()
+      await page.locator('button[aria-label="Bỏ lưu tin"]').waitFor({ state: 'visible', timeout: 10_000 })
+      const oldScript = await mainScript()
+      await page.goto(`${UB}/app/`, { waitUntil: 'domcontentloaded' })   // 옛 버전 홈(메시지 화면 조각은 아직 안 받음)
+      await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
+      const oldHome = await mainScript()
+      await sw('new')   // ← 배포: 같은 주소가 이제 새 빌드를 준다. 열려 있는 탭은 옛 코드 그대로.
+      // (a) 옛 탭에서 아직 안 받은 화면(앱 메시지)으로 이동 — 옛 조각 파일이 새 배포에는 없다
+      errors.length = 0
+      await page.evaluate(() => { history.pushState({}, '', '/app/ho-so/tin-nhan'); window.dispatchEvent(new PopStateEvent('popstate')) })
+      await page.waitForTimeout(6000)
+      const recovered = await page.locator('[data-testid="app-messages"], [data-testid="app-tabbar"]').first().isVisible().catch(() => false)
+      const txt = await page.evaluate(() => (document.getElementById('root')?.innerText ?? '').length)
+      rec('U1', '배포 뒤 옛 탭에서 아직 안 받은 화면으로 이동해도 화면이 죽지 않음(자동 새로고침 등으로 복구)', recovered && txt > 20, `화면 ${recovered ? '뜸' : '안 뜸'} / 글자 ${txt} / 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''}`)
+      // (b) 새로고침: 새 빌드가 실제로 뜨고, 로그인·저장값이 그대로
+      await page.goto(`${UB}/app/viec-lam/sb-${jobId}`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-actionbar"]').waitFor({ state: 'visible', timeout: 30_000 })
+      const newScript = await mainScript()
+      rec('U2', '새로고침하면 새 빌드(다른 파일 이름)가 실제로 떠 있음', !!oldScript && !!newScript && oldScript !== newScript, `옛 ${oldScript.split('/').pop()} → 새 ${newScript.split('/').pop()}`)
+      const sess = await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => /auth-token/.test(x)); try { return JSON.parse(localStorage.getItem(k)).user?.email } catch { return null } })
+      const saved = await page.locator('button[aria-label="Bỏ lưu tin"]').waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false)
+      rec('U3', '업데이트 뒤에도 로그인이 유지되고 옛 버전에서 저장한 공고가 그대로 저장됨', sess === users.upd.email && saved, `세션 ${sess === users.upd.email} / 저장표시 ${saved}`)
+      await page.goto(`${UB}/`, { waitUntil: 'domcontentloaded' })
+      const webOk = await page.locator('header, main').first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
+      rec('U4', '업데이트 뒤 웹 화면도 정상(같은 세션)', webOk && errors.filter((e) => !/tin-nhan/.test(e)).length === 0, `오류 ${errors.length}`)
+      void oldHome
+    } catch (e) { rec('U0', '구버전→신버전 업데이트', false, e.message.split('\n')[0]) }
     await context.close()
   }
   rec('G1', '브라우저에서 운영 주소(Supabase·서비스)로 나간 요청 없음(전부 로컬로 바꿔 보내거나 막음)', !reachedProd(), `바깥 호스트 ${[...outside].join(',') || '없음'}`)
