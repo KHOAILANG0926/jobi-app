@@ -59,6 +59,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          # API 한도(#701 E, 2026-11-26): 검사 완료(workflow_run)로 깨어난 실행은 그 검사의 커밋 PR만, 댓글·리뷰로 깨어난 실행은 그 PR만 본다.
+          # 예약·수동 실행은 예전처럼 열린 PR 전체(놓친 PR 다시 보기). 실측: 실행마다 열린 PR ~15개 전부를 보던 것이 1.5시간 109번 → 저장소 토큰 시간당 한도 소진.
+          TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+          TARGET_PR: ${{ github.event.pull_request.number || github.event.issue.number || '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -76,7 +80,7 @@ jobs:
             gh api -X POST "repos/$REPO/issues/$1/comments" -f body="$mark
           봇 병합 보류(커밋 ${2:0:7}): $4" >/dev/null || echo "::warning::PR #$1 보류 사유 댓글 실패"
           }
-          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author,isCrossRepository --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName,(.author.login // ""),(.isCrossRepository|tostring)] | @tsv' |
+          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author,isCrossRepository --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | select(((env.TARGET_SHA // "") == "" or .headRefOid == env.TARGET_SHA) and ((env.TARGET_PR // "") == "" or (.number|tostring) == env.TARGET_PR)) | [.number,.headRefOid,.headRefName,(.author.login // ""),(.isCrossRepository|tostring)] | @tsv' |
           while IFS=$'\t' read -r num sha branch author cross; do
             [ -n "$num" ] || continue
             # 기존 미완료 PR을 소급 자동병합하지 않음; 새 규정 시행 이후 PR만.
@@ -86,6 +90,13 @@ jobs:
             # (#955: 2026-11-22부터 7분 간격 반복, run 45288046609). 두 곳의 대상을 같게 맞춘다 — 포크 허용 여부(#956)는 대표 결정이라 여기서 바꾸지 않는다.
             if [ "$cross" != false ]; then block "$num" "$sha" fork "포크 저장소에서 온 PR이라 병합 조건 검사(approval-gate) 판정 대상이 아님 — 같은 저장소 브랜치로 다시 올려야 병합 가능(포크 허용은 #956 대표 결정)"; continue; fi
             # github-actions[bot]이 임의 외부 fork 소스를 실행하지 않는다: API 데이터만 검사.
+            # API 한도(#701 E): 필수 검사가 아직 안 끝난 PR은 파일 목록을 받기 전에 건너뛴다(검사 1번 조회로 끝, 판정 순서·조건은 그대로).
+            checks=$(bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha") || { echo "::warning::PR #$num 검사 목록 조회 실패: 병합 안 함"; continue; }
+            echo "$checks" | jq -c '.'
+            # 이 커밋의 4종 필수 체크 성공, 실패/실행 중인 체크 없어야 함
+            if ! echo "$checks" | jq -e -f scripts/ci/required-checks-pass.jq >/dev/null; then
+              echo "PR #$num 검사 대기/실패: 병합 생략"; continue
+            fi
             gh api "repos/$REPO/pulls/$num/files?per_page=100" --paginate --slurp | jq 'add' > files.json
             node scripts/approved-migrations.mjs files.json > approved-migrations.json
             if jq --slurpfile approved approved-migrations.json -e '.[] | select((.filename as $path | $approved[0] | index($path) | not) and (.filename|startswith("supabase/migrations/")) and ((.patch // "") | test("(?im)^\\+(?!\\s*--)\\s*.*\\b(drop[[:space:]]+(table|column|schema|policy)|truncate|delete[[:space:]]+from|alter[[:space:]]+table[^;]*drop)\\b")))' files.json >/dev/null; then
@@ -95,18 +106,12 @@ jobs:
             if jq -e '.[] | select((.filename|startswith("supabase/migrations/")) and (.patch==null))' files.json >/dev/null; then
               echo "::notice::PR #$num migration patch 없음: 병합 금지"; continue
             fi
-            checks=$(bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha") || { echo "::warning::PR #$num 검사 목록 조회 실패: 병합 안 함"; continue; }
-            echo "$checks" | jq -c '.'
             # DB 변경 PR은 disposable PostgreSQL 실제 적용 성공 없이는 절대 병합하지 않는다.
             if jq -e '.[] | select(.filename|startswith("supabase/migrations/"))' files.json >/dev/null; then
               if ! echo "$checks" | jq -e 'any(.[]; .name=="migration-postgres" and .status=="completed" and .conclusion=="success")' >/dev/null; then
                 echo "::warning::PR #$num migration-postgres 검증 없음/실패: 자동 병합 금지"
                 continue
               fi
-            fi
-            # 이 커밋의 4종 필수 체크 성공, 실패/실행 중인 체크 없어야 함
-            if ! echo "$checks" | jq -e -f scripts/ci/required-checks-pass.jq >/dev/null; then
-              echo "PR #$num 검사 대기/실패: 병합 생략"; continue
             fi
             # 결정 문서·CODEOWNERS 변경은 현재 head 커밋에 Lee 승인이 있어야 병합(Lee 2026-10-28, 방법 A).
             # 승인이 없으면 병합하지 않고 PR에 쉬운 말 승인 요청을 한 번 남긴다. 다른 PR은 영향 없음.
@@ -119,6 +124,8 @@ jobs:
             echo '{}' > deps.json
             if jq -e 'any(.[]; .filename=="package.json" or .filename=="package-lock.json")' files.json >/dev/null; then
               base_sha=$(gh api "repos/$REPO/pulls/$num" --jq .base.sha) || base_sha=""
+              # PR 객체 base.sha는 마지막 동기화 때 값이라 기준 브랜치가 앞으로 가면 옛 값 — 남의 변경이 섞이지 않게 PR head와의 분기점에서 읽는다(못 구하면 base.sha 그대로).
+              [ -n "$base_sha" ] && base_sha=$(gh api "repos/$REPO/compare/$base_sha...$sha?per_page=1" --jq '.merge_base_commit.sha // empty' 2>/dev/null || echo "$base_sha")
               raw() { gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/$1?ref=$2"; }
               if [ -n "$base_sha" ] && raw package.json "$base_sha" > base-pkg.json && raw package.json "$sha" > head-pkg.json \
                 && raw package-lock.json "$base_sha" > base-lock.json && raw package-lock.json "$sha" > head-lock.json; then
@@ -136,6 +143,7 @@ jobs:
             jq -r '.[] | select(.status=="modified" and (.filename|test("^\\.github/workflows/[^/]+\\.ya?ml$"))) | .filename' files.json > wf-list.txt
             if [ -s wf-list.txt ]; then
               wf_base=$(gh api "repos/$REPO/pulls/$num" --jq .base.sha) || wf_base=""
+              [ -n "$wf_base" ] && wf_base=$(gh api "repos/$REPO/compare/$wf_base...$sha?per_page=1" --jq '.merge_base_commit.sha // empty' 2>/dev/null || echo "$wf_base")
               echo '{}' > wf.json
               while IFS= read -r wf; do
                 if [ -n "$wf_base" ] && gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/$wf?ref=$wf_base" > wf-base.txt && gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/$wf?ref=$sha" > wf-head.txt; then

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { checkCompletion, recordProblems, recentPrsFor, titleWords, ghApiJson } from './check-pr-ready.mjs'
-import { evaluateFiles, parseNameStatusZ } from './check-repository-policy.mjs'
+import { effectiveBase, evaluateFiles, parseNameStatusZ } from './check-repository-policy.mjs'
 
 const valid = `## 사용자 요청 및 확정된 완료 조건
 - 요청: 중복 작업 방지
@@ -296,3 +296,20 @@ console.log('R3 PR scope/merge-line/exception guards: passed')
   try { assert.equal(ghApiJson('pulls?state=open')[0].a.length, 2 * 1024 * 1024, '1MiB 넘는 gh 응답도 읽는다') } finally { process.env.PATH = oldPath; if (oldRepo === undefined) delete process.env.GITHUB_REPOSITORY; else process.env.GITHUB_REPOSITORY = oldRepo }
 }
 console.log('gh 큰 응답(>1MiB) 읽기: passed')
+
+// 기준 커밋 보정(2026-11-26): 이벤트 이후 기준 브랜치가 앞으로 간 병합본에서 남의 변경이 PR 변경으로 섞이지 않는다.
+{
+  const chain = ['B0', 'B1', 'B2'] // 기준 브랜치 역사(오래된 → 최신), 현재 끝 = B2
+  const anc = (a, b) => chain.includes(a) && chain.includes(b) && chain.indexOf(a) <= chain.indexOf(b)
+  const eb = (eventBase, parents, { baseTip = 'B2', headSha = 'P' } = {}) => effectiveBase({ eventBase, headSha, parents, baseTip, isAncestor: anc })
+  assert.equal(eb('B0', ['B1', 'P']), 'B1', '병합본 첫째 부모가 앞으로 간 기준이면 그것을 씀')
+  assert.equal(eb('B1', ['B1', 'P']), 'B1', '같으면 그대로')
+  assert.equal(eb('B1', ['X', 'P']), 'B1', '첫째 부모가 기준 브랜치 역사 밖(후보가 고른 커밋)이면 이벤트 값')
+  assert.equal(eb('B2', ['B1', 'P']), 'B2', '첫째 부모가 이벤트 기준보다 옛것이면(뒤로 가기) 이벤트 값')
+  assert.equal(eb('B0', ['B2', 'P'], { baseTip: 'B1' }), 'B0', '첫째 부모가 기준 브랜치 현재 끝보다 앞서면(역사 밖) 이벤트 값')
+  assert.equal(eb('B0', ['B1', 'OTHER']), 'B0', '둘째 부모가 이벤트의 PR head와 다르면(이 PR로 만든 병합본이 아님) 이벤트 값')
+  assert.equal(eb('B0', ['B1', 'P'], { headSha: null }), 'B0', 'PR head를 모르면 보정하지 않음')
+  assert.equal(eb('B0', ['P']), 'B0', '병합본이 아니면(부모 1개) 이벤트 값')
+  assert.equal(eb('B0', ['B1', 'P', 'Q']), 'B0', '부모 셋 이상이면 이벤트 값')
+  assert.equal(eb(undefined, ['B1', 'P']), undefined, '기준 값이 없으면 그대로')
+}

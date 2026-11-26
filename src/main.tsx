@@ -1,3 +1,4 @@
+import './lib/browserEnvInstall' // 브라우저 저장소·이벤트 어댑터를 다른 모듈보다 먼저 끼운다(구조 정리 3번)
 import { StrictMode } from 'react'
 import { createRoot, hydrateRoot } from 'react-dom/client'
 import App from './App'

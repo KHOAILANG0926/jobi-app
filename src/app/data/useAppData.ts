@@ -6,6 +6,7 @@ import { loadSavedJobIds, toggleSavedJobId } from '../../lib/storage'
 import type { Job } from '../../types/job'
 import { useAppFilters } from '../filters/AppFilters'
 import type { AppJobAreas } from '../filters/applyFilters'
+import { onEvent } from '../../lib/eventBus'
 
 /** 공고 주소 → 성·동 판정(웹 급구/지역 목록과 같은 lib/jobAreaWards). 지역 조건이 걸렸을 때만 계산한다 — 성·동 자료(수천 개)와
  *  판정 코드는 그때 처음 불러와서, 홈 첫 화면은 그 무게를 지지 않는다. */
@@ -31,9 +32,9 @@ export function useSavedJobIds() {
   useEffect(() => {
     const sync = () => setIds(loadSavedJobIds(user?.id))
     sync()
-    window.addEventListener('vgb:saved-jobs', sync)
-    window.addEventListener('storage', sync)
-    return () => { window.removeEventListener('vgb:saved-jobs', sync); window.removeEventListener('storage', sync) }
+    const off = onEvent('saved-jobs', sync)
+    window.addEventListener('storage', sync) // 다른 탭에서 바뀐 경우(브라우저 전용, 어댑터 대상 아님)
+    return () => { off(); window.removeEventListener('storage', sync) }
   }, [user?.id])
   const toggle = useCallback((id: string) => { toggleSavedJobId(id, user?.id); setIds(loadSavedJobIds(user?.id)) }, [user?.id])
   const set = useMemo(() => new Set(ids), [ids])
@@ -50,8 +51,8 @@ export function useAppliedJobIds(): Set<string> {
     const load = () => { loadApplications().then((apps) => { if (!cancelled) setIds(new Set(apps.filter((a) => a.seekerId === user.id).map((a) => a.jobId))) }).catch(() => {}) }
     load()
     // 지원·철회가 일어나면(lib/applicationsStorage가 알림) 바로 다시 읽는다 — 지원 직후 상세 하단 바가 "Đã ứng tuyển"으로 바뀐다.
-    window.addEventListener('vgb:applications', load)
-    return () => { cancelled = true; window.removeEventListener('vgb:applications', load) }
+    const off = onEvent('applications', load)
+    return () => { cancelled = true; off() }
   }, [user?.id])
   return ids
 }
