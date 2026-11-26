@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 
+from job_criteria import deadline_passed
 from source_fields import rule_code
 
 _CHANNELS = (("topcv", "crawler_topcv"), ("facebook", "crawler_facebook"), ("muaban", "crawler_muaban"), ("chotot", "crawler_chotot"),
@@ -62,6 +63,10 @@ class LocationNotFound(RuntimeError):
 
 class HoldStoreError(RuntimeError):
     """보류함 저장 실패. 규칙 코드가 없어 수집기가 '거부'로 넘기지 않고 실행을 실패시킨다 → 본 글 기록이 저장되지 않아 다음 실행에 다시 만난다."""
+
+
+class DeadlinePassed(RuntimeError):
+    """마감일이 분명히 지난 새 공고(#973). 메시지의 규칙 코드(deadline_expired)가 rule_code()로 잡힌다 — 보류함(rejected)에 원문과 함께 남기고 등록하지 않는다."""
 
 
 class LocationDeferred(LocationNotFound):
@@ -546,6 +551,14 @@ def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: l
     existing = job_id is not None or update_fields is not None or job.get("job_id") is not None or job.get("refresh")
     if existing:
         return _call_gateway(client, job, job_id=job_id, update_fields=update_fields)
+    deadline = str(job.get("application_deadline") or "")[:10]
+    if deadline_passed(deadline):
+        # 마감이 분명히 지난 새 공고는 공개 대상이 아니다(#973, 수집원 공통) — 위치 확인(Google 한도)을 쓰기 전에 거르고 원문은 보류함에 남긴다.
+        # 마감일이 없거나 날짜 모양이 아니면 deadline_passed가 False — 임의로 빼지 않는다. 마감 당일은 열림(job_criteria).
+        if hold:
+            hold_job(client, {**job, "work_locations": work_location_rows} if work_location_rows and not job.get("work_locations") else job,
+                     f"deadline_expired: {deadline}", REJECTED_STATUS)
+        raise DeadlinePassed(f"deadline_expired: {deadline}")
     if job.get("admin_hidden") is not True:  # 검증 저장은 대기열을 건드리지 않는다
         retry_held_once(client)
     held = {**job, "work_locations": work_location_rows} if work_location_rows and not job.get("work_locations") else job

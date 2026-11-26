@@ -647,6 +647,19 @@ class TopcvRetryNextRun(unittest.TestCase):
             "_had_transient_geocode_failure": False,
         } for i in (1, 2, 3)]
 
+    def test_expired_existing_job_is_not_refreshed(self):
+        """#973: 마감 지난 기존 공고는 다시 수집 갱신하지 않는다(공개 상태를 되살리지 않게) — 새 공고는 입구가 거른다(test_ingest_gateway)."""
+        topcv.save_to_supabase(self._jobs())
+        calls = []
+        real = topcv.ingest_job
+        with mock.patch.object(topcv, "ingest_job", lambda *a, **k: calls.append(k) or real(*a, **k)), mock.patch.object(topcv, "TODAY", "2027-01-05"):
+            jobs = self._jobs()
+            for j in jobs:
+                j["salary"] = "9 triệu"  # 바뀐 칸이 있어도 갱신하지 않는다
+            topcv.save_to_supabase(jobs)
+        self.assertEqual(calls, [], "마감 지난 기존 공고는 입구를 부르지 않는다")
+        self.assertTrue(all(r["salary"] == "8 triệu" for r in self.rows.values()))
+
     def test_failed_insert_retried_as_new_next_run(self):
         u2 = "https://vieclam24h.vn/job-2.html"
         self.fail_insert = {u2}
@@ -1547,11 +1560,13 @@ class TopcvBranchJobs(unittest.TestCase):
 class FacebookCriteriaAlignment(unittest.TestCase):
     """1-B(F2·F3): Facebook 수집기가 마감·연락처를 DB·화면과 같은 기준으로 본다(마감 당일 열림, 연락처 숫자 8자리)."""
 
-    def test_deadline_day_is_kept_and_a_past_date_is_still_just_dropped(self):
+    def test_deadline_day_is_kept_and_a_past_date_is_kept_for_the_entrance(self):
         with mock.patch.object(fb, "TODAY", "2026-11-23"):
             self.assertEqual(fb.extract_deadline("Hạn nộp hồ sơ: 23/11/2026"), "2026-11-23", "마감 당일은 기한으로 남긴다")
             self.assertEqual(fb.extract_deadline("Hạn nộp hồ sơ: 24/11/2026"), "2026-11-24")
-            self.assertIsNone(fb.extract_deadline("Hạn nộp hồ sơ: 22/11/2026"), "지난 날짜는 기존대로 기한에서 뺀다(새 제외 규칙 없음)")
+            # #973(Lee 2026-11-25 "명확하게 마감일이 지난 공고는 신규 공개 대상에서 제외"): 지난 날짜를 빼면 '마감 없음'으로 공개됐다 — 그대로 넘겨 입구가 거른다.
+            self.assertEqual(fb.extract_deadline("Hạn nộp hồ sơ: 22/11/2026"), "2026-11-22")
+            self.assertIsNone(fb.extract_deadline("Hạn nộp hồ sơ: 31/02/2026"), "없는 날짜는 마감 불명(제외하지 않음)")
 
     def _problems(self, phone, zalo):
         job = {"title": "Tuyển công nhân may", "company": "CTY A", "employer_phone": phone, "zalo": zalo,
