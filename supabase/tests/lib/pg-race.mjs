@@ -67,10 +67,23 @@ export const isErr = (out) => /ERROR:/.test(out)
 export const lastNum = (out) => Number(out.trim().split('\n').filter(Boolean).pop())
 export const errText = (out) => (out.match(/ERROR:.*/) || [''])[0]
 
+// 임시 시험 서버 자동 기동(대표 2026-11-26 지시 5번): 서버가 스스로 죽는 게 아니라 시험 머신(VM) 자체가 재시작되면 안의 프로세스가 모두 사라진다
+// (실제 기록: 서버 로그에 종료·오류 줄 없이 끊기고 다음 기동마다 'not properly shut down; automatic recovery', 머신 uptime이 재시작 시각부터 시작).
+// 그래서 PG_TEST_DATADIR(+PG_TEST_PORT)가 있고 서버가 응답하지 않을 때만 그 데이터 폴더로 다시 켠다. CI(서비스 컨테이너)는 이 변수가 없어 영향 없음.
+export function ensurePgServer() {
+  const dir = process.env.PG_TEST_DATADIR
+  if (!dir || spawnSync('psql', [process.env.PG_TEST_URL || '', '-X', '-qAtc', 'select 1'], { encoding: 'utf8' }).status === 0) return
+  const port = process.env.PG_TEST_PORT || '5499'
+  const cmd = `PATH="$(ls -d /usr/lib/postgresql/*/bin | tail -1):$PATH" pg_ctl -D ${dir} -o "-p ${port} -k /tmp -c listen_addresses=" -l ${dir}.log -w -t 60 start`
+  const r = process.getuid?.() === 0 ? spawnSync('su', ['pgtest', '-c', cmd], { encoding: 'utf8' }) : spawnSync('sh', ['-c', cmd], { encoding: 'utf8' })
+  assert.equal(r.status, 0, `시험 서버 기동 실패: ${r.stdout}${r.stderr}`)
+}
+
 // 시험용 DB: BASELINE(운영 이전 기반 표의 시험용 구조) + migration 파일에서 글자 그대로 읽은 함수·정책·권한·트리거.
 export async function makeScratch() {
   const base = process.env.PG_TEST_URL
   assert.ok(base, 'PG_TEST_URL(폐기용 DB) 필요')
+  ensurePgServer()
   const name = `jobi_race_${process.pid}_${Date.now()}`
   const admin = (url, sql) => {
     const r = spawnSync('psql', [url, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: sql, encoding: 'utf8' })

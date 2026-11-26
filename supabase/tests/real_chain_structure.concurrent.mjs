@@ -20,10 +20,10 @@ const note = (m) => { findings.push(m); console.log('FINDING:', m) }
 // 고친 뒤에는 STRICT_DEFECTS=1로 돌리면 아직 재현되는 결함이 있을 때 실패한다(고쳐지면 자동으로 '안전' 쪽 단언으로 바뀜).
 const defect = (m) => { defects.push(m); console.log('DEFECT(재현됨):', m) }
 try {
-  // ── 0. 구조: 못 올라간 migration은 알려진 5개뿐(운영 이전 표·PostGIS·korea/brand 계열) — 새로 실패하는 파일이 생기면 시험이 실패한다 ──
+  // ── 0. 구조: 못 올라간 migration은 알려진 4개뿐(korea 계열 3 + 운영 데이터 상태를 전제하는 다중지점 전환 1 — 순서가 어긋난 20261107172459는 applyMigrations의 재시도로, 운영 이전 표는 승인 대기 SQL 적용으로 올라감) — 새로 실패하는 파일이 생기면 시험이 실패한다 ──
   assert.deepEqual(c.failed.map((f) => f[0]), [
     '0012_korea_jobs_expand.sql', '0013_korea_jobs_public_views_grants_fix.sql', '0014_korea_jobs_vi_translation.sql',
-    '20261107172459_brand_logo_netco_post.sql', '20261124120000_multi_branch_conversion.sql'], `예상 밖 migration 실패: ${JSON.stringify(c.failed)}`)
+    '20261124120000_multi_branch_conversion.sql'], `예상 밖 migration 실패: ${JSON.stringify(c.failed)}`)
   for (const f of ['public.replace_job_work_locations(bigint,jsonb)', 'location_private.write_location(bigint,text,jsonb)', 'public.ingest_job(jsonb)', 'dedupe_private.hold_on_publish()',
     'public.enforce_job_publish_gate()', 'public.enforce_occupation_publication()', 'public.applications_job_open_gate()', 'ingest_private.find_existing(bigint,text,text,text,text,text,text)']) {
     assert.ok(c.has(`to_regprocedure('${f}') is not null`), `실제 정의가 올라와 있어야 함: ${f}`)
@@ -282,7 +282,7 @@ try {
   }
 
   if (process.env.STRICT_DEFECTS === '1') assert.equal(defects.length, 0, `재현된 결함 ${defects.length}건`)
-  console.log(`real_chain_structure.concurrent: 실제 migration ${c.applied.length}개 적용 구조에서 시험 통과 (대역·미적용 5개: ${c.failed.map((f) => f[0].split('_')[0]).join(',')}). 관찰 ${findings.length}건, 재현된 결함 ${defects.length}건`)
+  console.log(`real_chain_structure.concurrent: 실제 migration ${c.applied.length}개 적용 구조에서 시험 통과 (대역·미적용 ${c.failed.length}개: ${c.failed.map((f) => f[0].split('_')[0]).join(',')}). 관찰 ${findings.length}건, 재현된 결함 ${defects.length}건`)
 } finally {
   opened.forEach((s) => { try { s.close() } catch {} })
   c.drop()
