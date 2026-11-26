@@ -139,3 +139,15 @@ console.log('jobDescriptionBuild.test.ts: 실제 원문 #4878·#4879 + 글자 �
   console.log('jobDescriptionBuild.test.ts: "VỊ TRÍ:" 제목 줄 + 글머리 없는 직무 줄(운영 6337 원문) 검사 통과')
 }
 
+
+// 2026-11-26 #701(#5342 JoyThái·#5437 Dookki·#5368 bảo an): 홍보·중복으로 뺀 줄을 검사표가 '원문 줄 빠짐'으로 잡았다 →
+// 검사 쪽 기준(inspectReading)으로도 빠짐 아님인 줄만 뺀다. 같은 글자 반복·해시태그는 그대로 뺀다.
+{
+  const build = (text: string) => buildDescriptionFromSources([{ name: 'source_text', text }], { title: 't', company: 'Joy Thái' })
+  const a = build('Mô tả công việc\nPhục vụ bàn\nJOY THÁI – Nơi bạn phát triển và tỏa sáng!\nKhông cần đi đâu xa tìm việc — job xịn ngay tại Bắc Ninh đây rồi!')
+  assert(a.description.includes('JOY THÁI – Nơi bạn phát triển và tỏa sáng!') && a.description.includes('đi đâu xa tìm việc'), '검사표가 정보로 읽는 줄은 남김: ' + JSON.stringify(a.dropped))
+  const b = build('Yêu cầu\nHồ sơ đơn giản: Sơ yếu lý lịch, CCCD công chứng, Giấy khám sức khỏe.\nHỒ SƠ NHẬN VIỆC: Sơ yếu lý lịch. CCCD công chứng. Giấy khám sức khỏe.\nPhục vụ bàn\nPhục vụ bàn\n#TuyenDung #ViecLam')
+  assert(b.description.includes('HỒ SƠ NHẬN VIỆC'), '이름표가 다른 비슷한 줄은 남김')
+  assert(b.description.split('\n').filter((l) => l.trim() === 'Phục vụ bàn').length === 1 && !b.description.includes('#TuyenDung'), '같은 줄 반복·해시태그는 뺌')
+  console.log('jobDescriptionBuild.test.ts: 검사 쪽 기준으로 빠짐 아닌 줄만 뺌(#5342·#5368·#5437) 통과')
+}

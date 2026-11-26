@@ -15,6 +15,9 @@ import { bare, fold, type DetailTextKey, type ShownAbove } from './jobDetailSect
 import { lineKey } from './aiClassifyGuard.ts'
 import { classifySource, isCovered, FILL_HEADINGS, type FillContext, type FillLine, type FillSource } from './jobDetailFill.ts'
 import { isOtherCapsHeading, isRoleHeading } from './jobRolePresentation.ts'
+// 검사 쪽 원문 읽기(src/lib/inspectReading.ts — 아무것도 import하지 않는 검사기 전용 규칙). 만드는 쪽이 줄을 뺄 때 이 기준으로도 '빠짐 아님'인 줄만 뺀다
+// (2026-11-26 #701: 홍보·중복으로 뺀 줄을 검사표가 '원문 줄 빠짐'으로 잡아 #5342·#5368·#5437이 계속 비공개 보류 — 검사 기준은 그대로 두고 만드는 쪽이 원문을 더 남긴다).
+import { promoLike as inspectPromoLike, sameLine as inspectSameLine, covers as inspectCovers } from './inspectReading.ts'
 
 const ORDER: DetailTextKey[] = ['01', '02', '03', '04', '05', '06', '07']
 
@@ -212,7 +215,7 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
         if (item.role && /^\(tg:/.test(bare(item.line))) { item.key = '03'; item.how = 'line'; item.rule = 'role_hours' }
 
         // 2026-11-01 Lee "빠짐 0": 급여 총액·위쪽 칸과 겹치는 줄도 뺀다 하지 않는다(10-30 확정 ④ 원문 전체).
-        if (lines.some((l) => l.role === item.role && sameLine(l.line, item.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
+        if (lines.some((l) => l.role === item.role && sameLine(l.line, item.line) && (inspectSameLine(l.line, item.line) || inspectCovers(l.line, item.line)))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
         // 2026-11-01 #5157: 게시글 "Ca A: 06h30 – 14h30"과 포스터 "CA 1: 6h30 - 14h30"은 같은 교대다(이름표만 다름).
         if (shiftOnlyLine(item.line) && timeRanges(item.line).every((r) => lines.some((l) => l.role === item.role && timeRanges(l.line).includes(r)))) {
           dropped.push({ line: item.line, reason: 'duplicate' }); continue
@@ -221,7 +224,7 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
         if (contactDuplicate(item.line, lines.map((l) => l.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
         const kind = ctx.lineKinds?.[lineKey(item.line)]
         // ③ 홍보·인사말(칸과 관계없이 — 모집 소개 줄 아래로 이어진 인사말도, 2026-11-04) — Lee가 칸을 정한 줄은 그대로
-        if ((!kind || kind.by !== 'lee') && (isHashtagLine(item.line) || isPromoLine(item.line))) { dropped.push({ line: item.line, reason: 'promo' }); continue }
+        if ((!kind || kind.by !== 'lee') && (isHashtagLine(item.line) || isPromoLine(item.line)) && inspectPromoLike(item.line)) { dropped.push({ line: item.line, reason: 'promo' }); continue }
         if (kind && (kind.by === 'lee' || item.how === 'unclassified')) { lines.push({ ...item, key: kind.section, how: 'line', rule: `kind:${kind.by}` }); continue }
         lines.push(item)
       }
