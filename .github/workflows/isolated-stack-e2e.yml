@@ -1,0 +1,103 @@
+name: 격리 실제 스택 E2E (인증·PostgREST·웹/앱·PG17 구조 대조)
+# 대표 2026-11-26 지시 3·5·6번: 운영 DB·운영 열쇠 없이, 이 실행 안에서만 뜨는 Supabase 로컬 스택(실제 GoTrue·PostgREST·Storage·PostgreSQL 17)에
+# 저장소 migration 전체를 올려 ① 운영과 같은 PG 주 버전에서 CHECK 검사식·함수 줄 지문을 대조하고 ② 실제 로그인·권한(is_account_active 포함)·웹/앱 화면을 이어서 확인한다.
+# 기존 검사 워크플로로는 못 한다: 기존 E2E(admin-line-pick-e2e 등)는 운영 열쇠·운영 주소를 쓰고, migration-postgres는 PG16 서비스에 일부 migration만 올린다.
+# 비밀값 없음(secrets 미사용) — 로컬 스택이 만든 일회용 열쇠만 쓴다. 운영 구조 지문은 이미 끝난 ops-run-sql 실행 기록(공개 로그)에서 읽는다.
+on:
+  workflow_dispatch:
+    inputs:
+      prod_catalog_run: { description: '운영 구조 지문(schema-catalog-read) ops-run-sql 실행 번호', default: '45828209586' }
+      prod_lines_run: { description: '운영 함수 줄 지문(schema-function-lines-read) ops-run-sql 실행 번호', default: '45837472926' }
+  pull_request:
+    paths:
+      - '.github/workflows/isolated-stack-e2e.yml'
+      - 'scripts/ci/isolated-stack-setup.mjs'
+      - 'scripts/ops/isolated-stack-e2e.mjs'
+      - 'supabase/tests/baseline/**'
+permissions:
+  contents: read
+  actions: read   # 이미 끝난 ops-run-sql 실행 기록(공개 로그) 읽기 전용
+jobs:
+  isolated-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PROD_CATALOG_RUN: ${{ inputs.prod_catalog_run || '45828209586' }}
+      PROD_LINES_RUN: ${{ inputs.prod_lines_run || '45837472926' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - name: 격리 스택 시작 (PostgreSQL 17 + GoTrue + PostgREST + Storage)
+        run: |
+          # supabase CLI는 .git이 있는 가장 가까운 폴더를 프로젝트 루트로 본다 — 저장소(supabase/ 폴더에 migration이 있음)와 섞이지 않게 빈 폴더를 따로 git 저장소로 만든다.
+          STACK="$RUNNER_TEMP/stack"; mkdir -p "$STACK" && git -C "$STACK" init -q
+          (cd "$STACK" && supabase init)
+          # 새 CLI는 config.jsonc, 예전 CLI는 config.toml — 둘 다 같은 키(major_version)를 17로 맞춘다.
+          CONF=$(ls "$STACK"/supabase/config.jsonc "$STACK"/supabase/config.toml 2>/dev/null | head -1)
+          sed -i -E 's/("?major_version"?[[:space:]]*[=:][[:space:]]*)[0-9]+/\117/' "$CONF"
+          grep -n "major_version" "$CONF"
+          (cd "$STACK" && supabase start -x studio,imgproxy,mailpit,postgres-meta,edge-runtime,logflare,vector,supavisor,realtime)
+          (cd "$STACK" && supabase status -o env) > "$RUNNER_TEMP/stack.env"
+          set -a; . "$RUNNER_TEMP/stack.env"; set +a
+          echo "::add-mask::$ANON_KEY"; echo "::add-mask::$SERVICE_ROLE_KEY"
+          { echo "LOCAL_API_URL=$API_URL"; echo "LOCAL_DB_URL=$DB_URL"; echo "LOCAL_ANON_KEY=$ANON_KEY"; echo "LOCAL_SERVICE_KEY=$SERVICE_ROLE_KEY"; } >> "$GITHUB_ENV"
+          echo "서버 버전: $(psql "$DB_URL" -Atc 'show server_version')"
+      - name: 기반 + migration 전체 적용
+        run: node scripts/ci/isolated-stack-setup.mjs
+      - name: 운영과 같은 주 버전(17)에서 구조 지문 대조 (CHECK 검사식·함수·표·권한)
+        continue-on-error: true
+        run: |
+          psql "$LOCAL_DB_URL" -X -f scripts/ops/jobs/schema-catalog-read.sql > iso-catalog.txt
+          # gh run view --log는 아주 긴 줄(구조 지문 한 줄이 수십 KB)을 잘라 버리므로, 실행 기록 전체(zip)에서 작업 전체 기록 파일 하나를 읽는다.
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PROD_CATALOG_RUN/logs" > prod-catalog.zip
+          unzip -p prod-catalog.zip "$(unzip -Z1 prod-catalog.zip | grep -v / | head -1)" > prod-catalog.log
+          node scripts/ops/schema-catalog-compare.mjs prod-catalog.log iso-catalog.txt --json > compare.json || true
+          node --input-type=module -e "
+            import fsm from 'node:fs'; const require = (m) => m === 'fs' ? fsm : null;
+            const r = JSON.parse(fsm.readFileSync('compare.json','utf8'));
+            let out = '## 운영(PG17) ↔ 격리(PG17) 구조 대조\n';
+            for (const [k, v] of Object.entries(r)) out += '- ' + k + ': 다름 ' + v.differ.length + ' / 운영에만 ' + v.onlyProd.length + ' / 격리에만 ' + v.onlyIso.length + '\n';
+            for (const [k, v] of Object.entries(r)) { if (v.differ.length) out += '\n### ' + k + ' — 지문이 다른 항목\n' + v.differ.slice(0, 80).map((n) => '- ' + n).join('\n') + '\n'; if (v.onlyIso.length) out += '\n### ' + k + ' — 격리에만 있는 항목\n' + v.onlyIso.slice(0, 80).map((n) => '- ' + n).join('\n') + '\n'; }
+            const { parseCatalog } = await import('./scripts/ops/schema-catalog-compare.mjs');
+            const P = parseCatalog(require('fs').readFileSync('prod-catalog.log','utf8'),'p'), I = parseCatalog(require('fs').readFileSync('iso-catalog.txt','utf8'),'i');
+            const rk = (x) => x.schema + '.' + x.name + '(' + (x.params ?? []).map((q) => q.mode + ':' + q.udt).join(',') + ')';
+            const pm = new Map(P.routines.rows.map((x) => [rk(x), x])), im = new Map(I.routines.rows.map((x) => [rk(x), x]));
+            out += '\n### 함수 차이 종류(본문 지문/실행 권한/search_path 중 무엇이 다른지)\n';
+            for (const n of r.routines.differ) { const a = pm.get(n), b = im.get(n); if (a && b) out += '- ' + n.slice(0, 70) + ': ' + [a.body_md5 !== b.body_md5 && '본문', JSON.stringify(a.exec) !== JSON.stringify(b.exec) && '실행권한 운영=' + JSON.stringify(a.exec) + ' 격리=' + JSON.stringify(b.exec), JSON.stringify(a.search_path) !== JSON.stringify(b.search_path) && 'search_path'].filter(Boolean).join(' + ') + '\n'; }
+            out += '\n### 열 차이 종류\n';
+            for (const n of r.columns.differ) { const [t, c] = n.split('.'); const a = P.columns.rows.find((x) => x.t === t && x.c === c), b = I.columns.rows.find((x) => x.t === t && x.c === c); if (a && b) out += '- ' + n + ': ' + ['udt', 'null', 'len', 'ident', 'def_md5'].filter((f) => a[f] !== b[f]).map((f) => f + (f === 'def_md5' ? '(지문 다름)' : ' 운영=' + a[f] + ' 격리=' + b[f])).join(', ') + '\n'; }
+            const chk = r.constraints?.differ ?? [];
+            out += '\n### CHECK 검사식 지문이 다른 제약 (' + chk.length + ')\n' + chk.slice(0, 120).map((n) => '- ' + n).join('\n') + '\n';
+            console.log(out); require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY, out);
+          "
+      - name: 함수 본문 줄 지문 대조 (같은 주 버전)
+        continue-on-error: true
+        run: |
+          psql "$LOCAL_DB_URL" -X -f scripts/ops/jobs/schema-function-lines-read.sql > iso-lines.txt
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PROD_LINES_RUN/logs" > prod-lines.zip
+          unzip -p prod-lines.zip "$(unzip -Z1 prod-lines.zip | grep -v / | head -1)" > prod-lines.log
+          node scripts/ops/schema-catalog-compare.mjs prod-lines.log iso-lines.txt --lines | tee lines.json
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: 앱 띄우기
+        run: |
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && exit 0; sleep 1; done
+          cat preview.log; exit 1
+      - name: 실제 로그인·PostgREST 권한·is_account_active·웹/앱 교차 E2E
+        run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=isolated-stack-proof node scripts/ops/isolated-stack-e2e.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: isolated-stack-proof
+          path: |
+            isolated-stack-proof/
+            compare.json
+            lines.json
+          if-no-files-found: ignore
+          retention-days: 14

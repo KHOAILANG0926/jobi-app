@@ -79,8 +79,9 @@ const run = (url, sql, opts = []) => spawnSync('psql', [url, '-X', '-q', '-v', '
 // rewrite=false는 PostGIS·pg_net·pg_cron이 실제로 있는 서버(Supabase 로컬 스택)용 — 글자 바꿈 없이 원문 그대로 적용한다.
 export function applyMigrations(url, { only, rewrite = true } = {}) {
   const applied = [], failed = []
+  // *_draft.sql(예: 0020 관리자 함수 anon 회수 초안)은 운영에 적용된 적이 없다(자동 적용 CUTOFF 이전 번호·승인 대기) — 운영과 같은 구조를 만들려면 올리지 않는다(#1070 대조에서 확인).
   const entries = [
-    ...readdirSync(dir).filter((x) => x.endsWith('.sql')).map((f) => ({ f, u: new URL(f, dir) })),
+    ...readdirSync(dir).filter((x) => x.endsWith('.sql') && !x.endsWith('_draft.sql')).map((f) => ({ f, u: new URL(f, dir) })),
     ...PENDING_APPLIED.map((f) => ({ f, u: new URL(f, pendingDir) })),
   ].sort((a, b) => (a.f.split('_')[0].padEnd(14, '0') + a.f).localeCompare(b.f.split('_')[0].padEnd(14, '0') + b.f))
   const tryFile = ({ f, u }) => {
