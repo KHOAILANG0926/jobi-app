@@ -2,7 +2,8 @@ name: 채용공고 자동 크롤링
 # 대상 = vieclam24h.vn — crawler/crawl_topcv.py는 이름과 달리 vieclam24h 수집기다(파일 첫 줄 설명, --site 기본값 vieclam24h).
 
 # 제목에 목록 위치·건수를 남긴다 — 정기·보충 실행의 '오늘 자리' 판정(scripts/ci/crawl-slot.sh)이 이 제목을 읽는다(#1071).
-run-name: ${{ format('채용공고 자동 크롤링 · 목록 위치 {0} · {1}건', inputs.sample_offset || (github.event.schedule == '23 8 * * *' && '10' || '0'), inputs.sample_limit || '10') }}
+# 검증 저장 실행(verify_save_run_id)은 수집이 아니므로 다른 제목을 쓴다 — 11-26 검증 저장을 10건 입력으로 불러 '목록 위치 0 · 10건' 제목이 붙어 자리를 채운 것으로 보일 뻔함.
+run-name: ${{ inputs.verify_save_run_id && format('채용공고 자동 크롤링 · 검증 저장(수집 실행 {0})', inputs.verify_save_run_id) || format('채용공고 자동 크롤링 · 목록 위치 {0} · {1}건', inputs.sample_offset || (github.event.schedule == '23 8 * * *' && '10' || '0'), inputs.sample_limit || '10') }}
 
 on:
   # Lee 2026-11-25: vieclam24h 정기 수집 재개 — 하루 20건(아침 목록 앞 10건 + 오후 그다음 10건).
