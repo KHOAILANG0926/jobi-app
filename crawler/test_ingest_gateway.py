@@ -326,6 +326,13 @@ def run_hold():
     out = g.retry_held(c)
     assert out["registered"] == 1 and out["rejected"] == 1, out
     assert c.calls[-1][1]["p"]["company"] == "Cty Y" and len(c.rows) == 4
+    # 오류 기록 축적(Lee 2026-11-25): 같은 줄에 판정이 바뀐 이력이 남는다 — 원문 그대로 + 처음 사유 → 결과(등록 번호)
+    y = c.rows[g._hold_name({"source_url": "https://example.invalid/y"})]
+    assert y["meta"]["status"] == "registered" and y["meta"]["job_id"], y["meta"]
+    assert [h["status"] for h in y["meta"]["history"]] == ["unfound"] and y["meta"]["history"][0]["reason"] == "approximate_only", y["meta"]
+    cty1 = next(r for r in c.rows.values() if r["payload"].get("company") == "Cty 1")
+    assert [h["status"] for h in cty1["meta"]["history"]][-1] == "unfound" and cty1["meta"]["status"] == "rejected", cty1["meta"]
+    assert all(len(r["meta"].get("history") or []) <= g.HOLD_HISTORY_LIMIT for r in c.rows.values())
     # 끝난 줄(registered·rejected)은 다시 보지 않는다
     before = len(c.calls)
     g.retry_held(c)
