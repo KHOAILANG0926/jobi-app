@@ -1,5 +1,6 @@
 import type { CvData } from './cvStorage'
 import { supabase } from './supabase'
+import { saveOwnRow } from './ownRowSave'
 import { emitEvent } from './eventBus'
 
 const CV_PHOTO_BUCKET = 'cv-photos'
@@ -45,14 +46,11 @@ export async function saveAccountCv(
   cv: CvData,
   photoPath: string | null,
 ): Promise<void> {
-  const { error } = await supabase.from('user_cvs').upsert({
-    user_id: userId,
+  await saveOwnRow('user_cvs', userId, {
     cv_data: withoutEmbeddedPhoto(cv),
     photo_path: photoPath,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' })
-
-  if (error) throw new Error(error.message)
+  })
   emitEvent('account-cv-saved')
 }
 
