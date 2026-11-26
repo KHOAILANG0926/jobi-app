@@ -221,4 +221,25 @@ const pick = (fx, env) => exec(PICK, fx, { SHA, RUN_ID: '100', RUN_ATTEMPT: '1',
   assert.ok(existsSync(join(ROOT, 'scripts/ci/merge-reject-class.jq')))
   console.log('6 대표 승인·운영 잠금·필수 검사 보호 단계 유지 통과')
 }
+// ── 7. API 한도(#701 E, 2026-11-26): 검사 완료로 깨어난 실행은 그 커밋 PR만, 댓글·리뷰는 그 PR만 본다. 검사 안 끝난 PR은 파일 목록을 받지 않는다.
+{
+  const pending = green.map((c, i) => i === 0 ? { ...c, status: 'in_progress', conclusion: null } : c)
+  const D = 'd'.repeat(40)
+  // 파일 목록을 받으면 가짜 gh가 FAIL을 남긴다 — 검사 대기 PR에서 파일 조회가 생략되는지 본다.
+  const fx = { prs: [prRow(901, false), { ...prRow(902, false), headRefOid: D }], pr: { 901: prData, 902: { ...prData, sha: D } }, checks: pending, headDate: iso(5),
+    failPaths: ['/pulls/901/files', '/pulls/902/files'] }
+  const out = (r) => r.stdout + r.calls
+  const other = exec(botNew, fx, { TARGET_SHA: 'e'.repeat(40), TARGET_PR: '' })
+  assert.equal(other.status, 0, other.stderr)
+  assert.doesNotMatch(out(other), /검사: PR #90[12]/, '다른 커밋의 검사 완료로 깨어나면 어떤 PR도 보지 않음')
+  const one = exec(botNew, fx, { TARGET_SHA: '', TARGET_PR: '901' })
+  assert.equal(one.status, 0, one.stderr)
+  assert.match(out(one), /검사: PR #901/, '댓글·리뷰로 깨어나면 그 PR을 본다')
+  assert.doesNotMatch(out(one), /검사: PR #902/, '그 PR만')
+  assert.doesNotMatch(one.calls, /FAIL GET .*\/files/, '필수 검사가 안 끝난 PR은 파일 목록을 받지 않음')
+  const all = exec(botNew, fx)
+  assert.match(out(all), /검사: PR #901[\s\S]*검사: PR #902/, '예약·수동 실행(대상 없음)은 열린 PR 전체를 본다')
+  assert.doesNotMatch(all.calls, /FAIL GET .*\/files/, '전체를 볼 때도 검사 대기 PR은 파일 조회 생략')
+  console.log('7 API 한도: 대상 PR만 조회·검사 대기 PR 파일 조회 생략·예약 실행은 전체 통과')
+}
 console.log('automerge-recovery.test.mjs: 전부 통과')
