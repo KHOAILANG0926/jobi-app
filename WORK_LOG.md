@@ -1,3 +1,9 @@
+## 2026-11-26 밤 — #1110 실증 완료·#1071 A안·생성기/검사기 불일치 조사(Claude)
+- 요청(Lee 11-26): #1110 실증 완료 처리·HANDOFF/WORK_LOG/#701 갱신, 보관 단계 '30일' 정정, #1071 A안(정기 DB 저장 차단 유지), 생성기·검사기 판정 불일치 조사, #1119 안전한 운영 반영 방법 검토.
+- 변경: #1124 Draft(crawl-catchup.sh+시험, crawl.yml sample_offset 입력·이름 정정, deploy-verify 보충 단계) / HANDOFF·WORK_LOG / #701 현행본 댓글 갱신.
+- 검증 [직접 확인]: 예약 실행 45876190486 crawl 성공·save skipped·보관물 확인, crawl-catchup.test.sh 10항목·automerge-recovery·post-merge-chain·secret-isolation·tsc·build 통과, 저장소 원문 11개 재현 master 3줄→#1119 0줄.
+- 남은 것: #1124 Approve·병합 뒤 실제 호출 확인, Lee 조회 실행, #1119는 웹 정상화 뒤(공개 전환 일시 중단은 대표 결정), 11-27 확인용 예약 작업 삭제는 권한 거부로 남음.
+
 ## 2026-11-26 저녁 — 크롤링 원문 보관 실증·검사표 원문 줄 빠짐(Claude)
 - 요청(Lee 11-26): #1110 실제 실행 검증, read-inspect-failures 결과 재사용, 원문 누락 12건 원인 묶어 해결(검사 기준 완화 금지·지점별 독립 공고·원문 보존), #701 체크리스트 갱신.
 - 변경: #1117(jobInspect 근무지 이름표 줄·job-inspect 같은 검사표 재알림 안 함) / #1118(read-source-lost-branches 조회) / #1119 Draft(jobDescriptionBuild가 inspectReading 기준으로도 빠짐 아닌 줄만 뺌, detail-fill RULE_FILES에 inspectReading) / 이 기록.
@@ -49,9 +55,3 @@
 - 변경: `src/app/biz/` — 기업 입구 `BizGate`(웹 RequireEmployer와 같은 서버 `account_roles` 판정, 조회 실패와 '기업 아님' 구분), 홈 `/biz`(통계·새 지원자·바로가기), 공고 관리 `/biz/quan-ly-tin`(내 공고 목록·긴급 표시·삭제 확인, 지원자 목록·공고별 거르기·상태 변경·지원 시점 CV 보기). 자료는 웹 대시보드와 같은 `fetchEmployerJobs`·`applicationsStorage`, 계산은 순수 함수 `bizView.ts`(+시험).
 - 검증 [직접 확인]: tsc·build·npm test 135/135, Playwright 게스트 10/10(기업 입구 로그인 안내·기업 탭 4개·redirect 유지·가입 시 기업 선택). 기업 계정 화면(공고·지원자·상태 변경)은 계정이 없어 직접 못 봄.
 - 남은 것: 공고 등록 6단계(`/biz/dang-tin`), 기업 정보(`/biz/doanh-nghiep`), 기업 쪽 메시지·면접 일정, 맞춤 조건.
-
-## 2026-11-25 — JOBI 앱 2단계 ③: 커뮤니티(목록·상세·글쓰기·댓글·좋아요·신고)
-- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 커뮤니티. 진행표 #1031.
-- 변경: `src/app/community/` — 목록(`/cong-dong`: 분류·검색·정렬, 웹과 같은 `lib/communityStorage.loadPosts`), 상세(`/cong-dong/:id`: 조회수·좋아요·댓글·신고 = 웹과 같은 `communityStorage`·`adminOperations.createReport`), 글쓰기 시트(웹과 같은 항목·검사·`addPost`, 사진 4장). 분류·검색·정렬·상대 시간은 순수 함수 `communityView.ts`(+시험). 로그인 안 한 글쓰기·좋아요·댓글·신고는 앱 로그인 화면으로.
-- 검증 [직접 확인]: tsc·build·npm test 134/134, Playwright 10/10(실제 글 6건 표시·분류·검색·비로그인 글쓰기→로그인·상세·없는 글 안내). 주의: 이 시험이 실제 글 1건을 열어 운영 조회수가 1 올라감(읽기 전용 아님을 몰랐음, 이후 시험은 글 열기 생략). 글쓰기·댓글·좋아요·신고 제출은 계정이 없어 직접 못 봄.
-- 남은 것: 맞춤 조건 설정(JobAlertsPanel), 기업 기능.
