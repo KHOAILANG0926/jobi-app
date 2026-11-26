@@ -545,7 +545,7 @@ if (BASE && jobId) {
     const errors = []; page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 140)))
     const diag = []; page.on('response', (r) => { if (/\/assets\//.test(r.url()) && (r.status() >= 400 || /html/.test(r.headers()['content-type'] ?? ''))) diag.push(`${r.status()} ${r.url().split('/').pop()} ${(r.headers()['content-type'] ?? '').slice(0, 20)}`) })
     page.on('console', (m) => { if (m.type() === 'error') diag.push('console: ' + m.text().slice(0, 100)) })
-    let navs = 0; page.on('framenavigated', (f) => { if (f === page.mainFrame()) navs++ })
+    let navs = 0; page.on('framenavigated', (f) => { if (f === page.mainFrame()) { navs++; errors.length = 0 } })  // 새로고침 전 옛 탭에서 난 오류는 복구 전 순간 오류라 새로고침 뒤 상태만 본다
     const mainScript = () => page.evaluate(() => [...document.scripts].map((x) => x.src).find((x) => /\/assets\/.*\.js/.test(x)) ?? '')
     try {
       await sw('old')
