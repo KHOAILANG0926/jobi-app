@@ -59,6 +59,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          # API 한도(#701 E, 2026-11-26): 검사 완료(workflow_run)로 깨어난 실행은 그 검사의 커밋 PR만, 댓글·리뷰로 깨어난 실행은 그 PR만 본다.
+          # 예약·수동 실행은 예전처럼 열린 PR 전체(놓친 PR 다시 보기). 실측: 실행마다 열린 PR ~15개 전부를 보던 것이 1.5시간 109번 → 저장소 토큰 시간당 한도 소진.
+          TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+          TARGET_PR: ${{ github.event.pull_request.number || github.event.issue.number || '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -76,7 +80,14 @@ jobs:
             gh api -X POST "repos/$REPO/issues/$1/comments" -f body="$mark
           봇 병합 보류(커밋 ${2:0:7}): $4" >/dev/null || echo "::warning::PR #$1 보류 사유 댓글 실패"
           }
-          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author,isCrossRepository --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName,(.author.login // ""),(.isCrossRepository|tostring)] | @tsv' |
+          # 재확인 상한(Lee 2026-11-24): head 커밋 또는 이 커밋에 대한 최신 리뷰 뒤 60분까지만 6분 뒤 다시 확인(판정기 RETRY_LIMIT_MINUTES와 같은 60분). 넘으면 사유를 기록하고 대표 판단에 넘긴다(자동 승인·병합 안 함).
+          # 기준 시각을 못 구한 것은 '60분 초과'가 아니라 조회 실패다 — head 커밋 시각으로 대신하고, 그것도 없으면 6분 뒤 다시 확인한다. 승인 판정 대기와 병합 직전 잠금 조회 실패가 같은 함수를 쓴다.
+          recheck_or_block() {  # recheck_or_block <사유 열쇠> <상한 초과 사유 글>  (num·sha·reviews.json·head_date는 호출한 PR 반복의 값)
+            since=$(jq -r --arg sha "$sha" --arg head "$head_date" -f scripts/ci/recheck-since.jq reviews.json 2>/dev/null) || since="$head_date"
+            wait_age=""; [ -n "$since" ] && wait_age=$(( ($(date -u +%s) - $(date -u -d "$since" +%s)) / 60 )) || true
+            if [ -z "$wait_age" ] || [ "$wait_age" -le 60 ]; then echo 6 >> codex-wait.txt; else block "$num" "$sha" "$1" "$2 — 기준 시각 ${since:-모름}"; fi
+          }
+          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author,isCrossRepository --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | select(((env.TARGET_SHA // "") == "" or .headRefOid == env.TARGET_SHA) and ((env.TARGET_PR // "") == "" or (.number|tostring) == env.TARGET_PR)) | [.number,.headRefOid,.headRefName,(.author.login // ""),(.isCrossRepository|tostring)] | @tsv' |
           while IFS=$'\t' read -r num sha branch author cross; do
             [ -n "$num" ] || continue
             # 기존 미완료 PR을 소급 자동병합하지 않음; 새 규정 시행 이후 PR만.
@@ -86,6 +97,13 @@ jobs:
             # (#955: 2026-11-22부터 7분 간격 반복, run 45288046609). 두 곳의 대상을 같게 맞춘다 — 포크 허용 여부(#956)는 대표 결정이라 여기서 바꾸지 않는다.
             if [ "$cross" != false ]; then block "$num" "$sha" fork "포크 저장소에서 온 PR이라 병합 조건 검사(approval-gate) 판정 대상이 아님 — 같은 저장소 브랜치로 다시 올려야 병합 가능(포크 허용은 #956 대표 결정)"; continue; fi
             # github-actions[bot]이 임의 외부 fork 소스를 실행하지 않는다: API 데이터만 검사.
+            # API 한도(#701 E): 필수 검사가 아직 안 끝난 PR은 파일 목록을 받기 전에 건너뛴다(검사 1번 조회로 끝, 판정 순서·조건은 그대로).
+            checks=$(bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha") || { echo "::warning::PR #$num 검사 목록 조회 실패: 병합 안 함"; continue; }
+            echo "$checks" | jq -c '.'
+            # 이 커밋의 4종 필수 체크 성공, 실패/실행 중인 체크 없어야 함
+            if ! echo "$checks" | jq -e -f scripts/ci/required-checks-pass.jq >/dev/null; then
+              echo "PR #$num 검사 대기/실패: 병합 생략"; continue
+            fi
             gh api "repos/$REPO/pulls/$num/files?per_page=100" --paginate --slurp | jq 'add' > files.json
             node scripts/approved-migrations.mjs files.json > approved-migrations.json
             if jq --slurpfile approved approved-migrations.json -e '.[] | select((.filename as $path | $approved[0] | index($path) | not) and (.filename|startswith("supabase/migrations/")) and ((.patch // "") | test("(?im)^\\+(?!\\s*--)\\s*.*\\b(drop[[:space:]]+(table|column|schema|policy)|truncate|delete[[:space:]]+from|alter[[:space:]]+table[^;]*drop)\\b")))' files.json >/dev/null; then
@@ -95,18 +113,12 @@ jobs:
             if jq -e '.[] | select((.filename|startswith("supabase/migrations/")) and (.patch==null))' files.json >/dev/null; then
               echo "::notice::PR #$num migration patch 없음: 병합 금지"; continue
             fi
-            checks=$(bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha") || { echo "::warning::PR #$num 검사 목록 조회 실패: 병합 안 함"; continue; }
-            echo "$checks" | jq -c '.'
             # DB 변경 PR은 disposable PostgreSQL 실제 적용 성공 없이는 절대 병합하지 않는다.
             if jq -e '.[] | select(.filename|startswith("supabase/migrations/"))' files.json >/dev/null; then
               if ! echo "$checks" | jq -e 'any(.[]; .name=="migration-postgres" and .status=="completed" and .conclusion=="success")' >/dev/null; then
                 echo "::warning::PR #$num migration-postgres 검증 없음/실패: 자동 병합 금지"
                 continue
               fi
-            fi
-            # 이 커밋의 4종 필수 체크 성공, 실패/실행 중인 체크 없어야 함
-            if ! echo "$checks" | jq -e -f scripts/ci/required-checks-pass.jq >/dev/null; then
-              echo "PR #$num 검사 대기/실패: 병합 생략"; continue
             fi
             # 결정 문서·CODEOWNERS 변경은 현재 head 커밋에 Lee 승인이 있어야 병합(Lee 2026-10-28, 방법 A).
             # 승인이 없으면 병합하지 않고 PR에 쉬운 말 승인 요청을 한 번 남긴다. 다른 PR은 영향 없음.
@@ -201,10 +213,7 @@ jobs:
               if [ "$gate" = pending ]; then
                 # 기준 시각을 못 구한 것(판정 파일 없음·jq 오류·커밋 시각 조회 실패)은 '60분 초과'가 아니라 조회 실패다 — head 커밋 시각으로 대신하고, 그것도 없으면 6분 뒤 다시 확인한다
                 # (실행 45293080396: pull_request_review 실행은 PR 브랜치의 이 파일로 돌고 scripts는 master 사본이라 새 판정 파일이 없어 빈 값 → 방금 Approve한 #995를 '판정 불가'로 보류함).
-                since=$(jq -r --arg sha "$sha" --arg head "$head_date" -f scripts/ci/recheck-since.jq reviews.json 2>/dev/null) || since="$head_date"
-                wait_age=""; [ -n "$since" ] && wait_age=$(( ($(date -u +%s) - $(date -u -d "$since" +%s)) / 60 )) || true
-                if [ -z "$wait_age" ] || [ "$wait_age" -le 60 ]; then echo 6 >> codex-wait.txt
-                else block "$num" "$sha" gate-timeout "병합 조건 검사(approval-gate) 판정이 60분 넘게 나오지 않음(기준 시각 $since) — 판정 불가, 대표 판단 필요(자동 승인·병합 안 함)"; fi
+                recheck_or_block gate-timeout "병합 조건 검사(approval-gate) 판정이 60분 넘게 나오지 않음 — 판정 불가, 대표 판단 필요(자동 승인·병합 안 함)"
               fi
               continue
             fi
@@ -219,6 +228,8 @@ jobs:
             elif [ "$lock_rc" != 0 ]; then
               echo "::error::PR #$num 병합 직전 운영 배포 잠금 재확인 실패(코드 $lock_rc): $(cat lock.txt)"
               echo "- PR #$num 운영 배포 잠금 재확인 실패 — 병합 보류: $(cat lock.txt)" >> "$GITHUB_STEP_SUMMARY"
+              # 조회 실패(코드 4, API 한도·일시 오류)는 영구 차단이 아니다 — 기존 다시 확인 장치로 6분 뒤 다시 본다(상한 60분). 잠금 있음(코드 3)·그 밖의 종료 코드는 재시도로 풀리지 않으므로 예약하지 않는다.
+              [ "$lock_rc" = 4 ] && recheck_or_block lock-check-timeout "운영 배포 잠금 조회가 60분 넘게 실패 — 판정 불가, 대표 판단 필요(자동 병합 안 함)"
               continue
             fi
             if merge_out=$(gh api -X PUT "repos/$REPO/pulls/$num/merge" -f merge_method=squash -f sha="$sha" -f commit_title="$title (#$num)" 2>&1); then

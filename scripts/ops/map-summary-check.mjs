@@ -147,17 +147,25 @@ try {
   await page.evaluate(point=>localStorage.setItem('vgb:map-r1:viewport',JSON.stringify({center:{lat:Number(point.lat),lng:Number(point.lng)},zoom:16})),target)
   await page.goto(base,{waitUntil:'domcontentloaded'})
   await page.locator('.hme__map').scrollIntoViewIfNeeded()
-  const actual=page.locator('.hme-map '+markerSelector).first()
+  // 클릭할 마커 = 시험 대상 지점(target)이 든 마커다. 예전에는 DOM 첫 마커(.first())를 force 클릭했는데, 그 자리가 옆 패널의 카테고리 버튼에 덮여 있으면
+  // 마커가 아니라 그 버튼이 눌렸다(#934, 운영 화면 읽기 전용 관찰: 상세·선택 목록이 안 나와 timeout, 또는 엉뚱한 목록의 상세 링크로 통과). 대기 시간·검사 조건은 그대로.
+  const markers=page.locator('.hme-map '+markerSelector)
+  await markers.first().waitFor({timeout:60000})
+  const own=await markers.evaluateAll((els,id)=>els.findIndex(el=>JSON.parse(el.getAttribute('data-location-points')).some(p=>String(p.workLocationId)===String(id))),target.workLocationId)
+  assert.ok(own>=0,'target point has its own rendered marker')
+  const actual=markers.nth(own)
   await actual.waitFor({timeout:60000})
-  await actual.click({force:true})
+  const groupSize=await actual.evaluate(el=>JSON.parse(el.getAttribute('data-location-points')).length)  // 클릭하면 마커가 다시 그려지므로 미리 읽는다
+  await actual.click()  // force 없음: 다른 요소에 덮여 있으면 눌린 척 통과하지 않고 실패한다
   const detail=page.locator('.hme-job__actions a').filter({hasText:'Xem chi tiết'})
-  if(!await detail.count()) {
-   const choice=page.locator('.hme-map__job-picker button').first()
-   await choice.waitFor({timeout:10000})
-   await choice.click()
-  }
+  const choice=page.locator('.hme-map__job-picker button').first()
+  await detail.or(choice).first().waitFor({timeout:10000})  // 단일 공고 마커는 상세, 여러 공고 마커는 선택 목록 — 먼저 나오는 쪽
+  if(!await detail.count()) await choice.click()
   await detail.waitFor({timeout:10000})
-  assert.match(await detail.getAttribute('href'),/^\/viec-lam\//)
+  const href=await detail.getAttribute('href')
+  assert.match(href,/^\/viec-lam\//)
+  const owner=snapshot.find(j=>j.points.includes(target))
+  if(groupSize===1) assert.equal(href,`/viec-lam/sb-${owner.id}`,'single-job marker opens that job')
   const directions=page.locator('.hme-job__actions a').filter({hasText:/Chỉ đường|Đến cổng KCN|Xem khu vực/})
   await directions.waitFor()
   assert.match(await directions.getAttribute('href'),/^https:\/\/(www\.)?google\.com\/maps/,'selected point directions')

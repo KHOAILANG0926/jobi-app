@@ -29,6 +29,8 @@ jobs:
           node supabase/tests/detail_line_kinds.pglite.test.mjs
           node supabase/tests/job_duplicate_check.pglite.test.mjs
           node supabase/tests/branch_job_identity.pglite.test.mjs
+          node supabase/tests/ingest_write_guard.pglite.test.mjs
+          node supabase/tests/job_apply_and_contact_gate.pglite.test.mjs
           node supabase/tests/job_signal_dispatch.pglite.test.mjs
           node supabase/tests/ocr_check_merge.pglite.test.mjs
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs supabase/tests/ocr_inspect_republish.pglite.test.mjs

@@ -1,6 +1,6 @@
 import { parseStreetAddress, isWideAreaAddress, isDetailedAddress, hasConflictingProvinces, pickAddressHit, judgeAddressPois, ADDRESS_STRATEGY } from './addressLocate.ts'
 import { runAutoLocate, type AutoLocateDeps, type AutoLocateJob } from './chototAutoLocate.ts'
-import { DailyLimitError } from './adminVietmapClient.ts'
+import { DailyLimitError } from './vietmapErrors.ts'
 import { correctedAddressAccuracy } from './jobRows.ts'
 
 function assert(cond: boolean, msg: string) { if (!cond) throw new Error(`FAIL: ${msg}`) }
