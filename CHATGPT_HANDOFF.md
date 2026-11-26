@@ -1,5 +1,6 @@
 # HANDOFF — 2026-11-26 (Claude) · 크롤링 원문 보관·검사표 원문 줄 빠짐 정리
 ## 1. 현재 상태
+- 우리 사업장 위치 기억(Lee 2026-11-26): 같은 회사 + 같은 사업장(same_site_address)의 확정 좌표가 있으면 Google 등을 다시 부르지 않음 — DB public.location_site_memory(읽기만, 기존 좌표 안 바꿈) → autoLocationResolver ⓪, 로고 찾기는 같은 사업장 공고의 장소 번호 재사용. PR claude/location-site-memory(함수 추가·규칙 문서 — Lee Approve 대상). 남은 것: 11-10 이전 Google 줄 출처가 'source_evidence'로 묶인 것(기억 재사용은 되지만 출처 표시 정정은 데이터 전환 — dry-run 뒤 Lee 확인).
 - 대표 확정 순위(Lee 2026-11-24): **1순위** 자동 병합 실패 복구·작업 큐 연결 — 완료(#995·#996). **2순위** 기존 다중 지점 공고 전환 — 완료(#998 dry-run 45314812701 → #999 병합 d1096b5 → migrations-apply 45320415496·production_check 통과 → deploy-verify 45320987633 성공 → #4825·#5992·#5994 실제 결과 = 예상, 계획 문서 docs/plans/2026-11-24-multi-branch-conversion.md 8절). **3순위** 격리 Preview 차등 검증 — 1차 #1000 병합 4a45151(변경 영향 범위로 기존 검사 고르기, 미분류 파일은 전부), 2차 = DB 변경 PR의 격리 DB 전후 대조(migration-postgres, public-location-snapshot/diff) PR.
 - 전환 결과: #4825 그대로(비공개), #5992 줄 1798·#5994 줄 1778만 남고 핀 그대로, 나머지 지점(줄 1776·1800)은 위치 보류함(원래 줄은 retained_rows에 보존). 새 공고 0건.
 - #1004 종료(2026-11-24): #1005·#1006 병합, 승인 안내 멘션·직접 링크와 운영 검사 완료 댓글의 실제 발송 확인(deploy-verify 45379834976, #1006 댓글). 실패 알림 실제 발송·Lee 단말 수신은 미확인(분리 표기).

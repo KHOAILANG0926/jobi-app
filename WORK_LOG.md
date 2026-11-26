@@ -1,3 +1,9 @@
+## 2026-11-26 — 우리 사업장 위치 기억(Claude): 같은 공장을 Google에 다시 묻지 않기
+- 요청(Lee 11-26 "진행하자"): Google로 확정된 위치도 회사 위치 기억으로 재사용, 성조·띄어쓰기·지역 꼬리만 다른 주소도 같은 사업장으로.
+- 변경: migration 20261126090000_location_site_memory(public.location_site_memory, 확정 줄만 읽기·same_site_address 재사용) / autoLocationResolver ⓪(기억 → Google·VietMap·Goong, 300m 넘게 어긋나면 안 씀, 원래 출처 유지) / auto-location-runtime siteMemory·로고 찾기 장소 번호 재사용 / CLAUDE.md 「공고 위치 확인 프로세스」5번 ①-2·RULES_CORE.
+- 검증 [직접 확인]: 로컬 PostgreSQL 16에서 CI 순서(fixture→reference→setup→migration→local→production_check→전후 대조 '변화 없음'), siteMemory.test·_logo-lookup.test·autoLocationResolver·googleQuotaCache·locationPrecheck·api 위치 시험, tsc.
+- 남은 것: 11-10 이전 Google 줄 출처 표시 정정(데이터 전환, dry-run 뒤 Lee 확인).
+
 ## 2026-11-26 밤 — #1110 실증 완료·#1071 A안·생성기/검사기 불일치 조사(Claude)
 - 요청(Lee 11-26): #1110 실증 완료 처리·HANDOFF/WORK_LOG/#701 갱신, 보관 단계 '30일' 정정, #1071 A안(정기 DB 저장 차단 유지), 생성기·검사기 판정 불일치 조사, #1119 안전한 운영 반영 방법 검토.
 - 변경: #1124 Draft(crawl-catchup.sh+시험, crawl.yml sample_offset 입력·이름 정정, deploy-verify 보충 단계) / HANDOFF·WORK_LOG / #701 현행본 댓글 갱신.
@@ -49,9 +55,3 @@
 - 검증 [직접 확인]: tsc·build·npm test 136/136, Playwright 14/14(가짜 구직자·기업 세션, 쓰기 호출은 전부 가로채 실제 DB 쓰기 없음: 대화 열기·보내기·면접 시트 → 일정 저장+지원 상태 변경 호출 순서 확인). 실제 계정 화면은 직접 못 봄.
 - 대표 결정 필요: 회사 소개 같은 별도 '기업 정보' 저장소는 지금 DB에 없어(웹에도 없음) 만들지 않음 — DB 구조 변경(STRICT)이라 Lee 결정 필요.
 - 남은 것: 맞춤(Phù hợp) 조건 설정, 알림.
-
-## 2026-11-25 — JOBI 앱 2단계 ④: 기업 탭 홈·공고 관리·지원자 관리
-- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 기업 기능 첫 묶음. 진행표 #1031.
-- 변경: `src/app/biz/` — 기업 입구 `BizGate`(웹 RequireEmployer와 같은 서버 `account_roles` 판정, 조회 실패와 '기업 아님' 구분), 홈 `/biz`(통계·새 지원자·바로가기), 공고 관리 `/biz/quan-ly-tin`(내 공고 목록·긴급 표시·삭제 확인, 지원자 목록·공고별 거르기·상태 변경·지원 시점 CV 보기). 자료는 웹 대시보드와 같은 `fetchEmployerJobs`·`applicationsStorage`, 계산은 순수 함수 `bizView.ts`(+시험).
-- 검증 [직접 확인]: tsc·build·npm test 135/135, Playwright 게스트 10/10(기업 입구 로그인 안내·기업 탭 4개·redirect 유지·가입 시 기업 선택). 기업 계정 화면(공고·지원자·상태 변경)은 계정이 없어 직접 못 봄.
-- 남은 것: 공고 등록 6단계(`/biz/dang-tin`), 기업 정보(`/biz/doanh-nghiep`), 기업 쪽 메시지·면접 일정, 맞춤 조건.

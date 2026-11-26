@@ -408,7 +408,8 @@ Claude Code·Cursor·Codex 모두 적용한다(`.cursor/rules/project-rules.mdc`
    - 같은 검색은 동시에 돌리지 않는다(워크플로 concurrency로 강제).
 5. 위치 자료 관리·재사용 기준(Lee 2026-11-09 결정, 11-10 정비 — 새 규칙이 아니라 이미 있는 장치의 순서):
    - ① 우리 확정 위치 먼저: 관리자 확정 기억표가 같은 회사 이름 + 같은 주소 글자 열쇠이면 Google 없이 다시 쓴다(위치 확인 `location_memory_point`·등록 뒤 재사용 `valid_memory_targets`가 같은 자격 `location_private.eligible_memory`를 읽음).
-   - ② Google 결과: 비공개 저장(research_artifacts map-r1-query)에서 검색 글자 완전 일치일 때만 다시 쓴다(`googleCacheKeys`). 비슷한 사업장·다른 지점 자동 병합 금지(Lee 11-10 "나").
+   - ①-2 우리 사업장 위치 기억(Lee 2026-11-26 "같은 공장을 다시 묻지 않게"): 같은 회사(회사 열쇠 또는 표기만 다름) + 같은 사업장(`location_private.same_site_address` — 성조·대소문자·띄어쓰기·뒤에 붙은 지역 이름만 다름)에 이미 확정된 좌표(위치 원본의 확정 줄: Google·VietMap·관리자 확정)가 있으면 Google·VietMap·Goong을 다시 부르지 않고 그 좌표를 쓴다(DB `public.location_site_memory` 한 곳 → `autoLocationResolver` ⓪). 원래 출처는 그대로 남긴다. 번지·로트·공단 번호·'mở rộng'이 다르면 다른 곳, 기억끼리 300m 넘게 어긋나면 쓰지 않는다(다른 지점 병합 금지 그대로). 로고 찾기는 같은 사업장 공고가 기록한 Google 장소 번호를 다시 쓴다(새 검색 없음).
+   - ② Google 결과: 비공개 저장(research_artifacts map-r1-query)에서 검색 글자 완전 일치일 때만 다시 쓴다(`googleCacheKeys`). 비슷한 사업장·다른 지점 자동 병합 금지(Lee 11-10 "나"). 같은 사업장 재사용은 ①-2가 맡는다.
    - ③ 공고 위치 원본에는 출처를 남긴다: VietMap(번지 검증)·admin_approved·poster_pin·Google·그 밖(`location_private.safe_source`). 기존 위치 줄·좌표는 바꾸지 않는다.
    - ④ 한도 초과·못 찾음은 비공개 보류함(location-hold)으로, 상태별 건수는 저녁 8시 보고.
 
