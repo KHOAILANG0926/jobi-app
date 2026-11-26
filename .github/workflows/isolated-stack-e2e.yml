@@ -61,6 +61,7 @@ jobs:
             const r = JSON.parse(require('fs').readFileSync('compare.json','utf8'));
             let out = '## 운영(PG17) ↔ 격리(PG17) 구조 대조\n';
             for (const [k, v] of Object.entries(r)) out += '- ' + k + ': 다름 ' + v.differ.length + ' / 운영에만 ' + v.onlyProd.length + ' / 격리에만 ' + v.onlyIso.length + '\n';
+            for (const [k, v] of Object.entries(r)) { if (v.differ.length) out += '\n### ' + k + ' — 지문이 다른 항목\n' + v.differ.slice(0, 80).map((n) => '- ' + n).join('\n') + '\n'; if (v.onlyIso.length) out += '\n### ' + k + ' — 격리에만 있는 항목\n' + v.onlyIso.slice(0, 80).map((n) => '- ' + n).join('\n') + '\n'; }
             const chk = r.constraints?.differ ?? [];
             out += '\n### CHECK 검사식 지문이 다른 제약 (' + chk.length + ')\n' + chk.slice(0, 120).map((n) => '- ' + n).join('\n') + '\n';
             console.log(out); require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY, out);
