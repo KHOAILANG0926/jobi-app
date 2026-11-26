@@ -57,11 +57,20 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PROD_CATALOG_RUN/logs" > prod-catalog.zip
           unzip -p prod-catalog.zip "$(unzip -Z1 prod-catalog.zip | grep -v / | head -1)" > prod-catalog.log
           node scripts/ops/schema-catalog-compare.mjs prod-catalog.log iso-catalog.txt --json > compare.json || true
-          node -e "
-            const r = JSON.parse(require('fs').readFileSync('compare.json','utf8'));
+          node --input-type=module -e "
+            import fsm from 'node:fs'; const require = (m) => m === 'fs' ? fsm : null;
+            const r = JSON.parse(fsm.readFileSync('compare.json','utf8'));
             let out = '## 운영(PG17) ↔ 격리(PG17) 구조 대조\n';
             for (const [k, v] of Object.entries(r)) out += '- ' + k + ': 다름 ' + v.differ.length + ' / 운영에만 ' + v.onlyProd.length + ' / 격리에만 ' + v.onlyIso.length + '\n';
             for (const [k, v] of Object.entries(r)) { if (v.differ.length) out += '\n### ' + k + ' — 지문이 다른 항목\n' + v.differ.slice(0, 80).map((n) => '- ' + n).join('\n') + '\n'; if (v.onlyIso.length) out += '\n### ' + k + ' — 격리에만 있는 항목\n' + v.onlyIso.slice(0, 80).map((n) => '- ' + n).join('\n') + '\n'; }
+            const { parseCatalog } = await import('./scripts/ops/schema-catalog-compare.mjs');
+            const P = parseCatalog(require('fs').readFileSync('prod-catalog.log','utf8'),'p'), I = parseCatalog(require('fs').readFileSync('iso-catalog.txt','utf8'),'i');
+            const rk = (x) => x.schema + '.' + x.name + '(' + (x.params ?? []).map((q) => q.mode + ':' + q.udt).join(',') + ')';
+            const pm = new Map(P.routines.rows.map((x) => [rk(x), x])), im = new Map(I.routines.rows.map((x) => [rk(x), x]));
+            out += '\n### 함수 차이 종류(본문 지문/실행 권한/search_path 중 무엇이 다른지)\n';
+            for (const n of r.routines.differ) { const a = pm.get(n), b = im.get(n); if (a && b) out += '- ' + n.slice(0, 70) + ': ' + [a.body_md5 !== b.body_md5 && '본문', JSON.stringify(a.exec) !== JSON.stringify(b.exec) && '실행권한 운영=' + JSON.stringify(a.exec) + ' 격리=' + JSON.stringify(b.exec), JSON.stringify(a.search_path) !== JSON.stringify(b.search_path) && 'search_path'].filter(Boolean).join(' + ') + '\n'; }
+            out += '\n### 열 차이 종류\n';
+            for (const n of r.columns.differ) { const [t, c] = n.split('.'); const a = P.columns.rows.find((x) => x.t === t && x.c === c), b = I.columns.rows.find((x) => x.t === t && x.c === c); if (a && b) out += '- ' + n + ': ' + ['udt', 'null', 'len', 'ident', 'def_md5'].filter((f) => a[f] !== b[f]).map((f) => f + (f === 'def_md5' ? '(지문 다름)' : ' 운영=' + a[f] + ' 격리=' + b[f])).join(', ') + '\n'; }
             const chk = r.constraints?.differ ?? [];
             out += '\n### CHECK 검사식 지문이 다른 제약 (' + chk.length + ')\n' + chk.slice(0, 120).map((n) => '- ' + n).join('\n') + '\n';
             console.log(out); require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY, out);
