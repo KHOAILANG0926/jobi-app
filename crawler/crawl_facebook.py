@@ -27,7 +27,7 @@ load_dotenv(Path(__file__).parent / ".env")
 
 from job_quality import ascii_key, extract_phone, has_excluded_money_terms
 from job_posting_policy import evaluate_job_posting_policy, crawler_policy_errors
-from job_criteria import deadline_passed, has_enough_contact, today_vn
+from job_criteria import has_enough_contact, today_vn
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
 from occupation_classifier import occupation_fields
 from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
@@ -292,9 +292,8 @@ def extract_deadline(text: str) -> str | None:
     if m:
         d, mo, y = m.groups()
         try:
-            deadline = f"{y}-{int(mo):02d}-{int(d):02d}"
-            if not deadline_passed(deadline, TODAY):  # 마감 당일은 열림(1-B F2) — 지난 날짜는 기존대로 기한에서만 뺀다
-                return deadline
+            # 지난 날짜도 그대로 돌려준다(#973): 예전엔 빼서 '마감 없음'으로 공개됐다 — 마감 지난 새 공고는 등록 입구가 원문과 함께 보류함에 남긴다.
+            return date(int(y), int(mo), int(d)).isoformat()
         except Exception:
             pass
     return None
@@ -1391,6 +1390,7 @@ FB_DB_COLUMNS = {
     "education",
     "employer_id",
     "employer_phone",
+    "employment_type",
     "hire_count",
     "hours",
     "image_url",

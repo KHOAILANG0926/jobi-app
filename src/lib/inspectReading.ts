@@ -58,6 +58,11 @@ export function contactRepeat(line: string, shown: string[]): boolean {
 }
 
 /** 원문 줄에 급여 금액(단위가 붙은 숫자 또는 천 단위 숫자)이 있는가. */
+// 연락처 있음 = 전화·Zalo 숫자 8자리 이상(DB 공개 게이트 job_publish_gate_reason·crawler/job_criteria.has_enough_contact와 같은 기준, #973).
+// 검사기 독립성(R2 #753)상 policy JSON을 import하지 않고 값을 여기 둔다 — 같은 값인지는 jobCriteria.test.ts가 지킨다.
+export const INSPECT_CONTACT_DIGITS = 8
+export function enoughContact(value: unknown): boolean { return String(value ?? '').replace(/\D/g, '').length >= INSPECT_CONTACT_DIGITS }
+
 export function hasPayAmount(line: string): boolean {
   const f = fold(line)
   return /\d[\d ]*(?:k|tr|trieu|d|vnd|dong)\b/.test(f) || /\d{1,3}(?: \d{3}){1,3}/.test(f) || /\d[\d.,]*\s*(?:k|tr|triệu|đ|vnd)(?![\p{L}])/iu.test(line)   // \b는 ASCII 기준이라 "22 trở"의 tr 뒤 ở를 경계로 봐 급여로 오인했다(2026-11-12 운영 대조 sb-4878·5405) || /\d{1,3}(?:[.,]\d{3}){1,3}/.test(line)

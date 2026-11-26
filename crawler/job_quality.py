@@ -8,7 +8,7 @@ from datetime import date
 
 import classifier
 from job_posting_policy import evaluate_job_posting_policy, has_excluded_money_role, crawler_policy_errors
-from job_criteria import deadline_passed, has_enough_contact
+from job_criteria import has_enough_contact
 
 
 # Pure mirror of crawl_category()'s in-browser line-parsing JS in
@@ -830,11 +830,6 @@ def has_excluded_money_terms(title="", company="", description="", category=""):
     return classify_money_job_exclusion(title, company, description, category)[0]
 
 
-def is_expired(deadline: object, today: str | None = None) -> bool:
-    # 1-B(F2): 마감 당일은 열림(화면·알림 RPC와 같은 기준), 오늘은 베트남 날짜 — 기준은 job_criteria 한 곳.
-    return deadline_passed(normalize_whitespace(deadline), today)
-
-
 def validate_job_payload(job: dict, source: str = "vieclam24h", today: str | None = None) -> list[str]:
     errors: list[str] = []
     title = normalize_whitespace(job.get("title"))
@@ -868,8 +863,8 @@ def validate_job_payload(job: dict, source: str = "vieclam24h", today: str | Non
     # 재판정은 반대로 active=false로 정상 강등돼야 하는데 이 검사 때문에
     # build_job_record()가 그 결과를 "quality_invalid"로 스킵해버려 강등
     # 자체가 조용히 실패하는 버그가 됐었다(단일 파이프라인 통합 중 발견).
-    if is_expired(job.get("application_deadline"), today=today):
-        errors.append("deadline is expired")
+    # 마감 지남은 품질 오류가 아니다(#973): 새 공고는 등록 입구가 원문과 함께 보류함(rejected·deadline_expired)에 남기고,
+    # 기존 공고 다시 수집은 upsert_job_record가 갱신하지 않는다 — 여기서 버리면 원문이 남지 않는다.
 
     return errors
 
