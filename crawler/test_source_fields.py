@@ -1,5 +1,5 @@
 """source_fields 단위 시험: 원문 근거 칸 추출·규칙 거부 집계."""
-from source_fields import (RuleRejections, build_source_text, extract_age_range, extract_contact_name, extract_employment_type,
+from source_fields import (RuleRejections, build_source_text, extract_age_range, extract_contact_name, extract_employment_type, extract_employment_type_extra,
                            rule_code, source_fields)
 
 
@@ -41,6 +41,22 @@ def test_employment_type_only_from_explicit_words():
     assert extract_employment_type("") is None and extract_employment_type(None) is None
     # 낱말 일부(다른 낱말 안)는 근거가 아니다
     assert extract_employment_type("Tuyển thời vụa") is None and extract_employment_type("fulltimer") is None
+
+
+def test_employment_type_extra_only_from_explicit_words():
+    """추가 고용형태(#622 후속, Lee 2026-11-25 고용형태 판독): 인턴·협력자 낱말이 한 종류일 때만. 계약(hợp đồng)은 읽지 않는다."""
+    assert extract_employment_type_extra("Tuyển thực tập sinh kế toán") == "internship"
+    assert extract_employment_type_extra("Nhận sinh viên thực tập, có hỗ trợ") == "internship"
+    assert extract_employment_type_extra("Thời gian thực tập 2 tháng") is None, "인턴 사원 낱말이 아니면 근거 아님"
+    assert extract_employment_type_extra("Tuyển CTV bán hàng online") == "collaborator"
+    assert extract_employment_type_extra("Cần tuyển gấp cộng tác viên part-time") == "collaborator"
+    # 실제 원문(TEFAL, src/lib/realJobs.fixtures.ts): 소개 보상 프로그램 — 고용형태가 아니다
+    assert extract_employment_type_extra("Chương trình cộng tác viên: 500.000đ/ứng viên tham gia phỏng vấn") is None
+    assert extract_employment_type_extra("Tuyển thực tập sinh. Tuyển CTV bán hàng") is None, "여러 종류는 고르지 않음"
+    assert extract_employment_type_extra("Ký hợp đồng lao động sau thử việc") is None, "근로계약 문구는 근거가 아님"
+    assert extract_employment_type_extra("Không nhận thực tập") is None
+    assert extract_employment_type_extra("Lương 8 triệu") is None and extract_employment_type_extra(None) is None
+    assert source_fields("Tuyển CTV", "Bán hàng")["employment_type_extra"] == "collaborator"
 
 
 def test_source_text_is_verbatim_join():

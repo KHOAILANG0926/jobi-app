@@ -1,4 +1,6 @@
 import type { Job } from '../types/job'
+import { kvLocal } from './kvStore'
+import { emitEvent } from './eventBus'
 
 const POSTED_KEY = 'vgb_posted_jobs'
 const PROFILE_KEY = 'vgb_profile'
@@ -10,7 +12,7 @@ function scopedKey(key: string, scope?: string): string {
 
 export function loadPostedJobs(): Job[] {
   try {
-    const raw = localStorage.getItem(POSTED_KEY)
+    const raw = kvLocal.get(POSTED_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as Job[]
     return Array.isArray(parsed) ? parsed : []
@@ -21,19 +23,19 @@ export function loadPostedJobs(): Job[] {
 
 export function savePostedJob(job: Job): void {
   const existing = loadPostedJobs()
-  localStorage.setItem(POSTED_KEY, JSON.stringify([job, ...existing]))
+  kvLocal.set(POSTED_KEY, JSON.stringify([job, ...existing]))
 }
 
 export function deletePostedJob(id: string): void {
   const updated = loadPostedJobs().filter((j) => j.id !== id)
-  localStorage.setItem(POSTED_KEY, JSON.stringify(updated))
-  window.dispatchEvent(new CustomEvent('vgb:jobs'))
+  kvLocal.set(POSTED_KEY, JSON.stringify(updated))
+  emitEvent('jobs')
 }
 
 export function updatePostedJob(id: string, patch: Partial<Job>): void {
   const updated = loadPostedJobs().map((j) => (j.id === id ? { ...j, ...patch } : j))
-  localStorage.setItem(POSTED_KEY, JSON.stringify(updated))
-  window.dispatchEvent(new CustomEvent('vgb:jobs'))
+  kvLocal.set(POSTED_KEY, JSON.stringify(updated))
+  emitEvent('jobs')
 }
 
 export interface SeekerProfile {
@@ -46,7 +48,7 @@ export interface SeekerProfile {
 
 export function hasStoredProfile(scope?: string): boolean {
   try {
-    return localStorage.getItem(scopedKey(PROFILE_KEY, scope)) !== null
+    return kvLocal.get(scopedKey(PROFILE_KEY, scope)) !== null
   } catch {
     return false
   }
@@ -66,7 +68,7 @@ export function createEmptyProfile(): SeekerProfile {
 
 export function loadProfile(scope?: string): SeekerProfile {
   try {
-    const raw = localStorage.getItem(scopedKey(PROFILE_KEY, scope))
+    const raw = kvLocal.get(scopedKey(PROFILE_KEY, scope))
     if (!raw) return scope ? createEmptyProfile() : { ...defaultProfile }
     return { ...defaultProfile, ...JSON.parse(raw) }
   } catch {
@@ -75,8 +77,8 @@ export function loadProfile(scope?: string): SeekerProfile {
 }
 
 export function saveProfile(p: SeekerProfile, scope?: string): void {
-  localStorage.setItem(scopedKey(PROFILE_KEY, scope), JSON.stringify(p))
-  window.dispatchEvent(new CustomEvent('vgb:profile-saved'))
+  kvLocal.set(scopedKey(PROFILE_KEY, scope), JSON.stringify(p))
+  emitEvent('profile-saved')
 }
 
 // 저장한 공고는 계정별로 분리한다(scope = user.id) — 미로그인(scope 없음)일 때는
@@ -87,7 +89,7 @@ export function saveProfile(p: SeekerProfile, scope?: string): void {
 // 붙기 전까지는 "이 브라우저에서 로그인한 계정" 범위로만 분리됨).
 export function loadSavedJobIds(scope?: string): string[] {
   try {
-    const raw = localStorage.getItem(scopedKey(SAVED_KEY, scope))
+    const raw = kvLocal.get(scopedKey(SAVED_KEY, scope))
     if (!raw) return []
     const parsed = JSON.parse(raw) as string[]
     return Array.isArray(parsed) ? parsed : []
@@ -101,13 +103,13 @@ export function toggleSavedJobId(id: string, scope?: string): boolean {
   const ids = new Set(loadSavedJobIds(scope))
   if (ids.has(id)) {
     ids.delete(id)
-    localStorage.setItem(key, JSON.stringify([...ids]))
-    window.dispatchEvent(new CustomEvent('vgb:saved-jobs'))
+    kvLocal.set(key, JSON.stringify([...ids]))
+    emitEvent('saved-jobs')
     return false
   }
   ids.add(id)
-  localStorage.setItem(key, JSON.stringify([...ids]))
-  window.dispatchEvent(new CustomEvent('vgb:saved-jobs'))
+  kvLocal.set(key, JSON.stringify([...ids]))
+  emitEvent('saved-jobs')
   return true
 }
 

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { APPLICATION_STATUS_META, cancelApplication, loadApplications, subscribeApplications, type JobApplication } from '../../lib/applicationsStorage'
+import { onEvent } from '../../lib/eventBus'
 
 const fmt = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('vi-VN') }
 
@@ -20,9 +21,9 @@ export default function ApplicationsScreen() {
   }, [user?.id])
   useEffect(() => {
     reload()
-    window.addEventListener('vgb:applications', reload)
+    const offEvent = onEvent('applications', reload)
     const off = user?.id ? subscribeApplications(reload) : () => {}
-    return () => { window.removeEventListener('vgb:applications', reload); off() }
+    return () => { offEvent(); off() }
   }, [reload, user?.id])
 
   const cancel = async (a: JobApplication) => {

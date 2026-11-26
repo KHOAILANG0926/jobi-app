@@ -5,6 +5,7 @@ DB 규칙 장치(job_posting_rules, PR #60·#62)가 요구하는 값을 수집 �
 - contact_name: 원문에 있으면 원문 글자 그대로의 부분 문자열, 없으면 None.
 - age_min/age_max: 원문에 연령 범위("14-50t", "18-35 tuổi", "tuổi: 18-35")가 있을 때 그 숫자. 없으면 None.
 - employment_type: 원문에 고용형태 낱말이 한 종류만 분명히 있을 때(full_time·part_time·seasonal). 없거나 여러 종류면 None(추정 금지).
+- employment_type_extra: 인턴(thực tập)·협력자(cộng tác viên/CTV)가 한 종류만 분명할 때. 계약(hợp đồng)은 근거가 약해 읽지 않음.
 - 저장이 규칙(job_rule_Rx / job_posting_policy_excluded)에 걸려 거부되면 그 공고만 건너뛰고 사유별 건수를 센다.
 """
 from __future__ import annotations
@@ -90,8 +91,29 @@ def extract_employment_type(text: str | None) -> str | None:
     return next(iter(kinds)) if len(kinds) == 1 else None
 
 
+# 추가 고용형태(employment_type_extra, DB 허용 값 contract·internship·collaborator — 20261108130000 check). 원문 낱말만.
+# 'hợp đồng'(계약)은 정규직 글의 'hợp đồng lao động'(근로계약)에도 흔히 나와 근거가 되지 못해 읽지 않는다(추정 금지).
+_EMPLOYMENT_EXTRA_WORDS = (
+    # 인턴: 'thực tập sinh'(인턴 사원)·'sinh viên thực tập'만 — '…thời gian thực tập' 같은 말은 근거로 보지 않는다.
+    ("internship", re.compile(r"(?<![^\W_])(?:thực\s+tập\s+sinh|thuc\s+tap\s+sinh|sinh\s+viên\s+thực\s+tập|sinh\s+vien\s+thuc\s+tap|internship)(?![^\W_])", re.I)),
+    # 협력자: 모집 낱말(tuyển·cần·làm·vị trí) 바로 뒤(두 낱말 안)일 때만 — 'Chương trình cộng tác viên'(소개 보상, TEFAL 원문)은 고용형태가 아니다.
+    ("collaborator", re.compile(r"(?<![^\W_])(?:tuyển|tuyen|cần|can|làm|lam|vị\s+trí|vi\s+tri)(?:\s+\S+){0,2}?\s+(?:cộng\s+tác\s+viên|cong\s+tac\s+vien|ctv)(?![^\W_])", re.I)),
+)
+
+
+def extract_employment_type_extra(text: str | None) -> str | None:
+    """원문의 추가 고용형태(인턴·협력자). 한 종류만 분명히 있을 때만, 부정('không nhận thực tập')은 근거가 아니다. 없거나 여러 종류면 None."""
+    t = text or ""
+    kinds = set()
+    for kind, rx in _EMPLOYMENT_EXTRA_WORDS:
+        for m in rx.finditer(t):
+            if not _NEGATED_EMPLOYMENT.search(t[max(0, m.start() - 20):m.start()]):
+                kinds.add(kind)
+    return next(iter(kinds)) if len(kinds) == 1 else None
+
+
 def source_fields(title: str | None, body: str | None, extras: tuple | list = ()) -> dict:
-    """저장 payload에 합칠 원문 근거 칸(source_text·contact_name·age_min·age_max·employment_type).
+    """저장 payload에 합칠 원문 근거 칸(source_text·contact_name·age_min·age_max·employment_type·employment_type_extra).
 
     extras: 원문 페이지의 구조화된 칸(회사명·연락처·급여·주소 등)에서 읽은 값. 가공 없이 제목과 본문 사이에 줄 단위로 넣는다.
     페이지에 없던 값(우리가 추정·보정한 값)은 넣지 않는다 — 넣으면 R5(원문 그대로) 대조가 무의미해진다."""
@@ -103,6 +125,7 @@ def source_fields(title: str | None, body: str | None, extras: tuple | list = ()
         "age_min": age_min,
         "age_max": age_max,
         "employment_type": extract_employment_type(text),
+        "employment_type_extra": extract_employment_type_extra(text),
     }
 
 

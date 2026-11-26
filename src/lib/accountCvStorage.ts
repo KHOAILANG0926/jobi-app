@@ -1,5 +1,6 @@
 import type { CvData } from './cvStorage'
 import { supabase } from './supabase'
+import { emitEvent } from './eventBus'
 
 const CV_PHOTO_BUCKET = 'cv-photos'
 const PHOTO_MAX_BYTES = 1.5 * 1024 * 1024
@@ -52,7 +53,7 @@ export async function saveAccountCv(
   }, { onConflict: 'user_id' })
 
   if (error) throw new Error(error.message)
-  window.dispatchEvent(new CustomEvent('vgb:account-cv-saved'))
+  emitEvent('account-cv-saved')
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {

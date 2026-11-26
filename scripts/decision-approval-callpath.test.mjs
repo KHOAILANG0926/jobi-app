@@ -68,7 +68,7 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '�
   const repo = join(dir, 'repo'); mkdirSync(join(repo, 'scripts'), { recursive: true })
   // decision-approval-gate.mjs는 보호 경로 단일 목록(ci/protected-paths.mjs)을 불러온다 — 시험용 작은 저장소에도 그 파일까지 넣어야 실제 배치와 같다(2026-11-15 #842 CI 실패 원인).
   mkdirSync(join(repo, 'scripts', 'ci'), { recursive: true })
-  for (const f of ['check-repository-policy.mjs', 'decision-approval-gate.mjs', 'approved-migrations.mjs', 'ci/protected-paths.mjs']) cpSync(join(ROOT, 'scripts', f), join(repo, 'scripts', f))
+  for (const f of ['check-repository-policy.mjs', 'decision-approval-gate.mjs', 'approved-migrations.mjs', 'ci/protected-paths.mjs', 'ci/effective-base.mjs']) cpSync(join(ROOT, 'scripts', f), join(repo, 'scripts', f))
   const g = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: repo, encoding: 'utf8' })
   g('init', '-q'); mkdirSync(join(repo, '.github/workflows'), { recursive: true })
   writeFileSync(join(repo, '.github/workflows/status-report.yml'), 'on: push\n'); g('add', '-A'); g('commit', '-qm', 'base')
