@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 
 import classifier
+from job_criteria import deadline_passed as is_expired  # #973: 마감 판정은 job_criteria 한 곳(job_quality.is_expired는 입구로 합치며 지움)
 import job_quality
 from classifier import classify, map_to_new_taxonomy
 from job_quality import (
@@ -22,7 +23,6 @@ from job_quality import (
     guess_work_location_provinces,
     has_application_path,
     has_excluded_money_terms,
-    is_expired,
     looks_like_location,
     normalize_location,
     normalize_salary,
@@ -209,7 +209,8 @@ def test_payload_validation() -> None:
     assert_true("invalid category: security" in errors, "invalid category error")
 
     expired_job = {**good_job, "application_deadline": "2026-08-21"}
-    assert_true("deadline is expired" in validate_job_payload(expired_job, today="2026-08-22"), "expired job error")
+    # #973: 마감 지남은 품질 오류가 아니다 — 새 공고는 등록 입구가 원문과 함께 보류함에 남긴다(test_ingest_gateway), 기존 공고 갱신은 upsert_job_record가 막는다.
+    assert_false("deadline is expired" in validate_job_payload(expired_job, today="2026-08-22"), "expired job is not dropped here (kept by the ingest entrance)")
     deadline_day_job = {**good_job, "application_deadline": "2026-08-22"}
     assert_false("deadline is expired" in validate_job_payload(deadline_day_job, today="2026-08-22"), "the deadline day itself is not expired")
 
