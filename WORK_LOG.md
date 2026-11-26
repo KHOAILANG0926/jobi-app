@@ -1,3 +1,9 @@
+## 2026-11-27 새벽 — #1124 병합·#1086 병합·검증 저장 2회(Claude)
+- 요청(Lee 11-26): #1086 병합·운영 확인, 외부 호출 0건·다른 지점 미혼용 실증, vieclam24h 소량 수집·비공개 저장 검증, #1124 하루 20건 상한 재확인, #701 갱신.
+- 변경: #1124 병합(자리 판정 crawl-slot.sh·조회 실패 닫힌 방향) / #1086 병합(54871b3, migrations-apply 45912997269·deploy-verify 45913293940 성공) / #1129(검증 저장 제목 분리)·#1130(위치 기억 운영 실증 조회) 대표 Approve 대기 / #1119 브랜치에 원문 전부 대조 시험 추가 / #1086 충돌 해소.
+- 검증 [직접 확인]: 보충 호출 2번은 서로 다른 자리(위치 0·10), 동시 호출은 진행 중 실행을 보고 건너뜀 / 검증 저장 45912439934(저장 2·숨김)·45913548456(저장 0) 공개 0 / 오늘 수집이 자리마다 한 번 더 돈 것은 병합 전 실행 제목에 위치가 없던 일회성.
+- 남은 것: #1130 실행(대표)·#1129 Approve·다음 예약 제목 확인(#1071)·Chợ Tốt/Muaban 수집기 없음(새 설계 필요)·지점별 8건 조회(대표).
+
 ## 2026-11-26 — 우리 사업장 위치 기억(Claude): 같은 공장을 Google에 다시 묻지 않기
 - 요청(Lee 11-26 "진행하자"): Google로 확정된 위치도 회사 위치 기억으로 재사용, 성조·띄어쓰기·지역 꼬리만 다른 주소도 같은 사업장으로.
 - 변경: migration 20261126090000_location_site_memory(public.location_site_memory, 확정 줄만 읽기·same_site_address 재사용) / autoLocationResolver ⓪(기억 → Google·VietMap·Goong, 300m 넘게 어긋나면 안 씀, 원래 출처 유지) / auto-location-runtime siteMemory·로고 찾기 장소 번호 재사용 / CLAUDE.md 「공고 위치 확인 프로세스」5번 ①-2·RULES_CORE.
@@ -49,9 +55,3 @@
 - 변경: `src/app/account/ConditionsScreen.tsx`(`/ho-so/dieu-kien`: 저장한 조건 목록·추가·수정·일시정지·삭제·결과 보기, 웹 `JobAlertsPanel`과 같은 `lib/jobAlerts` 검사·저장·판정, 이동거리는 웹과 같이 아직 안 씀) / `src/app/account/NotificationsScreen.tsx`(`/ho-so/thong-bao`, 웹과 같은 `NotificationContext` — `AppProviders`에 같은 공급자 추가) / 마이에 두 줄, 맞춤 목록의 '조건 설정' 버튼은 로그인 구직자만 앱 화면으로(그 외는 웹 로컬 조건 화면 그대로).
 - 검증 [직접 확인]: tsc·build·npm test·Playwright 조건 8/8(가짜 구직자 세션·쓰기 가로챔, 필수 조건 검사 문구가 웹과 같음)·알림 6/6(웹과 같은 localStorage 키).
 - 안 한 것: 비로그인 로컬 조건 편집(웹 RecommendSection)은 웹 연결 유지, 홈 상단 알림 점.
-## 2026-11-25 — JOBI 앱 2단계 ⑥: 메시지·면접(구직자·기업) + 기업 계정 화면
-- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 소통(메시지·면접). 진행표 #1031.
-- 변경: `src/lib/interviewSchedule.ts`(웹 `ScheduleInterviewModal`의 '일정 저장 + 지원 상태 interview' 순서를 그대로 옮긴 공용 함수 — 웹 모달도 이 함수를 부름, 동작 변경 없음) / `src/app/inbox/` — 구직자 메시지함 `/ho-so/tin-nhan`(웹 `MessagesInbox`와 같은 `messagesStorage`)·면접 일정 `/ho-so/phong-van`·대화 화면 / `src/app/biz/` — 기업 메시지함 `/biz/tin-nhan`·기업 계정 `/biz/doanh-nghiep`(계정·안 읽은 메시지·예정 면접·로그아웃)·면접 일정 시트(지원자 카드의 '면접 잡기'). 대화를 연 상태에서는 하단 탭을 숨김(입력창).
-- 검증 [직접 확인]: tsc·build·npm test 136/136, Playwright 14/14(가짜 구직자·기업 세션, 쓰기 호출은 전부 가로채 실제 DB 쓰기 없음: 대화 열기·보내기·면접 시트 → 일정 저장+지원 상태 변경 호출 순서 확인). 실제 계정 화면은 직접 못 봄.
-- 대표 결정 필요: 회사 소개 같은 별도 '기업 정보' 저장소는 지금 DB에 없어(웹에도 없음) 만들지 않음 — DB 구조 변경(STRICT)이라 Lee 결정 필요.
-- 남은 것: 맞춤(Phù hợp) 조건 설정, 알림.
