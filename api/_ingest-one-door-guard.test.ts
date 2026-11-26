@@ -41,12 +41,14 @@ const probe = findDirectInserts([
   { file: 'scripts/x.mjs', text: "db.from('local_jobs').update({a:1}); db.from('other').insert({})" },
   { file: 'supabase/migrations/20991231000001_y.sql', text: 'insert into public.local_jobs_description_backup values (1);' },
   { file: 'scripts/y.mjs', text: "await denied(c.from('local_jobs').insert({}).select(), 'x') // ingest-guard: expect-denied" },
+  { file: 'root.mjs', text: "await supabase.from('local_jobs').insert(job).select('id')" },
   { file: 'api/z.js', text: "await db.from('local_jobs').select('id').eq('id',1)\n await db.from('other').upsert({})" },
 ])
-if (probe.length !== 3) throw new Error('guard self-check failed: ' + JSON.stringify(probe))
+if (probe.length !== 4) throw new Error('guard self-check failed: ' + JSON.stringify(probe))
 
-const tracked = execFileSync('git', ['ls-files', 'src', 'api', 'scripts', 'crawler', 'supabase/migrations', '.github/workflows'], { encoding: 'utf8' })
-  .split('\n').filter(f => /\.(ts|tsx|js|mjs|py|sql|yml)$/.test(f))
+// 저장소 맨 위(루트)의 스크립트도 본다 — 예전 register_job.mjs가 서비스 키로 직접 넣는 길이었는데 이 검사가 루트를 안 봐서 놓쳤다(구조 정리 2026-11-26, 그 파일은 지움).
+const tracked = execFileSync('git', ['ls-files', 'src', 'api', 'scripts', 'crawler', 'supabase/migrations', '.github/workflows', '*.mjs', '*.js', '*.cjs', '*.py'], { encoding: 'utf8' })
+  .split('\n').filter(f => /\.(ts|tsx|js|mjs|cjs|py|sql|yml)$/.test(f) && !f.startsWith('node_modules/'))
 const offenders = findDirectInserts(tracked.map(file => ({ file, text: readFileSync(file, 'utf8') })))
 if (offenders.length) {
   throw new Error('공고 등록은 public.ingest_job(입구)으로만 합니다. 직접 local_jobs에 넣는 코드:\n' + offenders.join('\n'))

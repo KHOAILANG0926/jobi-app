@@ -2,6 +2,8 @@
 set -euo pipefail
 : "${PG_TEST_URL:?PG_TEST_URL is required}"
 : "${PR_BASE_SHA:?PR_BASE_SHA is required}"
+# 이벤트 뒤 기준 브랜치가 앞으로 가도 남이 한 migration이 이 PR의 것으로 섞이지 않게 기준 커밋을 한 곳(effective-base.mjs)에서 보정(2026-11-26)
+PR_BASE_SHA=$(node scripts/ci/effective-base.mjs "$PR_BASE_SHA" "${GITHUB_BASE_REF:-master}" "${PR_HEAD_SHA:-}" 2>/dev/null || echo "$PR_BASE_SHA")
 psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/postgres-location-fixture.sql
 mapfile -t changed < <(git diff --name-only "$PR_BASE_SHA" HEAD -- 'supabase/migrations/*.sql')
 echo "Regression: always apply the current location-memory migration on fresh PostgreSQL" 
@@ -34,6 +36,10 @@ for file in "${changed[@]}"; do
   if [[ -f "$prod_check" ]] && { [[ -f "$setup" ]] || [[ -f "$local_check" ]]; }; then
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f "$prod_check"
   fi
+  # 실제 PostgreSQL 연결 2개 이상 동시 요청·권한 시험(2026-11-26, 이름 규칙 supabase/tests/<이름>.concurrent.mjs — 이 스크립트는 고치지 않고 파일만 추가).
+  # 같은 서버 안에 시험용 DB를 새로 만들어 migration 적용 전(경쟁 재현)·후(차단)를 겹친 연결로 시험하고 지운다. 운영 DB 접속 없음.
+  conc="supabase/tests/$stem.concurrent.mjs"
+  [[ -f "$conc" ]] && node "$conc"
   # 적용 뒤 = migration과 그 시험 파일(local·production_check)까지 끝난 상태 — 함수 본문만 바꾸는 migration은 시험 파일이 실제 쓰기를 해야 차이가 보인다.
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/public-location-snapshot.sql > /tmp/loc-after.txt
   bash scripts/ci/public-location-diff.sh "$file" /tmp/loc-before.txt /tmp/loc-after.txt

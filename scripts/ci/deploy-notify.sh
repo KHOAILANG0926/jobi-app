@@ -15,6 +15,16 @@ say() { echo "$1"; echo "- 알림: $1" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"; }
 
 case "$MODE" in
 success)
+  # 운영 검사가 성공했으니 열려 있던 '운영 배포 검증 실패' 잠금 이슈가 이제 풀렸는지 대기 중인 PR이 알 수 있어야 한다(2026-11-26: 잠금은 이 성공 커밋이 실패 커밋을 포함하면 이슈를 닫지 않아도 풀리지만,
+  # 대기 PR의 approval-gate 판정은 다음 이벤트가 있어야 다시 계산돼 한참 멈춰 있었다). 새 장치 없이 기존 둘을 부른다: approval-checks 전체 재판정 1번 + 기존 다시 확인 타이머(6분 뒤 봇 병합).
+  # 잠금 이슈가 열려 있을 때만(성공마다 부르지 않음). 호출 실패는 경고만 — 운영 검사 결과·이 알림은 그대로(다음 이벤트·예약 실행이 다시 봄).
+  if locks=$(gh api "repos/$REPO/issues?state=open&creator=github-actions%5Bbot%5D&per_page=100" --paginate --slurp | jq 'add // [] | [.[] | select((.pull_request | not) and .user.login == "github-actions[bot]" and (.title // "" | test("^운영 배포 검증 실패: [0-9a-f]{7,40}")))] | length'); then
+    if [ "${locks:-0}" -gt 0 ]; then
+      if gh workflow run approval-checks.yml --repo "$REPO" --ref master >/dev/null 2>&1 && gh workflow run codex-wait-timer.yml --repo "$REPO" --ref master -f minutes=6 >/dev/null 2>&1; then
+        say "잠금 이슈 ${locks}건이 열려 있어 병합 조건 판정 재계산 + 6분 뒤 봇 병합 재확인을 예약함"
+      else echo "::warning::잠금 해제 반영 호출 실패"; say "잠금 이슈 ${locks}건 — 판정 재계산·재확인 호출 실패(다음 이벤트·예약 실행이 반영)"; fi
+    fi
+  else say "열린 이슈 조회 실패 — 잠금 해제 반영 호출 생략"; fi
   pr=$(gh api "repos/$REPO/commits/$SHA/pulls" | jq -r '[.[] | select(.merged_at != null)][0].number // empty') || { say "병합 PR 조회 실패 — 완료 알림 생략"; exit 0; }
   [ -n "$pr" ] || { say "이 커밋(${SHA:0:7})은 PR 없는 직접 반영 — 완료 알림 생략"; exit 0; }
   comments=$(gh api "repos/$REPO/issues/$pr/comments?per_page=100" --paginate --slurp | jq 'add // []') || { say "PR #$pr 댓글 조회 실패 — 완료 알림 생략(중복 방지 확인 불가)"; exit 0; }

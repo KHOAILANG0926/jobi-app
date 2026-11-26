@@ -1562,11 +1562,18 @@ def _cty_kda_parse(raw_text: str) -> dict:
     return output
 
 
+# 전체 수집이 받은 상세 결과를 그대로 남기는 곳(--confirm-full-crawl --save-details-to, 2026-11-26 #1071·#701).
+# 예전에는 상세 결과를 버려서, 보관 단계가 같은 공고를 사이트에 다시 접속해 받았다(11-26 실행 45811184938에서 그 두 번째 접속이 58분 멈춤).
+DETAILS_SINK: list[dict] | None = None
+
+
 async def process_job_url(page, url: str, listing_hint: dict | None = None) -> dict:
     """디스커버리 방식과 무관한 단일 진입점 — 카테고리 크롤이 새로 찾은 URL,
     재크롤에서 다시 만난 이미 아는 URL, --process-url/--reprocess-ids로 수동
     지정된 URL 모두 이 함수 하나로 상세 수집 + build_job_record를 거친다."""
     detail = await fetch_job_detail(page, url)
+    if DETAILS_SINK is not None:
+        DETAILS_SINK.append({"url": url, "detail": detail})
     return await job_from_detail(url, detail, listing_hint)
 
 
@@ -3204,8 +3211,8 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
         args.process_url, args.reprocess_ids, args.verify_write_urls, args.dry_run_urls, args.verify_write_details,
         args.save_details,
     ]
-    if args.save_details_to and not args.dry_run_urls:
-        raise SystemExit("--save-details-to는 --dry-run-urls와만 쓸 수 있습니다. 중단합니다.")
+    if args.save_details_to and not (args.dry_run_urls or args.confirm_full_crawl):
+        raise SystemExit("--save-details-to는 --dry-run-urls 또는 --confirm-full-crawl과만 쓸 수 있습니다. 중단합니다.")
     if sum(bool(value) for value in explicit_modes) > 1:
         raise SystemExit("실행 모드는 하나만 지정하세요. 중단합니다.")
     if args.confirm_full_crawl and any(explicit_modes):
@@ -3307,4 +3314,11 @@ if __name__ == "__main__":
         reports = asyncio.run(process_urls_dry_run(urls, save_details_to=args.save_details_to))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
     elif mode == "full_crawl":
+        if args.save_details_to:
+            DETAILS_SINK = []
         asyncio.run(main(sample_limit=args.sample_limit, sample_offset=args.sample_offset, new_only=args.new_only, site=args.site))
+        if args.save_details_to:
+            # 같은 실행이 받은 상세 결과 그대로(사이트 다시 접속 없음) — 저장(save)·검증 저장(verify-save)이 읽는 형식과 같다(load_details_file).
+            with open(args.save_details_to, "w", encoding="utf-8") as f:
+                json.dump(DETAILS_SINK, f, ensure_ascii=False, default=str)
+            print(f"  💾 상세 수집 결과 저장: {args.save_details_to} ({len(DETAILS_SINK)}건, 다시 접속 없음)")

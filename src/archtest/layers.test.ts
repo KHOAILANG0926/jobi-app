@@ -16,17 +16,19 @@ function assert(c: unknown, m: string): asserts c {
 // ---- 지금 있는 위반(알려진 빚). 새로 생기는 위반만 실패시킨다. 고치면 여기서 지운다. -------------------------------------
 // 키 = 순수하지 않은 src 파일, 값 = 왜 아직 허용하는지.
 const KNOWN_API: Record<string, string> = {
-  'src/lib/adminVietmapClient.ts': '서버 위치 확인 묶음(autoLocationResolver → chototAutoLocate)이 관리자 화면용 VietMap 호출 함수를 끌어옴 — 그 함수는 브라우저 로그인 세션(supabase.auth)을 읽는다. 서버 쪽 호출과 갈라야 함(위치 처리 작업 창과 순서 조정 뒤).',
-  'src/lib/recommendStorage.ts': '서버 위치 확인 묶음(autoLocationResolver → mapR1 → homeMapFilters)이 맞춤 조건 저장소(localStorage)가 든 파일을 끌어옴 — 순수 계산(급여 읽기·조건 판정)과 브라우저 저장을 갈라야 함(구조 정리 3~4번 대상).',
 }
 const KNOWN_NODE: Record<string, string> = {
-  'src/components/home/SearchRadiusInput.tsx': '화면 부품을 Node에서 직접 그려 보는 시험용 도구(scripts/fixtures/search-radius-commit.tsx) — 화면 시험 도구라 React가 필요함.',
-  'src/components/home/map/vietMapStyle.ts': '지도 스타일 복사 확인 도구(scripts/ops/vietmap-style-copy.mjs)가 웹 지도 스타일 파일을 직접 읽음 — 브라우저 전역 사용 줄이 있어 갈라야 함(웹 지도 작업과 순서 조정).',
-  'src/lib/recommendStorage.ts': '급여 읽기 도구(scripts/ocr/salary-fill.mjs)가 순수 함수 parseSalaryInfo를 쓰려고 맞춤 조건 저장소(localStorage) 파일 전체를 가져옴 — 순수 계산과 저장을 갈라야 함(구조 정리 3~4번 대상).',
-  'src/lib/adminVietmapClient.ts': 'KNOWN_API와 같은 이유(서버 위치 확인 묶음이 끌어옴, 이 묶음을 쓰는 Node 도구도 같이 걸림).',
+  'src/components/home/SearchRadiusInput.tsx': '화면 부품을 Node에서 직접 그려 보는 시험용 도구(scripts/fixtures/search-radius-commit.tsx) — 화면 시험 도구라 React가 필요함. 해소: 시험 도구 폴더(scripts/fixtures)를 R2 대상에서 제외하는 분류 규칙(영구 예외가 아니라 분류 문제) — 진행표 #1070.',
 }
 // R3 예외: [가져오는 파일, 가져오는 대상]
-const KNOWN_LIB_TO_UI: Array<[string, string]> = [['src/lib/mapR1.ts', 'src/components/home/map/HomeMapTypes.ts']]
+const KNOWN_LIB_TO_UI: Array<[string, string]> = [['src/lib/mapR1.ts', 'src/components/home/map/HomeMapTypes.ts']] // 해소: HomeMapViewport 타입을 src/types로 옮기고 컴포넌트가 재수출 — 진행표 #1070
+
+// 허용 목록이 영구 우회로 굳지 않게: 모든 항목은 '해소:' 조건과 추적 번호(#숫자)를 가져야 한다(Lee 2026-11-26 J2).
+for (const [name, list] of [['KNOWN_API', KNOWN_API], ['KNOWN_NODE', KNOWN_NODE]] as const) {
+  for (const [file, why] of Object.entries(list)) {
+    assert(/해소:/.test(why) && /#\d+/.test(why), `${name}의 ${file}: 허용 이유에 '해소:' 조건과 추적 번호(#숫자)가 있어야 함`)
+  }
+}
 
 // ---- 자체 시험(가짜 파일로 검사기가 실제로 실패를 잡는지) ------------------------------------------------
 const fx = (e: Record<string, string>): Files => new Map(Object.entries(e))
@@ -56,6 +58,8 @@ const fx = (e: Record<string, string>): Files => new Map(Object.entries(e))
   assert(chain.length === 1 && chain[0].chain.join('>') === 'src/lib/a.ts>src/lib/b.ts>src/lib/c.ts', '가져오기 사슬을 따라가며 위반 파일과 경로를 알려야 함: ' + JSON.stringify(chain))
   const typeOnly = fx({ 'src/lib/f.ts': "import type { C } from '../components/C'\nexport type X = C", 'src/components/C.tsx': 'export type C = {}' })
   assert(impurityOf(typeOnly, 'src/lib/f.ts').length === 0, '타입만 가져오는 것은 순수성 위반이 아님(R3이 따로 봄)')
+  assert(impurityOf(new Map([['src/lib/s.ts', "signal.addEventListener('abort', stop)"]]), 'src/lib/s.ts').length === 0, 'AbortSignal 등 대상이 있는 addEventListener는 브라우저 전역이 아님(Node에서도 정상)')
+  assert(impurityOf(new Map([['src/lib/s.ts', "addEventListener('x', f)"]]), 'src/lib/s.ts').length > 0, '대상 없이 바로 부르는 addEventListener는 브라우저 전역(window)')
   assert(impurityOf(new Map([['src/archtest/x.ts', 'const re = /localStorage|window\\./']]), 'src/archtest/x.ts').length === 0, 'src/archtest(검사 도구)는 자기 정규식 글자 때문에 걸리지 않아야 함')
   const starts = nodeRunStarts(fx({ 'api/a.js': "import { f } from '../src/lib/f.ts'", 'api/a.test.js': "import { f } from '../src/lib/g.ts'", 'scripts/s.mjs': "import { f } from '../src/lib/h.ts'", 'src/lib/f.ts': '', 'src/lib/g.ts': '', 'src/lib/h.ts': '' }), ['api/'])
   assert(starts.length === 1 && starts[0].to === 'src/lib/f.ts', 'api의 시험 파일·다른 폴더는 시작점이 아님')
@@ -90,7 +94,11 @@ assert(files.has('src/lib/jobIdentity.ts') && files.has('src/app/main.tsx'), '�
 function checkNodeRun(label: string, dirs: string[], known: Record<string, string>) {
   const starts = nodeRunStarts(files, dirs)
   assert(starts.length > 3, `${label}: src를 가져오는 진입점을 찾지 못함(폴더 이름이 바뀌었나?)`)
-  const bad = findImpureClosure(files, [...new Set(starts.map((s) => s.to))]).filter((h) => !(h.file in known))
+  const hits = findImpureClosure(files, [...new Set(starts.map((s) => s.to))])
+  // 허용 목록은 줄어들기만 한다: 위반이 해소돼 더는 걸리지 않는 항목은 목록에서 지워야 한다(영구 우회로 굳지 않게, Lee 2026-11-26 J2)
+  const stale = Object.keys(known).filter((k) => !hits.some((h) => h.file === k))
+  assert(stale.length === 0, `${label}: 위반이 해소된 항목은 KNOWN에서 지운다 — ${stale.join(', ')}`)
+  const bad = hits.filter((h) => !(h.file in known))
   assert(bad.length === 0, `${label}가 끌어오는 src 코드가 서버·Node에서 못 쓰는 것을 만짐 — 해당 파일을 고치거나, 불가피하면 KNOWN에 이유와 함께 적는다:\n  ` +
     bad.map((h) => `${h.file} [${h.reasons.join(', ')}]  ← ${h.chain.join(' → ')}`).join('\n  '))
 }

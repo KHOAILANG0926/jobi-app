@@ -1,5 +1,6 @@
 import type { SeekerProfile } from './storage'
 import { supabase } from './supabase'
+import { saveOwnRow } from './ownRowSave'
 
 interface ProfileRow {
   full_name: string | null
@@ -34,15 +35,12 @@ export async function saveAccountProfile(
   userId: string,
   profile: SeekerProfile,
 ): Promise<void> {
-  const { error } = await supabase.from('user_profiles').upsert({
-    user_id: userId,
+  await saveOwnRow('user_profiles', userId, {
     full_name: profile.fullName,
     phone: profile.phone,
     email: profile.email,
     city: profile.city,
     bio: profile.bio,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' })
-
-  if (error) throw new Error(error.message)
+  })
 }

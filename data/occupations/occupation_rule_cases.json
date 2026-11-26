@@ -241,6 +241,219 @@
     "occupation_code": "5223",
     "occupation_evidence": "Nhân viên bán hàng"
    }
+  },
+  {
+   "title": "Nhân Viên Hỗ Trợ App Du Lịch ( Tiếng Anh) Lương 15 Triệu",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "4221",
+    "occupation_evidence": "App Du Lịch"
+   }
+  },
+  {
+   "title": "Nhân Viên Kinh Doanh Tour Du Lịch",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "4221",
+    "occupation_evidence": "Kinh Doanh Tour"
+   }
+  },
+  {
+   "title": "TÂN THÀNH GROUP TUYỂN DỤNG NHÂN VIÊN KINH DOANH.",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "3322",
+    "occupation_evidence": "NHÂN VIÊN KINH DOANH"
+   }
+  },
+  {
+   "title": "Tuyển tài xế đưa đón học sinh",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "8331",
+    "occupation_evidence": "tài xế đưa đón"
+   }
+  },
+  {
+   "title": "Tuyển thợ làm bánh",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "7512",
+    "occupation_evidence": "thợ làm bánh"
+   }
+  },
+  {
+   "title": "Tuyển nhân viên PG sự kiện cuối tuần",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "5242",
+    "occupation_evidence": "nhân viên PG"
+   }
+  },
+  {
+   "title": "Tuyển gấp",
+   "source_text": "Cần bạn hỗ trợ PG tại cửa hàng",
+   "expected": null
+  },
+  {
+   "title": "Phát tờ rơi part-time",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "9510",
+    "occupation_evidence": "Phát tờ rơi"
+   }
+  },
+  {
+   "title": "Tuyển Caddy sân golf",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "9629",
+    "occupation_evidence": "Caddy"
+   }
+  },
+  {
+   "title": "Nhân viên chăm sóc thú cưng",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "5164",
+    "occupation_evidence": "chăm sóc thú cưng"
+   }
+  },
+  {
+   "title": "Tuyển nhân viên sự kiện",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "3332",
+    "occupation_evidence": "nhân viên sự kiện"
+   }
+  },
+  {
+   "title": "Tuyển người mẫu ảnh",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "5241",
+    "occupation_evidence": "người mẫu"
+   }
+  },
+  {
+   "title": "Môi giới bất động sản",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "3334",
+    "occupation_evidence": "Môi giới bất động sản"
+   }
+  },
+  {
+   "title": "Phiên dịch tiếng Hàn",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "2643",
+    "occupation_evidence": "Phiên dịch"
+   }
+  },
+  {
+   "title": "Nhân viên khảo sát thị trường",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "4227",
+    "occupation_evidence": "khảo sát thị trường"
+   }
+  },
+  {
+   "title": "Tester phần mềm",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "2519",
+    "occupation_evidence": "Tester"
+   }
+  },
+  {
+   "title": "Lập trình web PHP",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "2513",
+    "occupation_evidence": "Lập trình web"
+   }
+  },
+  {
+   "title": "Lập trình viên Java",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "2512",
+    "occupation_evidence": "Lập trình"
+   }
+  },
+  {
+   "title": "Thiết kế thời trang",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "2163",
+    "occupation_evidence": "Thiết kế thời trang"
+   }
+  },
+  {
+   "title": "Tuyển diễn viên quần chúng",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "2655",
+    "occupation_evidence": "diễn viên"
+   }
+  },
+  {
+   "title": "Thợ chụp ảnh cưới",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "3431",
+    "occupation_evidence": "Thợ chụp ảnh"
+   }
+  },
+  {
+   "title": "Kỹ thuật âm thanh ánh sáng",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "3521",
+    "occupation_evidence": "Kỹ thuật âm thanh"
+   }
+  },
+  {
+   "title": "Kỹ thuật viên thú y",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "3240",
+    "occupation_evidence": "Kỹ thuật viên thú y"
+   }
+  },
+  {
+   "title": "Giáo viên tin học",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "2396",
+    "occupation_evidence": "Giáo viên tin học"
+   }
+  },
+  {
+   "title": "Huấn luyện viên yoga",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "3423",
+    "occupation_evidence": "Huấn luyện viên yoga"
+   }
+  },
+  {
+   "title": "HLV thể hình",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "34223",
+    "occupation_evidence": "HLV thể hình"
+   }
+  },
+  {
+   "title": "Tuyển trợ giảng tiếng Anh",
+   "source_text": "",
+   "expected": {
+    "occupation_code": "5312",
+    "occupation_evidence": "trợ giảng"
+   }
   }
  ]
 }

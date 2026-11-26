@@ -221,4 +221,57 @@ const pick = (fx, env) => exec(PICK, fx, { SHA, RUN_ID: '100', RUN_ATTEMPT: '1',
   assert.ok(existsSync(join(ROOT, 'scripts/ci/merge-reject-class.jq')))
   console.log('6 대표 승인·운영 잠금·필수 검사 보호 단계 유지 통과')
 }
+// ── 7. API 한도(#701 E, 2026-11-26): 검사 완료로 깨어난 실행은 그 커밋 PR만, 댓글·리뷰는 그 PR만 본다. 검사 안 끝난 PR은 파일 목록을 받지 않는다.
+{
+  const pending = green.map((c, i) => i === 0 ? { ...c, status: 'in_progress', conclusion: null } : c)
+  const D = 'd'.repeat(40)
+  // 파일 목록을 받으면 가짜 gh가 FAIL을 남긴다 — 검사 대기 PR에서 파일 조회가 생략되는지 본다.
+  const fx = { prs: [prRow(901, false), { ...prRow(902, false), headRefOid: D }], pr: { 901: prData, 902: { ...prData, sha: D } }, checks: pending, headDate: iso(5),
+    failPaths: ['/pulls/901/files', '/pulls/902/files'] }
+  const out = (r) => r.stdout + r.calls
+  const other = exec(botNew, fx, { TARGET_SHA: 'e'.repeat(40), TARGET_PR: '' })
+  assert.equal(other.status, 0, other.stderr)
+  assert.doesNotMatch(out(other), /검사: PR #90[12]/, '다른 커밋의 검사 완료로 깨어나면 어떤 PR도 보지 않음')
+  const one = exec(botNew, fx, { TARGET_SHA: '', TARGET_PR: '901' })
+  assert.equal(one.status, 0, one.stderr)
+  assert.match(out(one), /검사: PR #901/, '댓글·리뷰로 깨어나면 그 PR을 본다')
+  assert.doesNotMatch(out(one), /검사: PR #902/, '그 PR만')
+  assert.doesNotMatch(one.calls, /FAIL GET .*\/files/, '필수 검사가 안 끝난 PR은 파일 목록을 받지 않음')
+  const all = exec(botNew, fx)
+  assert.match(out(all), /검사: PR #901[\s\S]*검사: PR #902/, '예약·수동 실행(대상 없음)은 열린 PR 전체를 본다')
+  assert.doesNotMatch(all.calls, /FAIL GET .*\/files/, '전체를 볼 때도 검사 대기 PR은 파일 조회 생략')
+  console.log('7 API 한도: 대상 PR만 조회·검사 대기 PR 파일 조회 생략·예약 실행은 전체 통과')
+}
+
+// 8 다시 확인 타이머(codex-wait-timer): 깨우기 호출이 한도·일시 오류로 실패해도 정해진 횟수까지 다시 부른다(2026-11-26 #1092: 05:37 403 → 재시도 없어 병합 정지). 영구 오류는 바로 실패.
+{
+  const w = wf('codex-wait-timer')
+  const run = step(w, 'wait', '기다렸다가 봇 병합 부르기').run
+  const dir = mkdtempSync(join(tmpdir(), 'cwt-'))
+  writeFileSync(join(dir, 'sleep'), '#!/bin/sh\nexit 0\n'); chmodSync(join(dir, 'sleep'), 0o755)   // 대기는 건너뜀
+  const gh = (mode) => `#!/bin/sh
+n=$(cat "$CNT" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$CNT"
+case "$MODE" in
+  ok) exit 0 ;;
+  rl2) [ "$n" -lt 3 ] && { echo "HTTP 403: API rate limit exceeded for installation" >&2; exit 1; }; exit 0 ;;
+  e502) [ "$n" -lt 2 ] && { echo "HTTP 502: Bad Gateway" >&2; exit 1; }; exit 0 ;;
+  perm) echo "HTTP 403: Resource not accessible by integration" >&2; exit 1 ;;
+  nf) echo "HTTP 404: workflow bot-pr-automerge.yml not found" >&2; exit 1 ;;
+  always) echo "HTTP 403: API rate limit exceeded for installation" >&2; exit 1 ;;
+esac
+`
+  const go = (mode) => { const cnt = join(dir, `cnt-${mode}`); writeFileSync(cnt, '0'); writeFileSync(join(dir, 'gh'), gh(mode)); chmodSync(join(dir, 'gh'), 0o755)
+    const r = spawnSync('bash', ['-c', run], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, MODE: mode, CNT: cnt, REPO, MINUTES: '6', RETRY_WAIT: '0' } })
+    return { code: r.status, calls: Number(readFileSync(cnt, 'utf8').trim()), out: r.stdout + r.stderr } }
+  let o = go('ok'); assert.deepEqual([o.code, o.calls], [0, 1], '첫 호출 성공은 한 번만')
+  o = go('rl2'); assert.deepEqual([o.code, o.calls], [0, 3], '한도(403 rate limit)는 다시 불러 3번째에 성공')
+  o = go('e502'); assert.deepEqual([o.code, o.calls], [0, 2], '5xx 일시 오류도 다시 부름')
+  o = go('perm'); assert.deepEqual([o.code, o.calls], [1, 1], '권한 오류(403, 한도 아님)는 영구 — 재시도 없이 실패')
+  assert.match(o.out, /일시 오류가 아니라 재시도하지 않음/)
+  o = go('nf'); assert.deepEqual([o.code, o.calls], [1, 1], '없는 워크플로(404)도 영구 — 재시도 없이 실패')
+  o = go('always'); assert.deepEqual([o.code, o.calls], [1, 6], '한도가 계속되면 6번까지만 부르고 실패(무제한 재시도 없음)')
+  assert.match(o.out, /6회 안에 못 함/)
+  assert.equal(w.jobs.wait['timeout-minutes'], 60, '기다림 35분 + 재시도 20분이 제한 시간 안에 들어감')
+  console.log('8 타이머 재시도: 한도·5xx는 6회까지 다시 부름, 권한·404는 바로 실패, 무제한 재시도 없음')
+}
 console.log('automerge-recovery.test.mjs: 전부 통과')

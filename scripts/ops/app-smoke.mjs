@@ -3,6 +3,7 @@
 //   PC(1366×900)·모바일(390×844) 두 화면에서 메인과 공고 상세를 실제 브라우저로 열어 확인한다.
 //   - 메인: 페이지 오류 없음, 탐색 영역(.hme) 표시, 지도 영역까지 스크롤하면 지도(또는 대체 지도)가 뜸
 //   - 상세: 공개 공고 1건(DB 공개 조회로 고름)을 열어 제목이 보이고 페이지 오류가 없음
+//   - 앱(/app, 구조 정리 2026-11-26): 앱 홈(탭바)과 같은 공고의 앱 상세(제목 칸)를 열고, 두 화면 모두 가로 넘침(칸 밀림)이 없어야 함. 웹 검사와 같은 입구라 PR·운영 검사 모두에서 돈다.
 // 결과는 app-smoke-result.json 과 GitHub Summary에 남기고, 하나라도 실패하면 exit 1.
 // 키는 쓰지 않는다: Supabase URL·anon 키는 사이트 번들에 이미 공개된 값(src/lib/supabase.ts)을 읽는다.
 import { chromium } from 'playwright'
@@ -28,6 +29,13 @@ const VIEWPORTS = [
   { name: '모바일', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
 ]
 
+const shotName = (path) => (path === '/' ? 'home' : path === '/app/' ? 'app-home' : path.startsWith('/app/') ? 'app-detail' : 'detail')
+// 화면이 가로로 넘치면(칸 밀림·잘림) 실패 — 앱·웹 공통 기본 검사
+const noHorizontalOverflow = async (page) => {
+  const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }))
+  if (o.sw > o.cw + 1) throw new Error(`가로 넘침(scrollWidth ${o.sw} > ${o.cw})`)
+}
+
 async function checkPage(context, path, assertions, device) {
   const page = await context.newPage()
   const errors = []
@@ -39,7 +47,7 @@ async function checkPage(context, path, assertions, device) {
   try { await assertions(page, notes) } catch (e) { notes.push(String(e.message || e).split('\n')[0]) }
   if (errors.length) notes.push(`페이지 오류: ${errors.slice(0, 3).join(' | ').slice(0, 300)}`)
   mkdirSync('app-smoke-screens', {recursive:true})
-  await page.screenshot({path:`app-smoke-screens/${device === 'PC' ? 'pc' : 'mobile'}-${path === '/' ? 'home' : 'detail'}.png`})
+  await page.screenshot({path:`app-smoke-screens/${device === 'PC' ? 'pc' : 'mobile'}-${shotName(path)}.png`})
   await page.close()
   return { path, status, ok: notes.length === 0, notes }
 }
@@ -62,6 +70,20 @@ for (const v of VIEWPORTS) {
       await page.getByRole('heading', { level: 1 }).first().waitFor({ state: 'visible', timeout: 30_000 })
       const h1 = (await page.getByRole('heading', { level: 1 }).first().innerText()).trim()
       if (!h1) throw new Error('상세 제목이 비어 있음')
+    }, v.name)) })
+  }
+  // 앱(/app): 같은 데이터가 앱 화면에서도 열려야 한다(웹과 독립 운영, 공통 데이터 규격 확인)
+  results.push({ device: v.name, ...(await checkPage(context, '/app/', async (page) => {
+    await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
+    await noHorizontalOverflow(page)
+  }, v.name)) })
+  if (job) {
+    results.push({ device: v.name, ...(await checkPage(context, `/app/viec-lam/sb-${job.id}`, async (page) => {
+      // data-job-id는 공고가 실제로 열렸을 때만 붙는다(없는 공고 안내 화면과 구분)
+      await page.locator('[data-testid="app-detail"][data-job-id]').first().waitFor({ state: 'visible', timeout: 30_000 })
+      const title = (await page.locator('.app-dcard__title').first().innerText()).trim()
+      if (!title) throw new Error('앱 상세 제목이 비어 있음')
+      await noHorizontalOverflow(page)
     }, v.name)) })
   }
   await context.close()

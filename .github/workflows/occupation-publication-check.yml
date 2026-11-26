@@ -29,6 +29,8 @@ jobs:
           node supabase/tests/detail_line_kinds.pglite.test.mjs
           node supabase/tests/job_duplicate_check.pglite.test.mjs
           node supabase/tests/branch_job_identity.pglite.test.mjs
+          node supabase/tests/ingest_write_guard.pglite.test.mjs
+          node supabase/tests/job_apply_and_contact_gate.pglite.test.mjs
           node supabase/tests/job_signal_dispatch.pglite.test.mjs
           node supabase/tests/ocr_check_merge.pglite.test.mjs
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs supabase/tests/ocr_inspect_republish.pglite.test.mjs
@@ -50,9 +52,15 @@ jobs:
           REPO: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
+          # 기준 커밋 보정(남이 한 변경이 PR 변경으로 섞이지 않게)은 기준 커밋의 사본으로 계산한다 — PR이 보정 코드를 고쳐 판독 입력 변경을 숨기지 못하게. 기준에 아직 없거나 실패하면 이벤트 값 그대로.
+          DIFF_BASE="$BASE_SHA"
+          if git show "$BASE_SHA:scripts/ci/effective-base.mjs" > "$RUNNER_TEMP/effective-base.mjs" 2>/dev/null; then
+            DIFF_BASE=$(node "$RUNNER_TEMP/effective-base.mjs" "$BASE_SHA" "$BASE_REF" "$HEAD_SHA" 2>/dev/null || echo "$BASE_SHA")
+          fi
           # 변경 목록: -z·--no-renames — 이름 바꾸기·특수문자 파일명으로 판독 입력 경로를 숨기지 못하게
-          git diff -z --no-renames --name-only "$BASE_SHA" HEAD > changed-files.bin
+          git diff -z --no-renames --name-only "$DIFF_BASE" HEAD > changed-files.bin
           gh api "repos/${REPO}/actions/workflows/ai-reader-calibration.yml/runs?head_sha=${HEAD_SHA}&event=workflow_dispatch&per_page=100" > calibration-runs.json || echo '{"workflow_runs":[]}' > calibration-runs.json
           # 가드는 기준(base) 커밋의 사본으로 실행한다 — PR이 가드를 고쳐 통과시키지 못하게(기준에 아직 없을 때만 PR 사본)
           if git cat-file -e "$BASE_SHA:scripts/ci/ai-reader-guard.mjs" 2>/dev/null; then git show "$BASE_SHA:scripts/ci/ai-reader-guard.mjs" > "$RUNNER_TEMP/ai-reader-guard.mjs"; else cp scripts/ci/ai-reader-guard.mjs "$RUNNER_TEMP/ai-reader-guard.mjs"; fi

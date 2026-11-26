@@ -4,6 +4,12 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { isApprovedMigration, MANIFEST_PATH } from './approved-migrations.mjs'
 import { STRICT_PATHS } from './decision-approval-gate.mjs'
+import { resolveBase as prResolveBase } from './ci/effective-base.mjs'
+export { effectiveBase } from './ci/effective-base.mjs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 // STATUS 보호(보고 위조 대상): STATUS.md·scripts/status/는 대표 승인이 있어도 예외 없이 막는다.
 // status-*.yml 워크플로는 여기서 막지 않는다 — 대표 공식 Approve 판정은 기존 approval-gate(decision-approval-gate.mjs, .github/ = 검사·보호 장치)가 한 곳에서 한다(S1, Lee 2026-11-20).
@@ -162,8 +168,19 @@ export const parseNameStatusZ = (raw) => [...new Set(nameStatusEntries(raw).flat
 
 if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
-  const base = event.pull_request?.base?.sha
-  if (!base) process.exit(0)
+  const eventBase = event.pull_request?.base?.sha
+  if (!eventBase) process.exit(0)
+  // 기준 커밋: 이벤트 뒤 기준 브랜치가 앞으로 가도 남이 한 변경이 섞이지 않게 한 곳(scripts/ci/effective-base.mjs)에서 보정
+  // 기준 계산기는 PR 사본이 아니라 이벤트 기준 커밋의 사본으로 실행한다 — PR이 계산기를 고쳐 바뀐 파일을 숨기지 못하게(기준에 아직 없으면 PR 사본, 그 변경 자체는 승인 판정기가 별도로 대표 Approve를 요구).
+  let resolveBase = prResolveBase
+  try {
+    const src = execFileSync('git', ['show', `${eventBase}:scripts/ci/effective-base.mjs`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    const tmp = join(mkdtempSync(join(tmpdir(), 'effbase-')), 'effective-base.mjs')
+    writeFileSync(tmp, src)
+    resolveBase = (await import(pathToFileURL(tmp).href)).resolveBase
+  } catch { /* 기준에 없거나 못 읽으면 PR 사본 */ }
+  const base = resolveBase(eventBase, event.pull_request.base.ref ?? 'master', event.pull_request.head?.sha)
+  if (base !== eventBase) console.log(`기준 커밋: 이벤트 ${eventBase.slice(0, 7)} → 병합본 첫째 부모 ${base.slice(0, 7)} (그 사이 기준 브랜치가 앞으로 감)`)
   const entries = nameStatusEntries(execFileSync('git', ['diff', '--no-ext-diff', '--name-status', '-z', '--find-renames', base, 'HEAD', '--'], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }))
   const files = [...new Set(entries.flatMap((e) => e.paths))]
   // 파일 내용(바뀐 줄)도 diff 글의 머리줄로 나누지 않고 파일마다 정확한 경로(:(literal))로 따로 받는다 — 경로를 잘못 읽어 내용을 못 찾으면

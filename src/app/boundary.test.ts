@@ -211,6 +211,9 @@ const catchAll = vercel.rewrites.findIndex((r) => r.destination === '/index.html
 assert(idx('/app') >= 0 && vercel.rewrites[idx('/app')].destination === '/app.html', 'vercel.json: /app → /app.html 규칙 필요')
 assert(idx('/app/:path*') >= 0 && vercel.rewrites[idx('/app/:path*')].destination === '/app.html', 'vercel.json: /app/* → /app.html 규칙 필요')
 assert(catchAll > idx('/app') && catchAll > idx('/app/:path*'), 'vercel.json: /app 규칙이 웹 전체 규칙(/index.html)보다 앞이어야 함')
+// 끝 슬래시 주소(/app/)는 '/app/:path*'에 안 걸려 웹 첫 화면이 나왔다(2026-11-26 운영 deploy-verify 실패로 발견) — 별도 규칙 필수
+assert(idx('/app/') >= 0 && vercel.rewrites[idx('/app/')].destination === '/app.html', 'vercel.json: /app/(끝 슬래시) → /app.html 규칙 필요')
+assert(catchAll > idx('/app/'), 'vercel.json: /app/ 규칙이 웹 전체 규칙(/index.html)보다 앞이어야 함')
 const viteConfig = fs.readFileSync(new URL('vite.config.ts', root), 'utf8')
 assert(/input:\s*\{[^}]*app:\s*'app\.html'/.test(viteConfig), "vite.config.ts 빌드 입구에 app.html 필요")
 

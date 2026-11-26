@@ -145,13 +145,18 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
 assert(amounts('8tr5').includes(8_500_000) && amounts('8,5 triệu').includes(8_500_000) && amounts('7.500.000đ').includes(7_500_000) && amounts('250k/ngày').includes(250_000), '금액 읽기')
 assert(phoneDigits('+84 912 345 678') === '0912345678', '전화 +84')
 assert(linkPoint('https://www.google.com/maps/search/?api=1&query=21.1,106.2')?.lat === 21.1 && linkPoint('https://www.google.com/maps/dir/?api=1&destination=ABC') === null, '링크 좌표')
-// 수집기가 n번째 아이콘을 키로 읽으므로 상세 화면 아이콘 순서와 같아야 한다
+// 수집기가 n번째 아이콘을 키로 읽으므로 상세 화면 아이콘 순서와 같아야 한다.
+// 순서는 이제 lib/jobDetailDerive.benefitFlags 한 곳(웹·앱 상세 공용)이 정하므로 그 함수의 순서를 직접 본다(예전에는 JobDetail 소스 글자를 읽었음 — 같은 검사, 읽는 곳만 바뀜).
 {
+  const { benefitFlags } = await import('./jobDetailDerive.ts')
+  const keys = benefitFlags({ id: 'sb-1', title: '', company: '', category: 'khac', salary: '', location: '', description: '', postedAt: '2026-11-01' } as never, null).map((f) => f.key)
+  assert(JSON.stringify(keys) === JSON.stringify(BENEFIT_ORDER), `아이콘 순서 ${keys.join(',')} ≠ BENEFIT_ORDER`)
+  // 웹 상세가 그 함수를 그대로 쓰고(자기 목록을 따로 두지 않음) 모든 칸에 아이콘이 붙는지
   const fsModule = 'node:fs'
   const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as { readFileSync: (path: URL, enc: string) => string }
   const src = readFileSync(new URL('../pages/JobDetail.tsx', import.meta.url), 'utf8')
-  const block = src.slice(src.indexOf('const benefitIcons = ['), src.indexOf('] as const', src.indexOf('const benefitIcons = [')))
-  const keys = [...block.matchAll(/\{ key: '([a-z]+)'/g)].map((m) => m[1])
-  assert(JSON.stringify(keys) === JSON.stringify(BENEFIT_ORDER), `아이콘 순서 ${keys.join(',')} ≠ BENEFIT_ORDER`)
+  assert(/benefitFlags\(job, roleSummary\)/.test(src), 'JobDetail은 복리후생 칸을 lib/jobDetailDerive.benefitFlags로 만들어야 함')
+  const view = src.slice(src.indexOf('const BENEFIT_VIEW = {'), src.indexOf('} as const', src.indexOf('const BENEFIT_VIEW = {')))
+  for (const k of BENEFIT_ORDER) assert(new RegExp('\\b' + k + ':').test(view), `BENEFIT_VIEW에 ${k} 아이콘이 없음`)
 }
 console.log('screenAudit.test.ts: 통과')

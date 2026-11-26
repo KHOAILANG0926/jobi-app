@@ -1,11 +1,12 @@
 import type { CvData } from './cvStorage'
+import { kvLocal } from './kvStore'
 
 const CV_KEY = 'vgb_cv_draft'
 
 /** True if the user has saved a CV in localStorage with minimum fields filled. */
 export function hasSavedCv(): boolean {
   try {
-    const raw = localStorage.getItem(CV_KEY)
+    const raw = kvLocal.get(CV_KEY)
     if (!raw) return false
     const cv = JSON.parse(raw) as Partial<CvData>
     return Boolean(

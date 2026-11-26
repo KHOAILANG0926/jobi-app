@@ -933,11 +933,34 @@ class VerifyWriteFromDetails(unittest.TestCase):
     def test_cli_modes(self):
         self.assertEqual(self._args(["--verify-write-details", "d.json", "--verify-write", "--confirm-write"]), "verify_write_details")
         self.assertEqual(self._args(["--dry-run-urls", "https://vieclam24h.vn/a.html", "--save-details-to", "d.json"]), "dry_run_urls")
+        # 2026-11-26(#701·#1071): 정기 수집이 받은 상세를 그대로 남긴다 — 다음 단계가 같은 공고를 사이트에 다시 접속하지 않게.
+        self.assertEqual(self._args(["--save-details-to", "d.json", "--confirm-full-crawl"]), "full_crawl")
         for argv in (["--verify-write-details", "d.json"], ["--verify-write-details", "d.json", "--verify-write"],
-                     ["--save-details-to", "d.json", "--confirm-full-crawl"],
+                     ["--save-details-to", "d.json"],
                      ["--verify-write-details", "d.json", "--verify-write", "--confirm-write", "--dry-run-urls", "https://vieclam24h.vn/a.html"]):
             with self.subTest(argv=argv), self.assertRaises(SystemExit):
                 self._args(argv)
+
+    def test_full_crawl_keeps_fetched_details_without_second_visit(self):
+        """전체 수집의 process_job_url이 받은 상세를 DETAILS_SINK에 그대로 남긴다(꺼져 있으면 남기지 않음)."""
+        import asyncio
+        calls = []
+        async def fake_fetch(page, url):
+            calls.append(url)
+            return {"title": "T " + url}
+        async def fake_build(url, detail, listing_hint=None):
+            return {"source_url": url}
+        with mock.patch.object(topcv, "fetch_job_detail", fake_fetch), mock.patch.object(topcv, "job_from_detail", fake_build):
+            topcv.DETAILS_SINK = None
+            asyncio.run(topcv.process_job_url(None, "u0"))
+            topcv.DETAILS_SINK = []
+            try:
+                asyncio.run(topcv.process_job_url(None, "u1"))
+                asyncio.run(topcv.process_job_url(None, "u2"))
+                self.assertEqual(topcv.DETAILS_SINK, [{"url": "u1", "detail": {"title": "T u1"}}, {"url": "u2", "detail": {"title": "T u2"}}])
+            finally:
+                topcv.DETAILS_SINK = None
+        self.assertEqual(calls, ["u0", "u1", "u2"], "공고마다 사이트 접속은 한 번")
 
     def test_details_file_limits(self):
         import json, tempfile

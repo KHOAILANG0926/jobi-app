@@ -4,6 +4,23 @@
 - 검증 [직접 확인]: 로컬 PostgreSQL 16에서 CI 순서(fixture→reference→setup→migration→local→production_check→전후 대조 '변화 없음'), siteMemory.test·_logo-lookup.test·autoLocationResolver·googleQuotaCache·locationPrecheck·api 위치 시험, tsc.
 - 남은 것: 11-10 이전 Google 줄 출처 표시 정정(데이터 전환, dry-run 뒤 Lee 확인).
 
+## 2026-11-26 밤 — #1110 실증 완료·#1071 A안·생성기/검사기 불일치 조사(Claude)
+- 요청(Lee 11-26): #1110 실증 완료 처리·HANDOFF/WORK_LOG/#701 갱신, 보관 단계 '30일' 정정, #1071 A안(정기 DB 저장 차단 유지), 생성기·검사기 판정 불일치 조사, #1119 안전한 운영 반영 방법 검토.
+- 변경: #1124 Draft(crawl-catchup.sh+시험, crawl.yml sample_offset 입력·이름 정정, deploy-verify 보충 단계) / HANDOFF·WORK_LOG / #701 현행본 댓글 갱신.
+- 검증 [직접 확인]: 예약 실행 45876190486 crawl 성공·save skipped·보관물 확인, crawl-catchup.test.sh 10항목·automerge-recovery·post-merge-chain·secret-isolation·tsc·build 통과, 저장소 원문 11개 재현 master 3줄→#1119 0줄.
+- 남은 것: #1124 Approve·병합 뒤 실제 호출 확인, Lee 조회 실행, #1119는 웹 정상화 뒤(공개 전환 일시 중단은 대표 결정), 11-27 확인용 예약 작업 삭제는 권한 거부로 남음.
+
+## 2026-11-26 저녁 — 크롤링 원문 보관 실증·검사표 원문 줄 빠짐(Claude)
+- 요청(Lee 11-26): #1110 실제 실행 검증, read-inspect-failures 결과 재사용, 원문 누락 12건 원인 묶어 해결(검사 기준 완화 금지·지점별 독립 공고·원문 보존), #701 체크리스트 갱신.
+- 변경: #1117(jobInspect 근무지 이름표 줄·job-inspect 같은 검사표 재알림 안 함) / #1118(read-source-lost-branches 조회) / #1119 Draft(jobDescriptionBuild가 inspectReading 기준으로도 빠짐 아닌 줄만 뺌, detail-fill RULE_FILES에 inspectReading) / 이 기록.
+- 검증 [직접 확인]: 수집 45852160573(재접속 없음·30일·save skipped), #1117 새 시험 수정 전 실패→후 통과·병합 뒤 #6512 해소·#237 반복 중단, #1119 원문 JSON 3건 재현 빠짐 3→0·npm test 144/144·tsc·build, #1118 폐기용 PostgreSQL 16 가짜 자료.
+- 남은 것: 예약 실행 확인(11-27), Lee 조회 실행, #1119 병합은 웹 정상화 뒤, #1071.
+
+## 2026-11-26 오후 — API 한도·직업분류 재판정·크롤링 정리(Claude)
+- 변경: #1091(봇 병합: 깨운 PR만·검사 먼저) / #1094(규칙 24개, ①③ 결정) / #1098(occupation-r8-apply가 공용 규칙 파일 변경에도 돌게 — 실행 45806011018: 9건 코드, 공개 상태 비교 통과) / #1099(같은 조회로 승인 전 대상 확정) / #1110(수집이 받은 상세 그대로 보관, 재접속 단계 제거, 원문 30일, 정기 DB 저장 일시 중단 — 승인 대기) / read-inspect-failures(이 PR).
+- 확인 [직접 확인]: 봇 실행당 대상 PR 15→1~2·한도 오류 0, S6 잠금 해제(#1092는 다른 창), vieclam24h 5건 모두 연락처 없음.
+- 남은 것: #1110 Approve, Facebook 계정(보류), 고용주·구직자 시험 계정, 검사 공통 실패 원인(조회 실행 뒤), #1071 A안은 정기 저장 재개 때.
+
 ## 2026-11-26 — C·D·E 이어서(Claude): 직업분류 공용화·추가 고용형태·관리자 자동 채우기·수집기 시험 CI
 - 요청(Lee 11-25·26): #717 B ①(근거 있을 때만 코드·근거 전달, 규칙 공통화, 업직종 아래 안내 줄), C·D·E 잔여, 수집기 시험 2개 CI 연결.
 - 변경: #1072(data/occupations/occupation_rules.json 한 곳을 Python·웹이 함께 읽음, 고용주 등록 buildJobFields·안내 줄) / #1073(시험 2개 수정) / #1080(employment_type_extra) / #1083(AdminDashboard 자동 채우기 = companyReader·addressReader·salaryReader·phonesIn·occupationReader) / #1079(crawl-install에 시험 2개) / #1084(admin-line-pick-e2e에 자동 채우기 확인, 저장 없음).
@@ -38,21 +55,3 @@
 - 검증 [직접 확인]: tsc·build·npm test 136/136, Playwright 14/14(가짜 구직자·기업 세션, 쓰기 호출은 전부 가로채 실제 DB 쓰기 없음: 대화 열기·보내기·면접 시트 → 일정 저장+지원 상태 변경 호출 순서 확인). 실제 계정 화면은 직접 못 봄.
 - 대표 결정 필요: 회사 소개 같은 별도 '기업 정보' 저장소는 지금 DB에 없어(웹에도 없음) 만들지 않음 — DB 구조 변경(STRICT)이라 Lee 결정 필요.
 - 남은 것: 맞춤(Phù hợp) 조건 설정, 알림.
-
-## 2026-11-25 — JOBI 앱 2단계 ④: 기업 탭 홈·공고 관리·지원자 관리
-- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 기업 기능 첫 묶음. 진행표 #1031.
-- 변경: `src/app/biz/` — 기업 입구 `BizGate`(웹 RequireEmployer와 같은 서버 `account_roles` 판정, 조회 실패와 '기업 아님' 구분), 홈 `/biz`(통계·새 지원자·바로가기), 공고 관리 `/biz/quan-ly-tin`(내 공고 목록·긴급 표시·삭제 확인, 지원자 목록·공고별 거르기·상태 변경·지원 시점 CV 보기). 자료는 웹 대시보드와 같은 `fetchEmployerJobs`·`applicationsStorage`, 계산은 순수 함수 `bizView.ts`(+시험).
-- 검증 [직접 확인]: tsc·build·npm test 135/135, Playwright 게스트 10/10(기업 입구 로그인 안내·기업 탭 4개·redirect 유지·가입 시 기업 선택). 기업 계정 화면(공고·지원자·상태 변경)은 계정이 없어 직접 못 봄.
-- 남은 것: 공고 등록 6단계(`/biz/dang-tin`), 기업 정보(`/biz/doanh-nghiep`), 기업 쪽 메시지·면접 일정, 맞춤 조건.
-
-## 2026-11-25 — JOBI 앱 2단계 ③: 커뮤니티(목록·상세·글쓰기·댓글·좋아요·신고)
-- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 커뮤니티. 진행표 #1031.
-- 변경: `src/app/community/` — 목록(`/cong-dong`: 분류·검색·정렬, 웹과 같은 `lib/communityStorage.loadPosts`), 상세(`/cong-dong/:id`: 조회수·좋아요·댓글·신고 = 웹과 같은 `communityStorage`·`adminOperations.createReport`), 글쓰기 시트(웹과 같은 항목·검사·`addPost`, 사진 4장). 분류·검색·정렬·상대 시간은 순수 함수 `communityView.ts`(+시험). 로그인 안 한 글쓰기·좋아요·댓글·신고는 앱 로그인 화면으로.
-- 검증 [직접 확인]: tsc·build·npm test 134/134, Playwright 10/10(실제 글 6건 표시·분류·검색·비로그인 글쓰기→로그인·상세·없는 글 안내). 주의: 이 시험이 실제 글 1건을 열어 운영 조회수가 1 올라감(읽기 전용 아님을 몰랐음, 이후 시험은 글 열기 생략). 글쓰기·댓글·좋아요·신고 제출은 계정이 없어 직접 못 봄.
-- 남은 것: 맞춤 조건 설정(JobAlertsPanel), 기업 기능.
-
-## 2026-11-25 — JOBI 앱 2단계 ②: CV(이력서) 작성 화면
-- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 이력서. 진행표 #1031.
-- 변경: `src/lib/cvAccountSync.ts`(웹 `CvBuilder`의 계정 CV 읽기·저장 순서를 그대로 옮긴 공용 함수, 웹도 이 함수를 부름 — 동작 변경 없음) / `src/app/account/CvScreen.tsx`(`/ho-so/cv`: 기본 정보·사진·경력·학력·기술·추천인, 로그인 전 이 기기 저장·로그인 후 계정 저장, 자료 모양은 `lib/cvStorage` 그대로). 마이·메뉴의 CV 링크를 웹 화면에서 앱 화면으로 교체.
-- 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 CV 흐름 10/10(저장 키가 웹과 같은 `vgb_cv_draft`, 새로고침 유지, 항목 추가·삭제). 계정 저장·사진 업로드는 이 환경에 인증 열쇠가 없어 직접 못 봄.
-- 남은 것: CV PDF 내려받기·미리보기(웹 CvBuilder 전용 화면), 기기 CV를 계정으로 가져오기 제안(웹 Profile), 맞춤 조건·커뮤니티·기업.

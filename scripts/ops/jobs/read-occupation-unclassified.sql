@@ -1,10 +1,9 @@
--- C 작업(직업분류, #701 로드맵 5번): 직업코드가 없는 공고의 원문을 보고 같은 직무가 반복되는지·실제 업무를 특정할 수 있는지 판단하기 위한 조회.
--- 규칙 추가는 원문으로 실제 업무가 확인되는 반복 직무만(억지 분류 금지, 11-15 주간 자동 보강 중단 그대로). 읽기 전용(데이터 변경 없음).
--- 실행: ops-run-sql.yml(master, Lee 계정 수동, name=read-occupation-unclassified). 출력은 실행 로그에만(원본 사이트 주소는 조회하지 않음). 최근 60건, 원문 앞 700자.
+-- C 작업(직업분류, #701 로드맵 5번·#717): 직업코드가 없는 공고 조회. 읽기 전용(데이터 변경 없음).
+-- 2026-11-26: #1098(occupation-r8-apply 재실행) 승인 전 확인용으로, 그 워크플로가 고르는 것과 **같은 조회**(rows.json)를 그대로 찍는다
+--   → 같은 backfill_occupations.py로 실제 바뀔 공고·코드를 미리 계산한다(운영 쓰기 없음). 공개 상태(active·admin_hidden)도 함께.
+-- 실행: ops-run-sql.yml(master, Lee 계정 수동, name=read-occupation-unclassified). 출력은 실행 로그에만(원본 사이트 주소는 조회하지 않음).
 set transaction read only;
 \pset tuples_only on
 \pset format unaligned
-select string_agg('=====#' || id || ' · active ' || coalesce(active, false) || ' · hidden ' || coalesce(admin_hidden, false)
-  || ' · origin ' || coalesce(origin, '-') || ' · 제목 ' || coalesce(title, '') || ' · 회사 ' || coalesce(company, '') || chr(10)
-  || left(coalesce(source_text, '(원문 없음)'), 700), chr(10) order by id desc)
-from (select * from public.local_jobs where occupation_code is null order by id desc limit 60) j;
+select 'ROWS_JSON ' || coalesce(json_agg(json_build_object('id', id, 'title', title, 'source_text', source_text, 'created_at', created_at)), '[]') from public.local_jobs where occupation_code is null;
+select 'STATE ' || id || ' active=' || coalesce(active::text, 'null') || ' hidden=' || coalesce(admin_hidden::text, 'null') || ' origin=' || coalesce(origin, '-') || ' created=' || created_at from public.local_jobs where occupation_code is null order by id;

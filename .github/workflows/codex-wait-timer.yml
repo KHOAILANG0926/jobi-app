@@ -20,7 +20,7 @@ concurrency:
 jobs:
   wait:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: 기다렸다가 봇 병합 부르기
         env:
@@ -36,4 +36,12 @@ jobs:
           [ "$m" -gt 35 ] && m=35
           echo "${m}분 기다림"
           sleep "$((m * 60))"
-          gh workflow run bot-pr-automerge.yml --repo "$REPO" --ref master
+          # 깨우기 호출이 API 한도(403 rate limit)·서버 일시 오류로 실패하면 이 타이머가 유일한 재확인이라 그대로 끝나면 봇이 멈춘다(2026-11-26 #1092: 05:37 403 → 20분 넘게 병합 정지).
+          # 일시 오류(한도·429·5xx·네트워크)만 정해진 횟수(6회, ${RETRY_WAIT:-240}초 간격 ≈ 20분)까지 다시 부른다. 권한·없는 워크플로 같은 영구 오류는 바로 실패 — 재시도로 풀리지 않는다.
+          for attempt in 1 2 3 4 5 6; do
+            if out=$(gh workflow run bot-pr-automerge.yml --repo "$REPO" --ref master 2>&1); then echo "봇 병합 호출 성공(${attempt}회째)"; exit 0; fi
+            echo "::warning::봇 병합 호출 실패(${attempt}/6): $out"
+            echo "$out" | grep -qiE 'rate limit|HTTP (429|5[0-9][0-9])|timed out|timeout|connection|EOF' || { echo "::error::일시 오류가 아니라 재시도하지 않음"; exit 1; }
+            [ "$attempt" -lt 6 ] && sleep "${RETRY_WAIT:-240}"
+          done
+          echo "::error::봇 병합 호출을 6회 안에 못 함(약 20분) — 다음 이벤트·예약 실행이 봇을 부름"; exit 1
