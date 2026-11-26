@@ -149,6 +149,80 @@ if (jobId) {
   } catch (e) { rec('H0', '기업 이용 과정', false, e.message) }
 }
 
+// ── 3-3. 구직자 이력서·프로필·메시지·면접 흐름(웹 accountCvStorage·accountProfileStorage·messagesStorage·interviewStorage와 같은 호출) ──
+// 세션 만료 시험(H10)이 전체 로그아웃을 했으므로 새로 로그인해 쓴다.
+if (jobId) {
+  const fresh = async (u) => { const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: u.email, password: PW } }); if (l.status !== 200) throw new Error(`재로그인 실패: ${l.status}`); return l.json.access_token }
+  try {
+    const S = users.seeker, S3 = users.seeker3, E = users.employer, E2 = users.employer2
+    const st = await fresh(S), s3t = await fresh(S3), et = await fresh(E), e2t = await fresh(E2)
+    // 프로필·이력서: 저장(upsert) → 다시 읽기 → 남의 것은 못 읽고 못 덮어씀
+    const up = await call('POST', '/rest/v1/user_profiles?on_conflict=user_id', { token: st, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, full_name: 'E2E Seeker', phone: '0900000000', email: S.email, city: 'Bắc Ninh', bio: 'e2e', updated_at: new Date().toISOString() } })
+    const rd = await call('GET', `/rest/v1/user_profiles?select=full_name,city&user_id=eq.${S.id}`, { token: st })
+    rec('I1', '구직자 프로필 저장 → 다시 읽기', up.status < 300 && rd.json?.[0]?.full_name === 'E2E Seeker', `저장 ${up.status} ${up.code}`)
+    const other = await call('GET', `/rest/v1/user_profiles?select=user_id&user_id=eq.${S.id}`, { token: s3t })
+    const forge = await call('POST', '/rest/v1/user_profiles?on_conflict=user_id', { token: s3t, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, full_name: 'HACK', updated_at: new Date().toISOString() } })
+    const still = await call('GET', `/rest/v1/user_profiles?select=full_name&user_id=eq.${S.id}`, { token: st })
+    rec('I2', '다른 구직자는 남의 프로필을 읽지도 덮어쓰지도 못함', (other.json ?? []).length === 0 && forge.status >= 400 && still.json?.[0]?.full_name === 'E2E Seeker', `읽기 ${(other.json ?? []).length}건 / 덮어쓰기 status ${forge.status}`)
+    const cvData = { fullName: 'E2E Seeker', summary: 'e2e cv', experiences: [] }
+    const cv = await call('POST', '/rest/v1/user_cvs?on_conflict=user_id', { token: st, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, cv_data: cvData, photo_path: null, updated_at: new Date().toISOString() } })
+    const cvRead = await call('GET', `/rest/v1/user_cvs?select=cv_data&user_id=eq.${S.id}`, { token: st })
+    rec('I3', '이력서 저장 → 다시 읽기(수정 후 재저장 포함)', cv.status < 300 && cvRead.json?.[0]?.cv_data?.summary === 'e2e cv', `저장 ${cv.status} ${cv.code}`)
+    const cv2 = await call('POST', '/rest/v1/user_cvs?on_conflict=user_id', { token: st, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, cv_data: { ...cvData, summary: 'e2e cv v2' }, photo_path: null, updated_at: new Date().toISOString() } })
+    const cvRead2 = await call('GET', `/rest/v1/user_cvs?select=cv_data&user_id=eq.${S.id}`, { token: st })
+    rec('I4', '이력서 수정 저장이 한 줄로 갱신됨(중복 줄 없음)', cv2.status < 300 && cvRead2.json?.length === 1 && cvRead2.json[0].cv_data.summary === 'e2e cv v2')
+    const cvOther = await call('GET', `/rest/v1/user_cvs?select=user_id&user_id=eq.${S.id}`, { token: s3t })
+    const cvForge = await call('POST', '/rest/v1/user_cvs?on_conflict=user_id', { token: s3t, headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: { user_id: S.id, cv_data: { summary: 'HACK' }, photo_path: null, updated_at: new Date().toISOString() } })
+    const cvAfter = await call('GET', `/rest/v1/user_cvs?select=cv_data&user_id=eq.${S.id}`, { token: st })
+    rec('I5', '다른 구직자는 남의 이력서를 읽지도 덮어쓰지도 못함', (cvOther.json ?? []).length === 0 && cvForge.status >= 400 && cvAfter.json?.[0]?.cv_data?.summary === 'e2e cv v2', `읽기 ${(cvOther.json ?? []).length}건 / 덮어쓰기 status ${cvForge.status}`)
+
+    // 메시지: 구직자가 스레드를 열고 첫 글 → 고용주가 보고 답글 → 구직자가 읽음 처리, 제3자는 못 봄
+    const th = await call('POST', '/rest/v1/message_threads', { token: st, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: S.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E', unread_by_employer: true } })
+    const threadId = th.json?.[0]?.id
+    const m1 = threadId ? await call('POST', '/rest/v1/messages', { token: st, body: { thread_id: threadId, from_role: 'seeker', body: 'Xin chào, tôi muốn ứng tuyển' } }) : { status: 0 }
+    rec('I6', '구직자가 대화를 열고 첫 메시지 전송', th.status === 201 && !!threadId && m1.status === 201, `스레드 ${th.status} ${th.code} / 메시지 ${m1.status}`)
+    const eSee = await call('GET', `/rest/v1/message_threads?select=id,unread_by_employer&job_id=eq.${jobId}`, { token: et })
+    const eMsgs = threadId ? await call('GET', `/rest/v1/messages?select=body,from_role&thread_id=eq.${threadId}`, { token: et }) : { json: [] }
+    rec('I7', '고용주가 자기 공고의 대화와 메시지를 봄(읽지 않음 표시)', eSee.json?.some((t) => t.id === threadId && t.unread_by_employer === true) && eMsgs.json?.length === 1)
+    const eRe = threadId ? await call('POST', '/rest/v1/messages', { token: et, body: { thread_id: threadId, from_role: 'employer', body: 'Mời bạn đến phỏng vấn' } }) : { status: 0 }
+    const eUp = threadId ? await call('PATCH', `/rest/v1/message_threads?id=eq.${threadId}`, { token: et, body: { unread_by_seeker: true, unread_by_employer: false, updated_at: new Date().toISOString() } }) : { status: 0 }
+    const sSee = await call('GET', `/rest/v1/message_threads?select=id,unread_by_seeker&seeker_id=eq.${S.id}`, { token: st })
+    const sMsgs = threadId ? await call('GET', `/rest/v1/messages?select=body,from_role&thread_id=eq.${threadId}&order=sent_at.asc`, { token: st }) : { json: [] }
+    rec('I8', '고용주 답글 → 구직자가 두 메시지를 순서대로 봄(읽지 않음 표시)', eRe.status === 201 && eUp.status < 300 && sSee.json?.some((t) => t.id === threadId && t.unread_by_seeker === true) && sMsgs.json?.map((m) => m.from_role).join() === 'seeker,employer', `답글 ${eRe.status} 갱신 ${eUp.status}`)
+    const readUp = await call('PATCH', `/rest/v1/message_threads?job_id=eq.${jobId}&seeker_id=eq.${S.id}`, { token: st, body: { unread_by_seeker: false } })
+    const readNow = await call('GET', `/rest/v1/message_threads?select=unread_by_seeker&id=eq.${threadId}`, { token: st })
+    rec('I9', '구직자가 읽음 처리', readUp.status < 300 && readNow.json?.[0]?.unread_by_seeker === false)
+    const t3 = await call('GET', `/rest/v1/message_threads?select=id&id=eq.${threadId}`, { token: s3t })
+    const t3m = await call('GET', `/rest/v1/messages?select=id&thread_id=eq.${threadId}`, { token: s3t })
+    const e2 = await call('GET', `/rest/v1/message_threads?select=id&id=eq.${threadId}`, { token: e2t })
+    const e2m = await call('GET', `/rest/v1/messages?select=id&thread_id=eq.${threadId}`, { token: e2t })
+    const inject = await call('POST', '/rest/v1/messages', { token: s3t, body: { thread_id: threadId, from_role: 'seeker', body: 'HACK' } })
+    const inject2 = await call('POST', '/rest/v1/messages', { token: e2t, body: { thread_id: threadId, from_role: 'employer', body: 'HACK' } })
+    rec('I10', '제3자(다른 구직자·다른 기업)는 남의 대화·메시지를 읽지도 끼어들지도 못함', [t3, t3m, e2, e2m].every((r) => (r.json ?? []).length === 0) && inject.status >= 400 && inject2.status >= 400, `끼어들기 구직자 ${inject.status} / 기업 ${inject2.status}`)
+
+    // 면접: 기업이 일정 등록 → 구직자가 확인·수락 → 취소하면 목록에서 빠짐, 제3자는 못 봄·못 바꿈
+    const when = new Date(Date.now() + 3 * 86400_000).toISOString()
+    const iv = await call('POST', '/rest/v1/interviews', { token: et, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: S.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E', datetime: when, location: 'KCN Yên Phong', notes: 'e2e', status: 'pending' } })
+    const ivId = iv.json?.[0]?.id
+    rec('I11', '기업이 지원자에게 면접 일정 등록', iv.status === 201 && !!ivId, `status ${iv.status} ${iv.code}`)
+    const ivDup = await call('POST', '/rest/v1/interviews', { token: et, body: { job_id: jobId, seeker_id: S.id, employer_id: E.id, job_title: TITLE, company: COMPANY, datetime: when, location: 'x', notes: '', status: 'pending' } })
+    const sIv = await call('GET', `/rest/v1/interviews?select=id,status&seeker_id=eq.${S.id}&status=neq.cancelled`, { token: st })
+    rec('I12', '같은 공고·지원자의 면접이 두 줄로 생기지 않고, 구직자가 자기 면접을 봄', ivDup.status === 409 && sIv.json?.length === 1 && sIv.json[0].id === ivId, `중복 등록 status ${ivDup.status}`)
+    const acc = await call('PATCH', `/rest/v1/interviews?id=eq.${ivId}`, { token: st, body: { status: 'confirmed' } })
+    const accNow = await call('GET', `/rest/v1/interviews?select=status&id=eq.${ivId}`, { token: et })
+    rec('I13', '구직자가 면접 수락 → 기업 화면에 확정으로 보임', acc.status < 300 && accNow.json?.[0]?.status === 'confirmed', `status ${acc.status} ${acc.code}`)
+    const iv3 = await call('GET', `/rest/v1/interviews?select=id&id=eq.${ivId}`, { token: s3t })
+    const iv3p = await call('PATCH', `/rest/v1/interviews?id=eq.${ivId}`, { token: s3t, body: { status: 'cancelled' } })
+    const iv2p = await call('PATCH', `/rest/v1/interviews?id=eq.${ivId}`, { token: e2t, body: { status: 'cancelled' } })
+    const ivKeep = await call('GET', `/rest/v1/interviews?select=status&id=eq.${ivId}`, { token: et })
+    const ivForge = await call('POST', '/rest/v1/interviews', { token: s3t, body: { job_id: jobId, seeker_id: S3.id, employer_id: E.id, job_title: TITLE, company: COMPANY, datetime: when, location: 'x', notes: '', status: 'confirmed' } })
+    rec('I14', '제3자는 남의 면접을 보지도 바꾸지도 못하고, 구직자가 기업 이름으로 면접을 만들 수 없음', (iv3.json ?? []).length === 0 && ivKeep.json?.[0]?.status === 'confirmed' && ivForge.status >= 400, `취소 시도 구직자 ${iv3p.status} / 기업 ${iv2p.status}, 위조 등록 ${ivForge.status}`)
+    const cancel = await call('PATCH', `/rest/v1/interviews?id=eq.${ivId}`, { token: et, body: { status: 'cancelled' } })
+    const gone = await call('GET', `/rest/v1/interviews?select=id&seeker_id=eq.${S.id}&status=neq.cancelled`, { token: st })
+    rec('I15', '기업이 면접 취소 → 구직자 면접 목록에서 빠짐', cancel.status < 300 && gone.json?.length === 0)
+  } catch (e) { rec('I0', '이력서·메시지·면접 흐름', false, e.message) }
+}
+
 // ── 4. 웹·앱 화면(실제 브라우저, 실제 로컬 스택) ──
 if (BASE && jobId) {
   const browser = await chromium.launch()
