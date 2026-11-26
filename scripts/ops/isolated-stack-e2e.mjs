@@ -565,7 +565,7 @@ if (BASE && jobId) {
       await page.waitForTimeout(6000)
       const recovered = await page.locator('[data-testid="app-messages"], [data-testid="app-tabbar"]').first().isVisible().catch(() => false)
       const txt = await page.evaluate(() => (document.getElementById('root')?.innerText ?? '').length)
-      rec('U1', '배포 뒤 옛 탭에서 아직 안 받은 화면으로 이동해도 화면이 죽지 않음(자동 새로고침 등으로 복구)', recovered && txt > 20, `화면 ${recovered ? '뜸' : '안 뜸'} / 글자 ${txt} / 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''}`)
+      observe('U1', '옛 버전(복구 장치 없는 2a6b249) 탭에서 배포 뒤 안 받은 화면으로 이동', `화면 ${recovered ? '뜸' : '안 뜸'} / 글자 ${txt} / 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''} — 복구 장치는 이 PR 이후 버전부터 들어가므로 예전 버전 탭은 구조상 복구 못 함(새로고침 필요)`)
       // (b) 새로고침: 새 빌드가 실제로 뜨고, 로그인·저장값이 그대로
       await page.goto(`${UB}/app/viec-lam/sb-${jobId}`, { waitUntil: 'domcontentloaded' })
       await page.locator('[data-testid="app-actionbar"]').waitFor({ state: 'visible', timeout: 30_000 })
@@ -578,6 +578,16 @@ if (BASE && jobId) {
       await page.goto(`${UB}/`, { waitUntil: 'domcontentloaded' })
       const webOk = await page.locator('header, main').first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
       rec('U4', '업데이트 뒤 웹 화면도 정상(같은 세션)', webOk && errors.length === 0, `오류 ${errors.length}`)
+      // 현재 버전(복구 장치 있음) 탭이 열려 있는 상태에서 그다음 배포가 올라오는 경우 — 복구 장치가 실제로 동작해야 한다
+      await page.goto(`${UB}/app/`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
+      const curScript = await mainScript()
+      await sw('next')
+      errors.length = 0
+      await page.evaluate(() => { history.pushState({}, '', '/app/ho-so/tin-nhan'); window.dispatchEvent(new PopStateEvent('popstate')) })
+      const reached = await page.locator('[data-testid="app-messages"]').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+      const nextScript = await mainScript()
+      rec('U5', '현재 버전 탭에서 그다음 배포 뒤 안 받은 화면으로 이동하면 자동 새로고침으로 새 빌드를 받아 화면이 정상 표시됨', reached && nextScript !== curScript && errors.length === 0, `화면 ${reached} / ${curScript.split('/').pop()} → ${nextScript.split('/').pop()} / 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''}`)
       void oldHome
     } catch (e) { rec('U0', '구버전→신버전 업데이트', false, e.message.split('\n')[0]) }
     await context.close()

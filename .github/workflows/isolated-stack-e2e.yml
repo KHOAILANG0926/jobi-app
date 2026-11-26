@@ -90,12 +90,19 @@ jobs:
         run: |
           git worktree add "$RUNNER_TEMP/old" "$OLD_REF"
           (cd "$RUNNER_TEMP/old" && npm ci && npm run build)
-      - name: 앱 띄우기 (새 빌드 4173 · 옛 빌드 4174 · 전환 프록시 4180)
+      - name: 다음 버전 빌드 (같은 소스에서 메시지 화면 파일 한 줄만 바꿔 조각 파일 이름이 달라지게 — 현재 버전에서 그다음 배포로 넘어가는 경우 시험용)
+        run: |
+          git worktree add "$RUNNER_TEMP/next" HEAD
+          ln -s "$PWD/node_modules" "$RUNNER_TEMP/next/node_modules"
+          echo "// next-build-marker" >> "$RUNNER_TEMP/next/src/app/inbox/MessagesScreen.tsx"
+          (cd "$RUNNER_TEMP/next" && npm run build)
+      - name: 앱 띄우기 (새 빌드 4173 · 옛 빌드 4174 · 다음 빌드 4175 · 전환 프록시 4180)
         run: |
           npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
           (cd "$RUNNER_TEMP/old" && npx vite preview --port 4174 --strictPort > "$RUNNER_TEMP/preview-old.log" 2>&1 &)
-          node scripts/ops/switch-proxy.mjs 4180 4174 4173 > "$RUNNER_TEMP/proxy.log" 2>&1 &
-          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && curl -fsS http://localhost:4174/ >/dev/null && curl -fsS http://localhost:4180/ >/dev/null && exit 0; sleep 1; done
+          (cd "$RUNNER_TEMP/next" && npx vite preview --port 4175 --strictPort > "$RUNNER_TEMP/preview-next.log" 2>&1 &)
+          node scripts/ops/switch-proxy.mjs 4180 4174 4173 4175 > "$RUNNER_TEMP/proxy.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && curl -fsS http://localhost:4174/ >/dev/null && curl -fsS http://localhost:4175/ >/dev/null && curl -fsS http://localhost:4180/ >/dev/null && exit 0; sleep 1; done
           cat preview.log "$RUNNER_TEMP/preview-old.log" "$RUNNER_TEMP/proxy.log"; exit 1
       - name: 실제 로그인·PostgREST 권한·is_account_active·웹/앱 교차 E2E
         run: BASE_URL=http://localhost:4173 UPDATE_BASE=http://localhost:4180 SCREENSHOT_DIR=isolated-stack-proof node scripts/ops/isolated-stack-e2e.mjs
