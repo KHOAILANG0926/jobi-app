@@ -192,6 +192,7 @@ jobs:
     env:
       PG_TEST_URL: postgresql://postgres:postgres@localhost:5432/migration_test
       PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
