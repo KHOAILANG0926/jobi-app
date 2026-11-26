@@ -54,6 +54,15 @@ try {
   if(!desc.includes(line) || desc.indexOf('Yêu cầu')<0 || desc.indexOf('Yêu cầu')>desc.indexOf(line))
     throw Error('공고 상세 원문 재생성 미반영 — job-ocr-check dispatch 확인 필요')
   console.log('PASS: DB 상세 내용에 Yêu cầu 영역의 원문 줄 반영됨')
+  // #701 D(2026-11-26, #1083): 원문 붙여 넣기 → 'Phân tích tự động'이 공통 판독기로 칸을 채우는지(저장하지 않음 — DB 쓰기 없음).
+  const sample = 'CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong\nCông ty TNHH KDA\nĐịa chỉ: Lô A1, KCN Yên Phong, Bắc Ninh\nLương: 8.000.000đ/tháng\nLH: 0877 880 756'
+  await page.locator('textarea[placeholder^="Dán nội dung bài đăng"]').fill(sample)
+  await page.getByRole('button',{ name:/Phân tích tự động/ }).click()
+  const filled = async (placeholder) => page.locator(`input[placeholder="${placeholder}"]`).inputValue()
+  const got = { company: await filled('Tên công ty'), phone: await filled('0912 345 678'), salary: await filled('VD: 5-7 triệu/tháng'), location: await filled('VD: Hà Nội — Cầu Giấy') }
+  if (got.company !== 'CTY KDA' || got.phone !== '0877880756' || got.salary !== '8.000.000đ/tháng' || !got.location.includes('Bắc Ninh'))
+    throw Error('원문 자동 채우기 결과 불일치: ' + JSON.stringify(got))
+  console.log('PASS: 원문 자동 채우기(공통 판독기) — ' + JSON.stringify(got))
   await page.screenshot({path:'admin-line-pick-e2e.png', fullPage:true})
   console.log('E2E PASS: 테스트 화면 확인 완료')
 } catch(e) {
