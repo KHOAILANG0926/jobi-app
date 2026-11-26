@@ -87,4 +87,20 @@ const bot = (body) => ({ user: { login: 'github-actions[bot]' }, body })
 { const wf = readFileSync(join(process.cwd(), '.github/workflows/deploy-verify.yml'), 'utf8')
   assert.match(wf, /^permissions:[\s\S]*?^  pull-requests: write/m, 'deploy-verify.yml 권한에 pull-requests: write')
   assert.match(wf, /deploy-notify\.sh success/, '완료 댓글 단계가 이 워크플로에 있음') }
+
+// ── 운영 검사 성공 + 열린 잠금 이슈: 판정 재계산·6분 뒤 봇 재확인을 기존 장치로 호출(2026-11-26)
+const lockIssue = (n, sha) => ({ number: n, title: `운영 배포 검증 실패: ${sha}`, user: { login: 'github-actions[bot]' } })
+{ const o = run('success', { issues: [lockIssue(11, 'abc1234'), lockIssue(12, 'def5678'), { number: 13, title: '다른 이슈', user: { login: 'github-actions[bot]' } }] })
+  assert.equal(o.r.status, 0)
+  assert.ok(o.calls.some((c) => /^workflow run approval-checks\.yml/.test(c)), '잠금 이슈가 열려 있으면 approval-checks 재판정 호출')
+  assert.ok(o.calls.some((c) => /^workflow run codex-wait-timer\.yml.*-f minutes=6/.test(c)), '기존 다시 확인 타이머 6분')
+  assert.match(o.r.stdout, /잠금 이슈 2건/, '두 건만 센다') }
+{ const o = run('success', { issues: [] })
+  assert.equal(o.calls.filter((c) => c.startsWith('workflow run')).length, 0, '잠금 이슈가 없으면 호출하지 않음(성공마다 부르지 않음)') }
+{ const o = run('success', { issues: [lockIssue(11, 'abc1234')], failOn: 'workflow run' })
+  assert.equal(o.r.status, 0, '호출 실패는 경고만 — 알림·운영 검사 결과는 그대로')
+  assert.match(o.r.stdout + o.r.stderr, /잠금 해제 반영 호출 실패/) }
+{ const o = run('success', { issues: [{ ...lockIssue(11, 'abc1234'), user: { login: 'someone' } }] })
+  assert.equal(o.calls.filter((c) => c.startsWith('workflow run')).length, 0, '작성자가 github-actions[bot]이 아닌 이슈는 잠금이 아님(남이 같은 제목으로 열어도 호출을 못 만듦)') }
+
 console.log('deploy-notify.test.mjs: 통과')
