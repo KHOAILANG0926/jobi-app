@@ -8,13 +8,11 @@ on:
     inputs:
       prod_catalog_run: { description: '운영 구조 지문(schema-catalog-read) ops-run-sql 실행 번호', default: '45828209586' }
       prod_lines_run: { description: '운영 함수 줄 지문(schema-function-lines-read) ops-run-sql 실행 번호', default: '45837472926' }
-      old_ref: { description: '업데이트 호환 시험의 옛 버전(커밋). 비우면 기본(2a6b249, 앱 화면이 처음 갖춰진 11-26 아침 master)', default: '' }
   pull_request:
     paths:
       - '.github/workflows/isolated-stack-e2e.yml'
       - 'scripts/ci/isolated-stack-setup.mjs'
       - 'scripts/ops/isolated-stack-e2e.mjs'
-      - 'scripts/ops/switch-proxy.mjs'
       - 'supabase/tests/baseline/**'
 permissions:
   contents: read
@@ -27,7 +25,7 @@ jobs:
       PROD_CATALOG_RUN: ${{ inputs.prod_catalog_run || '45828209586' }}
       PROD_LINES_RUN: ${{ inputs.prod_lines_run || '45837472926' }}
       GH_TOKEN: ${{ github.token }}
-      OLD_REF: ${{ inputs.old_ref || '2a6b249' }}
+      OLD_REF: 2a6b249   # 업데이트 호환 시험의 옛 버전(앱 화면이 처음 갖춰진 2026-11-26 아침 master). 바꾸려면 이 줄만 고친다.
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
