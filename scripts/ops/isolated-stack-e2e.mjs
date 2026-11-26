@@ -95,7 +95,8 @@ if (jobId) {
     after = await runFlows('after')
     const broke = Object.keys(before).filter((n) => before[n] && !after[n])
     observe('E2', 'anon 실행 권한을 회수하면 깨지는 흐름', broke.length ? broke.join(' / ') : '없음(모든 흐름 동일)')
-    rec('E3', 'is_account_active를 anon에서 회수해도 익명 흐름(목록·게스트 등록·관리 조회)은 유지', ['익명: 공개 공고 목록', '익명: 게스트 등록(ingest_job)', '익명: 게스트 관리 링크 조회(get_guest_job)'].every((n) => after[n]))
+    // 실험 결과(관찰): 격리 DB에서 anon 실행 권한을 회수해 본 것이므로 통과·실패가 아니라 '무엇이 깨지는지'를 남긴다 — 대표 결정 항목(0020 초안)의 근거.
+    observe('E3', 'anon 회수 뒤에도 유지되는 익명 흐름', ['익명: 공개 공고 목록', '익명: 게스트 등록(ingest_job)', '익명: 게스트 관리 링크 조회(get_guest_job)'].filter((n) => after[n]).join(' / ') || '없음')
   } finally { if (had) sql(`grant execute on function public.is_account_active(uuid) to anon`) }
 }
 
@@ -145,7 +146,8 @@ if (BASE && jobId) {
       await page.screenshot({ path: `${SHOTS}/app-detail-${name}.png` })
       await page.goto(`${BASE}/app/`, { waitUntil: 'domcontentloaded' })
       await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
-      await page.waitForFunction((t) => document.body.innerText.includes(t), COMPANY, { timeout: 30_000 }).then(() => rec('F5', `앱(${name}) 홈 목록에 시험 공고가 보임`, true), () => rec('F5', `앱(${name}) 홈 목록에 시험 공고가 보임`, false, '첫 화면에 없음'))
+      const card = page.locator(`[data-job-id="sb-${jobId}"], a[href$="/viec-lam/sb-${jobId}"]`)
+      await card.first().waitFor({ state: 'attached', timeout: 30_000 }).then(() => rec('F5', `앱(${name}) 홈에 시험 공고 카드가 보임`, true), async () => rec('F5', `앱(${name}) 홈에 시험 공고 카드가 보임`, false, `홈에 나온 공고 카드 ${await page.locator('[data-job-id]').count()}개 중 없음`))
     } catch (e) { rec('F0', `웹·앱 화면(${name})`, false, e.message.split('\n')[0]) }
     await context.close()
   }

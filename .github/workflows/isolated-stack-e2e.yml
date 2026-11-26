@@ -53,7 +53,9 @@ jobs:
         continue-on-error: true
         run: |
           psql "$LOCAL_DB_URL" -X -f scripts/ops/jobs/schema-catalog-read.sql > iso-catalog.txt
-          gh run view "$PROD_CATALOG_RUN" --log > prod-catalog.log
+          # gh run view --log는 아주 긴 줄(구조 지문 한 줄이 수십 KB)을 잘라 버리므로, 실행 기록 전체(zip)에서 작업 전체 기록 파일 하나를 읽는다.
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PROD_CATALOG_RUN/logs" > prod-catalog.zip
+          unzip -p prod-catalog.zip "$(unzip -Z1 prod-catalog.zip | grep -v / | head -1)" > prod-catalog.log
           node scripts/ops/schema-catalog-compare.mjs prod-catalog.log iso-catalog.txt --json > compare.json || true
           node -e "
             const r = JSON.parse(require('fs').readFileSync('compare.json','utf8'));
@@ -67,7 +69,8 @@ jobs:
         continue-on-error: true
         run: |
           psql "$LOCAL_DB_URL" -X -f scripts/ops/jobs/schema-function-lines-read.sql > iso-lines.txt
-          gh run view "$PROD_LINES_RUN" --log > prod-lines.log
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PROD_LINES_RUN/logs" > prod-lines.zip
+          unzip -p prod-lines.zip "$(unzip -Z1 prod-lines.zip | grep -v / | head -1)" > prod-lines.log
           node scripts/ops/schema-catalog-compare.mjs prod-lines.log iso-lines.txt --lines | tee lines.json
       - run: npx playwright install --with-deps chromium
       - run: npm run build
