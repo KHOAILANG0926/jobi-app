@@ -66,7 +66,7 @@ export function resolveImport(files: Files, from: string, spec: string): string 
 export function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
 }
-const BROWSER_GLOBAL = /\b(?:window|document|navigator)\s*\.|\b(?:localStorage|sessionStorage)\b|\bnew\s+CustomEvent\b|\baddEventListener\s*\(/
+const BROWSER_GLOBAL = /\b(?:window|document|navigator)\s*\.|\b(?:localStorage|sessionStorage)\b|\bnew\s+CustomEvent\b|(?<![.\w])addEventListener\s*\(/
 const REACT_IMPORT = /from\s*['"](?:react|react-dom|react-dom\/[^'"]*|react-router[^'"]*)['"]/
 export const SUPABASE_CLIENT = 'src/lib/supabase.ts'
 export const isUiZone = (p: string) => /^src\/(?:components|pages|context|app)\//.test(p)

@@ -1,4 +1,4 @@
-import { parseAdminJobDraft, adminSavedJob } from '../lib/adminJobDraft'
+import { parseAdminJobDraft, adminSavedJob, readAdminPost } from '../lib/adminJobDraft'
 import { checkedAdminCreateJob } from '../lib/jobPolicyWrite'
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -103,7 +103,6 @@ export default function AdminDashboard() {
 
   // Post job state
   const [rawText, setRawText] = useState('')
-  const [parsing, setParsing] = useState(false)
   const [jobForm, setJobForm] = useState<Omit<Job, 'id'>>(EMPTY_JOB)
   const [source, setSource] = useState('Facebook')
   const [parseError, setParseError] = useState('')
@@ -163,58 +162,13 @@ export default function AdminDashboard() {
     })
   }, [])
 
-  // Parse Facebook post with Claude AI
-  async function handleParse() {
+  // 원문 자동 채우기: 공통 판독기(lib/adminJobDraft.readAdminPost)로만 — 브라우저에서 AI를 부르지 않는다(#701 D).
+  function handleParse() {
     if (!rawText.trim()) return
-    setParsing(true)
     setParseError('')
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: `Đây là bài đăng tuyển dụng từ Facebook. Hãy trích xuất thông tin và trả về JSON thuần túy (không có markdown, không có backtick).
-
-Bài đăng:
-"""
-${rawText}
-"""
-
-Trả về JSON với các trường sau (nếu không tìm thấy thì để chuỗi rỗng):
-{
-  "title": "chức danh công việc ngắn gọn",
-  "company": "tên công ty/cơ sở",
-  "category": "factory|cafe|delivery|cleaning|retail|other",
-  "salary": "mức lương rõ ràng, ví dụ: 9.000.000 – 13.000.000 đ/tháng",
-  "location": "tỉnh/thành phố — quận/huyện cụ thể",
-  "hours": "giờ làm việc / ca cụ thể",
-  "employerPhone": "số điện thoại liên hệ",
-  "applicationDeadline": "YYYY-MM-DD hoặc rỗng nếu không có",
-  "urgent": true hoặc false,
-  "description": "chỉ ghi các quyền lợi, yêu cầu bổ sung chưa nêu ở trên. KHÔNG lặp lại địa điểm, công ty, giờ làm, lương.",
-  "lat": null,
-  "lng": null
-}`
-          }]
-        })
-      })
-      const data = await res.json()
-      const text = data.content?.map((c: { type: string; text?: string }) => c.type === 'text' ? c.text : '').join('') || ''
-      const clean = text.replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(clean)
-      setJobForm({
-        ...EMPTY_JOB,
-        ...parsed,
-        postedAt: new Date().toISOString().slice(0, 10),
-      })
-    } catch {
-      setParseError('Không đọc được bài đăng. Thử lại hoặc điền thủ công.')
-    }
-    setParsing(false)
+    const read = readAdminPost(rawText)
+    if (!read.company && !read.location && !read.salary && !read.employerPhone) setParseError('Không đọc được bài đăng. Thử lại hoặc điền thủ công.')
+    setJobForm({ ...EMPTY_JOB, ...read, postedAt: new Date().toISOString().slice(0, 10) })
   }
 
   async function handleSave() {
@@ -253,6 +207,9 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       company_verified: jobForm.companyVerified ?? false,
       company_founded_year: jobForm.companyFoundedYear ?? null,
       hire_count: jobForm.hireCount ?? null,
+      // 원문 근거가 있을 때만(readAdminPost) — 없으면 NULL → 기존 DB 공개 판정(R8)
+      occupation_code: jobForm.occupationCode || null,
+      occupation_evidence: jobForm.occupationEvidence || null,
     }, rawText)
       error = result.error
       if (!error) saved = adminSavedJob(result.data)
@@ -418,15 +375,15 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
               <button type="button" onClick={importDraft} disabled={saving || !rawText.trim()} style={{ marginTop: '12px', marginRight: '12px', padding: '12px 20px' }}>Nhập bản nháp JSON</button>
               <button
                 onClick={handleParse}
-                disabled={parsing || !rawText.trim()}
+                disabled={!rawText.trim()}
                 style={{
                   marginTop: '12px', padding: '12px 28px',
-                  background: parsing || !rawText.trim() ? '#ccc' : 'linear-gradient(135deg, #e74c3c, #c0392b)',
+                  background: !rawText.trim() ? '#ccc' : 'linear-gradient(135deg, #e74c3c, #c0392b)',
                   color: '#fff', border: 'none', borderRadius: '10px',
-                  fontSize: '14px', fontWeight: 700, cursor: parsing || !rawText.trim() ? 'not-allowed' : 'pointer'
+                  fontSize: '14px', fontWeight: 700, cursor: !rawText.trim() ? 'not-allowed' : 'pointer'
                 }}
               >
-                {parsing ? '⏳ Đang phân tích...' : '✨ Phân tích tự động'}
+                ✨ Phân tích tự động
               </button>
             </div>
 
