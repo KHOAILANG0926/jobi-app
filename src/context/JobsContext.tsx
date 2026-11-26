@@ -93,6 +93,9 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
         company: draft.company,
         category: draft.category,
         subcategory: draft.subcategory ?? null,
+        // #717 B ①: 업무 내용에 근거가 있을 때만 값이 있다(lib/postJobSubmit). 없으면 NULL → 기존 DB 공개 판정.
+        occupation_code: draft.occupationCode ?? null,
+        occupation_evidence: draft.occupationEvidence ?? null,
         salary: draft.salary,
         location: draft.location,
         hours: draft.hours ?? '',

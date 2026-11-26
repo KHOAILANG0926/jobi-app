@@ -2,6 +2,7 @@ import { composeAge, composeDescription, composeHires, composeHours, composeLoca
 import type { JobConditions } from './jobConditions.ts'
 import { supabase } from './supabase.ts'
 import type { JobCategory } from '../types/job'
+import { occupationForPost, occupationName } from './occupationReader.mjs'
 
 // 공고 등록 폼의 "값 모으기·필수 검사·저장 칸 만들기·사진/핀 저장" — 웹 PostJob 페이지(src/pages/PostJob.tsx)에 있던 것을 그대로 옮긴 공용 함수(동작 변경 없음).
 // 웹과 앱(/app 기업 탭 공고 등록)이 같은 검사·같은 저장 칸을 쓴다. 화면(칸 배치·입력 방식)만 각자 둔다.
@@ -137,9 +138,23 @@ export async function uploadJobPhotos(files: File[]): Promise<{ imageUrl: string
   return { imageUrl, imagePaths }
 }
 
+/** 업직종 아래 직업분류 안내 한 줄(#717 B, Lee 2026-11-25 승인 문구). 저장 때와 같은 판정(buildJobFields)을 쓴다 — 화면과 저장이 다르게 말하지 않게.
+ *  업직종을 고르지 않았으면 null(줄 없음). */
+export function occupationNotice(form: PostForm): string | null {
+  if (form.category === 'khac' && !form.subcategory) return null
+  const description = composeDescription({ work: form.work, overtime: form.overtime, environment: form.environment, process: processText(form), benefitOther: form.benefitOther }) ?? ''
+  const hit = occupationForPost({ category: form.category, subcategory: form.subcategory, title: form.title.trim(), description })
+  return hit ? `Nghề phù hợp: ${occupationName(hit.occupation_code) ?? hit.occupation_code} (${hit.occupation_code}) · xác nhận theo nội dung công việc` : 'Sẽ được kiểm tra sau khi đăng'
+}
+
 /** 공고 저장용 칸(addPostedJob의 baseFields). 마감일·작성자(employerId)는 호출하는 쪽이 붙인다. */
 export function buildJobFields(form: PostForm, conditions: JobConditions, c: ComposedPost, extra: { descriptionHtml?: string; imageUrl?: string; imagePaths: string[] }) {
+  // #717 B ①(Lee 2026-11-25): 고른 업직종의 공식 코드 후보 안에서, 고용주가 쓴 제목·업무 내용에 근거가 있을 때만 코드와 근거(원문 글자 그대로)를
+  // 등록 입구에 함께 보낸다. 근거가 없으면 보내지 않는다 → 기존 DB 공개 판정(R8)이 비공개로 두고 기존 확인 절차.
+  const occupation = occupationForPost({ category: form.category, subcategory: form.subcategory, title: form.title.trim(), description: c.description })
   return {
+    occupationCode: occupation?.occupation_code,
+    occupationEvidence: occupation?.occupation_evidence,
     title: form.title.trim(),
     company: form.company.trim(),
     category: form.category,
