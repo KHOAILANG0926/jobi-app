@@ -1,6 +1,6 @@
 import { parseWardUnit, type WardUnit } from './wardArea.ts'
 import { runWardLocate, pickWardHit, checkWardPlace, WARD_SEARCH_VERSION, type WardCenterCache, type WardLocateDeps } from './wardLocate.ts'
-import { DailyLimitError } from './adminVietmapClient.ts'
+import { DailyLimitError } from './vietmapErrors.ts'
 
 function assert(cond: boolean, msg: string) { if (!cond) throw new Error(`FAIL: ${msg}`) }
 const unit = (raw: string) => parseWardUnit(raw) as WardUnit

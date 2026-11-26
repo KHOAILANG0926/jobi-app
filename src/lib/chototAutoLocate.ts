@@ -10,7 +10,7 @@ import {
 } from './locationCandidateMatch'
 import { findIndustrialPark } from './industrialPark'
 import { INDUSTRIAL_PARK_OUTLINES } from '../data/industrialParkOutlines'
-import { DailyLimitError, VietmapRequestError } from './adminVietmapClient'
+import { DailyLimitError, VietmapRequestError } from './vietmapErrors'
 
 export const CHOTOT_ID_MIN = 4685
 export const CHOTOT_ID_MAX = 4784
