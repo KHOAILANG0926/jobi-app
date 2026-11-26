@@ -121,6 +121,23 @@ export async function precheckLocation(db, request, input, goong = null, google 
   return { ...verdict, location: stores.length ? stores[0] : job.location, ...(stores.length ? { stores } : {}), ...who }
 }
 
+/** 위치를 사업장 기억으로 찾은 공고(Google을 다시 부르지 않음, Lee 2026-11-26)는 자기 검색 결과가 없다 —
+ *  같은 회사·같은 사업장 공고가 이미 기록한 Google 장소 번호를 그대로 쓴다(새 Google 검색 없음, 웹사이트 저장 결과도 같은 열쇠). */
+async function sameSitePlaceId(db, deps, resolverJob) {
+  try {
+    const ids = new Set()
+    for (const t of resolverJob.targets.slice(0, 5)) {
+      if (!t.address) continue
+      for (const m of await deps.siteMemory(resolverJob.company, t.address)) if (m.jobId && m.jobId !== resolverJob.id) ids.add(m.jobId)
+    }
+    if (!ids.size || !db?.from) return null
+    const { data, error } = await db.from('local_jobs').select('id,logo_lookup').in('id', [...ids].slice(0, 20))
+    if (error || !Array.isArray(data)) return null
+    const found = data.map((r) => r?.logo_lookup?.place_id).find((x) => typeof x === 'string' && x)
+    return found ?? null
+  } catch { return null }
+}
+
 /** 관리자 확정 기억표 조회(읽기만). 조회 실패는 '없음'으로 두고 기존 순서(Google부터)로 확인한다 — 등록을 막지 않는다. */
 async function hasConfirmedPoint(db, company, addresses) {
   if (!company || !addresses.length || !db?.rpc) return false
@@ -164,6 +181,12 @@ function resolverDeps(db, request, extra, goong, google) {
       const name = createHash('sha256').update(key).digest('hex')
       const {error} = await db.from('research_artifacts').upsert({kind:'map-r1-query',name,payload:{data},meta:{}},{onConflict:'kind,name'})
       if (error) throw new Error('cache_unavailable')
+    },
+    // 우리 사업장 위치 기억(Lee 2026-11-26): 같은 회사 + 같은 사업장 확정 좌표. 조회 실패는 '없음' — 기존 순서(Google부터)로 찾는다.
+    async siteMemory(company, address) {
+      if (!db?.rpc) return []
+      const { data, error } = await db.rpc('location_site_memory', { p_company: company, p_address: address })
+      return !error && Array.isArray(data) ? data.map((r) => ({ lat: Number(r.lat), lng: Number(r.lng), source: String(r.source || ''), jobId: Number(r.job_id) || null })) : []
     },
     request,
     ...(goong ? { goong } : {}),
@@ -282,6 +305,7 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   // 한도 초과로 남았던 공고는 그때 확인한 장소 번호를 그대로 쓴다(저장된 검색 결과가 없어도 다시 시도, Codex #619 P2).
   const recorded = job.logo_lookup?.result === 'quota' && typeof job.logo_lookup?.place_id === 'string' && job.logo_lookup.place_id ? job.logo_lookup.place_id : null
   const placeId = recorded ?? await cachedGooglePlaceId(resolverJob, (k) => deps.cached(k), (a, p) => deps.withinAdministrativeArea(a, p))
+    ?? await sameSitePlaceId(db, deps, resolverJob)
   if (!placeId) return record('no_place')
   const cacheKey = JSON.stringify(['place-website-v1', placeId])
   let site = await deps.cached(cacheKey)

@@ -187,4 +187,38 @@ const fetchOk = (website: string | null, iconStatus = 200) => async (url: string
     assert(asked === 1, 'within quota → called')
   } finally { globalThis.fetch = orig }
 }
+{ // 사업장 기억으로 위치를 찾은 공고(자기 Google 검색 결과 없음, Lee 2026-11-26): 같은 사업장 공고가 기록한 장소 번호를 그대로 쓴다 — 새 Google 검색 없음
+  const cache = new Map<string, unknown>()
+  cache.set(createHash('sha256').update(JSON.stringify(['place-website-v1', 'PX'])).digest('hex'), { websiteUri: null })
+  const rows: Record<string, Row[]> = {
+    local_jobs: [{ id: 501, company: 'Công ty TNHH Hojeong Vina', title: 'Tuyển công nhân', image_url: null, images: [] }],
+    job_brands: [], job_brand_aliases: [],
+    map_r1_location_jobs: [{ job_id: 501, snapshot: { company: 'Công ty TNHH Hojeong Vina', location: 'Bắc Ninh', targets: [{ address: 'Lô C3, KCN Quế Võ, Bắc Ninh' }] } }],
+  }
+  const other = [{ id: 77, logo_lookup: { result: 'none', place_id: 'PX' } }]
+  const recorded: Row[] = []
+  let fetched = 0
+  const db = {
+    from(t: string) {
+      if (t === 'research_artifacts') {
+        let name = ''
+        const q = { select: () => q, eq: (k: string, v: string) => { if (k === 'name') name = v; return q },
+          maybeSingle: async () => ({ data: cache.has(name) ? { payload: { data: cache.get(name) } } : null, error: null }),
+          upsert: async () => ({ error: null }) }
+        return q
+      }
+      const data = rows[t] ?? []
+      const q = { select: () => q, eq: () => q, in: async () => ({ data: other, error: null }),
+        maybeSingle: async () => ({ data: data[0] ?? null, error: null }), then: (r: (v: unknown) => void) => r({ data, error: null }) }
+      return q
+    },
+    async rpc(name: string, args: Row) {
+      if (name === 'location_site_memory') return { data: [{ lat: 21.15, lng: 106.15, source: 'Google', job_id: 77, work_location_id: 9 }], error: null }
+      if (name === 'job_logo_lookup_record') { recorded.push(args); return { data: args.p_result, error: null } }
+      return { data: null, error: null }
+    },
+  }
+  const r = await applyLogoLookup(db as never, 501, 'k', (async () => { fetched++; return { ok: true, status: 200, json: async () => ({}) } }) as never)
+  assert(fetched === 0 && recorded.length === 1 && recorded[0].p_place_id === 'PX' && r !== 'no_place', 'same-site place id reused without Google: ' + JSON.stringify({ r, recorded, fetched }))
+}
 console.log('logo lookup runtime: 찾음·한도·장소 없음·아이콘 없음·건너뜀·위치 검색 한도 통과')

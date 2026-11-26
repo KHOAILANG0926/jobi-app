@@ -1,3 +1,9 @@
+## 2026-11-26 — 우리 사업장 위치 기억(Claude): 같은 공장을 Google에 다시 묻지 않기
+- 요청(Lee 11-26 "진행하자"): Google로 확정된 위치도 회사 위치 기억으로 재사용, 성조·띄어쓰기·지역 꼬리만 다른 주소도 같은 사업장으로.
+- 변경: migration 20261126090000_location_site_memory(public.location_site_memory, 확정 줄만 읽기·same_site_address 재사용) / autoLocationResolver ⓪(기억 → Google·VietMap·Goong, 300m 넘게 어긋나면 안 씀, 원래 출처 유지) / auto-location-runtime siteMemory·로고 찾기 장소 번호 재사용 / CLAUDE.md 「공고 위치 확인 프로세스」5번 ①-2·RULES_CORE.
+- 검증 [직접 확인]: 로컬 PostgreSQL 16에서 CI 순서(fixture→reference→setup→migration→local→production_check→전후 대조 '변화 없음'), siteMemory.test·_logo-lookup.test·autoLocationResolver·googleQuotaCache·locationPrecheck·api 위치 시험, tsc.
+- 남은 것: 11-10 이전 Google 줄 출처 표시 정정(데이터 전환, dry-run 뒤 Lee 확인).
+
 ## 2026-11-26 — C·D·E 이어서(Claude): 직업분류 공용화·추가 고용형태·관리자 자동 채우기·수집기 시험 CI
 - 요청(Lee 11-25·26): #717 B ①(근거 있을 때만 코드·근거 전달, 규칙 공통화, 업직종 아래 안내 줄), C·D·E 잔여, 수집기 시험 2개 CI 연결.
 - 변경: #1072(data/occupations/occupation_rules.json 한 곳을 Python·웹이 함께 읽음, 고용주 등록 buildJobFields·안내 줄) / #1073(시험 2개 수정) / #1080(employment_type_extra) / #1083(AdminDashboard 자동 채우기 = companyReader·addressReader·salaryReader·phonesIn·occupationReader) / #1079(crawl-install에 시험 2개) / #1084(admin-line-pick-e2e에 자동 채우기 확인, 저장 없음).
@@ -50,10 +56,3 @@
 - 변경: `src/lib/cvAccountSync.ts`(웹 `CvBuilder`의 계정 CV 읽기·저장 순서를 그대로 옮긴 공용 함수, 웹도 이 함수를 부름 — 동작 변경 없음) / `src/app/account/CvScreen.tsx`(`/ho-so/cv`: 기본 정보·사진·경력·학력·기술·추천인, 로그인 전 이 기기 저장·로그인 후 계정 저장, 자료 모양은 `lib/cvStorage` 그대로). 마이·메뉴의 CV 링크를 웹 화면에서 앱 화면으로 교체.
 - 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 CV 흐름 10/10(저장 키가 웹과 같은 `vgb_cv_draft`, 새로고침 유지, 항목 추가·삭제). 계정 저장·사진 업로드는 이 환경에 인증 열쇠가 없어 직접 못 봄.
 - 남은 것: CV PDF 내려받기·미리보기(웹 CvBuilder 전용 화면), 기기 CV를 계정으로 가져오기 제안(웹 Profile), 맞춤 조건·커뮤니티·기업.
-
-## 2026-11-25 — JOBI 앱 2단계 ①: 로그인·가입·마이 탭·지원 내역·사이트 안 지원
-- 요청(Lee): 최종 V3 기준 개발 연속 진행 — 구직자 핵심 다음 단계(회원·지원). 진행표 #1031.
-- 변경: `src/lib/applySubmit.ts`(웹 `useApply`의 buildProfile·제출을 그대로 옮긴 공용 함수, 웹은 그 함수를 부름 — 동작 변경 없음) / `src/app/account/` — 로그인·가입(웹 같은 AuthContext·문구·검사, 이동은 /app 안 경로만), 지원 시트(`useAppApply`, 상세 하단 "Ứng tuyển ngay"가 웹 상세로 보내던 임시 연결을 대체), 마이 탭(`/ho-so`), 지원 내역(`/ho-so/ung-tuyen`: 웹과 같은 `applicationsStorage` 목록·실시간·철회).
-- 검증 [직접 확인]: tsc·build·npm test 133/133, Playwright 게스트 흐름 14/14(마이·지원 내역 로그인 유도·로그인/가입 검증 문구·외부 redirect 차단). 로그인 후 지원 제출은 이 환경에 인증 열쇠가 없어 직접 못 봄(병합 뒤 운영 확인 불가 — 계정 필요).
-- 남은 것: Zalo 로그인·비밀번호 찾기·CV는 웹 화면 연결(다음 PR), 이력서(CV)·커뮤니티·기업 기능.
-

@@ -8,6 +8,7 @@ import type { PoiCandidate } from './locationCandidateMatch'
 import { precheckVerdict, checkBlocked, providerErrorKind } from './locationPrecheck'
 import { hasProvince } from './addressReader'
 import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys } from './companyPlaceSearch'
+import { distanceMeters } from './locationCandidateMatch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
 export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean
@@ -27,6 +28,17 @@ export interface ResolverDeps {
   google?(text: string): Promise<unknown>
   /** 보류함 '못 찾음' 7일 뒤 다시 확인(Codex #619): 저장된 Google 결과를 쓰지 않고 새로 묻는다(새 결과는 같은 열쇠에 저장). */
   refreshGoogle?: boolean
+  /** 우리 사업장 위치 기억(Lee 2026-11-26): 같은 회사 + 같은 사업장(DB location_private.same_site_address)에 이미 확정된 좌표(Google·VietMap·관리자 확정).
+   *  DB public.location_site_memory 한 곳. 없으면(조회 실패 포함) 기존 순서(Google부터)로 찾는다. */
+  siteMemory?(company: string, address: string): Promise<{ lat: number; lng: number; source: string }[]>
+}
+
+/** 같은 사업장 기억이 서로 다른 곳을 가리키면(300m 넘게) 쓰지 않는다 — 다른 지점을 잘못 합치지 않게(Lee 2026-11-10 다른 지점 병합 금지). */
+export const SITE_MEMORY_AGREE_M = 300
+export function agreedSiteMemory(hits: { lat: number; lng: number; source: string }[]): { lat: number; lng: number; source: string } | null {
+  const valid = hits.filter((h) => validPoint(h))
+  if (!valid.length) return null
+  return valid.every((h) => distanceMeters(valid[0], h) <= SITE_MEMORY_AGREE_M) ? valid[0] : null
 }
 /** 매장(근무지)이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 매장 구분 없이 매장마다 같은 위치 찾기를 한 번씩 돌리고,
  *  수집 기준으로 '찾음'(번지·공단 정문·회사 장소, precheckVerdict)인 매장만 남긴다 — 맨 앞 찾은 매장이 대표 핀, 나머지는 others.
@@ -111,6 +123,21 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
     // 위치 확인 우선순위(Lee 2026-11-23 확정, CLAUDE.md 「위치 확인 우선순위」): ① Google → ② VietMap → ③ Goong → 셋 다 못 찾으면 못 찾음(기존 보류·재확인).
     // ① 회사 이름이 있으면 Google(상세 Google 버튼과 같은 검색어)부터. Google이 같은 이름 1곳을 알면 그 좌표를 추가 검증 없이 확정(exact)으로 채택하고
     //    VietMap·Goong은 부르지 않는다(원래 성 안 검사는 resolveMain의 기존 조건 그대로).
+    // ⓪ 우리 사업장 위치 기억(Lee 2026-11-26 "같은 공장을 다시 묻지 않게"): 같은 회사 + 같은 사업장 확정 좌표가 있으면 Google·VietMap·Goong을 부르지 않는다.
+    //    원래 출처(Google·VietMap·admin_approved)를 source 앞에 그대로 둬 위치 원본 출처 표시(safe_source)가 유지된다.
+    if (job.company.trim() && deps.siteMemory) {
+      for (const target of sorted) {
+        const address = target.address.trim()
+        if (!address || hasConflictingProvinces(address)) continue
+        let hits: { lat: number; lng: number; source: string }[] = []
+        try { hits = await deps.siteMemory(job.company, address) } catch { hits = [] }
+        if (!hits.length) continue
+        const hit = agreedSiteMemory(hits)
+        if (!hit) { reasons.push('memory:conflict'); continue }
+        return { kind: 'exact', lat: hit.lat, lng: hit.lng, source: `${hit.source} (site memory)`, checkedAt: at, address, workLocationId: target.workLocationId,
+          evidence: [`[Tự động] Dùng lại vị trí đã xác nhận của cùng công ty, cùng địa điểm (${hits.length})`, `Nguồn gốc: ${hit.source}`, `Địa chỉ trong tin: ${address}`].join('\n') }
+      }
+    }
     if (job.company.trim() && deps.google) {
       const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), { goong: false })
       if (found) return found
