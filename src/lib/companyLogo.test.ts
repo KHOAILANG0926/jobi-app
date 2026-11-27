@@ -1,4 +1,4 @@
-import { companyLogoUrl } from './companyLogo.ts'
+import { cardThumbnailUrl, companyLogoUrl } from './companyLogo.ts'
 
 function assert(value: boolean, label: string) { if (!value) throw new Error(label) }
 
@@ -31,4 +31,16 @@ import { jobRepresentativeImageUrl } from './companyLogo'
   assert(photo.endsWith('/job-images/facebook/a.jpg'), 'stored photo before website icon')
   assert(!jobRepresentativeImageUrl({ ...base, companyDomain: 'bad domain' }, []).includes('favicons'), 'invalid domain ignored')
   console.log('companyLogo.test.ts: 사진 → 웹사이트 아이콘 → 공용 사진 순서 통과')
+}
+
+// 카드 썸네일 주소(전송량 정리): 우리 저장소 job-images의 그림만 변환 주소로 줄이고, 그 밖은 undefined(원본 그대로 쓰는 경로).
+{
+  const poster = 'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/kda/kda-20261013.png'
+  assert(cardThumbnailUrl(poster) === 'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/render/image/public/job-images/kda/kda-20261013.png?width=192&quality=75', 'own job-images poster gets a small card copy')
+  assert(cardThumbnailUrl(poster.replace('.png', '.jpg')) !== undefined, 'jpg too')
+  assert(cardThumbnailUrl('https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/x/logo.svg') === undefined, 'svg is not resized')
+  assert(cardThumbnailUrl('https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/cv-photos/a.png') === undefined, 'other buckets are not touched')
+  assert(cardThumbnailUrl('https://scontent.xx.fbcdn.net/v/t39/photo.jpg') === undefined, 'outside images are not touched')
+  assert(cardThumbnailUrl(undefined) === undefined, 'no image, no thumbnail')
+  console.log('companyLogo.test.ts: 카드 썸네일 주소 통과')
 }

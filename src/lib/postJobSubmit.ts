@@ -130,7 +130,7 @@ export async function uploadJobPhotos(files: File[]): Promise<{ imageUrl: string
   for (const [i, file] of files.entries()) {
     const ext = file.name.split('.').pop()
     const path = `${Date.now()}-${i}.${ext}`
-    const { error: uploadError } = await supabase.storage.from('job-images').upload(path, file, { upsert: true })
+    const { error: uploadError } = await supabase.storage.from('job-images').upload(path, file, { upsert: true, cacheControl: '31536000' }) // 경로가 올린 시각이라 한 번 올린 파일은 바뀌지 않음 — 오래 캐시
     if (uploadError) throw new Error('Tải ảnh thất bại: ' + uploadError.message)
     imagePaths.push(path)
     if (i === 0) imageUrl = supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl

@@ -328,7 +328,7 @@ def store_facebook_images(client, job: dict, limit: int = 5) -> int:
         data, ctype = got
         path = f"facebook/{hashlib.sha256(data).hexdigest()[:32]}.{_IMAGE_TYPES[ctype]}"
         try:
-            client.storage.from_(IMAGE_BUCKET).upload(path, data, {"content-type": ctype, "upsert": "true"})
+            client.storage.from_(IMAGE_BUCKET).upload(path, data, {"content-type": ctype, "upsert": "true", "cache-control": "31536000"})  # 경로가 내용 해시라 내용이 바뀌지 않음 — 오래 캐시(CDN·브라우저 재요청 줄임)
         except Exception:  # noqa: BLE001 — 저장 실패는 등록을 막지 않음
             return 0
         stored.append(path)

@@ -1,7 +1,7 @@
 import './JobCard.css'
 import { useId, useState } from 'react'
 import type { Job } from '../types/job'
-import { jobRepresentativeImageUrl } from '../lib/companyLogo'
+import { cardThumbnailUrl, jobRepresentativeImageUrl } from '../lib/companyLogo'
 import { industryPhotoUrl } from '../lib/cardPhoto'
 import { useBrandsOptional } from '../context/BrandsContext'
 import { formatDistanceLabel } from '../lib/jobCoords'
@@ -23,7 +23,7 @@ import { cardCompanyParts, cardTitle } from '../lib/cardText'
 export function CompanyLogo({ company, imageUrl, category, subcategory, text, body }: { company: string; imageUrl?: string; category?: string; subcategory?: string; text?: string; body?: string }) {
   const [failed, setFailed] = useState<string[]>([])
   const photo = category !== undefined ? industryPhotoUrl(category, subcategory, text, body) : undefined
-  const src = [imageUrl, photo].find((u): u is string => !!u && !failed.includes(u))
+  const src = [cardThumbnailUrl(imageUrl), imageUrl, photo].find((u): u is string => !!u && !failed.includes(u))
   if (!src) return <span className="jc__logo-text" aria-label={company}>{company?.trim() || "Việc làm"}</span>
   return <img src={src} alt={company} className={`jc__logo${src === photo ? ' jc__logo--photo' : ''}`} loading="lazy" onError={() => setFailed((f) => [...f, src])} />
 }

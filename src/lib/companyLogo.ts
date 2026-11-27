@@ -26,6 +26,20 @@ export function companyLogoUrl(imageUrl: string | null | undefined): string | un
   }
 }
 
+/** 카드 썸네일(≤96px)용 작은 사본 주소 — 우리 저장소 job-images의 그림·사진을 Supabase 저장소 변환 기능(같은 저장소 안 기능)으로 줄여 받는다.
+ *  원본 포스터(수백 KB~1MB)를 70×84 카드 자리에 그대로 받던 전송을 줄이려는 것이다. 원본 파일·DB 주소는 바꾸지 않고, 변환이 실패하면
+ *  화면이 원본 주소 → 업종 사진 순으로 이어서 쓴다(CompanyLogo·AppJobCard의 failed 목록). 상세·확대 화면은 원본 그대로. */
+export const CARD_THUMB_WIDTH = 192
+const RASTER_EXT = /\.(?:png|jpe?g|webp)$/i
+export function cardThumbnailUrl(imageUrl: string | null | undefined, width = CARD_THUMB_WIDTH): string | undefined {
+  const own = companyLogoUrl(imageUrl)
+  if (!own) return undefined
+  const url = new URL(own)
+  const rest = url.pathname.slice(OWN_STORAGE_PATH.length)
+  if (!rest.startsWith('job-images/') || !RASTER_EXT.test(rest)) return undefined
+  return `${url.origin}/storage/v1/render/image/public/${rest}?width=${width}&quality=75`
+}
+
 /** 공고 이미지(저장소 경로 또는 주소) → 우리 저장소 공개 주소. 허용 목록 밖이면 undefined. */
 export function jobImagePublicUrl(value: string | null | undefined): string | undefined {
   if (!value) return undefined
