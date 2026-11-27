@@ -19,6 +19,7 @@ const DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 const APPLY_METHODS = ['Ứng tuyển online', 'Nhắn Zalo', 'Email', 'Gọi điện', 'Đến trực tiếp']
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
 const MAX_PHOTOS = 4
+const DRAFT_KEY = 'vgb:postjob-draft' // 웹 공고 등록과 같은 이름·같은 모양(같은 브라우저에서 이어 쓸 수 있음)
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return <section className="app-pj__sec" id={id}><h2>{title}</h2>{children}</section>
@@ -46,6 +47,17 @@ function PostJob({ userId }: { userId: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState<{ id: string; published: boolean } | null>(null)
   const [showDemog, setShowDemog] = useState(false)
+  const [draftAt, setDraftAt] = useState<string | null>(null)
+  const [notice, setNotice] = useState('')
+  useEffect(() => { try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); if (d?.at) setDraftAt(d.at) } catch { /* 저장소를 못 쓰면 넘어간다 */ } }, [])
+  const saveDraft = () => {
+    const at = new Date().toLocaleString('vi-VN')
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ at, form, conditions })); setDraftAt(at); setNotice('Đã lưu tạm trên thiết bị này') } catch { setNotice('Không lưu được trên thiết bị này') }
+  }
+  const loadDraft = () => {
+    try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); if (d) { setForm({ ...emptyPostForm, ...d.form }); setConditions({ ...EMPTY_CONDITIONS, ...d.conditions }) } } catch { /* 무시 */ }
+  }
+  const dropDraft = () => { try { localStorage.removeItem(DRAFT_KEY) } catch { /* 무시 */ } setDraftAt(null) }
 
   const set = <K extends keyof PostForm>(k: K, v: PostForm[K]) => setForm((f) => ({ ...f, [k]: v }))
   const toggleIn = (k: 'workDays' | 'benefitTags' | 'applyMethods', v: string) => setForm((f) => ({ ...f, [k]: f[k].includes(v) ? f[k].filter((x) => x !== v) : [...f[k], v] }))
@@ -106,6 +118,7 @@ function PostJob({ userId }: { userId: string }) {
       <header className="app-pagebar"><button type="button" className="app-icon-btn" aria-label="Quay lại" onClick={() => navigate(-1)}><ChevronLeft size={24} aria-hidden /></button><h1 className="app-pagebar__title">Đăng tin tuyển dụng</h1></header>
       <form className="app-form app-pj" onSubmit={submit} noValidate>
         {error && <p className="app-form__error" role="alert" id="app-pj-error">{error}</p>}
+        {draftAt && <p className="app-cv__hint" data-testid="app-pj-draft">Có bản lưu tạm lúc {draftAt}. <button type="button" className="app-link-btn" onClick={loadDraft}>Mở lại</button> · <button type="button" className="app-link-btn" onClick={dropDraft}>Xoá</button></p>}
 
         <Section id="app-pj-s1" title="1. Nội dung tuyển dụng">
           <Field label="Tiêu đề" req><input id="app-pj-title" maxLength={40} value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Ví dụ: Tuyển công nhân lắp ráp linh kiện" /><small className="app-pj__count">{form.title.length}/40</small></Field>
@@ -206,7 +219,8 @@ function PostJob({ userId }: { userId: string }) {
           </Field>
         </Section>
 
-        <div className="app-cv__save"><button type="submit" className="app-btn app-btn--primary app-btn--block" disabled={submitting}>{submitting ? 'Đang đăng…' : 'Đăng tin'}</button></div>
+        {notice && <p className="app-cv__hint" role="status">{notice}</p>}
+        <div className="app-cv__save"><button type="button" className="app-btn app-btn--ghost app-btn--block" disabled={submitting} onClick={saveDraft}>Lưu tạm</button><button type="submit" className="app-btn app-btn--primary app-btn--block" disabled={submitting}>{submitting ? 'Đang đăng…' : 'Đăng tin'}</button></div>
       </form>
     </div>
   )
