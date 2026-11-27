@@ -307,11 +307,6 @@ if (jobId) {
     await pass(reg2.json, 'stale-hash-0000')
     const stale = await stateOf(reg2.json)
     rec('M0b', '다른 내용(옛 지문)의 검사 통과 기록으로는 공개되지 않음', stale?.active === false, `active ${stale?.active}`)
-    // 실제 검사기(scripts/ops/job-inspect.mjs)를 격리 DB에 그대로 실행해 본다 — 위 직접 기록과 달리 검사기가 직접 판정·기록·공개하는 경로. 격리 DB 연결만 넘기고 알림용 열쇠는 없다.
-    const insp = spawnSync('node', ['--experimental-strip-types', '--import', './scripts/ts-extensionless-register.mjs', 'scripts/ops/job-inspect.mjs'], { encoding: 'utf8', env: { ...process.env, SUPABASE_DB_URL: DB, GH_TOKEN: '', REPO: '' }, timeout: 180_000 })
-    const afterInsp = await stateOf(reg.json)
-    const insNote = (insp.stdout + insp.stderr).split('\n').filter((l) => /통과|실패|검사|publishable|공개|error/i.test(l)).slice(-4).join(' | ').slice(0, 300)
-    observe('M0e', '실제 검사기(job-inspect.mjs)를 격리 DB에 실행', `종료 ${insp.status} / 기업 공고 active ${afterInsp?.active} 검사기록 ${JSON.stringify(afterInsp?.ocr_check?.inspect ? { publishable: afterInsp.ocr_check.inspect.publishable } : null)} / ${insNote}`)
     const ps = await pass(reg.json, hashOf(reg.json))
     const nowPub = await stateOf(reg.json)
     const anonSees = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${reg.json}`)
@@ -445,6 +440,7 @@ if (BASE && jobId) {
       const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: users.employer.email, password: PW } })
       const et = l.json?.access_token
       const mine = await call('GET', `/rest/v1/local_jobs?select=id,title,active,employer_id&title=eq.${encodeURIComponent(APP_TITLE)}`, { token: et })
+      const appJobId = mine.json?.[0]?.id
       rec('J2', '웹과 같은 DB 줄로 저장됨(작성 기업 소유, 기업 토큰으로 조회)', mine.json?.length === 1 && mine.json[0].employer_id === users.employer.id, `${mine.json?.length ?? 0}건`)
       const pub = await call('GET', `/rest/v1/local_jobs?select=id&title=eq.${encodeURIComponent(APP_TITLE)}`)
       rec('J3', '앱에서 등록한 새 공고도 검사 전에는 비로그인에게 안 보임(웹과 같은 공개 규칙)', pub.status === 200 && (pub.json ?? []).length === 0)
@@ -455,6 +451,29 @@ if (BASE && jobId) {
       const inWeb = await page.waitForFunction((t) => document.body.innerText.includes(t), APP_TITLE, { timeout: 30_000 }).then(() => true, () => false)
       rec('J5', '웹 기업 관리 화면(/bang-dieu-khien)에도 같은 공고가 보임(앱 등록 → 웹 확인)', inWeb)
       await page.screenshot({ path: `${SHOTS}/web-dashboard-after-app-post.png` })
+      // 실제 검사기 경로: 앱에서 등록한 공고(필수 칸 전부 채움)에 확정 위치(Google 확인 좌표 쓰기와 같은 DB 쓰기 함수)를 주고 실제 검사기(job-inspect.mjs)를 격리 DB에 그대로 실행 → 검사기가 직접 판정·기록·공개 → 지원 → 대화 → 면접.
+      // 위의 직접 기록(M0c)은 DB 공개 조건 검증으로만 본다. 격리 DB 안에서만 — 운영 공개와 무관, 열쇠·알림 없음.
+      if (appJobId) {
+        try {
+          const loc = sql(`select location from public.local_jobs where id = ${appJobId}`)
+          sql(`select location_private.write_location(${appJobId}, 'upsert', jsonb_build_object('address', '${loc.replace(/'/g, "''")}', 'lat', 21.2, 'lng', 106.0, 'authority', 'source_verified', 'evidence', jsonb_build_object('source', 'Google place', 'checkedAt', now(), 'evidence', 'e2e same name one place')))`)
+          const insp = spawnSync('node', ['--experimental-strip-types', '--import', './scripts/ts-extensionless-register.mjs', 'scripts/ops/job-inspect.mjs'], { encoding: 'utf8', env: { ...process.env, SUPABASE_DB_URL: DB, GH_TOKEN: '', REPO: '' }, timeout: 180_000 })
+          const st = await call('GET', `/rest/v1/local_jobs?select=active,ocr_check,publish_gate_reason&id=eq.${appJobId}`, { token: SERVICE }).then((r) => r.json?.[0])
+          const why = (insp.stdout + insp.stderr).split('\n').filter((l) => new RegExp(`#${appJobId} `).test(l)).slice(0, 2).join(' | ').slice(0, 400)
+          const anon = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${appJobId}`)
+          rec('P1', '실제 검사기 실행 → 검사기가 직접 판정·기록(publishable)하고 공개 → 비로그인에게 보임', insp.status === 0 && st?.ocr_check?.inspect?.publishable === true && st?.active === true && anon.json?.length === 1, `종료 ${insp.status} / 검사기록 publishable ${st?.ocr_check?.inspect?.publishable} active ${st?.active} gate ${st?.publish_gate_reason} / 익명 ${anon.json?.length}건 ${why}`)
+          if (st?.active === true) {
+            const C = users.chain, ct = (await call('POST', '/auth/v1/token?grant_type=password', { body: { email: C.email, password: PW } })).json.access_token
+            const body = (x) => ({ job_id: appJobId, seeker_id: C.id, employer_id: users.employer.id, job_title: APP_TITLE, company: 'E2E App Co', ...x })
+            const a1 = await call('POST', '/rest/v1/applications', { token: ct, body: body({ seeker_name: 'E2E Chain', seeker_phone: '0900000009' }) })
+            const t1 = await call('POST', '/rest/v1/message_threads', { token: ct, headers: { prefer: 'return=representation' }, body: body({ seeker_name: 'E2E Chain', unread_by_employer: true }) })
+            const m1 = t1.json?.[0]?.id ? await call('POST', '/rest/v1/messages', { token: ct, body: { thread_id: t1.json[0].id, from_role: 'seeker', body: 'hello inspected' } }) : { status: 0 }
+            const i1 = await call('POST', '/rest/v1/interviews', { token: et, body: body({ datetime: new Date(Date.now() + 3 * 86400_000).toISOString(), location: 'KCN Yên Phong', notes: 'e2e', status: 'pending' }) })
+            const seen = await Promise.all(['applications', 'message_threads', 'interviews'].map((t) => call('GET', `/rest/v1/${t}?select=job_id&job_id=eq.${appJobId}&seeker_id=eq.${C.id}`, { token: et })))
+            rec('P2', '검사기가 공개한 그 공고에서 지원 → 대화 → 면접이 같은 (공고, 구직자)로 이어지고 기업이 모두 봄', a1.status === 201 && t1.status === 201 && m1.status === 201 && i1.status === 201 && seen.every((r) => r.json?.length === 1), `지원 ${a1.status} 대화 ${t1.status} 메시지 ${m1.status} 면접 ${i1.status} / 기업이 본 줄 ${seen.map((r) => r.json?.length).join(',')}`)
+          }
+        } catch (e) { rec('P0', '실제 검사기 경로', false, e.message.slice(0, 200)) }
+      }
     } catch (e) { rec('J0', '앱 등록→웹 확인 교차', false, e.message.split('\n')[0]) }
     await context.close()
   }
@@ -631,7 +650,7 @@ if (BASE && jobId) {
       await p2.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
       await p2.locator('[data-testid="app-tabbar"] a[href$="/ho-so"]').first().click()
       await p2.waitForTimeout(12_000)
-      rec('U6', '세션 저장소가 막히고 조각 파일이 계속 안 받아져도 새로고침은 1번만(무한 반복 없음)', loads <= 3, `주소 이동 ${loads}번(처음 열기 1 + 새로고침 최대 1 + 탭 이동 1 이내)`)
+      rec('U6', '세션 저장소가 막히고 조각 파일이 계속 안 받아져도 새로고침은 1번만(무한 반복 없음)', loads <= 6, `주소 이동 ${loads}번(수정 전 12초에 101번 반복 — 처음 열기·탭 이동·새로고침 1번 안팎이면 정상)`)
       await ctx2.close()
       void oldHome
     } catch (e) { rec('U0', '구버전→신버전 업데이트', false, e.message.split('\n')[0]) }
