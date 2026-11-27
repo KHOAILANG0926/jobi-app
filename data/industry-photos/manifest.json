@@ -314,6 +314,198 @@
       "kind": "ai",
       "origin": "AI 생성 그림 — 전달 이미지 묶음(inventory_warehouse, 직무 inventory·환경 warehouse)",
       "sha256": "6e3cbf10c2002e6ad8a3836b4dc505f34962cf25666fa3488ac9757f252499bb"
+    },
+    {
+      "id": "cleaning_restaurant_002",
+      "file": "/images/industry/cleaning_restaurant/cleaning_restaurant_002.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_restaurant, 직무 cleaning·환경 restaurant)",
+      "sha256": "2d97180ff539e93ec82355fbec713c47b3b4e7bf3fef86b5c7efa8bcf2808a70"
+    },
+    {
+      "id": "cleaning_restaurant_003",
+      "file": "/images/industry/cleaning_restaurant/cleaning_restaurant_003.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_restaurant, 직무 cleaning·환경 restaurant)",
+      "sha256": "5a757bfe7125da7b35dd31dcc8cce6f8302d9ab314eaab4f6d13d5a15e3437a5"
+    },
+    {
+      "id": "cleaning_restaurant_004",
+      "file": "/images/industry/cleaning_restaurant/cleaning_restaurant_004.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_restaurant, 직무 cleaning·환경 restaurant)",
+      "sha256": "7ad8835b4c55192609672830fa9317f0fb516572d4bcf52b16a4801565b75b23"
+    },
+    {
+      "id": "cleaning_restaurant_005",
+      "file": "/images/industry/cleaning_restaurant/cleaning_restaurant_005.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_restaurant, 직무 cleaning·환경 restaurant)",
+      "sha256": "ed705f171eeb7e3cfa2bddb8d536025500a979649dd1984af7bd23cf36e98819"
+    },
+    {
+      "id": "cleaning_restaurant_006",
+      "file": "/images/industry/cleaning_restaurant/cleaning_restaurant_006.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_restaurant, 직무 cleaning·환경 restaurant)",
+      "sha256": "f27896e9c65c35bf845be65064e2e9a34c5d467d06ff98390667d95c88249ef5"
+    },
+    {
+      "id": "cleaning_restaurant_007",
+      "file": "/images/industry/cleaning_restaurant/cleaning_restaurant_007.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_restaurant, 직무 cleaning·환경 restaurant)",
+      "sha256": "adbc858e7fd6cffc061a355eceaca3a83018be357f76f5433d5705d1dd1b3cf9"
+    },
+    {
+      "id": "cleaning_restaurant_008",
+      "file": "/images/industry/cleaning_restaurant/cleaning_restaurant_008.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_restaurant, 직무 cleaning·환경 restaurant)",
+      "sha256": "b5d3e09f365c5d18c8f3d16dcfa43d34e9a3f0fcd08c46ccbd7bcbab48fc5fc4"
+    },
+    {
+      "id": "cleaning_cafe_001",
+      "file": "/images/industry/cleaning_cafe/cleaning_cafe_001.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_cafe, 직무 cleaning·환경 cafe)",
+      "sha256": "b4d41377b8e3085fe4f4dd1ee2ff66342c5c2874c254b1e1fe6b8b23a55f7937"
+    },
+    {
+      "id": "cleaning_cafe_002",
+      "file": "/images/industry/cleaning_cafe/cleaning_cafe_002.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_cafe, 직무 cleaning·환경 cafe)",
+      "sha256": "90d11f5ce098c1240d8c9ff33c401e4d3256068eb29435bb3017a3e4b7e66ab5"
+    },
+    {
+      "id": "cleaning_cafe_003",
+      "file": "/images/industry/cleaning_cafe/cleaning_cafe_003.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_cafe, 직무 cleaning·환경 cafe)",
+      "sha256": "f9dcad7c32d864d22ac5995f1ba3ba76663585942200a34b0fec7bf4ca5bdd52"
+    },
+    {
+      "id": "barista_cafe_002",
+      "file": "/images/industry/barista_cafe/barista_cafe_002.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5132"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(barista_cafe, 직무 barista·환경 cafe)",
+      "sha256": "35a9c70ba6ed90de4ba6dc61b5ad4ad21d0138c237a9df62987d0724920f71da"
+    },
+    {
+      "id": "barista_cafe_003",
+      "file": "/images/industry/barista_cafe/barista_cafe_003.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5132"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(barista_cafe, 직무 barista·환경 cafe)",
+      "sha256": "4426b16001fe60b4ea46f9c94cd2c274814576da9efc74f690119062b3e208a4"
+    },
+    {
+      "id": "barista_cafe_004",
+      "file": "/images/industry/barista_cafe/barista_cafe_004.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5132"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(barista_cafe, 직무 barista·환경 cafe)",
+      "sha256": "374bf35d0da323aa0d475d6409eb2fdf7e7e4e25fef11ec8a3eca4449c48255c"
+    },
+    {
+      "id": "barista_cafe_005",
+      "file": "/images/industry/barista_cafe/barista_cafe_005.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5132"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(barista_cafe, 직무 barista·환경 cafe)",
+      "sha256": "45e96b66e44a795e06d3697fc591033a675ffea2b4728242af1179e0c0099eb1"
+    },
+    {
+      "id": "beverage_preparation_cafe_001",
+      "file": "/images/industry/beverage_preparation_cafe/beverage_preparation_cafe_001.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5132"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(beverage_preparation_cafe, 직무 beverage_preparation·환경 cafe)",
+      "sha256": "9ecd4b2e0359bab177beeba86e49402ad420ce370f36d460fad635033f40adb7"
+    },
+    {
+      "id": "beverage_preparation_cafe_002",
+      "file": "/images/industry/beverage_preparation_cafe/beverage_preparation_cafe_002.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5132"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(beverage_preparation_cafe, 직무 beverage_preparation·환경 cafe)",
+      "sha256": "f363d088126d342780ae02254e117bc5d6f195588e1ca23de53137022ec3272f"
     }
   ]
 }
