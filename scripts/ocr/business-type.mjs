@@ -9,6 +9,7 @@ import { businessFromName, businessFromGoogle, buildWebPrompt, guardWebAnswer, p
 import { cachedGooglePlace } from '../../src/lib/logoLookup.ts'
 import { withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { autoScope } from '../ops/auto-cutoff.mjs'
+import { assignRepresentativeImages } from './assign-image.mjs'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY } = process.env
 const MODEL = process.env.BUSINESS_AI_MODEL || 'claude-sonnet-5-5'  // 인터넷 검색 판정은 Haiku 비교 시험을 안 했으므로 그대로(PR #546은 칸·복리후생만 시험)
@@ -92,4 +93,6 @@ try {
     console.log(`#${job.id} 업종: ${note}${found ? ` → ${found.code} (${found.duty})${found.url ? ' ' + found.url : ''}` : ''}`)
   }
   console.log(`업종 확인: 정함 ${set} · 못 정함 ${none}`)
+  // 대표 이미지 고정 배정(Lee 2026-11-27): 같은 DB 연결·같은 대상 범위(기준 시각 이후)에서 새 공고에 이미지 번호를 한 번 정한다.
+  await assignRepresentativeImages(client)
 } finally { await client.end() }

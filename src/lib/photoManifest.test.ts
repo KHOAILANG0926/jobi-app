@@ -40,6 +40,13 @@ eq(selectManaged(syn, 'dich_vu', '9112', 1, null), '/g3.jpg', '③ group general
 eq(selectManaged({ ...syn, images: syn.images.filter((m) => m.id !== 'g-general-001') }, 'dich_vu', '9112', 1, null), '/images/industry/khac.jpg', '④ neutral')
 eq(selectManaged(syn, 'am_thuc_do_uong', '5131', 1, 'nha_hang_lau'), undefined, '④ legacy keeps the existing selection')
 eq(selectManaged(syn, 'dich_vu', '5401', 1, 'nha_may', 'g-guard-001'), '/g2.jpg', 'assigned image never changes when images are added')
+// 상위 환경: 전자 공장 사진이 없으면 일반 공장 사진(① 다음 단계), 고깃집은 일반 식당 사진으로 대신하지 않는다.
+const synParent = { groups: {}, images: [
+  { id: 'p-1', file: '/p1.jpg', group: 'san_xuat_xay_dung', roles: ['9321'], env: 'nha_may', kind: 'ai', origin: 'test' },
+  { id: 'p-2', file: '/p2.jpg', group: 'am_thuc_do_uong', roles: ['5131'], env: 'nha_hang', kind: 'ai', origin: 'test' },
+] } as unknown as { images: ManagedImage[]; groups: Record<string, { fallback: 'legacy' | 'neutral' }> }
+eq(selectManaged(synParent, 'san_xuat_xay_dung', '9321', 1, 'nha_may_dien_tu'), '/p1.jpg', 'electronics factory falls back to generic factory picture')
+eq(selectManaged(synParent, 'am_thuc_do_uong', '5131', 1, 'nha_hang_nuong'), undefined, 'BBQ restaurant never takes a generic restaurant picture')
 eq(selectManaged(syn, 'khac', '5401', 1), undefined, 'groups not in the list use the existing selection')
 // 실제 목록: 세부 직무 사진이 없는 경비(540)는 기본 사진, 청소·미용은 해당 사진.
 eq(managedPhoto('dich_vu', '540', 1, 'nha_may'), '/images/industry/khac.jpg', 'security: neutral until its pictures exist')

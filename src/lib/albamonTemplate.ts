@@ -125,7 +125,7 @@ export function detailLook(category: string | null | undefined, seed: number, st
   const c = DETAIL_PALETTE[String(category ?? '')] ?? DETAIL_PALETTE.khac
   const pick = DETAIL_STYLES.find((x) => x === style) ?? 'box'
   // 직무별 사진만 있는 업종(cardPhoto.managedPhoto)은 카드와 같은 사진 — 직무가 안 맞으면 중립 기본 사진(2026-11-27 Lee).
-  const managed = managedPhoto(category, roleCode, seed, photoEnvironment(kindText || text), assignedId)
+  const managed = managedPhoto(category, roleCode, seed, photoEnvironment(kindText || text, text), assignedId)
   if (managed !== undefined) return { photo: managed, bar: c.hi, head: c.bg, point: c.point, style: pick }
   const kind = g === DETAIL_GROUP.san_xuat_xay_dung ? null : photoKind(category, subcategory, kindText || text)
   // 일반 식당은 우리 식당 그림(홀 2장 — 쌀국수 주방 그림은 쌀국수·phở 낱말이 있을 때만)
