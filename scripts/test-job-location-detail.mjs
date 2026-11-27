@@ -94,7 +94,7 @@ function checkInvariants(href, d, truth) {
   }
   // Current UI distinguishes an explicitly unverified area map from a verified workplace.
   // Area maps are permitted by the current rules; they must not claim an exact workplace.
-  if (d.detailPhotoSrc !== null && !d.detailPhotoSrc.startsWith('/images/')) failures.push(`${href}: detail ④ picture is not one of our images: ${d.detailPhotoSrc}`)
+  if (typeof d.detailPhotoSrc === 'string' && !d.detailPhotoSrc.startsWith('/images/')) failures.push(`${href}: detail ④ picture is not one of our images: ${d.detailPhotoSrc}`)
   if (d.brokenDetailPhotos?.length) failures.push(`${href}: detail ④ picture failed to load: ${d.brokenDetailPhotos.join(', ')}`)
   if (d.oldStyleButtons) failures.push(`${href}: old small Google buttons shown (standard KDA directions button required)`)
   if (d.dirAboveMap && (d.addrItems?.length ?? 0) <= 1) failures.push(`${href}: directions button above the map (standard: below the map)`)
