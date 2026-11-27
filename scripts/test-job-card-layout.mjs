@@ -46,7 +46,7 @@ try {
     assert.deepEqual(bounds[2], bounds[0], `rejected image layout at ${width}px`)
     assert.deepEqual(bounds[3], bounds[0], `stored image layout at ${width}px`)
     assert.deepEqual(bounds[4], bounds[0], `rejected imageUrl with stored image layout at ${width}px`)
-    for (const index of [3, 4]) assert.equal(await page.locator('.jc__logo').nth(index).getAttribute('src'), 'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/layout-first.png', 'stored image is converted and selected before the industry fallback')
+    for (const index of [3, 4]) assert.equal(await page.locator('.jc__logo').nth(index).getAttribute('src'), 'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/render/image/public/job-images/layout-first.png?width=192&quality=75', 'stored image is converted to the small card copy and selected before the industry fallback')
     // 2026-11-02 Lee "로고·사진 없는 공고는 업종 사진으로 대신(사람인처럼)": 빈 로고 자리만 업종 대표 사진(public/images/industry),
     // 카드 틀·크기는 그대로. 공고 사진처럼 꾸미지 않고 jc__logo--photo로 구분.
     assert.equal(await page.locator('.jc__logo').count(), 5, 'poster + 2 stored images + 2 industry photos in the same logo slot')
