@@ -36,8 +36,21 @@ def get(url: str) -> tuple[int, str]:
         return 0, f"{type(e).__name__}: {e}"
 
 
+def block_phrase(status: int, text: str) -> str:
+    """차단이면 이유(상태 코드 또는 걸린 낱말), 아니면 ''. 목록·상세가 실제로 담긴 페이지(__NEXT_DATA__ 또는 상세 링크)는
+    머리말의 `<meta name="robots">`·captcha 스크립트 낱말 때문에 차단으로 보지 않는다(2026-11-27 첫 실행 200·141KB가 이 오판으로 중단됨)."""
+    if status in (403, 429):
+        return str(status)
+    m = WARN.search(text[:5000])
+    if not m:
+        return ""
+    if '<script id="__NEXT_DATA__"' in text or DETAIL_LINK.search(text):
+        return ""
+    return m.group(0)
+
+
 def is_blocked(status: int, text: str) -> bool:
-    return status in (403, 429) or bool(WARN.search(text[:5000]))
+    return bool(block_phrase(status, text))
 
 
 def next_data(html: str):
@@ -124,7 +137,7 @@ def main() -> int:
     st, html = get(LIST_URL)
     print("  상태", st, "크기", len(html))
     if is_blocked(st, html):
-        print("::error::목록 차단(로봇 확인) — 중단(우회하지 않음)", st)
+        print("::error::목록 차단(로봇 확인) — 중단(우회하지 않음)", st, "걸린 낱말:", block_phrase(st, html))
         return 2
     ads: list = []
     nd = next_data(html) if st == 200 else None
@@ -146,7 +159,7 @@ def main() -> int:
         st, body = get(url)
         print("  상태", st, "크기", len(body))
         if is_blocked(st, body):
-            print("::error::상세 차단 — 중단(우회하지 않음)", st)
+            print("::error::상세 차단 — 중단(우회하지 않음)", st, "걸린 낱말:", block_phrase(st, body))
             return 2
         s = summarize_detail(body)
         print("  __NEXT_DATA__", "있음" if s["has_next_data"] else "없음")
