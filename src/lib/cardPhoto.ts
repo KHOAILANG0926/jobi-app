@@ -52,7 +52,7 @@ export function photoKind(category: string | null | undefined, subcategory?: str
  *  → 모르면 업종 기본 사진, 엉뚱한 공장 그림보다 낫다 — 11-10 원칙). 가게·식당 종류(photoKind)는 지금까지처럼 원문까지(카페 "pha chế cà phê" 등, Lee 11-02·11-03 순서 그대로). */
 export function industryPhotoUrl(category: string | null | undefined, subcategory?: string | null, head?: string | null, body?: string | null, roleCode?: string | null, assignedId?: string | null): string {
   // 직무별 사진만 있는 업종(목록에 roles가 적힌 사진이 있는 업종)은 직무가 맞는 사진만 쓴다 — 없으면 중립 기본 사진(2026-11-27 Lee).
-  const managed = managedPhoto(category, roleCode, 0, photoEnvironment(`${head ?? ''} ${body ?? ''}`), assignedId)
+  const managed = managedPhoto(category, roleCode, 0, photoEnvironment(`${head ?? ''} ${body ?? ''}`, head), assignedId)
   if (managed !== undefined) return managed
   // 공장은 무엇을 만드는지로 고른 공장 그림 — 상세 ④ 그림과 같은 한 장(2026-11-11 Lee "3개 사진이 안 맞는데": 과자 공장에 봉제 공장 사진)
   if (category === 'san_xuat_xay_dung') {
@@ -66,7 +66,7 @@ export function industryPhotoUrl(category: string | null | undefined, subcategor
 /** 대표 이미지 목록(data/industry-photos/manifest.json) — 이미지 추가는 이 목록에 한 줄만(코드 수정 없음, 2026-11-27 Lee 승인).
  *  id = 고유 번호(고정 배정이 이 번호를 저장), file, group = 업종(category), roles = 맞는 공식 직업코드 앞자리, env = 근무환경(ENV_KEYS 중 하나, 없으면 null),
  *  kind = stock(실제 사진)·ai(우리가 만든 그림), source = SOURCES.json 열쇠(stock) 또는 origin = 제작 출처 글(ai). 출처·라이선스는 지우지 않는다(photoManifest.test가 지킴). */
-export const ENV_KEYS = ['nha_hang', 'nha_hang_nuong', 'nha_hang_lau', 'cafe', 'ban_hang_dien_may', 'ban_hang_dien_thoai', 'ban_hang_noi_that', 'ban_hang_thoi_trang', 'ban_hang_tien_loi', 'nha_may', 'kho_hang', 'khach_san'] as const
+export const ENV_KEYS = ['nha_hang', 'nha_hang_nuong', 'nha_hang_lau', 'nha_hang_pho', 'cafe', 'ban_hang_dien_may', 'ban_hang_dien_thoai', 'ban_hang_noi_that', 'ban_hang_thoi_trang', 'ban_hang_tien_loi', 'nha_may', 'nha_may_dien_tu', 'nha_may_nhua', 'kho_hang', 'khach_san'] as const
 export type PhotoEnv = (typeof ENV_KEYS)[number]
 export interface ManagedImage { id: string; file: string; group: string; roles?: string[]; env?: PhotoEnv | null; kind: 'stock' | 'ai'; source?: string; origin?: string; sha256?: string }
 interface ManifestGroup { fallback?: 'legacy' | 'neutral' }
@@ -74,17 +74,25 @@ const MANIFEST = photoManifest as unknown as { images: ManagedImage[]; groups?: 
 const MANAGED: ManagedImage[] = MANIFEST.images
 const NEUTRAL_PHOTO = '/images/industry/khac.jpg'
 const HOTEL_WORDS = /khách\s*sạn|hotel|resort|homestay/iu
+const PHO_WORDS = /(?<!\p{L})(?:phở|bún|miến|cháo|mỳ\s*cay|mì\s*cay)(?!\p{L})/iu
 const WAREHOUSE_WORDS = /(?<!\p{L})(?:kho|kho\s*(?:bãi|vận|hàng)|logistics?|warehouse)(?!\p{L})/iu
 /** 근무환경 낱말(기존 낱말표 그대로 — 식당 종류·카페·판매 가게 종류·공장 이름·공단·호텔). 모르면 null. */
-export function photoEnvironment(text: string | null | undefined): PhotoEnv | null {
+/** 상위 환경: 전자·플라스틱 공장 사진이 없으면 일반 공장 사진을 ① 다음 단계로 쓴다. 고깃집·훠궈·쌀국수집은 음식 종류가 다르므로(Lee 2026-11-02 "한국 고깃집에 중국 연회장 사진 금지") 일반 식당 사진으로 대신하지 않고 기존 종류별 사진(legacy)으로 간다. */
+const ENV_PARENT: Partial<Record<PhotoEnv, PhotoEnv>> = { nha_may_dien_tu: 'nha_may', nha_may_nhua: 'nha_may' }
+/** 근무환경 낱말(기존 낱말표 그대로 — 식당 종류·카페·판매 가게 종류·공장 이름·공단·창고·호텔). 모르면 null. head = 회사 이름·제목(공장 종류는 거기서만 봄, 본문 낱말에 끌리지 않게). */
+export function photoEnvironment(text: string | null | undefined, head?: string | null): PhotoEnv | null {
   const t = String(text ?? '')
   if (NUONG_WORDS.test(t)) return 'nha_hang_nuong'
   if (LAU_WORDS.test(t)) return 'nha_hang_lau'
   if (CAFE_WORDS.test(t) && !RESTAURANT_WORDS.test(t)) return 'cafe'
+  if (PHO_WORDS.test(t)) return 'nha_hang_pho'
   if (RESTAURANT_WORDS.test(t)) return 'nha_hang'
   const shop = shopKindOf(t)
   if (shop && SHOP_PHOTOS.has(shop)) return shop as PhotoEnv
-  if (mentionsIndustrialPark(t) || factoryPhotos(t)) return 'nha_may'
+  const factory = factoryPhotos(head ?? t)
+  if (factory?.[0] === '07-dientu') return 'nha_may_dien_tu'
+  if (factory?.[0] === '07-nhua-ep') return 'nha_may_nhua'
+  if (mentionsIndustrialPark(t) || factory) return 'nha_may'
   if (WAREHOUSE_WORDS.test(t)) return 'kho_hang'
   if (HOTEL_WORDS.test(t)) return 'khach_san'
   return null
@@ -94,24 +102,41 @@ const roleMatches = (entry: ManagedImage, roleCode: string | null | undefined) =
 /** 직무 중심 선택(2026-11-27 Lee 승인): ① 세부 직무 + 근무환경 → ② 세부 직무 일반 → ③ 상위 직무군(업종) 일반 → ④ 그 업종의 기본(legacy = 기존 선택, neutral = 중립 기본 사진).
  *  assignedId가 있으면(고정 배정) 그 이미지를 그대로 쓴다 — 이미지가 추가돼도 기존 배정은 바뀌지 않는다. 목록에 그 업종이 없으면 undefined(기존 선택 그대로).
  *  같은 단계에 사진이 여럿이면 seed(공고 번호)로 하나. */
+/** ①→③ 단계별 후보 목록(목록에 그 업종이 없으면 undefined, 후보가 하나도 없으면 빈 목록 + neutral 여부). 선택과 고정 배정이 같은 단계를 쓴다. */
+export function managedCandidates(manifest: { images: ManagedImage[]; groups?: Record<string, ManifestGroup> }, category: string | null | undefined, roleCode: string | null | undefined, env?: PhotoEnv | null): { list: ManagedImage[]; neutral: boolean } | undefined {
+  const group = manifest.images.filter((m) => m.group === category)
+  if (!group.length) return undefined
+  const byRole = group.filter((m) => roleMatches(m, roleCode))
+  const tier1 = env ? byRole.filter((m) => m.env === env) : []
+  if (tier1.length) return { list: tier1, neutral: false }
+  const parent = env ? ENV_PARENT[env] : undefined
+  const tier1b = parent ? byRole.filter((m) => m.env === parent) : []
+  if (tier1b.length) return { list: tier1b, neutral: false }
+  const tier2 = byRole.filter((m) => !m.env)
+  if (tier2.length) return { list: tier2, neutral: false }
+  const tier3 = group.filter((m) => !m.roles?.length)
+  if (tier3.length) return { list: tier3, neutral: false }
+  return { list: [], neutral: (manifest.groups?.[String(category)]?.fallback ?? 'legacy') === 'neutral' }
+}
 export function selectManaged(manifest: { images: ManagedImage[]; groups?: Record<string, ManifestGroup> }, category: string | null | undefined, roleCode: string | null | undefined, seed: number, env?: PhotoEnv | null, assignedId?: string | null): string | undefined {
   const assigned = assignedId ? manifest.images.find((m) => m.id === assignedId) : undefined
   if (assigned) return assigned.file
-  const group = manifest.images.filter((m) => m.group === category)
-  if (!group.length) return undefined
-  const pick = (list: ManagedImage[]) => list[Math.abs(Math.trunc(seed || 0)) % list.length].file
-  const byRole = group.filter((m) => roleMatches(m, roleCode))
-  const tier1 = env ? byRole.filter((m) => m.env === env) : []
-  if (tier1.length) return pick(tier1)
-  const tier2 = byRole.filter((m) => !m.env)
-  if (tier2.length) return pick(tier2)
-  const tier3 = group.filter((m) => !m.roles?.length)
-  if (tier3.length) return pick(tier3)
-  return (manifest.groups?.[String(category)]?.fallback ?? 'legacy') === 'neutral' ? NEUTRAL_PHOTO : undefined
+  const found = managedCandidates(manifest, category, roleCode, env)
+  if (!found) return undefined
+  if (found.list.length) return found.list[Math.abs(Math.trunc(seed || 0)) % found.list.length].file
+  return found.neutral ? NEUTRAL_PHOTO : undefined
+}
+/** 고정 배정(2026-11-27 Lee): 새 공고에 같은 단계 후보 중 가장 적게 배정된 이미지를 순서대로(같으면 목록 순서) 고른다. 배정할 이미지가 없으면(기존 선택·중립 기본) null.
+ *  usage = 이미지 번호별 이미 배정된 공고 수. 한 번 정해진 번호는 저장되므로 이미지가 추가돼도 바뀌지 않는다. */
+export function assignManagedId(manifest: { images: ManagedImage[]; groups?: Record<string, ManifestGroup> }, usage: Map<string, number>, category: string | null | undefined, roleCode: string | null | undefined, env?: PhotoEnv | null): string | null {
+  const found = managedCandidates(manifest, category, roleCode, env)
+  if (!found?.list.length) return null
+  return found.list.reduce((best, m) => ((usage.get(m.id) ?? 0) < (usage.get(best.id) ?? 0) ? m : best)).id
 }
 export function managedPhoto(category: string | null | undefined, roleCode: string | null | undefined, seed: number, env?: PhotoEnv | null, assignedId?: string | null): string | undefined {
   return selectManaged(MANIFEST, category, roleCode, seed, env, assignedId)
 }
+export const photoManifestData = MANIFEST
 /** 이미지 종류(AI 그림/실제 사진) — 목록에 있는 사진만 안다. 표시 방식은 승인된 화면 변경이라 따로 한다. */
 export function managedPhotoKind(file: string): 'stock' | 'ai' | undefined { return MANAGED.find((m) => m.file === file)?.kind }
 
@@ -129,6 +154,10 @@ export function photoCategory(job: PhotoJob): string | null | undefined {
   if (NUONG_WORDS.test(text) || LAU_WORDS.test(text) || RESTAURANT_WORDS.test(text) || CAFE_WORDS.test(text)) return 'am_thuc_do_uong'
   if (factoryPhotos(`${job.company ?? ''} ${job.title ?? ''}`)) return 'san_xuat_xay_dung'
   return categoryForOccupation(job.primaryRoleCode) ?? job.category
+}
+/** 사진 선택의 입력(업종·대표 직무 코드·근무환경) 한 곳 — 카드·상세 ④·고정 배정 단계가 같은 값을 쓴다. */
+export function jobPhotoInputs(job: PhotoJob): { category: string | null | undefined; roleCode: string | null | undefined; env: PhotoEnv | null } {
+  return { category: photoCategory(job), roleCode: job.primaryRoleCode ?? job.occupationCode, env: photoEnvironment(`${job.company ?? ''} ${job.title ?? ''} ${job.description ?? ''}`, `${job.company ?? ''} ${job.title ?? ''}`) }
 }
 /** 카드·앱 카드·웹/앱 상세 ④가 같이 쓰는 입력 한 곳(2026-11-27): 사진을 고르는 업종 + 대표 직무 코드. */
 export function jobPhotoUrl(job: PhotoJob): string {

@@ -1,0 +1,49 @@
+name: 고용주·구직자 실제 로그인 E2E (일회용 시험 계정)
+# 대표가 계정을 만들거나 비밀번호를 저장하지 않는다 — 이 실행 안에서 기존 Supabase 관리자 계정 생성 경로로 일회용 계정 2개를 만들고 끝에 지운다.
+# 열쇠는 기존 ops-keys 환경(master에서만)의 SUPABASE_URL·SUPABASE_SERVICE_ROLE_KEY·SUPABASE_DB_URL만 쓴다. 수동 실행만. 공고를 공개하지 않는다.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: employer-seeker-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      E2E_BASE_URL: https://www.viecganban.vn
+    steps:
+      - uses: actions/checkout@v4
+      - name: 비밀값 유무 확인
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::ops-keys 필수 비밀값 없음"
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: 일회용 계정 생성·실제 로그인·권한 화면 확인·계정 삭제
+        run: node scripts/ops/employer-seeker-e2e.mjs
+      - name: 강제 종료·취소돼도 남은 일회용 시험 계정 정리(이 실행기가 만든 계정만)
+        if: always()
+        run: node scripts/ops/employer-seeker-e2e.mjs --sweep
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: employer-seeker-e2e-proof
+          path: employer-seeker-e2e-*.png
+          if-no-files-found: ignore

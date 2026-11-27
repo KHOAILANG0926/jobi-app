@@ -1,6 +1,7 @@
 import { photoCategory, jobPhotoUrl, industryPhotoUrl, managedPhoto, managedPhotoKind, photoEnvironment } from './cardPhoto.ts'
 import { detailLook } from './albamonTemplate.ts'
 import { jobRoleInfo } from './jobRoles.ts'
+import { rowToJob } from './jobRows.ts'
 
 // 직무 중심 대표 이미지 선택(2026-11-27 Lee 승인): 실제 모집 직무 우선, 근무환경 보조, 직무에 맞는 사진이 없으면 중립 기본 사진.
 // 운영 공개 공고 30건을 바꾸기 전·후 코드로 계산해 비교하면 27건은 카드·상세 ④ 사진이 그대로이고 6337·5994·5368만 바뀐다(PR 본문 [직접 확인]).
@@ -18,8 +19,8 @@ const guard = make({ category: 'dich_vu', code: '540', company: 'Công ty Cổ p
 
 // 식당 복수 직무(서빙·주문·주방·잡일) → 대표 직무(서빙)의 업종 = 음식 → 식당 그림. 청소 직무는 검색에는 남는다(jobRoles.test).
 eq(photoCategory(yagami), 'am_thuc_do_uong', '6337 representative role decides the photo group')
-eq(jobPhotoUrl(yagami), '/images/industry/nha_hang_chung.jpg', '6337 card = restaurant photo')
-eq(detailLook(photoCategory(yagami), 6337, null, 'MỲ CAY YAGAMI', 'MỲ CAY YAGAMI ' + D6337, null, yagami.primaryRoleCode).photo.startsWith('/images/template/02'), true, '6337 detail = restaurant hall')
+eq(jobPhotoUrl(yagami), '/images/industry/ordering_noodle_restaurant/ordering_noodle_restaurant_001.webp', '6337 card = noodle-restaurant ordering picture (role 5131 + env pho)')
+eq(detailLook(photoCategory(yagami), 6337, null, 'MỲ CAY YAGAMI', 'MỲ CAY YAGAMI ' + D6337, null, yagami.primaryRoleCode).photo.startsWith('/images/industry/ordering_noodle_restaurant/'), true, '6337 detail = same picture set as the card')
 // 가전 마트의 배송·운전·판매 복수 직무 → 직무들을 포괄하는 근무환경(가전 매장).
 eq(photoCategory(mediamart), 'quan_ly_ban_hang', '5994 environment covers delivery+sales roles')
 eq(jobPhotoUrl(mediamart), '/images/industry/ban_hang_dien_may.jpg', '5994 card = electronics store')
@@ -31,7 +32,9 @@ eq(industryPhotoUrl('dich_vu', null, 'x', 'x', '9112'), '/images/industry/dich_v
 eq(detailLook('dich_vu', 1, null, 'x', 'x', null, '9112').photo, '/images/industry/dich_vu.jpg', 'cleaner detail = card')
 eq(managedPhoto('dich_vu', '5141', 1)?.startsWith('/images/template/04'), true, 'hairdresser → salon photo')
 // 목록에 없는 업종은 기존 선택 그대로(음식·판매·공장 등 27건 회귀 없음).
-eq(managedPhoto('am_thuc_do_uong', '5131', 1), undefined, 'other groups use the existing selection')
+eq(managedPhoto('khac', '5131', 1), undefined, 'groups not in the list use the existing selection')
+eq(managedPhoto('am_thuc_do_uong', '5131', 1, 'nha_hang_nuong'), undefined, 'BBQ restaurant keeps its own legacy photo (no generic restaurant picture)')
+eq(managedPhoto('am_thuc_do_uong', '5131', 1, 'cafe')?.includes('ordering_cafe'), true, 'cafe ordering picture')
 eq(photoCategory({ category: 'am_thuc_do_uong', occupationCode: '5131', roleCodes: ['5131', '9402'] }), 'am_thuc_do_uong', 'same-group multi-role unchanged')
 eq(photoCategory({ category: 'am_thuc_do_uong', occupationCode: '5', roleCodes: ['5'] }), 'am_thuc_do_uong', "code '5' unchanged")
 eq(managedPhotoKind('/images/template/04-dich-vu.jpg'), 'ai', 'AI picture is marked')
@@ -48,5 +51,15 @@ eq(photoEnvironment('Tuyển bảo vệ cho khu công nghiệp VSIP'), 'nha_may'
 eq(photoEnvironment('Tuyển nhân viên kho hàng Bắc Ninh'), 'kho_hang', 'warehouse')
 eq(photoEnvironment('Công việc không khó, kho hàng'), 'kho_hang', 'khó (hard) is not kho')
 eq(photoEnvironment('Công việc không khó'), null, 'hard is not a warehouse')
+eq(photoEnvironment('Quán phở Hà Nội tuyển phục vụ'), 'nha_hang_pho', 'noodle shop')
+eq(photoEnvironment('MỲ CAY YAGAMI'), 'nha_hang_pho', 'spicy noodle shop')
+eq(photoEnvironment('Tuyển công nhân', 'Công ty điện tử Samsung'), 'nha_may_dien_tu', 'electronics factory from company name')
+eq(photoEnvironment('Công ty nhựa ABC tuyển công nhân ép nhựa', 'Công ty nhựa ABC'), 'nha_may_nhua', 'plastics factory')
+eq(photoEnvironment('Công ty bánh kẹo Hữu Nghị', 'Công ty bánh kẹo Hữu Nghị'), 'nha_may', 'other factory kinds stay generic factory')
 eq(photoEnvironment('Tuyển nhân viên'), null, 'unknown environment')
+// 저장된 배정 번호는 DB 행에서 그대로 화면까지: rowToJob이 representative_image_id를 읽고, 사진 선택이 그 이미지를 쓴다.
+const stored = rowToJob({ id: 9001, title: 'Tuyển bảo vệ', company: 'Công ty X', category: 'dich_vu', occupation_code: '540', description: 'Công việc\nBảo vệ', representative_image_id: 'dich_vu-salon-002' })
+eq(stored.representativeImageId, 'dich_vu-salon-002', 'rowToJob maps representative_image_id')
+eq(jobPhotoUrl(stored), '/images/template/04b-dich-vu.jpg', 'stored assignment wins over the computed pick')
+eq(rowToJob({ id: 9002, title: 't', company: 'c', category: 'dich_vu', occupation_code: '540', description: 'd' }).representativeImageId, undefined, 'null column = not assigned')
 console.log('representativePhoto: role-first selection checks passed')

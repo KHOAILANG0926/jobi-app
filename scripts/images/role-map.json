@@ -52,11 +52,11 @@
   },
   "environments": {
     "restaurant": "nha_hang",
-    "pho": "nha_hang",
+    "pho": "nha_hang_pho",
     "cafe": "cafe",
     "appliances": "ban_hang_dien_may",
-    "electronics": "nha_may",
-    "plastics": "nha_may",
+    "electronics": "nha_may_dien_tu",
+    "plastics": "nha_may_nhua",
     "warehouse": "kho_hang"
   }
 }
