@@ -300,7 +300,8 @@ if (jobId) {
     const own = await call('PATCH', `/rest/v1/local_jobs?id=eq.${reg.json}`, { token: et, body: { active: true } })
     const afterOwn = await stateOf(reg.json)
     rec('M0a', '검사 통과 기록 없이 기업이 직접 공개로 바꿔도 비공개로 되돌려지고 검사 대기(inspect_hold)가 표시됨', afterOwn?.active === false && afterOwn?.ocr_check?.inspect_hold === true, `수정 ${own.status} / active ${afterOwn?.active} hold ${afterOwn?.ocr_check?.inspect_hold}`)
-    const pass = (id, hash) => call('PATCH', `/rest/v1/local_jobs?id=eq.${id}`, { token: SERVICE, body: { ocr_check: { inspect: { content_hash: hash, publishable: true } }, active: true } })
+    // 검사기는 서버 DB 연결(소유자 권한)로 쓴다 — REST 서비스 키로는 이 칸을 못 쓰므로(403) 격리 DB에 같은 방식으로 연결한다.
+    const pass = (id, hash) => { try { sql(`update public.local_jobs set ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('inspect', jsonb_build_object('content_hash', '${hash}', 'publishable', true)), active = true where id = ${id}`); return { status: 200, code: '' } } catch (e) { return { status: 0, code: e.message.slice(0, 80) } } }
     const hashOf = (id) => sql(`select public.job_inspect_content_hash(j) from public.local_jobs j where id = ${id}`)
     const reg2 = await call('POST', '/rest/v1/rpc/ingest_job', { token: et, body: { p: { channel: 'employer', employer_id: E.id, source_text: `E2E Stale Co ${RUN}\nTuyen nhan vien chay ban\nKCN Yen Phong, Bac Ninh\nLH 0912345678`, company: `E2E Stale Co ${RUN}`, title: `Stale ${RUN}`, description: 'Phuc vu ban', location: 'KCN Yen Phong, Bac Ninh', employer_phone: '0912345678', active: true, occupation_code: '5', occupation_evidence: 'Tuyen nhan vien chay ban' } } })
     await pass(reg2.json, 'stale-hash-0000')
