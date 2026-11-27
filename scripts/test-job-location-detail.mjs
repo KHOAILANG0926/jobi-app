@@ -70,9 +70,10 @@ async function readJobDetail(page, href) {
     // 2026-10-30 Lee: 근무지 1곳이면 길찾기 버튼은 기준(KDA)처럼 지도 아래.
     const mapEl = document.querySelector('.jd2-vmap')
     const dirAboveMap = mapEl ? [...document.querySelectorAll('a.jd2-map-dir--google')].filter((a) => a.compareDocumentPosition(mapEl) & Node.DOCUMENT_POSITION_FOLLOWING).length : 0
+    const detailPhotoSrc = document.querySelector('.jd2-desc-visual__img')?.getAttribute('src') ?? null
     const brokenDetailPhotos = [...document.querySelectorAll('.jd2-desc-visual__img')].filter((img) => img.complete && img.naturalWidth === 0).map((img) => img.getAttribute('src'))
     const unverifiedDirNote = /chưa xác minh|không phải địa chỉ nơi làm việc/iu.test(document.body.innerText || '')
-    return { brokenDetailPhotos, plannedPoints, actualPoints, addrItems, singleAddr, note, markerCount, plannedMarkerCount, mapUnavailable, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState, oldStyleButtons, nonStandardDirections, dirAboveMap }
+    return { detailPhotoSrc, brokenDetailPhotos, plannedPoints, actualPoints, addrItems, singleAddr, note, markerCount, plannedMarkerCount, mapUnavailable, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState, oldStyleButtons, nonStandardDirections, dirAboveMap }
   })
 }
 
@@ -93,6 +94,7 @@ function checkInvariants(href, d, truth) {
   }
   // Current UI distinguishes an explicitly unverified area map from a verified workplace.
   // Area maps are permitted by the current rules; they must not claim an exact workplace.
+  if (d.detailPhotoSrc !== null && !d.detailPhotoSrc.startsWith('/images/')) failures.push(`${href}: detail ④ picture is not one of our images: ${d.detailPhotoSrc}`)
   if (d.brokenDetailPhotos?.length) failures.push(`${href}: detail ④ picture failed to load: ${d.brokenDetailPhotos.join(', ')}`)
   if (d.oldStyleButtons) failures.push(`${href}: old small Google buttons shown (standard KDA directions button required)`)
   if (d.dirAboveMap && (d.addrItems?.length ?? 0) <= 1) failures.push(`${href}: directions button above the map (standard: below the map)`)
