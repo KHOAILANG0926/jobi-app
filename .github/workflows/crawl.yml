@@ -142,14 +142,19 @@ jobs:
         if: always()
         run: |
           python3 - <<'PY'
-          import json, os
+          import json, os, sys
+          sys.path.insert(0, 'crawler')
+          from job_criteria import has_enough_contact  # DB 공개 게이트·검증 저장과 같은 8자리 기준 한 곳
           f = 'jobs_output_vieclam24h.json'
           if not os.path.exists(f):
               print('결과 파일 없음'); raise SystemExit(0)
           for j in json.load(open(f, encoding='utf-8')):
+              # 2026-11-27: 예전 '공개 판정 True (ok)'는 크롤러 쪽 '지원 경로 있음' 판정이라 전화 없는 글에도 True로 찍혀 공개로 읽혔다.
+              # 연락처(전화·Zalo 8자리 이상)는 따로 보이고, 실제 공개는 DB 연락처 게이트가 정한다(연락처 없으면 비공개).
+              contact = has_enough_contact(j.get('employer_phone'), j.get('contact_zalo'))
               print(f"- {j.get('title')} | 회사 {j.get('company') or '없음'} | 지역 {j.get('location') or '없음'} | "
-                    f"급여 {j.get('salary') or '없음'} | 전화 {'있음' if j.get('employer_phone') else '없음'} | "
-                    f"공개 판정 {j.get('active')} ({j.get('publish_gate_reason') or '-'})")
+                    f"급여 {j.get('salary') or '없음'} | 연락처(전화·Zalo 8자리 이상) {'있음' if contact else '없음 → DB 공개 게이트가 비공개로 막음'} | "
+                    f"크롤러 지원경로 판정 {j.get('active')} ({j.get('publish_gate_reason') or '-'}, 공개 여부 아님)")
           PY
 
       - name: Facebook 상태 폴더(실행 후, 전과 비교)
