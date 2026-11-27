@@ -886,6 +886,19 @@ def run_past_deadline_kept_not_registered():
     print("test_ingest_gateway: past deadline kept, not registered passed")
 
 
+def run_trace_line():
+    """위치 근거 한 줄(#1086 운영 실증, Lee 2026-11-27): 근거 종류와 외부 호출 시도 횟수만 — 주소·회사·키는 담지 않는다."""
+    v = {"findable": True, "location": "Số 1 Lô A, KCN X", "company": "Công ty ABC",
+         "trace": {"source": "site_memory", "external_attempts": {"vietmap": 0, "goong": 0, "google": 0}}}
+    line = g.trace_line(v)
+    assert line == "📍 위치 확인 근거: site_memory — 외부 호출 시도 VietMap 0·Goong 0·Google 0", line
+    assert "KCN" not in line and "ABC" not in line, "주소·회사는 로그에 남기지 않는다"
+    assert "Google 2" in g.trace_line({"trace": {"source": "google", "external_attempts": {"google": 2}}})
+    assert g.trace_line({"findable": True}) == "" and g.trace_line({"trace": {"source": ""}}) == "" and g.trace_line({"trace": "x"}) == "", "trace 없으면 빈 글자(옛 서버 응답 호환)"
+    assert g.trace_line(None) == ""  # type: ignore[arg-type]
+    print("trace line: 근거·외부 호출 시도만, 주소·회사 없음, 옛 응답 호환 통과")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
@@ -899,3 +912,4 @@ if __name__ == "__main__":
     run_db_rule_rejection_kept()
     run_site_rows_kept_in_hold()
     run_past_deadline_kept_not_registered()
+    run_trace_line()

@@ -108,3 +108,36 @@ assert.equal(missingVerifiedCoordinate({active:true,admin_hidden:false,company:'
   assert.deepEqual(r.locations, ['152 Trần Hưng Đạo, Kinh Bắc, Bắc Ninh', '148 Trần Phú, Từ Sơn, Bắc Ninh'], 'every store from the source, no map lookup')
   console.log('read address: store list for branch identity (5992 form)')
 }
+
+// Lee 2026-11-27 #1086 운영 실증: 위치 확인 응답의 trace — 근거 종류와 외부 호출 시도 횟수(주소·키·응답 없음). 수집 실행 로그 한 줄의 원천.
+{
+  const { precheckLocation, locationTraceSource } = await import('./_lib/auto-location-runtime.mjs')
+  const input = { company: 'Công ty TNHH Alpha', location: 'Bắc Ninh', addresses: ['Lô A1 KCN Quế Võ, Bắc Ninh'], source_text: 'Tuyển công nhân' }
+  const mk = (rows: any[], memoryPoint: any[] = []) => {
+    const calls: string[] = []
+    const db: any = {
+      rpc: async (name: string) => { calls.push('rpc:' + name); return name === 'location_site_memory' ? { data: rows, error: null } : name === 'location_memory_point' ? { data: memoryPoint, error: null } : { data: null, error: null } },
+      from: () => { const q: any = { select: () => q, eq: () => q, in: async () => ({ data: [], error: null }), maybeSingle: async () => ({ data: null, error: null }), upsert: async () => ({ error: null }) }; return q },
+    }
+    return { db, calls }
+  }
+  // ① 관리자 확정 기억 → 근거 confirmed_memory, 외부 시도 0
+  { const { db } = mk([], [{ candidate_id: 1 }]); const ext: string[] = []
+    const r = await precheckLocation(db, async (a: string) => { ext.push(a); return null }, input, null, async () => { ext.push('google'); return null })
+    assert.equal(r.trace.source, 'confirmed_memory'); assert.deepEqual(r.trace.external_attempts, { vietmap: 0, goong: 0, google: 0 }); assert.deepEqual(ext, []) }
+  // ② 같은 사업장 기억(#1086) → 근거 site_memory, 외부 시도 0(Google·VietMap·Goong 모두 안 불림)
+  { const { db } = mk([{ lat: 21.12, lng: 106.18, source: 'Google', work_location_id: 5, job_id: 9 }]); const ext: string[] = []
+    const r = await precheckLocation(db, async (a: string) => { ext.push(a); return null }, input, async () => { ext.push('goong'); return null }, async () => { ext.push('google'); return null })
+    assert.equal(r.findable, true, JSON.stringify(r)); assert.equal(r.trace.source, 'site_memory', JSON.stringify(r.trace))
+    assert.deepEqual(r.trace.external_attempts, { vietmap: 0, goong: 0, google: 0 }); assert.deepEqual(ext, [], '기억을 쓰면 외부를 부르지 않음') }
+  // ③ 기억이 없으면 기존 순서로 외부를 부르고 시도 횟수가 남는다(Google부터)
+  { const { db } = mk([]); const ext: string[] = []
+    const r = await precheckLocation(db, async (a: string) => { ext.push(a); return null }, input, null, async () => { ext.push('google'); return null }).catch(() => ({ trace: null }))
+    assert.ok(ext.includes('google'), '기억 없음 → Google을 부름'); if (r.trace) assert.ok(r.trace.external_attempts.google >= 1, JSON.stringify(r.trace)) }
+  // 근거 분류: 주소·키·응답 없이 한 단어
+  assert.equal(locationTraceSource({ source: 'Google (site memory)', kind: 'exact' }), 'site_memory')
+  assert.equal(locationTraceSource({ source: 'VietMap abc', kind: 'exact' }), 'vietmap')
+  assert.equal(locationTraceSource({ source: 'admin_approved', kind: 'exact' }), 'confirmed_memory')
+  assert.equal(locationTraceSource({ kind: 'unresolved' }), 'none')
+  console.log('precheck trace: confirmed_memory·site_memory는 외부 시도 0, 기억 없으면 Google 시도 기록, 근거는 한 단어')
+}

@@ -75,6 +75,18 @@ export function canonicalVerdictKind(state) {
 
 /** 수집 첫 단계 위치 확인(Lee 2026-11-06). 지도와 같은 resolveAutoLocation·같은 저장 결과(research_artifacts)를 쓴다 —
  * 등록 뒤 위치 찾기(location-hook)는 같은 질문을 저장 결과로 다시 쓰므로 호출이 늘지 않는다. DB에 공고·위치를 쓰지 않는다. */
+/** 위치를 어디서 얻었는지 한 단어(주소·키·응답은 담지 않는다) — 수집 실행 로그가 '기억을 썼는지·외부를 불렀는지'를 한 줄로 남기는 근거(Lee 2026-11-27, #1086 운영 실증). */
+export function locationTraceSource(found, confirmedMemory = false) {
+  if (confirmedMemory) return 'confirmed_memory'
+  const s = String(found?.source ?? '')
+  if (/\(site memory\)/i.test(s)) return 'site_memory'
+  if (/^admin_approved/i.test(s)) return 'confirmed_memory'
+  if (/^google/i.test(s)) return 'google'
+  if (/^vietmap/i.test(s)) return 'vietmap'
+  if (/^goong/i.test(s)) return 'goong'
+  return found?.kind && found.kind !== 'unresolved' ? 'other' : 'none'
+}
+
 export async function precheckLocation(db, request, input, goong = null, google = null) {
   // 회사 이름 규정(Lee 2026-11-07): 회사 이름이 없으면 수집하지 않는다(포스터 글자까지 본 뒤). 수수료 받는 소개소도 수집하지 않는다.
   const company = precheckCompany(input)
@@ -92,12 +104,16 @@ export async function precheckLocation(db, request, input, goong = null, google 
   const confirmed = []
   for (const t of job.targets.slice(0, 5)) if (await hasConfirmedPoint(db, company.name, [t.address])) confirmed.push(t.address)
   if (confirmed.length && confirmed.length === Math.min(5, job.targets.length))
-    return { findable: true, kind: 'exact', reason: 'confirmed_memory', location: confirmed[0], ...(confirmed.length > 1 ? { stores: confirmed } : {}), ...who }
+    return { findable: true, kind: 'exact', reason: 'confirmed_memory', location: confirmed[0], ...(confirmed.length > 1 ? { stores: confirmed } : {}), ...who, trace: { source: 'confirmed_memory', external_attempts: { vietmap: 0, goong: 0, google: 0 } } }
   let used = 0
-  const deps = resolverDeps(db, async (action, params) => request(action, params), {
+  // 외부 호출 '시도' 횟수(VietMap·Goong·Google 함수가 불린 횟수 — 월 한도 예약에서 거절돼 실제로 나가지 않은 것도 센다, 즉 실제 호출 ≤ 이 값).
+  // 0이면 이 확인은 외부를 부르지 않았다. 주소·키·응답은 세지도 남기지도 않는다.
+  const attempts = { vietmap: 0, goong: 0, google: 0 }
+  const deps = resolverDeps(db, async (action, params) => { attempts.vietmap++; return request(action, params) }, {
     // VietMap은 매장마다 2번(Lee 2026-11-11 "한도 안 넘었는데 왜 비용 걱정" — 공고당 묶음 제한 없음, 하루 한도는 DB가 그대로)
     remainingCalls: 2, reserve: async () => used++ < 2 * Math.max(1, Math.min(5, job.targets.length)),
-  }, goong, google)
+  }, goong ? async (...a) => { attempts.goong++; return goong(...a) } : goong,
+     google ? async (...a) => { attempts.google++; return google(...a) } : google)
   // 보류함 '못 찾음' 공고를 7일 뒤 다시 확인할 때는 저장된 Google 결과(그때의 '없음')를 다시 쓰지 않고 새로 묻는다(Codex #619).
   const rest = confirmed.length ? { ...job, targets: job.targets.filter((t) => !confirmed.includes(t.address)) } : job
   const found = await resolveAutoLocation(rest, input?.recheck === true ? { ...deps, refreshGoogle: true } : deps)
@@ -118,7 +134,8 @@ export async function precheckLocation(db, request, input, goong = null, google 
     ? [...new Set([result.address, ...(result.others ?? []).map((o) => o.address)].filter(Boolean))] : []
   // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
   // 찾은 매장이 하나뿐이어도(첫 매장은 못 찾고 다른 매장만 찾음) 그 매장 주소를 공고 위치로 쓴다.
-  return { ...verdict, location: stores.length ? stores[0] : job.location, ...(stores.length ? { stores } : {}), ...who }
+  return { ...verdict, location: stores.length ? stores[0] : job.location, ...(stores.length ? { stores } : {}), ...who,
+    trace: { source: locationTraceSource(result, confirmed.length > 0 && ordered.length > 0 && confirmed.includes(ordered[0]) && !held), external_attempts: attempts } }
 }
 
 /** 위치를 사업장 기억으로 찾은 공고(Google을 다시 부르지 않음, Lee 2026-11-26)는 자기 검색 결과가 없다 —
