@@ -513,3 +513,14 @@ body {
 .app-cond__pair input, .app-cond__pair select { min-height: 48px; padding: 0 12px; border: 1px solid var(--app-line); border-radius: 14px; font: inherit; font-size: 16px; background: #fff; color: var(--app-text); width: 100%; box-sizing: border-box; }
 .app-cond__check { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px; }
 .app-cond__check input { width: 20px; height: 20px; }
+
+.app-com__hot { margin: 6px var(--app-gutter); border: 1px solid #f4b3af; background: #fff7f6; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.app-com__hot h2 { margin: 0; font-size: 15px; }
+.app-com__hot a { display: flex; justify-content: space-between; gap: 8px; color: var(--app-text); text-decoration: none; font-size: 14px; }
+.app-com__hot small { color: var(--app-muted); flex: none; }
+.app-cv__done { margin: 40px var(--app-gutter); text-align: center; display: flex; flex-direction: column; gap: 12px; }
+.app-cv__done h2 { margin: 0; font-size: 20px; }
+.app-me__stats { display: grid; grid-template-columns: repeat(4, 1fr); margin: 6px var(--app-gutter) 8px; border: 1px solid #e8ebf0; border-radius: 16px; padding: 14px 0; text-align: center; }
+.app-me__stats a { color: var(--app-text); text-decoration: none; display: flex; flex-direction: column; gap: 2px; }
+.app-me__stats b { font-size: 20px; }
+.app-me__stats span { font-size: 11.5px; color: var(--app-muted); }

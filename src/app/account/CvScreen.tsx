@@ -19,6 +19,7 @@ export default function CvScreen() {
   const [photoPath, setPhotoPath] = useState<string | null>(null)
   const [skillInput, setSkillInput] = useState('')
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [done, setDone] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function CvScreen() {
       if (userId) setPhotoPath(await saveAccountCvWithPhoto(userId, data, photoPath))
       else saveCv(data)
       setStatus('saved')
+      setDone(true)
       window.setTimeout(() => setStatus('idle'), 2500)
     } catch {
       setStatus('idle')
@@ -72,7 +74,12 @@ export default function CvScreen() {
       <header className="app-pagebar"><button type="button" className="app-icon-btn" aria-label="Quay lại" onClick={() => navigate(-1)}><ChevronLeft size={24} aria-hidden /></button><h1 className="app-pagebar__title">CV của tôi</h1></header>
       {!authLoading && !user && <p className="app-cv__hint">CV được lưu trên thiết bị này. <Link to="/dang-nhap?redirect=%2Fho-so%2Fcv">Đăng nhập</Link> để lưu vào tài khoản và ứng tuyển nhanh.</p>}
       {employerBlocked && <p className="app-cv__hint">Tài khoản nhà tuyển dụng không dùng CV ứng viên.</p>}
-      <form className="app-form" onSubmit={onSubmit} noValidate>
+      {done && (
+        <div className="app-cv__done" data-testid="app-cv-done"><h2>Đã lưu CV ✓</h2>
+          <button type="button" className="app-btn app-btn--ghost app-btn--block" onClick={() => setDone(false)}>Xem CV</button>
+          <Link className="app-btn app-btn--primary app-btn--block" to="/danh-sach/moi-nhat">Tìm việc ngay</Link></div>
+      )}
+      <form className="app-form" onSubmit={onSubmit} noValidate hidden={done}>
         {error && <p className="app-form__error" role="alert">{error}</p>}
 
         <section className="app-cv__sec"><h2>Thông tin cơ bản</h2>
