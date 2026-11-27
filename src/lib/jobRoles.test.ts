@@ -1,5 +1,4 @@
-import { jobRoleInfo, jobCategories, categoryForOccupation } from './jobRoles.ts'
-import { roleTitles } from './jobRolePresentation.ts'
+import { jobRoleInfo, jobCategories, categoryForOccupation, roleTitles } from './jobRoles.ts'
 import { filterAndSortJobs, DEFAULT_JOB_SEARCH_PARAMS } from './jobSearch.ts'
 import { jobGroupCodes, matchesOccupationGroups, occupationGroupsInJobs } from './occupationGroups.ts'
 import { mainCardJobs } from './mainJobCards.ts'
