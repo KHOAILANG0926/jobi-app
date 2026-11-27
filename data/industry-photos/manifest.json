@@ -1,0 +1,8 @@
+{
+  "_doc": "대표 이미지 목록(Lee 2026-11-27 승인 설계). 이미지를 추가할 때는 파일을 public/images에 넣고 여기에 한 줄만 더하면 되고 코드는 고치지 않는다. group = 업종(category) 이름, roles = 이 사진이 맞는 공식 직업코드 앞자리(없으면 그 업종 전체에 쓰는 일반 사진), kind = stock(실제 사진, 출처는 SOURCES.json)·ai(우리가 만든 그림). 한 업종에 roles가 적힌 사진이 있으면 그 업종은 직무별 사진으로만 고르고, 직무가 맞는 사진이 없으면 중립 기본 사진을 쓴다(엉뚱한 직종 사진 금지).",
+  "images": [
+    { "id": "dich_vu-cleaning", "file": "/images/industry/dich_vu.jpg", "group": "dich_vu", "roles": ["911"], "kind": "stock" },
+    { "id": "dich_vu-salon-1", "file": "/images/template/04-dich-vu.jpg", "group": "dich_vu", "roles": ["514"], "kind": "ai" },
+    { "id": "dich_vu-salon-2", "file": "/images/template/04b-dich-vu.jpg", "group": "dich_vu", "roles": ["514"], "kind": "ai" }
+  ]
+}

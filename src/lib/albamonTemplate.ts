@@ -1,4 +1,4 @@
-import { photoKind, factoryPhotos } from './cardPhoto'
+import { photoKind, factoryPhotos, managedPhoto } from './cardPhoto'
 // 알바몬 '간편! 템플릿' 그대로 따라 하기(Lee 2026-11-08 "새로 만들지 말고 알바몬 그대로"). 2026-11-08 알바몬 기업회원 화면 직접 확인값.
 // 78개 = 13개 업직종 × 6. 모든 템플릿 같은 틀(큰 사진 위 회사명·제목). 템플릿마다 기본 색·제목 글자색(검정/흰색)이 정해져 있다.
 // 사진: 알바몬 사진은 쓰지 않는다. 업종별 우리 그림(public/images/template, Lee 2026-11-08 AI 팀 그림 담당).
@@ -119,11 +119,14 @@ export const DETAIL_PALETTE: Record<string, { bg: string; hi: string; point: str
  *  공장은 지금처럼 만드는 것(factoryPhotos). 종류를 모르면 지금처럼 업종 그림 중 공고 번호로. */
 // 쌀국수·국수·죽 낱말은 성조 그대로 본다(Codex #683: 주소 'Thành phố'·'Khu phố'의 phố가 성조 빼면 phở와 같아짐)
 const NOODLE_WORDS = /(?<!\p{L})(?:phở|bún|miến|cháo)(?!\p{L})/iu
-export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = '', kindText = '', subcategory?: string | null): { photo: string; bar: string; head: string; point: string; style: DetailStyle } {
+export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = '', kindText = '', subcategory?: string | null, roleCode?: string | null): { photo: string; bar: string; head: string; point: string; style: DetailStyle } {
   const g = DETAIL_GROUP[String(category ?? '')] ?? 0
   const n = Math.abs(Math.trunc(seed || 0))
   const c = DETAIL_PALETTE[String(category ?? '')] ?? DETAIL_PALETTE.khac
   const pick = DETAIL_STYLES.find((x) => x === style) ?? 'box'
+  // 직무별 사진만 있는 업종(cardPhoto.managedPhoto)은 카드와 같은 사진 — 직무가 안 맞으면 중립 기본 사진(2026-11-27 Lee).
+  const managed = managedPhoto(category, roleCode, seed)
+  if (managed !== undefined) return { photo: managed, bar: c.hi, head: c.bg, point: c.point, style: pick }
   const kind = g === DETAIL_GROUP.san_xuat_xay_dung ? null : photoKind(category, subcategory, kindText || text)
   // 일반 식당은 우리 식당 그림(홀 2장 — 쌀국수 주방 그림은 쌀국수·phở 낱말이 있을 때만)
   const own = kind === 'nha_hang_chung' ? (NOODLE_WORDS.test(String(kindText || text).normalize('NFC')) ? ['02c-an-uong'] : ['02-an-uong', '02b-an-uong']) : null

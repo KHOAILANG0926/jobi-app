@@ -5,6 +5,8 @@
  */
 import type { JobCategory } from '../types/job'
 import { shopKindOf } from './shopKinds'
+import { categoryForOccupation } from './jobRoles.ts'
+import photoManifest from '../../data/industry-photos/manifest.json' with { type: 'json' }
 
 const INDUSTRY: Record<JobCategory, true> = {
   am_thuc_do_uong: true, quan_ly_ban_hang: true, dich_vu: true, van_phong: true, cskh_kinh_doanh: true,
@@ -47,7 +49,10 @@ export function photoKind(category: string | null | undefined, subcategory?: str
 /** 업종 사진 — 카드 로고 자리·대표 이미지·상세 ④가 같이 쓴다. head = 회사 이름·제목, body = 원문.
  *  공장 그림은 회사 이름·제목만 본다(Lee 2026-11-11 "덧대기": 본문 낱말 'xe máy'(통근)·'vai trò'(역할)·'ô tô'(통근차)에 끌려 예외를 계속 더해야 했다
  *  → 모르면 업종 기본 사진, 엉뚱한 공장 그림보다 낫다 — 11-10 원칙). 가게·식당 종류(photoKind)는 지금까지처럼 원문까지(카페 "pha chế cà phê" 등, Lee 11-02·11-03 순서 그대로). */
-export function industryPhotoUrl(category: string | null | undefined, subcategory?: string | null, head?: string | null, body?: string | null): string {
+export function industryPhotoUrl(category: string | null | undefined, subcategory?: string | null, head?: string | null, body?: string | null, roleCode?: string | null): string {
+  // 직무별 사진만 있는 업종(목록에 roles가 적힌 사진이 있는 업종)은 직무가 맞는 사진만 쓴다 — 없으면 중립 기본 사진(2026-11-27 Lee).
+  const managed = managedPhoto(category, roleCode, 0)
+  if (managed !== undefined) return managed
   // 공장은 무엇을 만드는지로 고른 공장 그림 — 상세 ④ 그림과 같은 한 장(2026-11-11 Lee "3개 사진이 안 맞는데": 과자 공장에 봉제 공장 사진)
   if (category === 'san_xuat_xay_dung') {
     const f = factoryPhotos(head ?? '')
@@ -55,6 +60,42 @@ export function industryPhotoUrl(category: string | null | undefined, subcategor
   }
   const kind = photoKind(category, subcategory, body ? `${head ?? ''} ${body}` : head)
   return `/images/industry/${kind ?? (category && category in INDUSTRY ? category : 'khac')}.jpg`
+}
+
+interface ManagedImage { id: string; file: string; group: string; roles?: string[]; kind: 'stock' | 'ai' }
+const MANAGED: ManagedImage[] = (photoManifest as { images: ManagedImage[] }).images
+const NEUTRAL_PHOTO = '/images/industry/khac.jpg'
+/** 직무별 사진 목록(manifest.json)에서 고른다. 그 업종이 목록에 없으면 undefined(기존 선택 그대로). 있으면 직무 코드 앞자리가 맞는 사진 중 seed로 하나,
+ *  맞는 사진이 없으면 중립 기본 사진. roles 없는 사진은 그 업종 일반 사진이라 직무와 무관하게 쓸 수 있다. */
+export function managedPhoto(category: string | null | undefined, roleCode: string | null | undefined, seed: number): string | undefined {
+  const group = MANAGED.filter((m) => m.group === category)
+  if (!group.length) return undefined
+  const eligible = group.filter((m) => !m.roles?.length || (!!roleCode && m.roles.some((r) => roleCode.startsWith(r) || r.startsWith(roleCode))))
+  if (!eligible.length) return NEUTRAL_PHOTO
+  return eligible[Math.abs(Math.trunc(seed || 0)) % eligible.length].file
+}
+/** 이미지 종류(AI 그림/실제 사진) — 목록에 있는 사진만 안다. 표시 방식은 승인된 화면 변경이라 따로 한다. */
+export function managedPhotoKind(file: string): 'stock' | 'ai' | undefined { return MANAGED.find((m) => m.file === file)?.kind }
+
+export interface PhotoJob {
+  category?: string | null; subcategory?: string | null; company?: string | null; title?: string | null; description?: string | null
+  occupationCode?: string | null; roleCodes?: string[]; primaryRoleCode?: string
+}
+/** 사진을 고르는 업종(2026-11-27 Lee 승인): 직무가 하나이면 저장된 category 그대로. 복수 직무인데 직무들의 업종이 서로 다르면 모집 직무를 포괄하는
+ *  근무환경(가게·식당·공장 낱말)을 쓰고, 환경을 모르면 대표 직무(인원 많은 직무)의 업종을 쓴다. 코드 '5'는 category를 코드로 다시 계산하지 않는다. */
+export function photoCategory(job: PhotoJob): string | null | undefined {
+  const cats = [...new Set((job.roleCodes ?? []).filter((c) => c !== '5').map((c) => categoryForOccupation(c)).filter((c): c is string => !!c))]
+  if (cats.length <= 1) return job.category
+  const text = `${job.company ?? ''} ${job.title ?? ''} ${job.description ?? ''}`
+  if (shopKindOf(text)) return 'quan_ly_ban_hang'
+  if (NUONG_WORDS.test(text) || LAU_WORDS.test(text) || RESTAURANT_WORDS.test(text) || CAFE_WORDS.test(text)) return 'am_thuc_do_uong'
+  if (factoryPhotos(`${job.company ?? ''} ${job.title ?? ''}`)) return 'san_xuat_xay_dung'
+  return categoryForOccupation(job.primaryRoleCode) ?? job.category
+}
+/** 카드·앱 카드·웹/앱 상세 ④가 같이 쓰는 입력 한 곳(2026-11-27): 사진을 고르는 업종 + 대표 직무 코드. */
+export function jobPhotoUrl(job: PhotoJob): string {
+  const head = `${job.company ?? ''} ${job.title ?? ''}`
+  return industryPhotoUrl(photoCategory(job), job.subcategory, head, job.description, job.primaryRoleCode ?? job.occupationCode)
 }
 
 // 공장 공고는 무엇을 만드는 곳인지 회사 이름·제목 낱말로 먼저 가려 그 사진을 쓴다(Lee 2026-11-10 "과자회사인데 왜 전자회사 사진").

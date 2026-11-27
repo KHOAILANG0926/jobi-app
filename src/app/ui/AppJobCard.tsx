@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bookmark, MapPin } from 'lucide-react'
 import { useBrandsOptional } from '../../context/BrandsContext'
-import { industryPhotoUrl } from '../../lib/cardPhoto'
+import { jobPhotoUrl } from '../../lib/cardPhoto'
 import { cardCompanyParts, cardTitle } from '../../lib/cardText'
 import { jobRepresentativeImageUrl } from '../../lib/companyLogo'
 import { conditionBadges } from '../../lib/jobConditions'
@@ -17,7 +17,7 @@ import { appApplyButton } from '../data/applyAction'
 function Thumb({ job }: { job: Job }) {
   const brands = useBrandsOptional()
   const url = jobRepresentativeImageUrl(job, brands)
-  const photo = industryPhotoUrl(job.category, job.subcategory, `${job.company} ${job.title}`, job.description)
+  const photo = jobPhotoUrl(job)
   const [failed, setFailed] = useState<string[]>([])
   const src = [url, photo].find((u): u is string => !!u && !failed.includes(u))
   return (

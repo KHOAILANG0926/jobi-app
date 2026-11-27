@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Bookmark, BookmarkCheck, ChevronLeft, MapPin, MessageCircle, Phone, Bus, BedDouble, Utensils, CalendarCheck, House, Fuel, ChartNoAxesColumnIncreasing } from 'lucide-react'
 import { useBrandsOptional } from '../../context/BrandsContext'
 import { useJobs } from '../../context/JobsContext'
-import { industryPhotoUrl } from '../../lib/cardPhoto'
+import { jobPhotoUrl } from '../../lib/cardPhoto'
 import { jobImagePublicUrl, jobRepresentativeImageUrl } from '../../lib/companyLogo'
 import { DIRECTIONS_LABEL, planJobDirections } from '../../lib/directionsPlan'
 import { JOB_SECTION_LABELS, contactOf } from '../../lib/jobDetailView'
@@ -64,7 +64,7 @@ export default function DetailScreen() {
     )
   }
 
-  const logo = [jobRepresentativeImageUrl(job, brands), industryPhotoUrl(job.category, job.subcategory, `${job.company} ${job.title}`, job.description)].find(Boolean)
+  const logo = [jobRepresentativeImageUrl(job, brands), jobPhotoUrl(job)].find(Boolean)
   const contact = contactOf(job)
   const action = appApplyButton(job)
   const isSaved = saved.set.has(job.id)
