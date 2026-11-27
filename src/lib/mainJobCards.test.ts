@@ -45,3 +45,15 @@ assert.equal(mainCardJobs([job('x', 'Theo vị trí — xem chi tiết')]).lengt
 import { cardSalary as _cs } from './mainJobCards.ts'
 if (_cs({ salary: '23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)', salaryPeriod: 'hour' } as never)?.text !== '23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)') throw new Error('#5231 VNĐ card')
 console.log('mainJobCards #5231 VNĐ passed')
+
+// #1168: 월급·시급 뒤에 '+ phụ cấp'가 붙은 줄도 금액을 남겨 메인 목록에서 사라지지 않는다. 수당·상여 금액만 있는 줄은 그대로 뺀다.
+{
+  const c = (salary: string) => _cs({ salary } as never)
+  assert.equal(c('Lương 30 – 40k/h + phụ cấp')?.text, 'Lương 30 – 40k/h', '#1168 wage kept before allowance word')
+  assert.equal(c('Lương 30 – 40k/h + phụ cấp')?.kind, 'hour', '#1168 hourly kind kept')
+  assert.equal(c('8-12 triệu/tháng + thưởng')?.text, '8-12 triệu/tháng', '#1168 month wage with bonus word')
+  assert.equal(c('Phụ cấp ăn 500k'), null, 'allowance-only clause is still dropped')
+  assert.equal(c('Thưởng chuyên cần 300k, 8 triệu/tháng')?.text, '8 triệu/tháng', 'allowance clause dropped, wage clause kept (unchanged)')
+  assert.equal(c('lương cứng 8–15 triệu/tháng + hoa hồng')?.text, 'lương cứng 8–15 triệu/tháng + hoa hồng', 'non-listed words keep the full text (unchanged)')
+  console.log('mainJobCards #1168 allowance-word salary passed')
+}
