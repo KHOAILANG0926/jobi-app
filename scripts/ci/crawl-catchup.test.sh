@@ -15,7 +15,7 @@ fail=0; TODAY=2026-11-26
 # 실행 하나: 번호 제목목록위치 건수 상태 결론 생성시각
 r() { printf '{"id":%s,"display_title":"채용공고 자동 크롤링 · 목록 위치 %s · %s건","status":"%s","conclusion":%s,"created_at":"%s"}' "$1" "$2" "$3" "$4" "$5" "$6"; }
 runs() { local IFS=,; echo "{\"workflow_runs\":[$*]}" > "$D/runs.json"; }
-slot() { D="$D" PATH="$D:$PATH" REPO=o/r GH_TOKEN=x TODAY_UTC=$TODAY CRAWL_SLOT_ME="${ME:-0}" bash "$ROOT/scripts/ci/crawl-slot.sh" taken "$1" >/dev/null 2>&1; echo $?; }
+slot() { D="$D" PATH="$D:$PATH" REPO=o/r GH_TOKEN=x TODAY_UTC="${DAY:-$TODAY}" CRAWL_SLOT_ME="${ME:-0}" bash "$ROOT/scripts/ci/crawl-slot.sh" taken "$1" >/dev/null 2>&1; echo $?; }
 catchup() { : > "$D/calls"; D="$D" PATH="$D:$PATH" REPO=o/r GH_TOKEN=x GITHUB_STEP_SUMMARY=/dev/null NOW_UTC="$1" bash "$ROOT/scripts/ci/crawl-catchup.sh" >/dev/null 2>&1; echo $? > "$D/rc"; }
 expect() { # 이름 실제 기대
   if [ "$2" = "$3" ]; then echo "통과: $1"; else echo "실패: $1 (실제 $2, 기대 $3)"; fail=1; fi
@@ -73,4 +73,24 @@ runs;                                                         catchup ${TODAY}T0
 # 검증 저장 실행은 제목이 달라(검증 저장(수집 실행 N)) 자리를 채우지 않는다
 printf '{"workflow_runs":[{"id":20,"display_title":"채용공고 자동 크롤링 · 검증 저장(수집 실행 10)","status":"in_progress","conclusion":null,"created_at":"%sT03:10:00Z"}]}' "$TODAY" > "$D/runs.json"
 expect "검증 저장 실행은 자리를 채우지 않음" "$(slot 0)$(slot 10)" 11
+
+# ── 장시간 지연·날짜 변경(UTC 자정) — 예약이 정시에 돈다고 가정하지 않는다(#1071, Lee 2026-11-27)
+# 관측: 예약 10시간 지연(08:23→18:41·18:28 UTC)이 실제로 있었다. 하루 = UTC 날짜(실행 생성 시각 기준).
+NEXT=2026-11-27
+# ① 10시간 늦게(18:28 UTC) 돈 위치 10 예약도 같은 날 자리를 채운다 → 그날 보충은 호출 안 함
+runs "$(r 10 0 10 completed '"success"' ${TODAY}T02:40:00Z)" "$(r 11 10 10 completed '"success"' ${TODAY}T18:28:00Z)"; catchup ${TODAY}T20:00:00Z; ok_ev "10시간 늦은 예약도 그날 자리를 채움 → 보충 호출 없음" 0
+# ② 자정을 넘긴 지연: 전날 위치 10 예약이 다음 날 00:30에 돌면 '다음 날' 위치 10 자리를 채운다(전날 자리를 소급해 채우지 않음)
+runs "$(r 10 10 10 completed '"success"' ${NEXT}T00:30:00Z)"
+expect "자정 넘어 돈 실행은 다음 날 자리로 셈(전날 위치 10 비어 있음)" "$(slot 10)" 1   # TODAY_UTC=전날
+expect "…그리고 다음 날 위치 10 자리는 찼음" "$(DAY=$NEXT slot 10)" 0
+# ③ 새 날 00:01 UTC: 예약(02:23)+유예 전이라 보충은 아무것도 부르지 않는다(전날 자리가 비었어도 지난 날을 소급하지 않음)
+runs;  catchup ${NEXT}T00:01:00Z; ok_ev "새 날 00:01 UTC → 아직 때 아님, 호출 없음" 0
+# ④ 하루 20건 상한: 같은 날 위치 0·10 모두 찬 뒤에는 몇 번째 운영 검사 성공이든 호출 0
+runs "$(r 10 0 10 completed '"success"' ${NEXT}T09:00:00Z)" "$(r 11 10 10 completed '"success"' ${NEXT}T13:00:00Z)"; catchup ${NEXT}T23:59:59Z; ok_ev "하루 끝(23:59:59)에도 두 자리 찼으면 호출 0 — 날짜당 20건" 0
+# ⑤ 자정 직후: 전날 20건이 새 날 상한에 섞이지 않는다(새 날 위치 0이 04:23 이후 비면 그 자리만 호출)
+runs "$(r 10 0 10 completed '"success"' ${TODAY}T23:50:00Z)" "$(r 11 10 10 completed '"success"' ${TODAY}T23:55:00Z)"; catchup ${NEXT}T05:00:00Z; ok_ev "전날 밤 늦게 돈 두 실행은 새 날 자리를 채우지 않음 → 새 날 위치 0 보충 1번" 1 "sample_offset=0"
+# ⑥ 시간대 표기: 위치 0 예약 02:23 UTC = 09:23 베트남, 위치 10 예약 08:23 UTC = 15:23 베트남(UTC+7). 자리는 UTC 날짜 기준 — 베트남 07:00에 날짜가 바뀐다.
+expect "UTC 02:23 = 베트남 09:23" "$(TZ=Asia/Ho_Chi_Minh date -d "${TODAY}T02:23:00Z" +%H:%M)" "09:23"
+expect "UTC 08:23 = 베트남 15:23" "$(TZ=Asia/Ho_Chi_Minh date -d "${TODAY}T08:23:00Z" +%H:%M)" "15:23"
+expect "UTC 18:28 = 베트남 다음 날 01:28" "$(TZ=Asia/Ho_Chi_Minh date -d "${TODAY}T18:28:00Z" +%d\ %H:%M)" "27 01:28"
 exit $fail

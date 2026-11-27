@@ -201,6 +201,9 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertNotIn("verify_save_run_id", catchup)
         self.assertNotIn("publish_one", catchup)
         self.assertIn("if: false && github.event_name == 'schedule'", wf)
+        # 수집 결과 요약은 연락처를 DB 게이트와 같은 8자리 기준(job_criteria 한 곳)으로 따로 보이고, 크롤러의 지원경로 판정을 '공개 판정'이라 부르지 않는다
+        self.assertIn("from job_criteria import has_enough_contact", wf)
+        self.assertNotIn("공개 판정 {j.get('active')}", wf)
 
     def test_actions_manual_confirmation_is_opt_in(self):
         # Lee 2026-11-17 #872·#881: 열쇠 없는 VPS 수집 + Lee 2026-11-25 정기 수집 재개(하루 20건 = 10건 × 2번)
