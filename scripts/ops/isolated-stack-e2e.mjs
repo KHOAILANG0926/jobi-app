@@ -294,8 +294,31 @@ if (jobId) {
     const pubBefore = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${reg.json}`)
     const pub = await call('PATCH', `/rest/v1/local_jobs?id=eq.${reg.json}`, { token: adminTok, headers: { prefer: 'return=representation' }, body: { active: true } })
     const pubAfter = await call('GET', `/rest/v1/local_jobs?select=id,active&id=eq.${reg.json}`)
-    const gateRow = await call('GET', `/rest/v1/local_jobs?select=active,publish_gate_reason,policy_decision&id=eq.${reg.json}`, { token: SERVICE })
-    observe('M0', '기업 등록 → 관리자가 공고 줄을 직접 공개로 바꾸기 → 익명 조회', `등록 ${reg.status} / 저장된 공개 판정 ${JSON.stringify(gateRow.json?.[0] ?? {})} / 공개 전 ${pubBefore.json?.length ?? '?'}건 / 관리자 직접 수정 status ${pub.status} ${pub.code} / 공개 뒤 ${pubAfter.json?.length ?? '?'}건`)
+    // 공개 전환(DB 규칙 한 곳: enforce_job_inspect_current): 고용주 공고는 '지금 내용'의 검사 통과 기록(ocr_check.inspect.content_hash + publishable)이 있어야 공개가 시작된다.
+    // 검사 통과 기록은 서버 검사기(scripts/ops/job-inspect.mjs, 서비스 키)가 쓴다 — 여기서는 같은 기록을 DB가 직접 계산하는 지문(job_inspect_content_hash)으로 써서 DB 규칙의 공개 전환 구간을 본다(검사기 코드 자체는 기존 단위 시험이 검증). 격리 DB 안에서만 — 운영 공개와 무관.
+    const stateOf = (id) => call('GET', `/rest/v1/local_jobs?select=active,ocr_check,publish_gate_reason&id=eq.${id}`, { token: SERVICE }).then((r) => r.json?.[0])
+    const own = await call('PATCH', `/rest/v1/local_jobs?id=eq.${reg.json}`, { token: et, body: { active: true } })
+    const afterOwn = await stateOf(reg.json)
+    rec('M0a', '검사 통과 기록 없이 기업이 직접 공개로 바꿔도 비공개로 되돌려지고 검사 대기(inspect_hold)가 표시됨', afterOwn?.active === false && afterOwn?.ocr_check?.inspect_hold === true, `수정 ${own.status} / active ${afterOwn?.active} hold ${afterOwn?.ocr_check?.inspect_hold}`)
+    const pass = (id, hash) => call('PATCH', `/rest/v1/local_jobs?id=eq.${id}`, { token: SERVICE, body: { ocr_check: { inspect: { content_hash: hash, publishable: true } }, active: true } })
+    const hashOf = (id) => sql(`select public.job_inspect_content_hash(j) from public.local_jobs j where id = ${id}`)
+    const reg2 = await call('POST', '/rest/v1/rpc/ingest_job', { token: et, body: { p: { channel: 'employer', employer_id: E.id, source_text: `E2E Stale Co ${RUN}\nTuyen nhan vien chay ban\nKCN Yen Phong, Bac Ninh\nLH 0912345678`, company: `E2E Stale Co ${RUN}`, title: `Stale ${RUN}`, description: 'Phuc vu ban', location: 'KCN Yen Phong, Bac Ninh', employer_phone: '0912345678', active: true, occupation_code: '5', occupation_evidence: 'Tuyen nhan vien chay ban' } } })
+    await pass(reg2.json, 'stale-hash-0000')
+    const stale = await stateOf(reg2.json)
+    rec('M0b', '다른 내용(옛 지문)의 검사 통과 기록으로는 공개되지 않음', stale?.active === false, `active ${stale?.active}`)
+    const ps = await pass(reg.json, hashOf(reg.json))
+    const nowPub = await stateOf(reg.json)
+    const anonSees = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${reg.json}`)
+    rec('M0c', '지금 내용의 검사 통과 기록이 있으면 공개되고 비로그인에게 보임(검사 → 공개 전환)', nowPub?.active === true && anonSees.json?.length === 1, `기록 ${ps.status} ${ps.code} / active ${nowPub?.active} gate ${nowPub?.publish_gate_reason} / 익명 ${anonSees.json?.length ?? '?'}건`)
+    if (nowPub?.active === true) {
+      const ct2 = await login(C)
+      const a1 = await call('POST', '/rest/v1/applications', { token: ct2, headers: { prefer: 'return=representation' }, body: { job_id: reg.json, seeker_id: C.id, employer_id: E.id, job_title: `Chain ${RUN}`, company: `E2E Chain Co ${RUN}`, seeker_name: 'E2E Chain', seeker_phone: '0900000009' } })
+      const t1 = await call('POST', '/rest/v1/message_threads', { token: ct2, headers: { prefer: 'return=representation' }, body: { job_id: reg.json, seeker_id: C.id, employer_id: E.id, job_title: `Chain ${RUN}`, company: `E2E Chain Co ${RUN}`, seeker_name: 'E2E Chain', unread_by_employer: true } })
+      const m1 = t1.json?.[0]?.id ? await call('POST', '/rest/v1/messages', { token: ct2, body: { thread_id: t1.json[0].id, from_role: 'seeker', body: 'hello published' } }) : { status: 0 }
+      const i1 = await call('POST', '/rest/v1/interviews', { token: et, body: { job_id: reg.json, seeker_id: C.id, employer_id: E.id, job_title: `Chain ${RUN}`, company: `E2E Chain Co ${RUN}`, datetime: new Date(Date.now() + 3 * 86400_000).toISOString(), location: 'KCN Yên Phong', notes: 'e2e', status: 'pending' } })
+      const seen = await Promise.all(['applications', 'message_threads', 'interviews'].map((t) => call('GET', `/rest/v1/${t}?select=job_id&job_id=eq.${reg.json}&seeker_id=eq.${C.id}`, { token: et })))
+      rec('M0d', '기업이 등록한 그 공고가 공개된 뒤 지원 → 대화 → 면접이 같은 (공고, 구직자)로 이어지고 기업이 모두 봄', a1.status === 201 && t1.status === 201 && m1.status === 201 && i1.status === 201 && seen.every((r) => r.json?.length === 1), `지원 ${a1.status} 대화 ${t1.status} 메시지 ${m1.status} 면접 ${i1.status} / 기업이 본 줄 ${seen.map((r) => r.json?.length).join(',')}`)
+    }
     // 한 쌍 연결(공개 중인 고정 공고로): 지원 → 중복 거부 → 기업이 지원자로 봄 → 메시지 → 면접이 모두 같은 (job_id, seeker_id)
     const ap = await call('POST', '/rest/v1/applications', { token: ct, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', seeker_phone: '0900000009' } })
     const dup = await call('POST', '/rest/v1/applications', { token: ct, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', seeker_phone: '0900000009' } })
