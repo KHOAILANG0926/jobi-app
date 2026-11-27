@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import {hasExcludedMoneyRole} from '../../src/lib/jobPostingPolicy.mjs'
+import { skipImages } from './skip-images.mjs'
 import {sourcePoints,assertPoints,pointsForJob,settleChange} from './location-point-oracle.mjs'
 const base=process.env.BASE_URL||'http://localhost:4173'
 const out=process.env.SCREENSHOT_DIR||'map-summary-proof'
@@ -54,6 +55,7 @@ for(let from=0;from<snapshot.length;from+=100) {
 await mkdir(out,{recursive:true})
 const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined})
 const context=await browser.newContext({viewport:{width:1440,height:1000},geolocation:{latitude:Number(snapshot.flatMap(j=>j.points)[0]?.lat??21.0285),longitude:Number(snapshot.flatMap(j=>j.points)[0]?.lng??105.8542)},permissions:['geolocation']})
+await skipImages(context,new URL(base).origin)
 const page=await context.newPage()
 const errors=[]
 page.on('pageerror',e=>errors.push(e.message))

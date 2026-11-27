@@ -1,6 +1,7 @@
 // Read-only composition check. Matching real postings will be checked after data accumulates.
 import { chromium } from 'playwright'
 import assert from 'node:assert/strict'
+import { skipImages } from './skip-images.mjs'
 import { mkdirSync, writeFileSync } from 'node:fs'
 const base=process.env.BASE_URL||'http://localhost:4173'
 const out=process.env.SCREENSHOT_DIR||'menu-search-proof'
@@ -10,6 +11,7 @@ const checks=[]
 try {
  for(const width of [1366,390]) {
   const context=await browser.newContext({viewport:{width,height:width===390?844:900},isMobile:width===390,hasTouch:width===390,permissions:[]})
+  await skipImages(context,new URL(base).origin)
   const page=await context.newPage()
   const errors=[];page.on('pageerror',e=>errors.push(e.message))
   const panel=page.locator('#home-job-filters')
