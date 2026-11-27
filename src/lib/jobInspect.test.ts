@@ -36,7 +36,8 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   const pass = { ok: false, items: [{ key: 'pin', label: '', ok: true }, { key: 'public', label: '', ok: false }] }
   const fail = { ok: false, items: [{ key: 'pin', label: '', ok: false }, { key: 'public', label: '', ok: true }] }
   const d = (r: typeof pass, j: Parameters<typeof publishDecision>[1]) => publishDecision(r, j, '2026-11-01')
-  assert(d(fail, { active: true }).active === false && d(fail, { active: true }).publishable === false, '검사 실패 → 공개 중이어도 내림')
+  assert(d(fail, { active: true }).active === true && d(fail, { active: true }).publishable === false, '검사 실패여도 공개 중인 공고는 내리지 않고 검사표 기록만 실패(#728 방향 4)')
+  assert(d(fail, { active: false, hold: true }).active === false && d(fail, { active: false, hold: true }).publishable === false, '검사 실패 + 비공개 보류는 계속 비공개')
   assert(d(pass, { active: true }).active === true, '통과 + 공개 중 → 유지')
   assert(d(pass, { active: false, hold: true, admin_hidden: false }).active === true, '통과 + 검사 대기로 막힘 → 되살림')
   assert(d(pass, { active: false, hold: false }).active === false, '통과여도 다른 이유로 비공개였던 공고는 되살리지 않음')
