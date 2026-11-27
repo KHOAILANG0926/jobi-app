@@ -66,3 +66,15 @@ console.log('mainJobCards #5231 VNĐ passed')
   assert.equal(c?.text, 'Theo vị trí — xem chi tiết')
   console.log('mainJobCards #1168 multi-role header passed')
 }
+
+// #1168: 모바일 직업 칩 숫자 = 메인 목록(mainCardJobs)에 실제 나오는 카드 수. 급여를 못 읽은 공고는 칩에서도 뺀다.
+{
+  const { mainCardOccupationGroups } = await import('./mainJobCards.ts')
+  const chipJobs = [
+    job('a', '9 triệu', { occupationCode: '51' }), job('b', '10 triệu', { occupationCode: '51' }),
+    job('c', 'Theo vị trí — xem chi tiết', { occupationCode: '51' }), job('d', '8 triệu', { occupationCode: '75' }),
+  ]
+  assert.deepEqual(mainCardOccupationGroups(chipJobs), [{ code: '51', count: 2 }, { code: '75', count: 1 }], '#1168 chips count only main cards')
+  assert.equal(mainCardOccupationGroups(chipJobs).reduce((n, g) => n + g.count, 0), mainCardJobs(chipJobs).length, '#1168 chips sum = main list size')
+  console.log('mainJobCards #1168 chip count passed')
+}
