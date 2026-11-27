@@ -15,6 +15,9 @@ class MuabanProbeTest(unittest.TestCase):
         self.assertTrue(p.is_blocked(429, ""))
         self.assertTrue(p.is_blocked(200, "<html>Please solve the CAPTCHA</html>"))
         self.assertFalse(p.is_blocked(200, "<html>việc làm</html>"))
+        # 실제 목록이 담긴 페이지는 머리말의 robots 메타 낱말만으로 차단으로 보지 않는다(2026-11-27 첫 실행 오판).
+        self.assertFalse(p.is_blocked(200, '<head><meta name="robots" content="index"></head>' + page({"a": 1})))
+        self.assertEqual(p.block_phrase(200, "<title>Just a moment</title>"), "Just a moment")
 
     def test_find_ads_and_links(self):
         html = page({"props": {"items": [{"id": 1, "title": "Công nhân", "address": "Bắc Ninh"}, {"x": 1}]}})
