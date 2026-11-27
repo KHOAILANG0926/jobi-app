@@ -116,7 +116,11 @@ def summarize_detail(html: str, ad_id: str = "") -> dict:
         ad = ads[0] if ads else {}
     matched = bool(ad)
     body = str(ad.get("body") or ad.get("description") or "") if matched else ""
-    phone = (ad.get("phone") or ad.get("contact_phone") or "") if matched else ""
+    # 2026-11-27 재실행: 공고 객체에는 phone 칸 대신 `contact`·`contact_name` 칸이 있다 → contact를 전화 후보로 본다.
+    contact = ad.get("contact") if matched else None
+    if isinstance(contact, dict):
+        contact = contact.get("phone") or contact.get("mobile") or contact.get("value") or ""
+    phone = (ad.get("phone") or ad.get("contact_phone") or contact or "") if matched else ""
     # 페이지 전체의 tel: 링크는 사이트 공통 번호일 수 있어 공고 자신의 번호로 쓰지 않고 개수만 센다.
     tels = sorted(set(re.findall(r'href="tel:([^"]+)"', html)))
     title = ad.get("title") or ad.get("subject")
@@ -135,6 +139,8 @@ def summarize_detail(html: str, ad_id: str = "") -> dict:
         "phone": mask(phone),
         "phone_masked": is_masked(phone),
         "page_tel_links": len(tels),
+        "contact_type": type(ad.get("contact")).__name__ if matched else "",
+        "contact_name": bool(ad.get("contact_name")) if matched else False,
         "ad_keys": sorted(ad.keys())[:60] if matched else [],
     }
 
@@ -182,7 +188,7 @@ def main() -> int:
         print("  회사", s["company"] or "없음")
         print("  주소", s["address"] or "없음")
         print("  본문 길이", s["body_len"], "| 본문 속 번호", s["body_phone"])
-        print("  phone", s["phone"], "| 가려짐" if s["phone_masked"] else "")
+        print("  phone", s["phone"], "| 가려짐" if s["phone_masked"] else "", "| contact 칸 종류", s["contact_type"] or "없음", "| contact_name", "있음" if s["contact_name"] else "없음")
     print("== 결과:", "읽기 가능" if ok else "읽기 실패")
     return 0 if ok else 1
 

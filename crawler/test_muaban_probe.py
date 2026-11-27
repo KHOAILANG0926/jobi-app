@@ -56,6 +56,14 @@ class MuabanProbeTest(unittest.TestCase):
         self.assertEqual(s["phone"], "없음")
         self.assertEqual(s["page_tel_links"], 1)
 
+    def test_contact_field_is_phone_candidate(self):
+        html = page({"a": [{"id": 3, "title": "공고", "address": "x", "contact": "0933***777", "contact_name": "A"}]})
+        s = p.summarize_detail(html, "3")
+        self.assertTrue(s["phone_masked"])
+        self.assertEqual(s["contact_type"], "str")
+        html2 = page({"a": [{"id": 4, "title": "공고", "address": "x", "contact": {"phone": "0944555666"}}]})
+        self.assertEqual(p.summarize_detail(html2, "4")["phone"], "…666(10자리)")
+
 
 if __name__ == "__main__":
     unittest.main()
