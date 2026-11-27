@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-27 23:39 (VN)**
-- 기준 커밋: `1fad83f` (feat(photo): 대표 이미지 고정 배정 + 카드·앱 화면 연동 (3단계) (#1185))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/46035257517
+- 생성 시각: **2026-11-27 23:53 (VN)**
+- 기준 커밋: `efdaeba` (chore(ocr): 대표 이미지 배정 로그에 건너뜀 이유 건수 추가 (#1189))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/46037196839
 - 검증 스크립트 지문(SHA-256): `a7387291a9c75cc7`
 
 ## 한눈에 보기
@@ -51,7 +51,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `1fad83f` · 상태 **success** · 2026-11-27 23:39 (VN)
+- 마지막 Production 배포: `efdaeba` · 상태 **success** · 2026-11-27 23:51 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -59,6 +59,8 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #1189 | 2026-11-27 23:51 (VN) | `efdaeba` | chore(ocr): 대표 이미지 배정 로그에 건너뜀 이유 건수 추가 |
+| #1187 | 2026-11-27 23:48 (VN) | `3efe826` | feat(photo): 추가 이미지 16장 이미지 목록 등록 |
 | #1185 | 2026-11-27 23:37 (VN) | `1fad83f` | feat(photo): 대표 이미지 고정 배정 + 카드·앱 화면 연동 (3단계) |
 | #1184 | 2026-11-27 23:26 (VN) | `bfa3659` | ops(e2e): 고용주·구직자 실제 로그인 시험 — 대표 가입 없이 일회용 시험 계정 생성·삭제 (#701 D) |
 | #1181 | 2026-11-27 23:09 (VN) | `5beba48` | feat(photo): 전달 이미지 ZIP 23장을 이미지 목록(manifest)에 등록 (#1180 연동, Draft) |
@@ -67,12 +69,10 @@
 | #1183 | 2026-11-27 22:48 (VN) | `3f549fd` | docs: HANDOFF·WORK_LOG — 직무 중심 분류·대표 이미지 1·2단계 |
 | #1179 | 2026-11-27 22:39 (VN) | `77acd04` | feat(roles): 복수 직무 공고를 모든 모집 직무로 검색 — category·공식 코드 유지 (설계 1단계, Draft) |
 | #1175 | 2026-11-27 17:29 (VN) | `2ce49c0` | fix(home): Theo vị trí 공고가 원문 급여 금액이 있으면 메인 목록에서 빠지지 않게 (#1168 후속) |
-| #1174 | 2026-11-27 17:11 (VN) | `9f8fad4` | fix(home): 모바일 직업 칩 숫자를 메인 목록 카드 집합으로 센다 — 급여를 못 읽어 메인에서 빠지는 공고는 칩에서도 제외 (#1168) |
-| #1170 | 2026-11-27 16:57 (VN) | `3947087` | fix(home): 급여 줄에 수당·상여 낱말이 붙어도 금액을 남겨 메인 목록에서 공고가 빠지지 않게 (#1168) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **30건** (전체 56건, 숨김·비활성 26건)
+- 공개 중: **30건** (전체 57건, 숨김·비활성 27건)
 - 출처별: 출처 없음 26 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -104,16 +104,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-11-27 23:52 (VN) | location_candidate.approve | job 6827 |
+| 2026-11-27 23:52 (VN) | location_candidate.add | job 6827 |
+| 2026-11-27 23:50 (VN) | location_candidate.approve | job 6825 |
+| 2026-11-27 23:50 (VN) | location_candidate.add | job 6825 |
+| 2026-11-27 23:40 (VN) | location_candidate.approve | job 6821 |
+| 2026-11-27 23:40 (VN) | location_candidate.add | job 6821 |
 | 2026-11-27 23:27 (VN) | location_candidate.approve | job 6818 |
 | 2026-11-27 23:27 (VN) | location_candidate.add | job 6818 |
 | 2026-11-27 23:11 (VN) | location_candidate.approve | job 6815 |
 | 2026-11-27 23:11 (VN) | location_candidate.add | job 6815 |
-| 2026-11-27 23:03 (VN) | location_candidate.approve | job 6813 |
-| 2026-11-27 23:03 (VN) | location_candidate.add | job 6813 |
-| 2026-11-27 23:01 (VN) | location_candidate.approve | job 6809 |
-| 2026-11-27 23:01 (VN) | location_candidate.add | job 6809 |
-| 2026-11-27 22:49 (VN) | location_candidate.approve | job 6806 |
-| 2026-11-27 22:49 (VN) | location_candidate.add | job 6806 |
 
 ## 8. 검증 장치 변경 이력
 
