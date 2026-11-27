@@ -6,6 +6,7 @@
 import type { JobCategory } from '../types/job'
 import { shopKindOf } from './shopKinds'
 import { categoryForOccupation } from './jobRoles.ts'
+import { mentionsIndustrialPark } from './industrialPark'
 import photoManifest from '../../data/industry-photos/manifest.json' with { type: 'json' }
 
 const INDUSTRY: Record<JobCategory, true> = {
@@ -49,9 +50,9 @@ export function photoKind(category: string | null | undefined, subcategory?: str
 /** 업종 사진 — 카드 로고 자리·대표 이미지·상세 ④가 같이 쓴다. head = 회사 이름·제목, body = 원문.
  *  공장 그림은 회사 이름·제목만 본다(Lee 2026-11-11 "덧대기": 본문 낱말 'xe máy'(통근)·'vai trò'(역할)·'ô tô'(통근차)에 끌려 예외를 계속 더해야 했다
  *  → 모르면 업종 기본 사진, 엉뚱한 공장 그림보다 낫다 — 11-10 원칙). 가게·식당 종류(photoKind)는 지금까지처럼 원문까지(카페 "pha chế cà phê" 등, Lee 11-02·11-03 순서 그대로). */
-export function industryPhotoUrl(category: string | null | undefined, subcategory?: string | null, head?: string | null, body?: string | null, roleCode?: string | null): string {
+export function industryPhotoUrl(category: string | null | undefined, subcategory?: string | null, head?: string | null, body?: string | null, roleCode?: string | null, assignedId?: string | null): string {
   // 직무별 사진만 있는 업종(목록에 roles가 적힌 사진이 있는 업종)은 직무가 맞는 사진만 쓴다 — 없으면 중립 기본 사진(2026-11-27 Lee).
-  const managed = managedPhoto(category, roleCode, 0)
+  const managed = managedPhoto(category, roleCode, 0, photoEnvironment(`${head ?? ''} ${body ?? ''}`), assignedId)
   if (managed !== undefined) return managed
   // 공장은 무엇을 만드는지로 고른 공장 그림 — 상세 ④ 그림과 같은 한 장(2026-11-11 Lee "3개 사진이 안 맞는데": 과자 공장에 봉제 공장 사진)
   if (category === 'san_xuat_xay_dung') {
@@ -62,24 +63,59 @@ export function industryPhotoUrl(category: string | null | undefined, subcategor
   return `/images/industry/${kind ?? (category && category in INDUSTRY ? category : 'khac')}.jpg`
 }
 
-interface ManagedImage { id: string; file: string; group: string; roles?: string[]; kind: 'stock' | 'ai' }
-const MANAGED: ManagedImage[] = (photoManifest as { images: ManagedImage[] }).images
+/** 대표 이미지 목록(data/industry-photos/manifest.json) — 이미지 추가는 이 목록에 한 줄만(코드 수정 없음, 2026-11-27 Lee 승인).
+ *  id = 고유 번호(고정 배정이 이 번호를 저장), file, group = 업종(category), roles = 맞는 공식 직업코드 앞자리, env = 근무환경(ENV_KEYS 중 하나, 없으면 null),
+ *  kind = stock(실제 사진)·ai(우리가 만든 그림), source = SOURCES.json 열쇠(stock) 또는 origin = 제작 출처 글(ai). 출처·라이선스는 지우지 않는다(photoManifest.test가 지킴). */
+export const ENV_KEYS = ['nha_hang', 'nha_hang_nuong', 'nha_hang_lau', 'cafe', 'ban_hang_dien_may', 'ban_hang_dien_thoai', 'ban_hang_noi_that', 'ban_hang_thoi_trang', 'ban_hang_tien_loi', 'nha_may', 'khach_san'] as const
+export type PhotoEnv = (typeof ENV_KEYS)[number]
+export interface ManagedImage { id: string; file: string; group: string; roles?: string[]; env?: PhotoEnv | null; kind: 'stock' | 'ai'; source?: string; origin?: string }
+interface ManifestGroup { fallback?: 'legacy' | 'neutral' }
+const MANIFEST = photoManifest as unknown as { images: ManagedImage[]; groups?: Record<string, ManifestGroup> }
+const MANAGED: ManagedImage[] = MANIFEST.images
 const NEUTRAL_PHOTO = '/images/industry/khac.jpg'
-/** 직무별 사진 목록(manifest.json)에서 고른다. 그 업종이 목록에 없으면 undefined(기존 선택 그대로). 있으면 직무 코드 앞자리가 맞는 사진 중 seed로 하나,
- *  맞는 사진이 없으면 중립 기본 사진. roles 없는 사진은 그 업종 일반 사진이라 직무와 무관하게 쓸 수 있다. */
-export function managedPhoto(category: string | null | undefined, roleCode: string | null | undefined, seed: number): string | undefined {
-  const group = MANAGED.filter((m) => m.group === category)
+const HOTEL_WORDS = /khách\s*sạn|hotel|resort|homestay/iu
+/** 근무환경 낱말(기존 낱말표 그대로 — 식당 종류·카페·판매 가게 종류·공장 이름·공단·호텔). 모르면 null. */
+export function photoEnvironment(text: string | null | undefined): PhotoEnv | null {
+  const t = String(text ?? '')
+  if (NUONG_WORDS.test(t)) return 'nha_hang_nuong'
+  if (LAU_WORDS.test(t)) return 'nha_hang_lau'
+  if (CAFE_WORDS.test(t) && !RESTAURANT_WORDS.test(t)) return 'cafe'
+  if (RESTAURANT_WORDS.test(t)) return 'nha_hang'
+  const shop = shopKindOf(t)
+  if (shop && SHOP_PHOTOS.has(shop)) return shop as PhotoEnv
+  if (mentionsIndustrialPark(t) || factoryPhotos(t)) return 'nha_may'
+  if (HOTEL_WORDS.test(t)) return 'khach_san'
+  return null
+}
+const roleMatches = (entry: ManagedImage, roleCode: string | null | undefined) =>
+  !!roleCode && !!entry.roles?.some((r) => roleCode.startsWith(r) || r.startsWith(roleCode))
+/** 직무 중심 선택(2026-11-27 Lee 승인): ① 세부 직무 + 근무환경 → ② 세부 직무 일반 → ③ 상위 직무군(업종) 일반 → ④ 그 업종의 기본(legacy = 기존 선택, neutral = 중립 기본 사진).
+ *  assignedId가 있으면(고정 배정) 그 이미지를 그대로 쓴다 — 이미지가 추가돼도 기존 배정은 바뀌지 않는다. 목록에 그 업종이 없으면 undefined(기존 선택 그대로).
+ *  같은 단계에 사진이 여럿이면 seed(공고 번호)로 하나. */
+export function selectManaged(manifest: { images: ManagedImage[]; groups?: Record<string, ManifestGroup> }, category: string | null | undefined, roleCode: string | null | undefined, seed: number, env?: PhotoEnv | null, assignedId?: string | null): string | undefined {
+  const assigned = assignedId ? manifest.images.find((m) => m.id === assignedId) : undefined
+  if (assigned) return assigned.file
+  const group = manifest.images.filter((m) => m.group === category)
   if (!group.length) return undefined
-  const eligible = group.filter((m) => !m.roles?.length || (!!roleCode && m.roles.some((r) => roleCode.startsWith(r) || r.startsWith(roleCode))))
-  if (!eligible.length) return NEUTRAL_PHOTO
-  return eligible[Math.abs(Math.trunc(seed || 0)) % eligible.length].file
+  const pick = (list: ManagedImage[]) => list[Math.abs(Math.trunc(seed || 0)) % list.length].file
+  const byRole = group.filter((m) => roleMatches(m, roleCode))
+  const tier1 = env ? byRole.filter((m) => m.env === env) : []
+  if (tier1.length) return pick(tier1)
+  const tier2 = byRole.filter((m) => !m.env)
+  if (tier2.length) return pick(tier2)
+  const tier3 = group.filter((m) => !m.roles?.length)
+  if (tier3.length) return pick(tier3)
+  return (manifest.groups?.[String(category)]?.fallback ?? 'legacy') === 'neutral' ? NEUTRAL_PHOTO : undefined
+}
+export function managedPhoto(category: string | null | undefined, roleCode: string | null | undefined, seed: number, env?: PhotoEnv | null, assignedId?: string | null): string | undefined {
+  return selectManaged(MANIFEST, category, roleCode, seed, env, assignedId)
 }
 /** 이미지 종류(AI 그림/실제 사진) — 목록에 있는 사진만 안다. 표시 방식은 승인된 화면 변경이라 따로 한다. */
 export function managedPhotoKind(file: string): 'stock' | 'ai' | undefined { return MANAGED.find((m) => m.file === file)?.kind }
 
 export interface PhotoJob {
   category?: string | null; subcategory?: string | null; company?: string | null; title?: string | null; description?: string | null
-  occupationCode?: string | null; roleCodes?: string[]; primaryRoleCode?: string
+  occupationCode?: string | null; roleCodes?: string[]; primaryRoleCode?: string; representativeImageId?: string | null
 }
 /** 사진을 고르는 업종(2026-11-27 Lee 승인): 직무가 하나이면 저장된 category 그대로. 복수 직무인데 직무들의 업종이 서로 다르면 모집 직무를 포괄하는
  *  근무환경(가게·식당·공장 낱말)을 쓰고, 환경을 모르면 대표 직무(인원 많은 직무)의 업종을 쓴다. 코드 '5'는 category를 코드로 다시 계산하지 않는다. */
@@ -95,7 +131,7 @@ export function photoCategory(job: PhotoJob): string | null | undefined {
 /** 카드·앱 카드·웹/앱 상세 ④가 같이 쓰는 입력 한 곳(2026-11-27): 사진을 고르는 업종 + 대표 직무 코드. */
 export function jobPhotoUrl(job: PhotoJob): string {
   const head = `${job.company ?? ''} ${job.title ?? ''}`
-  return industryPhotoUrl(photoCategory(job), job.subcategory, head, job.description, job.primaryRoleCode ?? job.occupationCode)
+  return industryPhotoUrl(photoCategory(job), job.subcategory, head, job.description, job.primaryRoleCode ?? job.occupationCode, job.representativeImageId)
 }
 
 // 공장 공고는 무엇을 만드는 곳인지 회사 이름·제목 낱말로 먼저 가려 그 사진을 쓴다(Lee 2026-11-10 "과자회사인데 왜 전자회사 사진").
