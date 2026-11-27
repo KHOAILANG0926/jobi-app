@@ -1,0 +1,59 @@
+{
+  "_doc": "전달받은 이미지 묶음의 role·environment 이름을 목록(manifest.json)의 공식 직업코드(roles, 34-2020 직업분류 코드)·근무환경 키(env, cardPhoto.ENV_KEYS)로 옮기는 표. 새 직무·환경 이름이 오면 여기 한 줄만 더한다(코드 수정 없음). 업종(group)은 공식 코드에서 category_rules.json으로 계산하므로 적지 않는다.",
+  "roles": {
+    "serving": [
+      "5131"
+    ],
+    "ordering": [
+      "5131"
+    ],
+    "ordering_noodle": [
+      "5131"
+    ],
+    "cashier": [
+      "5230"
+    ],
+    "cooking": [
+      "5120"
+    ],
+    "kitchen_assistant": [
+      "9402"
+    ],
+    "dishwashing": [
+      "9402"
+    ],
+    "cleaning": [
+      "9112"
+    ],
+    "barista": [
+      "5132"
+    ],
+    "delivery": [
+      "9621"
+    ],
+    "forklift": [
+      "8344"
+    ],
+    "inventory": [
+      "4321"
+    ],
+    "packing": [
+      "9321"
+    ],
+    "quality_inspection": [
+      "7543"
+    ],
+    "sorting": [
+      "9329"
+    ]
+  },
+  "environments": {
+    "restaurant": "nha_hang",
+    "pho": "nha_hang",
+    "cafe": "cafe",
+    "appliances": "ban_hang_dien_may",
+    "electronics": "nha_may",
+    "plastics": "nha_may",
+    "warehouse": "kho_hang"
+  }
+}

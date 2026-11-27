@@ -1,11 +1,319 @@
 {
   "_doc": "대표 이미지 목록(Lee 2026-11-27 승인 설계, 이미지 840장 계획 중 현재 일부). 이미지를 추가할 때는 파일을 public/images에 넣고 images에 한 줄만 더하면 되고 코드는 고치지 않는다. id = 고유 번호(고정 배정이 저장하므로 바꾸거나 재사용하지 않는다), group = 업종(category), roles = 맞는 공식 직업코드 앞자리(없으면 그 업종의 일반 사진), env = 근무환경(cardPhoto.ENV_KEYS 중 하나, 없으면 null), kind = stock(실제 사진)·ai(우리가 만든 그림), source = SOURCES.json 열쇠(stock), origin = 제작 출처(ai). 선택 순서: ① 세부 직무+근무환경 ② 세부 직무 ③ 업종 일반 ④ groups[업종].fallback(legacy = 기존 선택, neutral = 중립 기본 사진). 출처·라이선스(source/origin, SOURCES.json)는 지우지 않는다.",
   "groups": {
-    "dich_vu": { "fallback": "neutral" }
+    "dich_vu": {
+      "fallback": "neutral"
+    }
   },
   "images": [
-    { "id": "dich_vu-cleaning-001", "file": "/images/industry/dich_vu.jpg", "group": "dich_vu", "roles": ["911"], "env": null, "kind": "stock", "source": "dich_vu" },
-    { "id": "dich_vu-salon-001", "file": "/images/template/04-dich-vu.jpg", "group": "dich_vu", "roles": ["514"], "env": null, "kind": "ai", "origin": "우리 그림 — 간편 템플릿 업종별 그림(Lee 2026-11-09, 커밋 f8aa7986 feat(template))" },
-    { "id": "dich_vu-salon-002", "file": "/images/template/04b-dich-vu.jpg", "group": "dich_vu", "roles": ["514"], "env": null, "kind": "ai", "origin": "우리 그림 — 간편 템플릿 업종별 그림(Lee 2026-11-09, 커밋 f8aa7986 feat(template))" }
+    {
+      "id": "dich_vu-cleaning-001",
+      "file": "/images/industry/dich_vu.jpg",
+      "group": "dich_vu",
+      "roles": [
+        "911"
+      ],
+      "env": null,
+      "kind": "stock",
+      "source": "dich_vu"
+    },
+    {
+      "id": "dich_vu-salon-001",
+      "file": "/images/template/04-dich-vu.jpg",
+      "group": "dich_vu",
+      "roles": [
+        "514"
+      ],
+      "env": null,
+      "kind": "ai",
+      "origin": "우리 그림 — 간편 템플릿 업종별 그림(Lee 2026-11-09, 커밋 f8aa7986 feat(template))"
+    },
+    {
+      "id": "dich_vu-salon-002",
+      "file": "/images/template/04b-dich-vu.jpg",
+      "group": "dich_vu",
+      "roles": [
+        "514"
+      ],
+      "env": null,
+      "kind": "ai",
+      "origin": "우리 그림 — 간편 템플릿 업종별 그림(Lee 2026-11-09, 커밋 f8aa7986 feat(template))"
+    },
+    {
+      "id": "kitchen_assistant_restaurant_001",
+      "file": "/images/industry/kitchen_assistant_restaurant/kitchen_assistant_restaurant_001.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "9402"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(kitchen_assistant_restaurant, 직무 kitchen_assistant·환경 restaurant)",
+      "sha256": "f05bc8844113c4a5557e5b857ac25d1d597174d64e2d22ab61b2cb1974cc7a4e"
+    },
+    {
+      "id": "ordering_cafe_001",
+      "file": "/images/industry/ordering_cafe/ordering_cafe_001.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5131"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(ordering_cafe, 직무 ordering·환경 cafe)",
+      "sha256": "af103b8b1d6707a4ee29e776732ddf3d53bfef2277e2eb06e3e11ca80fcb5058"
+    },
+    {
+      "id": "dishwashing_restaurant_001",
+      "file": "/images/industry/dishwashing_restaurant/dishwashing_restaurant_001.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "9402"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(dishwashing_restaurant, 직무 dishwashing·환경 restaurant)",
+      "sha256": "d304207d912ba1a82af135ab7c641fde45a21681c27ff051265309a0b46747c0"
+    },
+    {
+      "id": "serving_restaurant_001",
+      "file": "/images/industry/serving_restaurant/serving_restaurant_001.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5131"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(serving_restaurant, 직무 serving·환경 restaurant)",
+      "sha256": "80731acdd3c085d698ae45a6927498c953765767a08cdf09c04f9812cf4acde0"
+    },
+    {
+      "id": "cashier_restaurant_001",
+      "file": "/images/industry/cashier_restaurant/cashier_restaurant_001.webp",
+      "group": "quan_ly_ban_hang",
+      "roles": [
+        "5230"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cashier_restaurant, 직무 cashier·환경 restaurant)",
+      "sha256": "ddb9387e5936395d06907873a85116e52864cd7a238a7af56268724198104d86"
+    },
+    {
+      "id": "cooking_restaurant_001",
+      "file": "/images/industry/cooking_restaurant/cooking_restaurant_001.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5120"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cooking_restaurant, 직무 cooking·환경 restaurant)",
+      "sha256": "b43ae5951f16d926d36ebd784e6036a75a5433ec9452d3f170191893b059fe42"
+    },
+    {
+      "id": "cleaning_restaurant_001",
+      "file": "/images/industry/cleaning_restaurant/cleaning_restaurant_001.webp",
+      "group": "dich_vu",
+      "roles": [
+        "9112"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cleaning_restaurant, 직무 cleaning·환경 restaurant)",
+      "sha256": "bd3cc99ed5a8e4598b3afa60396a1acfa21ea5dbb66d8cf5896a1cb924251fe3"
+    },
+    {
+      "id": "delivery_appliances_001",
+      "file": "/images/industry/delivery_appliances/delivery_appliances_001.webp",
+      "group": "lai_xe_giao_hang",
+      "roles": [
+        "9621"
+      ],
+      "env": "ban_hang_dien_may",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(delivery_appliances, 직무 delivery·환경 appliances)",
+      "sha256": "d1f4aefbd5de02719a9086f67170cd7d5b92c38993f3453edd303ac48b907413"
+    },
+    {
+      "id": "dishwashing_restaurant_002",
+      "file": "/images/industry/dishwashing_restaurant/dishwashing_restaurant_002.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "9402"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(dishwashing_restaurant, 직무 dishwashing·환경 restaurant)",
+      "sha256": "6b6e4d0cfa8eec842e7892534417cf7022310d485ddac738772c8275ebf5bcc9"
+    },
+    {
+      "id": "quality_inspection_electronics_001",
+      "file": "/images/industry/quality_inspection_electronics/quality_inspection_electronics_001.webp",
+      "group": "san_xuat_xay_dung",
+      "roles": [
+        "7543"
+      ],
+      "env": "nha_may",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(quality_inspection_electronics, 직무 quality_inspection·환경 electronics)",
+      "sha256": "c86dbf7a6b2b27509913375b51f277155260f5e3a0bf7c63c3aae750dded6c56"
+    },
+    {
+      "id": "ordering_noodle_restaurant_001",
+      "file": "/images/industry/ordering_noodle_restaurant/ordering_noodle_restaurant_001.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5131"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(ordering_noodle_restaurant, 직무 ordering_noodle·환경 restaurant)",
+      "sha256": "211bc363a0f4859f98f187f5e4a2224371060e9cad005de51327d687874bd5dd"
+    },
+    {
+      "id": "forklift_warehouse_001",
+      "file": "/images/industry/forklift_warehouse/forklift_warehouse_001.webp",
+      "group": "san_xuat_xay_dung",
+      "roles": [
+        "8344"
+      ],
+      "env": "kho_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(forklift_warehouse, 직무 forklift·환경 warehouse)",
+      "sha256": "a0fe723989b2ac67fc0c6f87647115c9ee60fc4fce6a05b0a7275095d0554637"
+    },
+    {
+      "id": "cooking_pho_001",
+      "file": "/images/industry/cooking_pho/cooking_pho_001.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5120"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(cooking_pho, 직무 cooking·환경 pho)",
+      "sha256": "bf5bc916900eedff0a468b24fb812e83ad665c5822756d58ba6092c732f0c62b"
+    },
+    {
+      "id": "barista_cafe_001",
+      "file": "/images/industry/barista_cafe/barista_cafe_001.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5132"
+      ],
+      "env": "cafe",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(barista_cafe, 직무 barista·환경 cafe)",
+      "sha256": "da9df3adf3797ac50f4d44e0b93b8430c8487e419b68dcf6d8bc601349bbb8a8"
+    },
+    {
+      "id": "ordering_noodle_restaurant_002",
+      "file": "/images/industry/ordering_noodle_restaurant/ordering_noodle_restaurant_002.webp",
+      "group": "am_thuc_do_uong",
+      "roles": [
+        "5131"
+      ],
+      "env": "nha_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(ordering_noodle_restaurant, 직무 ordering_noodle·환경 restaurant)",
+      "sha256": "0782d5f2b266b9a3928d7a0da9dd82600e74f32775bee1848439204a22703e67"
+    },
+    {
+      "id": "packing_electronics_001",
+      "file": "/images/industry/packing_electronics/packing_electronics_001.webp",
+      "group": "san_xuat_xay_dung",
+      "roles": [
+        "9321"
+      ],
+      "env": "nha_may",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(packing_electronics, 직무 packing·환경 electronics)",
+      "sha256": "9d8dd56e6c208381d721ed062c7e7000a7f918536f6a9cd5344c2c59a3111ede"
+    },
+    {
+      "id": "sorting_plastics_001",
+      "file": "/images/industry/sorting_plastics/sorting_plastics_001.webp",
+      "group": "san_xuat_xay_dung",
+      "roles": [
+        "9329"
+      ],
+      "env": "nha_may",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(sorting_plastics, 직무 sorting·환경 plastics)",
+      "sha256": "85c30dfbec2eabb56345a391ae63162cf90a8952ef9d2bccf9eed3a466c2d050"
+    },
+    {
+      "id": "inventory_warehouse_001",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_001.webp",
+      "group": "van_phong",
+      "roles": [
+        "4321"
+      ],
+      "env": "kho_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(inventory_warehouse, 직무 inventory·환경 warehouse)",
+      "sha256": "5491485d3cfb07ba8bc1e1330778a21c21fe64f2dd43efb4324503a49ee60be3"
+    },
+    {
+      "id": "inventory_warehouse_002",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_002.webp",
+      "group": "van_phong",
+      "roles": [
+        "4321"
+      ],
+      "env": "kho_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(inventory_warehouse, 직무 inventory·환경 warehouse)",
+      "sha256": "5da9f9bf1b81bbc83d22134595c69c6ae327ab8fad0b349c42d5cac8b86d6d2a"
+    },
+    {
+      "id": "inventory_warehouse_003",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_003.webp",
+      "group": "van_phong",
+      "roles": [
+        "4321"
+      ],
+      "env": "kho_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(inventory_warehouse, 직무 inventory·환경 warehouse)",
+      "sha256": "00443e8dc6f98e51dec67fe1a26cf14287f2c3ff812973357a7cebe397b79fe6"
+    },
+    {
+      "id": "inventory_warehouse_004",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_004.webp",
+      "group": "van_phong",
+      "roles": [
+        "4321"
+      ],
+      "env": "kho_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(inventory_warehouse, 직무 inventory·환경 warehouse)",
+      "sha256": "a259a2e50d737df00ef9179b2006f04e4181404c3c76174d260f68dc3cd7f08b"
+    },
+    {
+      "id": "inventory_warehouse_005",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_005.webp",
+      "group": "van_phong",
+      "roles": [
+        "4321"
+      ],
+      "env": "kho_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(inventory_warehouse, 직무 inventory·환경 warehouse)",
+      "sha256": "a6703e643cd3ce650fdeaa8ea96819aca40998e86a467881938c81090ff2ce08"
+    },
+    {
+      "id": "inventory_warehouse_006",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_006.webp",
+      "group": "van_phong",
+      "roles": [
+        "4321"
+      ],
+      "env": "kho_hang",
+      "kind": "ai",
+      "origin": "AI 생성 그림 — 전달 이미지 묶음(inventory_warehouse, 직무 inventory·환경 warehouse)",
+      "sha256": "6e3cbf10c2002e6ad8a3836b4dc505f34962cf25666fa3488ac9757f252499bb"
+    }
   ]
 }
