@@ -1,26 +1,26 @@
-# 모바일 화면 캡처 (2026-11-23T19:32:54.576Z)
+# 모바일 화면 캡처 (2026-11-27T07:04:17.431Z)
 
-- iphone home (/): 폭 390/390, 높이 6391, 11px 미만 글자 35곳
-- iphone search (/viec-lam/tim-kiem): 폭 390/390, 높이 5788, 11px 미만 글자 4곳
-- iphone area (/viec-lam/khu-vuc): 폭 390/390, 높이 7235, 11px 미만 글자 6곳
+- iphone home (/): 폭 390/390, 높이 6748, 11px 미만 글자 39곳
+- iphone search (/viec-lam/tim-kiem): 폭 390/390, 높이 5760, 11px 미만 글자 4곳
+- iphone area (/viec-lam/khu-vuc): 폭 390/390, 높이 7208, 11px 미만 글자 6곳
 - iphone map (/ban-do): 폭 390/390, 높이 1655, 11px 미만 글자 6곳
 - iphone korea (/viec-han-quoc): 폭 390/390, 높이 2074, 11px 미만 글자 22곳
 - iphone post (/dang-tin): 폭 390/390, 높이 9369, 11px 미만 글자 4곳
 - iphone saved (/viec-lam/da-luu): 폭 390/390, 높이 1073, 11px 미만 글자 4곳
 - iphone detail-kda (/viec-lam/sb-4824): 폭 390/390, 높이 3791, 11px 미만 글자 13곳
-- iphone detail-6309 (/viec-lam/sb-6309): 폭 390/390, 높이 4625, 11px 미만 글자 16곳
+- iphone detail-6337 (/viec-lam/sb-6337): 폭 390/390, 높이 3795, 11px 미만 글자 13곳
+- iphone detail-6309 (/viec-lam/sb-6309): 폭 390/390, 높이 4619, 11px 미만 글자 16곳
 - iphone detail-6306 (/viec-lam/sb-6306): 폭 390/390, 높이 3731, 11px 미만 글자 13곳
-- iphone detail-6255 (/viec-lam/sb-6255): 폭 390/390, 높이 5627, 11px 미만 글자 13곳
-- iphone detail-6043 (/viec-lam/sb-6043): 폭 390/390, 높이 4301, 11px 미만 글자 13곳
-- galaxy home (/): 폭 360/360, 높이 6481, 11px 미만 글자 35곳
-- galaxy search (/viec-lam/tim-kiem): 폭 360/360, 높이 5788, 11px 미만 글자 4곳
-- galaxy area (/viec-lam/khu-vuc): 폭 360/360, 높이 7235, 11px 미만 글자 6곳
+- iphone detail-6255 (/viec-lam/sb-6255): 폭 390/390, 높이 5621, 11px 미만 글자 13곳
+- galaxy home (/): 폭 360/360, 높이 6838, 11px 미만 글자 39곳
+- galaxy search (/viec-lam/tim-kiem): 폭 360/360, 높이 5760, 11px 미만 글자 4곳
+- galaxy area (/viec-lam/khu-vuc): 폭 360/360, 높이 7208, 11px 미만 글자 6곳
 - galaxy map (/ban-do): 폭 360/360, 높이 1679, 11px 미만 글자 6곳
 - galaxy korea (/viec-han-quoc): 폭 360/390 가로 넘침, 높이 2146, 11px 미만 글자 22곳, 넘친 요소 button.kh-discovery__cta 390px · a"Cá nhân" 382px
 - galaxy post (/dang-tin): 폭 360/360, 높이 9510, 11px 미만 글자 4곳
 - galaxy saved (/viec-lam/da-luu): 폭 360/360, 높이 1097, 11px 미만 글자 4곳
 - galaxy detail-kda (/viec-lam/sb-4824): 폭 360/360, 높이 3911, 11px 미만 글자 13곳
-- galaxy detail-6309 (/viec-lam/sb-6309): 폭 360/360, 높이 4653, 11px 미만 글자 16곳
+- galaxy detail-6337 (/viec-lam/sb-6337): 폭 360/360, 높이 4033, 11px 미만 글자 13곳
+- galaxy detail-6309 (/viec-lam/sb-6309): 폭 360/360, 높이 4645, 11px 미만 글자 16곳
 - galaxy detail-6306 (/viec-lam/sb-6306): 폭 360/360, 높이 3856, 11px 미만 글자 13곳
-- galaxy detail-6255 (/viec-lam/sb-6255): 폭 360/360, 높이 5933, 11px 미만 글자 13곳
-- galaxy detail-6043 (/viec-lam/sb-6043): 폭 360/360, 높이 4546, 11px 미만 글자 13곳
+- galaxy detail-6255 (/viec-lam/sb-6255): 폭 360/360, 높이 5925, 11px 미만 글자 13곳
