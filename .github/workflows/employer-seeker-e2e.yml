@@ -1,6 +1,6 @@
 name: 고용주·구직자 실제 로그인 E2E (일회용 시험 계정)
 # 대표가 계정을 만들거나 비밀번호를 저장하지 않는다 — 이 실행 안에서 기존 Supabase 관리자 계정 생성 경로로 일회용 계정 2개를 만들고 끝에 지운다.
-# 열쇠는 기존 ops-keys 환경(master에서만)의 SUPABASE_URL·SUPABASE_SERVICE_ROLE_KEY·SUPABASE_DB_URL만 쓴다. 수동 실행만. 공고를 공개하지 않는다.
+# 열쇠는 기존 ops-keys 환경(master에서만)의 SUPABASE_SERVICE_ROLE_KEY·SUPABASE_DB_URL만 쓴다. 수동 실행만. 공고를 공개하지 않는다.
 on:
   workflow_dispatch: {}
 
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       E2E_BASE_URL: https://www.viecganban.vn
