@@ -30,6 +30,13 @@ assert(!!sections.sections.find(s => s.key === '07')?.lines.some(s => s.includes
 assert(!sections.sections.flatMap(s => s.lines).some(s => /^(?:Hotline\/Zalo:|ĐỊA CHỈ LÀM VIỆC:|📩 Cách nộp hồ sơ:)$/.test(s)), 'no empty labels')
 console.log('sourceRecruitmentRoles: Highlands verified')
 
+// #921 (#6255): 줄 중간의 Full Time은 직무 이름에 남고, 근무 형태 칸 값으로도 읽힌다.
+{
+  const r = sourceRecruitmentRoles('Vị trí tuyển dụng:\nNhân Viên Phục Vụ - Full Time (Floor) - Hikari Bình Dương')
+  assert(JSON.stringify(r.roles) === JSON.stringify(['Nhân Viên Phục Vụ - Full Time (Floor) - Hikari Bình Dương']), 'mid-line type kept: ' + JSON.stringify(r.roles))
+  assert(JSON.stringify(r.workTypes) === JSON.stringify(['Fulltime']), 'mid-line type goes to work types')
+}
+
 // 2026-11-01 #5157: 원문에서 다시 만든 상세요강에는 'Vị trí tuyển dụng' 소제목이 없다. 고용형태가 붙은 직무 문장은 그대로 직무로 찾는다.
 {
   const rebuilt = 'Thông tin khác\n• Nhân viên Bán hàng (Sales)  Fulltime- partime\n• Nhân viên Pha chế (Barista) Fulltime- partime\nYêu cầu\n• Nhân viên có kinh nghiệm'

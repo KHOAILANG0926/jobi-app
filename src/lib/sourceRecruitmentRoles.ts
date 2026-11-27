@@ -29,7 +29,8 @@ export function sourceRecruitmentRoles(description: string | null | undefined): 
       const type = /^full|toan/.test(normalizedType) ? 'Fulltime' : 'Parttime'
       if (!workTypes.includes(type)) workTypes.push(type)
     }
-    const role = line.replace(/\b(?:full\s*[- ]?time|part\s*[- ]?time|partime|ban thoi gian|toan thoi gian)\b/giu, '').replace(/[\s\-–]+$/g, '').trim()
+    // 줄 끝에 붙은 근무 형태 낱말만 뗀다(근무 형태 칸 workTypes로 간다). 줄 중간("… - Full Time (Floor) - …")은 직무 이름의 일부라 그대로 둔다(#921).
+    const role = line.replace(/(?:[\s\-–]*\b(?:full\s*[- ]?time|part\s*[- ]?time|partime|ban thoi gian|toan thoi gian)\b)+[\s\-–]*$/iu, '').replace(/[\s\-–]+$/g, '').trim()
     if (role && !roles.includes(role)) roles.push(role)
   }
   return { roles, workTypes }

@@ -20,6 +20,7 @@ assert(employmentText(job({ employmentType: 'part_time', employmentTypeExtra: 'i
 assert(employmentText(job({ employmentType: 'full_time', employmentTypeExtra: '' as never }), null, { workTypes: [] }, 'wp') === 'Toàn thời gian', '추가 형태가 빈 글자면 뺌')
 assert(employmentText(job(), null, { workTypes: ['Thời vụ'] }, undefined) === 'Thời vụ', '원문 첫 근무형태')
 assert(employmentText(job(), null, { workTypes: [] }, undefined) === undefined, '없으면 undefined')
+assert(employmentText(job(), null, { workTypes: ['Fulltime'] }, 'Khác') === 'Fulltime', '#921 근무기간 "Khác"는 원문 근무형태를 가리지 않음')
 assert(employmentText(job(), null, { workTypes: ['Thời vụ'] }, 'Dài hạn') === 'Dài hạn', '근무기간 글자가 원문 첫 형태보다 먼저')
 
 // 복리후생 7칸: 구조화 값·원문 낱말·AI 태그로 켠다, 모르면 꺼진 채
