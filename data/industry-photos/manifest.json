@@ -154,7 +154,7 @@
       "roles": [
         "7543"
       ],
-      "env": "nha_may",
+      "env": "nha_may_dien_tu",
       "kind": "ai",
       "origin": "AI 생성 그림 — 전달 이미지 묶음(quality_inspection_electronics, 직무 quality_inspection·환경 electronics)",
       "sha256": "c86dbf7a6b2b27509913375b51f277155260f5e3a0bf7c63c3aae750dded6c56"
@@ -166,7 +166,7 @@
       "roles": [
         "5131"
       ],
-      "env": "nha_hang",
+      "env": "nha_hang_pho",
       "kind": "ai",
       "origin": "AI 생성 그림 — 전달 이미지 묶음(ordering_noodle_restaurant, 직무 ordering_noodle·환경 restaurant)",
       "sha256": "211bc363a0f4859f98f187f5e4a2224371060e9cad005de51327d687874bd5dd"
@@ -190,7 +190,7 @@
       "roles": [
         "5120"
       ],
-      "env": "nha_hang",
+      "env": "nha_hang_pho",
       "kind": "ai",
       "origin": "AI 생성 그림 — 전달 이미지 묶음(cooking_pho, 직무 cooking·환경 pho)",
       "sha256": "bf5bc916900eedff0a468b24fb812e83ad665c5822756d58ba6092c732f0c62b"
@@ -214,7 +214,7 @@
       "roles": [
         "5131"
       ],
-      "env": "nha_hang",
+      "env": "nha_hang_pho",
       "kind": "ai",
       "origin": "AI 생성 그림 — 전달 이미지 묶음(ordering_noodle_restaurant, 직무 ordering_noodle·환경 restaurant)",
       "sha256": "0782d5f2b266b9a3928d7a0da9dd82600e74f32775bee1848439204a22703e67"
@@ -226,7 +226,7 @@
       "roles": [
         "9321"
       ],
-      "env": "nha_may",
+      "env": "nha_may_dien_tu",
       "kind": "ai",
       "origin": "AI 생성 그림 — 전달 이미지 묶음(packing_electronics, 직무 packing·환경 electronics)",
       "sha256": "9d8dd56e6c208381d721ed062c7e7000a7f918536f6a9cd5344c2c59a3111ede"
@@ -238,7 +238,7 @@
       "roles": [
         "9329"
       ],
-      "env": "nha_may",
+      "env": "nha_may_nhua",
       "kind": "ai",
       "origin": "AI 생성 그림 — 전달 이미지 묶음(sorting_plastics, 직무 sorting·환경 plastics)",
       "sha256": "85c30dfbec2eabb56345a391ae63162cf90a8952ef9d2bccf9eed3a466c2d050"
