@@ -1,6 +1,6 @@
-# 모바일 화면 캡처 (2026-11-27T07:04:17.431Z)
+# 모바일 화면 캡처 (2026-11-27T10:31:37.583Z)
 
-- iphone home (/): 폭 390/390, 높이 6748, 11px 미만 글자 39곳
+- iphone home (/): 폭 390/390, 높이 6855, 11px 미만 글자 39곳
 - iphone search (/viec-lam/tim-kiem): 폭 390/390, 높이 5760, 11px 미만 글자 4곳
 - iphone area (/viec-lam/khu-vuc): 폭 390/390, 높이 7208, 11px 미만 글자 6곳
 - iphone map (/ban-do): 폭 390/390, 높이 1655, 11px 미만 글자 6곳
@@ -12,7 +12,7 @@
 - iphone detail-6309 (/viec-lam/sb-6309): 폭 390/390, 높이 4619, 11px 미만 글자 16곳
 - iphone detail-6306 (/viec-lam/sb-6306): 폭 390/390, 높이 3731, 11px 미만 글자 13곳
 - iphone detail-6255 (/viec-lam/sb-6255): 폭 390/390, 높이 5621, 11px 미만 글자 13곳
-- galaxy home (/): 폭 360/360, 높이 6838, 11px 미만 글자 39곳
+- galaxy home (/): 폭 360/360, 높이 6963, 11px 미만 글자 39곳
 - galaxy search (/viec-lam/tim-kiem): 폭 360/360, 높이 5760, 11px 미만 글자 4곳
 - galaxy area (/viec-lam/khu-vuc): 폭 360/360, 높이 7208, 11px 미만 글자 6곳
 - galaxy map (/ban-do): 폭 360/360, 높이 1679, 11px 미만 글자 6곳
@@ -23,4 +23,4 @@
 - galaxy detail-6337 (/viec-lam/sb-6337): 폭 360/360, 높이 4033, 11px 미만 글자 13곳
 - galaxy detail-6309 (/viec-lam/sb-6309): 폭 360/360, 높이 4645, 11px 미만 글자 16곳
 - galaxy detail-6306 (/viec-lam/sb-6306): 폭 360/360, 높이 3856, 11px 미만 글자 13곳
-- galaxy detail-6255 (/viec-lam/sb-6255): 폭 360/360, 높이 5925, 11px 미만 글자 13곳
+- galaxy detail-6255 (/viec-lam/sb-6255): 폭 360/425 가로 넘침, 높이 5632, 11px 미만 글자 9곳, 넘친 요소 div.jd2-mobile-cta__inner 411px · a.jd2-mobile-cta__zalo"Zalo" 411px · div.site-footer__cs 405px · p.site-footer__cs-h 405px · p.site-footer__cs-mail 405px · p.site-footer__txt 405px

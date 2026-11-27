@@ -5,7 +5,7 @@
     "path": "/",
     "vw": 390,
     "scrollW": 390,
-    "height": 6748,
+    "height": 6855,
     "wide": [],
     "smallText": 39,
     "errors": []
@@ -137,7 +137,7 @@
     "path": "/",
     "vw": 360,
     "scrollW": 360,
-    "height": 6838,
+    "height": 6963,
     "wide": [],
     "smallText": 39,
     "errors": []
@@ -260,10 +260,17 @@
     "name": "detail-6255",
     "path": "/viec-lam/sb-6255",
     "vw": 360,
-    "scrollW": 360,
-    "height": 5925,
-    "wide": [],
-    "smallText": 13,
+    "scrollW": 425,
+    "height": 5632,
+    "wide": [
+      "div.jd2-mobile-cta__inner 411px",
+      "a.jd2-mobile-cta__zalo\"Zalo\" 411px",
+      "div.site-footer__cs 405px",
+      "p.site-footer__cs-h 405px",
+      "p.site-footer__cs-mail 405px",
+      "p.site-footer__txt 405px"
+    ],
+    "smallText": 9,
     "errors": []
   }
 ]
