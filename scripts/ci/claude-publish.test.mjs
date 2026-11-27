@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, mkdirSync, symlinkSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { main, checkText, secretFinding, forbiddenPath, checkIssues, outgoingComment, mentionFinding, checkPrText, cleanDraft, stripComments, BOT, PUBLISH_NOTE, prRequest, parseArgs, checkPatchSummary, PROTECTED_PUBLISH_ALLOW } from './claude-publish.mjs'
+import { main, checkText, secretFinding, forbiddenPath, checkIssues, outgoingComment, mentionFinding, checkPrText, cleanDraft, stripComments, BOT, PUBLISH_NOTE, prRequest, parseArgs, checkPatchSummary, PROTECTED_PUBLISH_ALLOW , noPrIssueComment } from './claude-publish.mjs'
 
 const FAKE = 'fake-oauth-S4TEST-0123456789abcdef'
 process.env.KNOWN_SECRETS = `${FAKE}\nghs_FAKEFAKEFAKEFAKEFAKEFAKE00`
@@ -188,5 +188,13 @@ for (const m of ['<!-- decision-approval-request --> abc1234', '<!-- fallback-re
 ok(checkText('codex', cleanDraft('codex', '\n<!<!-- x -->-- claude-codex-reply -->\n답')) !== '', '빈 첫 줄 뒤 조립 표시는 거절')
 ok(checkIssues(JSON.stringify([{ title: 't', body: '본문 <!-- x -->', label: 'ai-team' }])).items[0]?.body === '본문', '이슈 본문 주석은 지움')
 ok(checkPrText('제목', '| 봇 수정 뒤 tsc / npm test / build (자동) | 통과 | ' + 'a'.repeat(40) + ' |') !== '', 'PR 설명에 봇 검증 줄 위조 거절')
+// 큐가 시작한 이슈 작업이 PR 없이 끝나면 그 이슈에 남기는 고정 안내(Lee 2026-11-27, #894·#633: 결과 기록 없이 큐에서 사라지던 것)
+{ const env = { GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'o/r', GITHUB_RUN_ID: '123' }
+  const a = noPrIssueComment({ issue: '894' }, 'unchanged', env)
+  ok(a && a.number === 894 && a.body.startsWith('<!-- claude-task-result -->') && a.body.includes('바꾼 파일이 없어 PR을 만들지 않았습니다') && a.body.includes('https://github.com/o/r/actions/runs/123'), '바꾼 파일 없음 → 이슈 #894에 고정 안내(실행 링크 포함)')
+  ok(noPrIssueComment({ issue: '633' }, 'failed', env).body.includes('상자 검사'), '상자 검사 실패 안내는 따로')
+  ok(noPrIssueComment({}, 'unchanged', env) === null && noPrIssueComment({ issue: '' }, 'unchanged', env) === null, '이슈 번호가 없으면(수동 지시·crawl-guard) 아무것도 안 남김')
+  ok(noPrIssueComment({ issue: '12;rm -rf /' }, 'unchanged', env) === null && noPrIssueComment({ issue: '1 2' }, 'unchanged', env) === null && noPrIssueComment({ issue: '-5' }, 'unchanged', env) === null, '숫자가 아닌 입력은 거절(주입 방지)')
+  ok(!JSON.stringify(a).includes('Claude가 쓴'), '모델 출력은 담지 않는 고정 문구') }
 console.log = log
 console.log(`claude-publish: 최악의 Claude 결과물 시험 ${n}건 통과`)
