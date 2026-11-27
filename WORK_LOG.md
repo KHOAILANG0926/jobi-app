@@ -1,3 +1,8 @@
+## 2026-11-27 밤 — 전달 이미지 ZIP 23장 이미지 목록 등록(Claude)
+- 요청(Lee 11-27): JOBI_images_all_2.zip을 #1180 이미지 관리(manifest)에 등록, 중복 제외, 이후 전달분도 같은 방식.
+- 변경: data/industry-photos/manifest.json(23건 추가 — id·role·environment·ai·sha256 보존) / public/images/industry/<직무_환경>/ 23장 / scripts/images/register-images.mjs(재사용 등록 스크립트, sha256 검증·중복 건너뜀) / src/lib/managedImages.test.ts.
+- 검증 [직접 확인]: 등록 23건·재실행 시 0건·23 건너뜀, ZIP 내·저장소 기존 그림과 해시 중복 0, tsc 0·npm test 148/148·build 통과. 사진 선택·화면 코드 무변경(group이 업종과 달라 선택에 안 쓰임).
+- 남은 것: 업종·직무 코드(roles) 연결은 #1180 3단계(대표 승인). 이 브랜치는 #1180(claude/role-image-2) 위에 쌓임 — #1179→#1180 병합 뒤 병합.
 ## 2026-11-27 저녁 — 직무 중심 분류·대표 이미지 1·2단계(Claude)
 - 요청(Lee 11-27): 분류는 실제 모집 직무 기준·category 의미 유지, 복수 직무 검색·중복 표시 금지, 이미지 ①세부 직무+환경 ②세부 직무 ③직무군 ④중립, 이미지 목록(manifest)으로 직무 코드·환경·출처 관리, 고정 배정 전용 칸, AI 표시 시안.
 - 변경: #1179(jobRoles — roleCodes·대표 직무, 검색·필터·칩·지도 요약) 병합 / #1180(cardPhoto 선택 ①→④·managedPhoto, manifest v2, 무결성 시험, 깨진 그림 확인, JobDetail 잠금 해시) / #1182(representative_image_id migration+시험+production_check) — 대표 Approve 대기.
