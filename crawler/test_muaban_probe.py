@@ -64,6 +64,13 @@ class MuabanProbeTest(unittest.TestCase):
         html2 = page({"a": [{"id": 4, "title": "공고", "address": "x", "contact": {"phone": "0944555666"}}]})
         self.assertEqual(p.summarize_detail(html2, "4")["phone"], "…666(10자리)")
 
+    def test_contact_dict_fields_are_masked(self):
+        html = page({"a": [{"id": 5, "title": "공고", "address": "x", "contact": {"sdt": "0955111222", "name": "B", "hidden": True}}]})
+        s = p.summarize_detail(html, "5")
+        self.assertEqual(s["contact_fields"], {"sdt": "…222(10자리)", "name": "str", "hidden": "bool"})
+        self.assertEqual(s["phone"], "…222(10자리)")
+        self.assertNotIn("0955111222", json.dumps(s))
+
 
 if __name__ == "__main__":
     unittest.main()
