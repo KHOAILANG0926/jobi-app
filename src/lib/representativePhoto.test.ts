@@ -1,4 +1,4 @@
-import { photoCategory, jobPhotoUrl, industryPhotoUrl, managedPhoto, managedPhotoKind } from './cardPhoto.ts'
+import { photoCategory, jobPhotoUrl, industryPhotoUrl, managedPhoto, managedPhotoKind, photoEnvironment } from './cardPhoto.ts'
 import { detailLook } from './albamonTemplate.ts'
 import { jobRoleInfo } from './jobRoles.ts'
 
@@ -36,4 +36,14 @@ eq(photoCategory({ category: 'am_thuc_do_uong', occupationCode: '5131', roleCode
 eq(photoCategory({ category: 'am_thuc_do_uong', occupationCode: '5', roleCodes: ['5'] }), 'am_thuc_do_uong', "code '5' unchanged")
 eq(managedPhotoKind('/images/template/04-dich-vu.jpg'), 'ai', 'AI picture is marked')
 eq(managedPhotoKind('/images/industry/dich_vu.jpg'), 'stock', 'stock photo is marked')
+// 고정 배정: 저장된 이미지 번호가 있으면 이미지가 추가돼도 그 이미지 그대로(번호만 목록에 있으면 된다).
+eq(managedPhoto('dich_vu', '9112', 7, null, 'dich_vu-salon-002'), '/images/template/04b-dich-vu.jpg', 'assigned id is honoured')
+eq(managedPhoto('dich_vu', '5141', 1, null, 'no-such-id'), managedPhoto('dich_vu', '5141', 1), 'unknown assigned id falls back to computed pick')
+eq(jobPhotoUrl({ ...guard, representativeImageId: 'dich_vu-cleaning-001' }), '/images/industry/dich_vu.jpg', 'assigned id wins in jobPhotoUrl')
+// 근무환경 낱말은 기존 낱말표 그대로.
+eq(photoEnvironment('Nhà hàng nướng Ngô Tất Tố'), 'nha_hang_nuong', 'bbq restaurant')
+eq(photoEnvironment('Highlands Coffee'), 'cafe', 'cafe')
+eq(photoEnvironment('SIÊU THỊ ĐIỆN MÁY MEDIAMART'), 'ban_hang_dien_may', 'electronics store')
+eq(photoEnvironment('Tuyển bảo vệ cho khu công nghiệp VSIP'), 'nha_may', 'industrial park')
+eq(photoEnvironment('Tuyển nhân viên'), null, 'unknown environment')
 console.log('representativePhoto: role-first selection checks passed')
