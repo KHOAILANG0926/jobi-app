@@ -219,6 +219,9 @@ const TEST_ADD_LINES = [
   String.raw`-\s+name:\s+[^$\x60]+`,
   String.raw`(?:-\s+)?run:\s+python3?(?:\s+-I)?\s+crawler\/test_\w+\.py`,
   String.raw`(?:-\s+)?run:\s+node(?:\s+--test|\s+--experimental-strip-types)?\s+scripts\/[\w\/.-]+\.test\.mjs`,
+  // `run: |` 블록 안의 시험 명령 줄(앞에 `run:`이 없는 줄) — 위 한 줄짜리와 같은 명령만. #1063·#1079(시험 명령 줄만 더했는데 Lee 승인 요청됨)에서 확인한 빠짐.
+  String.raw`python3?(?:\s+-I)?\s+crawler\/test_\w+\.py`,
+  String.raw`node(?:\s+--test|\s+--experimental-strip-types)?\s+scripts\/[\w\/.-]+\.test\.mjs`,
   String.raw`(?:-\s+)?uses:\s+actions\/(?:checkout@v4|setup-python@v5|setup-node@v4)`,
   String.raw`with:`, String.raw`persist-credentials:\s*false`, String.raw`working-directory:\s*crawler`, String.raw`steps:`, String.raw`run:\s*\|`,
   String.raw`python3?\s+-m\s+pip\s+install\s+-r\s+crawler\/requirements\.txt`, String.raw`python3?\s+-m\s+playwright\s+install(?:\s+--with-deps)?\s+chromium`,
