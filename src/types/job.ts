@@ -118,6 +118,10 @@ export interface Job {
   occupationCode?: string
   /** local_jobs.occupation_evidence — 위 코드를 붙인 원문 글자 그대로. */
   occupationEvidence?: string
+  /** 복수 직무 공고의 모집 직무 공식 코드 전부(읽을 때 계산, lib/jobRoles). 없으면 occupationCode 하나. 저장하지 않는다. */
+  roleCodes?: string[]
+  /** 대표 모집 직무 코드(인원 많은 순 → 나열 순서, lib/jobRoles). */
+  primaryRoleCode?: string
   salary: string
   location: string
   description: string

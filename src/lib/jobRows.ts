@@ -1,4 +1,5 @@
 import { ensureJobFields } from './jobUtils.ts'
+import { jobRoleInfo } from './jobRoles.ts'
 import { supabase } from './supabase.ts'
 import { stripSourceTags } from './sourceTag.ts'
 import { isDetailedAddress } from './addressParse.ts'
@@ -83,6 +84,7 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     subcategory: (r.subcategory as string) ?? undefined,
     occupationCode: (r.occupation_code as string | null | undefined) || undefined,
     occupationEvidence: (r.occupation_evidence as string | null | undefined) || undefined,
+    ...jobRoleInfo({ description, occupationCode: (r.occupation_code as string | null | undefined) || undefined }),
     salary: (r.salary as string) ?? '',
     location: (r.location as string) ?? '',
     hours: (r.hours as string) ?? '',
