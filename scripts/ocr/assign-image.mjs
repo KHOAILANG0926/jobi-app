@@ -14,7 +14,7 @@ export async function assignRepresentativeImages(client, { log = console.log, ma
     from public.local_jobs
     where representative_image_id is null and not admin_hidden and ${autoScope()}
     order by id`)
-  let set = 0
+  let set = 0, noCandidate = 0, missed = 0
   for (const j of rows) {
     // 화면(jobRows.parseDescription)과 같은 설명 — 출처 표시 글자만 뗀다(jobRows는 브라우저 연결을 끌어와 Node 도구가 못 쓴다).
     const raw = j.description ?? ''
@@ -22,12 +22,12 @@ export async function assignRepresentativeImages(client, { log = console.log, ma
     const info = jobRoleInfo({ description, occupationCode: j.occupation_code || undefined })
     const input = jobPhotoInputs({ category: j.category, subcategory: j.subcategory, company: j.company, title: j.title, description, occupationCode: j.occupation_code || undefined, ...info })
     const id = assignManagedId(manifest, usage, input.category, input.roleCode, input.env)
-    if (!id) continue
+    if (!id) { noCandidate++; continue }
     // 이미 다른 실행이 정했으면(null 아님) 덮어쓰지 않는다.
     const w = await client.query('update public.local_jobs set representative_image_id = $2 where id = $1 and representative_image_id is null', [j.id, id])
-    if (w.rowCount) { usage.set(id, (usage.get(id) ?? 0) + 1); set++; log(`#${j.id} 대표 이미지 배정: ${id}`) }
+    if (w.rowCount) { usage.set(id, (usage.get(id) ?? 0) + 1); set++; log(`#${j.id} 대표 이미지 배정: ${id}`) } else missed++
   }
-  log(`대표 이미지 배정: 대상 ${rows.length}건 · 배정 ${set}건`)
+  log(`대표 이미지 배정: 대상 ${rows.length}건 · 배정 ${set}건 · 배정할 이미지 없음 ${noCandidate}건 · 이미 정해져 건너뜀 ${missed}건`)
   return { targets: rows.length, assigned: set }
 }
 
