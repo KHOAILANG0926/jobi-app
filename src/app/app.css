@@ -524,3 +524,4 @@ body {
 .app-me__stats a { color: var(--app-text); text-decoration: none; display: flex; flex-direction: column; gap: 2px; }
 .app-me__stats b { font-size: 20px; }
 .app-me__stats span { font-size: 11.5px; color: var(--app-muted); }
+.app-cv__save .app-btn + .app-btn { margin-top: 8px; }
