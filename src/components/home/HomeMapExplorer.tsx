@@ -26,7 +26,8 @@ import PlaceDetailPanel from './PlaceDetailPanel'
 import { chainWheelToPage } from './pageScrollChain'
 import MobileDetailSheet from './MobileDetailSheet'
 import { jobsNearPlace, type PickedPlace } from '../../lib/mapPlace'
-import { occupationGroupsInJobs, useOccupationNames } from '../../lib/occupations'
+import { useOccupationNames } from '../../lib/occupations'
+import { mainCardOccupationGroups } from '../../lib/mainJobCards'
 import { DEFAULT_VIEWPORT, VIEWPORT_KEY, readViewport, mapSearch, selectedMapEntry, LOCATION_LABELS, validPoint, type RepresentativePoints, type MapBounds } from '../../lib/mapR1'
 import type { HomeMapViewport } from './map/HomeMapTypes'
 import { observeInViewOnce } from '../../lib/inViewOnce'
@@ -163,7 +164,7 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
     const r = mapSearch(mapJobs, { ...filters, occupationGroups: [] }, searchOrigin, radiusActive ? filters.radiusKm : null, bounds, representatives)
     // Mobile discovery includes text locations; desktop keeps its previous viewport-only occupation scope.
     const available = radiusActive ? r.radiusJobs : isMobileLayout ? r.entries : r.entries.filter(e => r.visibleIds.has(e.job.id))
-    const groups = occupationGroupsInJobs(available.map(e => e.job))
+    const groups = mainCardOccupationGroups(available.map(e => e.job))
     const missing = (filters.occupationGroups ?? []).filter(c => !groups.some(g => g.code === c)).map(code => ({ code, count: 0 }))
     return [...groups, ...missing]
   }, [mapJobs, filters, origin, radiusActive, bounds, representatives, isMobileLayout])

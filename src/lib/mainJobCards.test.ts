@@ -45,3 +45,13 @@ assert.equal(mainCardJobs([job('x', 'Theo vị trí — xem chi tiết')]).lengt
 import { cardSalary as _cs } from './mainJobCards.ts'
 if (_cs({ salary: '23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)', salaryPeriod: 'hour' } as never)?.text !== '23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)') throw new Error('#5231 VNĐ card')
 console.log('mainJobCards #5231 VNĐ passed')
+
+// #1168: 직업 칩 숫자 = 메인 목록(mainCardJobs)에 실제 나오는 카드 수. 급여 없는 공고는 칩에서도 뺀다.
+import { mainCardOccupationGroups } from './mainJobCards.ts'
+const chipJobs = [
+  job('a', '9 triệu', { occupationCode: '51' }), job('b', '10 triệu', { occupationCode: '51' }),
+  job('c', 'Thỏa thuận', { occupationCode: '51' }), job('d', '8 triệu', { occupationCode: '75' }),
+]
+assert.deepEqual(mainCardOccupationGroups(chipJobs), [{ code: '51', count: 2 }, { code: '75', count: 1 }], '#1168 chip count matches main list')
+assert.equal(mainCardOccupationGroups(chipJobs).reduce((n, g) => n + g.count, 0), mainCardJobs(chipJobs).length, '#1168 chips sum = list size')
+console.log('mainJobCards #1168 chip count passed')

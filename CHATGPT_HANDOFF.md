@@ -1,4 +1,10 @@
-# HANDOFF — 2026-11-26 (Claude) · 크롤링 원문 보관·검사표 원문 줄 빠짐 정리
+# HANDOFF — 2026-11-27 (Claude) · 이슈 #1168 모바일 직업 칩 숫자와 목록 건수 불일치
+## 0. 이번 작업 스냅샷
+- 현재 작업: #1168 — 모바일 직업 칩 숫자(7) ≠ 목록(6).
+- 변경 내용: 원인 = 목록은 mainCardJobs(급여 없는 공고 제외, src/lib/mainJobCards.ts)인데 칩은 그 전 집합을 셈(HomeMapExplorer.tsx). 공통 함수 mainCardOccupationGroups 추가·칩이 사용, 시험 추가(mainJobCards.test.ts).
+- 테스트 결과: tsc·test·build 미실행 — 검사 스크립트 경로 접근이 권한 설정으로 거부됨. PR 검사로 확인.
+- 발견된 문제: PC 지도 구역 목록(급여 없는 공고 포함)과 기본 목록의 차이는 코드만으로 확정 못 함 — 이번 PR 범위 밖. sb-5942가 급여 없음인지는 미확인.
+- 다음 결정사항: 병합·배포 뒤 모바일 운영 재확인, PC 쪽 차이를 맞출지(메인 카드 급여 필수 규칙 관련) 결정.
 ## 1. 현재 상태
 - 11-27(Claude): Muaban·Chợ Tốt 읽기 시험 완료(로그인 없이 목록·상세 읽기 가능, 연락처는 로그인 필요 — Muaban 공고 객체 `contact`는 `{sms: bool}`뿐) → 대표 결정으로 로그인 키 제공 안 함·개발 보류(#1141 종료). #1119는 #1135로 대체 종료. #921 수정 #1149 병합·운영 글자 확인. #886 안 A: 연락처 있는 공고는 검증 저장이 DB 쓰기 전 거부(크롤러 격리 시험 113개)로 증명, 운영 단건 검증은 정상화 뒤. 상세 대조·미완료 구분은 #701 현행본 댓글.
 - 우리 사업장 위치 기억(Lee 2026-11-26): 같은 회사 + 같은 사업장(same_site_address)의 확정 좌표가 있으면 Google 등을 다시 부르지 않음 — DB public.location_site_memory(읽기만, 기존 좌표 안 바꿈) → autoLocationResolver ⓪, 로고 찾기는 같은 사업장 공고의 장소 번호 재사용. PR claude/location-site-memory(함수 추가·규칙 문서 — Lee Approve 대상). 남은 것: 11-10 이전 Google 줄 출처가 'source_evidence'로 묶인 것(기억 재사용은 되지만 출처 표시 정정은 데이터 전환 — dry-run 뒤 Lee 확인).
