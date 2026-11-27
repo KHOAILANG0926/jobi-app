@@ -4,9 +4,36 @@
 //  - category 메뉴 검색은 직무 코드마다 category_for_occupation(같은 규칙 파일 data/occupations/category_rules.json, 가장 긴 앞자리 일치)으로 찾는다.
 //  - 저장하지 않는다(읽을 때 계산). DB 칸·공고 번호·지원 기록·원문은 그대로.
 import { classifyOccupation } from './occupationReader.mjs'
-import { roleTitles } from './jobRolePresentation.ts'
+import { roleAmountLine, splitRoleLine } from './jobRolePresentation.ts'
 import categoryRules from '../../data/occupations/category_rules.json' with { type: 'json' }
 
+/** 모집 직무 목록(복수 직무 검색·대표 직무용, 2026-11-27 Lee): 직무 제목 줄·'인원 + 직무 : 금액' 줄·'Các vị trí tuyển dụng:' 아래 번호·글머리 줄에서
+ *  직무 이름과 인원(모르면 1)을 나열 순서대로 읽는다. 서로 다른 직무가 2개 미만이면 복수 직무 공고가 아니므로 빈 목록. 이미 있는 줄 읽기 함수를 그대로 쓴다. */
+const ROLE_LIST_HEAD = /^\s*(?:các\s+)?vị\s*trí(?:\s+(?:tuyển dụng|cần tuyển|công việc))?\s*[:：]?\s*$/iu
+const ROLE_LIST_ITEM = /^\s*(?:\d{1,2}\s*[.)]|[•·*\-–])\s*(\S.{2,60})$/u
+export interface RoleTitle { title: string; count: number }
+export function roleTitles(description: string | null | undefined): RoleTitle[] {
+  const lines = String(description ?? '').split(/\r?\n/)
+  const out: RoleTitle[] = []
+  const add = (title: string, count: number) => {
+    const t = title.trim()
+    if (t && !out.some((r) => r.title.toLowerCase() === t.toLowerCase())) out.push({ title: t, count: Math.max(1, count || 1) })
+  }
+  lines.forEach((line, i) => {
+    const heading = splitRoleLine(line).role
+    if (heading) add(heading, 1)
+    const amount = roleAmountLine(line)
+    if (amount) add(amount.role, amount.count)
+    if (ROLE_LIST_HEAD.test(line)) {
+      for (let j = i + 1; j < lines.length; j++) {
+        const m = lines[j].match(ROLE_LIST_ITEM)
+        if (!m) break
+        add(m[1], 1)
+      }
+    }
+  })
+  return out.length >= 2 ? out : []
+}
 export interface JobRoleInfo { roleCodes: string[]; primaryRoleCode?: string }
 
 /** DB `category_for_occupation`과 같은 규칙: 가장 긴 앞자리 일치. 규칙 없으면 undefined. */
