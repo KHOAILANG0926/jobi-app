@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-27 12:25 (VN)**
-- 기준 커밋: `b01ed90` (ci(approval): CODEOWNERS 보호 목록을 내용 기준 워크플로로 정렬 — 일반 워크플로 자동 병합(11-23 정책)을 서버 쪽에도 (#1070 2순위) (#1143))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45945565202
+- 생성 시각: **2026-11-27 13:57 (VN)**
+- 기준 커밋: `57d80b0` (fix(ops): 큐가 시작한 이슈 작업이 PR 없이 끝나면 그 이슈에 결과 안내를 남김 — 결과 없이 ai-task-running으로 영구 방치되던 것 (#894·#633) (#1145))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45955117395
 - 검증 스크립트 지문(SHA-256): `a7387291a9c75cc7`
 
 ## 한눈에 보기
@@ -52,7 +52,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `b01ed90` · 상태 **success** · 2026-11-27 11:52 (VN)
+- 마지막 Production 배포: `57d80b0` · 상태 **success** · 2026-11-27 13:56 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -60,20 +60,20 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #1145 | 2026-11-27 13:56 (VN) | `57d80b0` | fix(ops): 큐가 시작한 이슈 작업이 PR 없이 끝나면 그 이슈에 결과 안내를 남김 (#894·#633) |
+| #1154 | 2026-11-27 13:06 (VN) | `675631d` | fix(crawler): Muaban 읽기 시험 — contact 칸 안의 칸 이름·값 모양 확인 (#1140) |
+| #1147 | 2026-11-27 13:01 (VN) | `ca67bf5` | fix(build): 웹·앱 첫 화면이 jspdf 400KB를 미리 받던 청크 묶음 분리 (#1031 후속 1) |
+| #1153 | 2026-11-27 13:00 (VN) | `50d0e13` | fix(crawler): Muaban 읽기 시험 — 공고 객체의 contact 칸을 전화 후보로 확인 (#1140) |
+| #1152 | 2026-11-27 12:55 (VN) | `e7080a5` | fix(crawler): Muaban 읽기 시험 상세 추출을 주소의 공고 번호 객체로 좁힘 — 연락처 열람 여부 판정 가능하게 (#1140) |
+| #1151 | 2026-11-27 12:53 (VN) | `59fbd69` | test(smoke): 실제 화면 검사에 이력서 PDF 내려받기 확인 추가 (#1147 후속) |
+| #1150 | 2026-11-27 12:48 (VN) | `9443c08` | fix(crawler): Muaban 읽기 시험의 차단 오판 수정 — 정상 목록 페이지(200)를 robots 메타 낱말로 중단 (#1140) |
+| #1149 | 2026-11-27 12:47 (VN) | `6cfaad0` | fix(detail): 직무 이름 중간 Full Time 유지·근무기간 Khác가 원문 근무 형태를 가리지 않게 (#921) |
+| #1146 | 2026-11-27 12:41 (VN) | `45ef7d7` | feat(crawler): Muaban 박닌 읽기 시험(probe) + 수동 실행 워크플로 — 저장·키 없음 (#1140) |
 | #1143 | 2026-11-27 11:51 (VN) | `b01ed90` | ci(approval): CODEOWNERS 보호 목록을 내용 기준 워크플로로 정렬 — 일반 워크플로 자동 병합(11-23 정책)을 서버 쪽에도 (#1070 2순위) |
-| #1135 | 2026-11-27 11:34 (VN) | `2d2869e` | fix(detail): 같은 원문 안 줄은 글자가 같을 때만 중복 — 이름표 다른 원문 줄 보존 (#5368, #1119 대체) (#701) |
-| #1139 | 2026-11-27 11:34 (VN) | `e292921` | fix(ops): 작업 큐가 비어 전체 작업이 멈추던 원인 정정 — ai-team/ai-task 불일치·막히지 않은 이슈 우선·작업 종료 게이트 |
-| #1144 | 2026-11-27 11:34 (VN) | `6e0312a` | fix(db): is_account_active 비로그인 실행 권한 회수 — 영향 확인 뒤 승인 PR (#1070 4번) |
-| #1128 | 2026-11-27 10:59 (VN) | `39538cc` | fix(web,app)+test(e2e): 배포 뒤 옛 탭 빈 화면 복구와 실제 구버전→신버전·폐기 세션·등록~면접 연결·저장 재시도 시험 (#1070 G·3) |
-| #1138 | 2026-11-27 09:35 (VN) | `64eaedf` | feat(location): trace에 못 찾은 이유 코드 — 로그만으로 결과 재사용·단계 건너뜀 구분 (#1086 운영 실증) |
-| #1136 | 2026-11-27 09:30 (VN) | `8293d12` | fix(crawl): 수집 요약 연락처·공개 판정 표기 정정 + 예약 지연·날짜 변경 회귀 시험 (#1071) |
-| #1134 | 2026-11-27 09:12 (VN) | `094e201` | feat(location): 위치 확인 근거·외부 호출 시도 횟수(trace) + 수집 로그 한 줄 — #1086 운영 실증용 |
-| #1137 | 2026-11-27 09:07 (VN) | `27f45c3` | docs: HANDOFF·WORK_LOG 갱신 — 연락처 판정 대조·슬롯 운영 실증·위치 재사용 로그·#1119 분석 |
-| #1133 | 2026-11-27 08:11 (VN) | `60207f7` | fix(inspect): 홍보 판별 성조 주소 낱말 오판 수정 — #955를 같은 저장소 브랜치로 (5342·5437) (#1070) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **30건** (전체 56건, 숨김·비활성 26건)
+- 공개 중: **30건** (전체 57건, 숨김·비활성 27건)
 - 출처별: 출처 없음 26 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -104,16 +104,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-27 11:53 (VN) | location_candidate.approve | job 6743 |
-| 2026-11-27 11:53 (VN) | location_candidate.add | job 6743 |
-| 2026-11-27 11:38 (VN) | location_candidate.approve | job 6740 |
-| 2026-11-27 11:38 (VN) | location_candidate.add | job 6740 |
-| 2026-11-27 11:37 (VN) | location_candidate.approve | job 6736 |
-| 2026-11-27 11:37 (VN) | location_candidate.add | job 6736 |
-| 2026-11-27 11:01 (VN) | location_candidate.approve | job 6733 |
-| 2026-11-27 11:01 (VN) | location_candidate.add | job 6733 |
-| 2026-11-27 09:38 (VN) | location_candidate.approve | job 6730 |
-| 2026-11-27 09:38 (VN) | location_candidate.add | job 6730 |
+| 2026-11-27 13:57 (VN) | location_candidate.approve | job 6769 |
+| 2026-11-27 13:57 (VN) | location_candidate.add | job 6769 |
+| 2026-11-27 13:07 (VN) | location_candidate.approve | job 6766 |
+| 2026-11-27 13:07 (VN) | location_candidate.add | job 6766 |
+| 2026-11-27 13:03 (VN) | location_candidate.approve | job 6763 |
+| 2026-11-27 13:03 (VN) | location_candidate.add | job 6763 |
+| 2026-11-27 13:02 (VN) | location_candidate.approve | job 6761 |
+| 2026-11-27 13:02 (VN) | location_candidate.add | job 6761 |
+| 2026-11-27 12:56 (VN) | location_candidate.approve | job 6757 |
+| 2026-11-27 12:56 (VN) | location_candidate.add | job 6757 |
 
 ## 8. 검증 장치 변경 이력
 
