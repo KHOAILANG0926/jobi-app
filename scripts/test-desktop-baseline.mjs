@@ -1,3 +1,4 @@
+// 2026-11-27: JobDetail.tsx — Lee "고정 이미지 배정 마무리 지시"(#1182 적용 뒤): ④ 그림 선택에 고정 배정 번호(representativeImageId) 한 인자만 더 넘김. 틀·칸·CSS·문구 변경 없음.
 // 2026-11-27: JobDetail.tsx — Lee "최소 수정 설계 승인"(직무 중심 대표 이미지, #1180): ④ 그림을 고르는 입력 두 곳만(photoCategory(job)·대표 직무 코드)을 카드와 같게 맞춤. 틀·칸·CSS·문구 변경 없음.
 // 2026-11-25: JobDetail.tsx — 구조 정리 4번(웹·앱 중복 업무 처리 정리, 대표 지시): 급여 줄 접기·수당 메모 판정·고용형태 글자·복리후생 7칸 켜짐 판정을 lib/jobDetailDerive.ts 한 곳으로(앱 상세와 공용). 화면 결과·틀·칸·CSS 변경 없음 — 마스터와 브랜치를 각각 빌드해 운영 공고 8건을 PC·모바일로 비교해 16/16 동일, 기준 공고 회귀 시험(jobDetailSections.test.ts) 추가. 대표 승인 요청 중(PR).
 // 2026-11-13: JobDetail.tsx — Lee "A3 적용 승인"(#740, R2 #728): 급여 칸 나누기를 conditionLines.salaryParts 한 곳으로(소수점 쉼표 8,5가 두 줄로 끊기던 것만 고침). 틀·칸·CSS 변경 없음.
@@ -114,7 +115,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "1ad2bca3c1fe1b78e3b64382950fd45ecd0fd548290fafcedd4311778155b150",
+    "sha256": "1a97c73e8671d3e1cd2cf4e94de5803eab7842fa52ce90dc3caeb7246672e2d8",
     "restore": []
   },
   {
