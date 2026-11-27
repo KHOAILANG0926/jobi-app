@@ -139,5 +139,11 @@ assert.equal(missingVerifiedCoordinate({active:true,admin_hidden:false,company:'
   assert.equal(locationTraceSource({ source: 'VietMap abc', kind: 'exact' }), 'vietmap')
   assert.equal(locationTraceSource({ source: 'admin_approved', kind: 'exact' }), 'confirmed_memory')
   assert.equal(locationTraceSource({ kind: 'unresolved' }), 'none')
-  console.log('precheck trace: confirmed_memory·site_memory는 외부 시도 0, 기억 없으면 Google 시도 기록, 근거는 한 단어')
+  // 못 찾은 이유 코드만(주소·회사 걸러 냄) — 'none + 시도 0'이 결과 재사용인지 단계 건너뜀인지 가르는 근거
+  const { locationTraceReasons } = await import('./_lib/auto-location-runtime.mjs')
+  assert.deepEqual(locationTraceReasons({ kind: 'unresolved', evidence: 'vietmap:no_verified_match\ngoong:no_verified_match\ngoogle:not_configured\ngoogle:no_verified_match' }), ['vietmap:no_verified_match', 'goong:no_verified_match', 'google:not_configured', 'google:no_verified_match'])
+  assert.deepEqual(locationTraceReasons({ kind: 'unresolved', evidence: 'Số 1 Lô A, KCN X, Bắc Ninh\nCông ty ABC\nquery k=1 (주소창 글자)\ngoogle:quota' }), ['google:quota'], '주소·회사·주소창은 걸러 내고 코드만')
+  assert.deepEqual(locationTraceReasons({ kind: 'exact', source: 'Google' }), [], '찾은 경우는 이유 없음')
+  assert.deepEqual(locationTraceReasons({ kind: 'unresolved' }), [])
+  console.log('precheck trace: confirmed_memory·site_memory는 외부 시도 0, 기억 없으면 Google 시도 기록, 근거는 한 단어, 못 찾은 이유는 코드만')
 }

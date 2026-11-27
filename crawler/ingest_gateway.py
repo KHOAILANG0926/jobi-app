@@ -144,7 +144,9 @@ def trace_line(verdict: dict) -> str:
         return ""
     a = trace.get("external_attempts") if isinstance(trace.get("external_attempts"), dict) else {}
     n = {k: int(a.get(k) or 0) for k in ("vietmap", "goong", "google")}
-    return f"📍 위치 확인 근거: {str(trace['source'])[:24]} — 외부 호출 시도 VietMap {n['vietmap']}·Goong {n['goong']}·Google {n['google']}"
+    why = [str(r)[:48] for r in (trace.get("reasons") or []) if isinstance(r, str) and re.fullmatch(r"[a-z0-9_]{2,24}:[a-z0-9_]{2,40}", r)][:8]
+    tail = f" — 사유 {','.join(why)}" if why else ""
+    return f"📍 위치 확인 근거: {str(trace['source'])[:24]} — 외부 호출 시도 VietMap {n['vietmap']}·Goong {n['goong']}·Google {n['google']}{tail}"
 
 
 def http_precheck(job: dict) -> dict:

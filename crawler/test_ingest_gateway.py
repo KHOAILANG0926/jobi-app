@@ -895,6 +895,9 @@ def run_trace_line():
     assert "KCN" not in line and "ABC" not in line, "주소·회사는 로그에 남기지 않는다"
     assert "Google 2" in g.trace_line({"trace": {"source": "google", "external_attempts": {"google": 2}}})
     assert g.trace_line({"findable": True}) == "" and g.trace_line({"trace": {"source": ""}}) == "" and g.trace_line({"trace": "x"}) == "", "trace 없으면 빈 글자(옛 서버 응답 호환)"
+    # 못 찾은 이유 코드(단계:이유 꼴만) — 주소·회사 같은 글자는 출력하지 않는다
+    why = g.trace_line({"trace": {"source": "none", "external_attempts": {}, "reasons": ["google:not_configured", "Số 1 KCN X", "vietmap:no_verified_match"]}})
+    assert why == "📍 위치 확인 근거: none — 외부 호출 시도 VietMap 0·Goong 0·Google 0 — 사유 google:not_configured,vietmap:no_verified_match", why
     assert g.trace_line(None) == ""  # type: ignore[arg-type]
     print("trace line: 근거·외부 호출 시도만, 주소·회사 없음, 옛 응답 호환 통과")
 

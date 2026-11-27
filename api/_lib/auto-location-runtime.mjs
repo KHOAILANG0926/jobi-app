@@ -75,6 +75,13 @@ export function canonicalVerdictKind(state) {
 
 /** 수집 첫 단계 위치 확인(Lee 2026-11-06). 지도와 같은 resolveAutoLocation·같은 저장 결과(research_artifacts)를 쓴다 —
  * 등록 뒤 위치 찾기(location-hook)는 같은 질문을 저장 결과로 다시 쓰므로 호출이 늘지 않는다. DB에 공고·위치를 쓰지 않는다. */
+/** 못 찾은 이유 코드만(예: vietmap:no_verified_match, google:not_configured). 주소·회사·키·응답은 걸러 내고 '단계:이유' 꼴만 남긴다 —
+ *  'none + 외부 시도 0'이 저장된 결과 재사용인지·단계를 건너뛴 것인지(키 없음 등) 로그로 가르려는 용도(Lee 2026-11-27 #1086 운영 실증). */
+export function locationTraceReasons(found) {
+  if (found?.kind !== 'unresolved' || typeof found.evidence !== 'string') return []
+  return [...new Set(found.evidence.split('\n').map((l) => l.trim()).filter((l) => /^[a-z0-9_]{2,24}:[a-z0-9_]{2,40}$/.test(l)))].slice(0, 8)
+}
+
 /** 위치를 어디서 얻었는지 한 단어(주소·키·응답은 담지 않는다) — 수집 실행 로그가 '기억을 썼는지·외부를 불렀는지'를 한 줄로 남기는 근거(Lee 2026-11-27, #1086 운영 실증). */
 export function locationTraceSource(found, confirmedMemory = false) {
   if (confirmedMemory) return 'confirmed_memory'
@@ -135,7 +142,7 @@ export async function precheckLocation(db, request, input, goong = null, google 
   // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
   // 찾은 매장이 하나뿐이어도(첫 매장은 못 찾고 다른 매장만 찾음) 그 매장 주소를 공고 위치로 쓴다.
   return { ...verdict, location: stores.length ? stores[0] : job.location, ...(stores.length ? { stores } : {}), ...who,
-    trace: { source: locationTraceSource(result, confirmed.length > 0 && ordered.length > 0 && confirmed.includes(ordered[0]) && !held), external_attempts: attempts } }
+    trace: { source: locationTraceSource(result, confirmed.length > 0 && ordered.length > 0 && confirmed.includes(ordered[0]) && !held), external_attempts: attempts, reasons: locationTraceReasons(result) } }
 }
 
 /** 위치를 사업장 기억으로 찾은 공고(Google을 다시 부르지 않음, Lee 2026-11-26)는 자기 검색 결과가 없다 —
