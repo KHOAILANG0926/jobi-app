@@ -34,8 +34,16 @@ export function cardSalary(job: Pick<Job, 'salary' | 'salaryPeriod'> & Partial<P
   // 2026-11-01 #5231: "25.000 VNĐ/giờ"의 VNĐ도 돈 단위(전에는 vnd만 알아봐 메인 목록에서 빠짐).
   const amount = /(?:\d[\d.,]*\s*(?:triệu|tr\b|k\b|đồng|dong\b|vn[dđ](?!\p{L})|đ|usd\b)|\$\s*\d)/iu
   if (!amount.test(text)) return null
-  const clauses = text.split(/\s*[,;|\n]\s*/).filter(clause => amount.test(clause)
-    && !/chuyên cần|chuyen can|phụ cấp|phu cap|thưởng|thuong/iu.test(clause))
+  // #1168: "Lương 30 – 40k/h + phụ cấp"처럼 월급·시급 뒤에 수당·상여 낱말이 붙은 한 줄은 통째로 빼지 않고 수당 낱말 앞의 금액만 남긴다
+  // (전에는 줄 전체가 빠져 메인 목록에서 공고가 사라졌다). 수당·상여 금액만 있는 줄은 그대로 뺀다.
+  const extra = /chuyên cần|chuyen can|phụ cấp|phu cap|thưởng|thuong/iu
+  const clauses = text.split(/\s*[,;|\n]\s*/).flatMap(clause => {
+    if (!amount.test(clause)) return []
+    const hit = extra.exec(clause)
+    if (!hit) return [clause]
+    const head = clause.slice(0, hit.index).replace(/[\s+\-–]+$/u, '')
+    return head && amount.test(head) ? [head] : []
+  })
   if (!clauses.length) return null
   for (const period of ['hour', 'day', 'month'] as const) {
     const matching = clauses.filter(clause => amount.test(clause) && units[period].test(clause))
