@@ -35,6 +35,9 @@ async function readJobDetail(page, href) {
   await page.goto(`${baseUrl}${href}`, { waitUntil: 'networkidle', timeout: 60_000 })
   await page.waitForSelector('h1.jd2-header__title', { timeout: 30_000 })
   await page.waitForTimeout(1200) // allow the client map and actual markers to mount
+  // 직무 중심 대표 이미지(2026-11-27): 상세 ④ 그림이 지연 로딩이라 보이는 자리로 내려 불러오게 한 뒤 깨진 그림 여부를 본다.
+  await page.locator('.jd2-desc-visual__img').first().scrollIntoViewIfNeeded().catch(() => {})
+  await page.waitForTimeout(600)
   return page.evaluate(() => {
     const addrItems = [...document.querySelectorAll('.jd2-map-addr-item .jd2-map-addr')].map((el) => el.textContent?.trim() || '')
     const singleAddr = document.querySelector('.jd2-card__body > .jd2-map-addr')?.textContent?.trim() || null
@@ -67,8 +70,9 @@ async function readJobDetail(page, href) {
     // 2026-10-30 Lee: 근무지 1곳이면 길찾기 버튼은 기준(KDA)처럼 지도 아래.
     const mapEl = document.querySelector('.jd2-vmap')
     const dirAboveMap = mapEl ? [...document.querySelectorAll('a.jd2-map-dir--google')].filter((a) => a.compareDocumentPosition(mapEl) & Node.DOCUMENT_POSITION_FOLLOWING).length : 0
+    const brokenDetailPhotos = [...document.querySelectorAll('.jd2-desc-visual__img')].filter((img) => img.complete && img.naturalWidth === 0).map((img) => img.getAttribute('src'))
     const unverifiedDirNote = /chưa xác minh|không phải địa chỉ nơi làm việc/iu.test(document.body.innerText || '')
-    return { plannedPoints, actualPoints, addrItems, singleAddr, note, markerCount, plannedMarkerCount, mapUnavailable, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState, oldStyleButtons, nonStandardDirections, dirAboveMap }
+    return { brokenDetailPhotos, plannedPoints, actualPoints, addrItems, singleAddr, note, markerCount, plannedMarkerCount, mapUnavailable, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState, oldStyleButtons, nonStandardDirections, dirAboveMap }
   })
 }
 
@@ -89,6 +93,7 @@ function checkInvariants(href, d, truth) {
   }
   // Current UI distinguishes an explicitly unverified area map from a verified workplace.
   // Area maps are permitted by the current rules; they must not claim an exact workplace.
+  if (d.brokenDetailPhotos?.length) failures.push(`${href}: detail ④ picture failed to load: ${d.brokenDetailPhotos.join(', ')}`)
   if (d.oldStyleButtons) failures.push(`${href}: old small Google buttons shown (standard KDA directions button required)`)
   if (d.dirAboveMap && (d.addrItems?.length ?? 0) <= 1) failures.push(`${href}: directions button above the map (standard: below the map)`)
   if (d.nonStandardDirections) failures.push(`${href}: directions button is not the standard KDA Google button`)

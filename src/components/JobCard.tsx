@@ -2,7 +2,7 @@ import './JobCard.css'
 import { useId, useState } from 'react'
 import type { Job } from '../types/job'
 import { cardThumbnailUrl, jobRepresentativeImageUrl } from '../lib/companyLogo'
-import { industryPhotoUrl } from '../lib/cardPhoto'
+import { industryPhotoUrl, photoCategory } from '../lib/cardPhoto'
 import { useBrandsOptional } from '../context/BrandsContext'
 import { formatDistanceLabel } from '../lib/jobCoords'
 import { cardSalary, PAY_LABELS, type PayKind } from '../lib/mainJobCards'
@@ -20,9 +20,9 @@ import { cardCompanyParts, cardTitle } from '../lib/cardText'
 
 // 2026-11-02 Lee: 로고·포스터가 없거나 깨지면 로고 자리를 업종 대표 사진으로 채운다(카드 틀은 그대로, 사람인 방식).
 // 업종 사진도 깨질 때만 예전처럼 회사 이름 글자.
-export function CompanyLogo({ company, imageUrl, category, subcategory, text, body }: { company: string; imageUrl?: string; category?: string; subcategory?: string; text?: string; body?: string }) {
+export function CompanyLogo({ company, imageUrl, category, subcategory, text, body, roleCode }: { company: string; imageUrl?: string; category?: string; subcategory?: string; text?: string; body?: string; roleCode?: string }) {
   const [failed, setFailed] = useState<string[]>([])
-  const photo = category !== undefined ? industryPhotoUrl(category, subcategory, text, body) : undefined
+  const photo = category !== undefined ? industryPhotoUrl(category, subcategory, text, body, roleCode) : undefined
   const src = [cardThumbnailUrl(imageUrl), imageUrl, photo].find((u): u is string => !!u && !failed.includes(u))
   if (!src) return <span className="jc__logo-text" aria-label={company}>{company?.trim() || "Việc làm"}</span>
   return <img src={src} alt={company} className={`jc__logo${src === photo ? ' jc__logo--photo' : ''}`} loading="lazy" onError={() => setFailed((f) => [...f, src])} />
@@ -70,7 +70,7 @@ export default function JobCard({
   return (
     <article className={`jc jc--clean${isApplied ? ' jc--applied' : ''}${expanded ? ' jc--expanded' : ''}`} data-job-id={job.id}>
       <div className="jc__header">
-        <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} category={job.category} subcategory={job.subcategory} text={`${job.company} ${job.title}`} body={job.description ?? ""} /></div>
+        <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} category={photoCategory(job) ?? undefined} subcategory={job.subcategory} text={`${job.company} ${job.title}`} body={job.description ?? ""} roleCode={job.primaryRoleCode ?? job.occupationCode} /></div>
         <div className="jc__identity">
           <p className="jc__company">{shown.name}</p>
           <p className="jc__meta">

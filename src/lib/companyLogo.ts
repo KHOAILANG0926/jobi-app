@@ -1,7 +1,7 @@
 import type { Job } from '../types/job'
 import type { BrandDefinition } from '../data/brandDirectory'
 import { brandIconUrl, brandLogoFor } from './brandLogo'
-import { industryPhotoUrl } from './cardPhoto'
+import { jobPhotoUrl } from './cardPhoto'
 
 // 회사 로고로 보여줄 이미지 주소 (2026-10-06 사용자 결정).
 // 수집 출처 사이트(vieclam24h 등)·Facebook CDN 이미지는 로고로 쓰지 않는다. 로고가 없는 회사에 출처 사이트
@@ -57,12 +57,12 @@ export function companySiteLogoUrl(domain: string | null | undefined): string | 
 /** 공고 대표 이미지 공통 순서. 하단 채용 사진 목록은 이 선택과 별개로 유지한다.
  *  브랜드 로고 → 공고 사진(우리 저장소: 페이스북 사진 복사본·포스터·업로드) → 회사 웹사이트 아이콘 → 업종 공용 사진(Lee 2026-11-07). */
 export function jobRepresentativeImageUrl(
-  job: Pick<Job, 'company' | 'title' | 'imageUrl' | 'images'> & Partial<Pick<Job, 'category' | 'subcategory' | 'description' | 'companyDomain'>>,
+  job: Pick<Job, 'company' | 'title' | 'imageUrl' | 'images'> & Partial<Pick<Job, 'category' | 'subcategory' | 'description' | 'companyDomain' | 'occupationCode' | 'roleCodes' | 'primaryRoleCode'>>,
   brands: BrandDefinition[],
 ): string {
   return brandLogoFor(job, brands)
     ?? companyLogoUrl(job.imageUrl)
     ?? jobImagePublicUrl(job.images?.[0])
     ?? companySiteLogoUrl(job.companyDomain)
-    ?? industryPhotoUrl(job.category, job.subcategory, `${job.company} ${job.title}`, job.description)
+    ?? jobPhotoUrl(job)
 }

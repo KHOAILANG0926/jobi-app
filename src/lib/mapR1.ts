@@ -1,4 +1,5 @@
 import type { Job } from '../types/job'
+import { jobCategories } from './jobRoles.ts'
 import { matchesFilters, type HomeMapFilterState, type MapJobPoint } from './homeMapFilters'
 import { calcDistanceKm, resolveMapLocations } from './jobCoords'
 import type { HomeMapViewport } from '../components/home/map/HomeMapTypes'
@@ -73,7 +74,7 @@ export function selectedMapEntry(entry: MapEntry | null, clicked: MapJobPoint | 
 export function summarizeMapEntries(entries: MapEntry[]) {
   const jobs = [...new Map(entries.map(e => [e.job.id, e.job])).values()]
   const counts = new Map<Job['category'], number>()
-  for (const job of jobs) counts.set(job.category, (counts.get(job.category) ?? 0) + 1)
+  for (const job of jobs) for (const category of jobCategories(job) as Job['category'][]) counts.set(category, (counts.get(category) ?? 0) + 1)
   return {
     total: jobs.length,
     urgent: jobs.filter(job => job.urgent === true).length,
