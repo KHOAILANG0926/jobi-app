@@ -75,6 +75,33 @@ export function roleAmountLine(line: string): { role: string; amount: string; co
   if (!m || !ROLE_AMOUNT_MONEY.test(m[3]) || NOT_ROLE_WORD.test(m[2].trim())) return null
   return { role: m[2].trim(), amount: m[3].trim(), count: Number(m[1]) }
 }
+/** 모집 직무 목록(복수 직무 검색·대표 직무용, 2026-11-27 Lee): 직무 제목 줄·'인원 + 직무 : 금액' 줄·'Các vị trí tuyển dụng:' 아래 번호·글머리 줄에서
+ *  직무 이름과 인원(모르면 1)을 나열 순서대로 읽는다. 서로 다른 직무가 2개 미만이면 복수 직무 공고가 아니므로 빈 목록. 이미 있는 줄 읽기 함수를 그대로 쓴다. */
+const ROLE_LIST_HEAD = /^\s*(?:các\s+)?vị\s*trí(?:\s+(?:tuyển dụng|cần tuyển|công việc))?\s*[:：]?\s*$/iu
+const ROLE_LIST_ITEM = /^\s*(?:\d{1,2}\s*[.)]|[•·*\-–])\s*(\S.{2,60})$/u
+export interface RoleTitle { title: string; count: number }
+export function roleTitles(description: string | null | undefined): RoleTitle[] {
+  const lines = String(description ?? '').split(/\r?\n/)
+  const out: RoleTitle[] = []
+  const add = (title: string, count: number) => {
+    const t = title.trim()
+    if (t && !out.some((r) => r.title.toLowerCase() === t.toLowerCase())) out.push({ title: t, count: Math.max(1, count || 1) })
+  }
+  lines.forEach((line, i) => {
+    const heading = splitRoleLine(line).role
+    if (heading) add(heading, 1)
+    const amount = roleAmountLine(line)
+    if (amount) add(amount.role, amount.count)
+    if (ROLE_LIST_HEAD.test(line)) {
+      for (let j = i + 1; j < lines.length; j++) {
+        const m = lines[j].match(ROLE_LIST_ITEM)
+        if (!m) break
+        add(m[1], 1)
+      }
+    }
+  })
+  return out.length >= 2 ? out : []
+}
 type RoleRecord = { role?: string; line: string; inline?: boolean; count?: number }
 /** 급여 판정·표시가 읽는 직무 기록: 직무 제목 줄(기존)이 2개 이상이면 그대로, 아니면 '인원 + 직무 : 금액' 줄이 서로 다른 직무 2개 이상일 때 그 줄들. */
 function salaryRoleRecords(description: string | null | undefined): RoleRecord[] {
