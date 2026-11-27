@@ -49,6 +49,7 @@
 /.github/workflows/ops-run-sql.yml                          @KHOAILANG0926
 /.github/workflows/pr-checks.yml                            @KHOAILANG0926
 /.github/workflows/refresh-facebook-existing.yml            @KHOAILANG0926
+/.github/workflows/review-signal.yml                        @KHOAILANG0926
 /.github/workflows/rules-core-sync.yml                      @KHOAILANG0926
 /.github/workflows/status-guard.yml                         @KHOAILANG0926
 /.github/workflows/status-report.yml                        @KHOAILANG0926

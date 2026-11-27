@@ -56,6 +56,7 @@ export const OWNER_PATHS = [
   '/.github/workflows/ops-run-sql.yml',
   '/.github/workflows/pr-checks.yml',
   '/.github/workflows/refresh-facebook-existing.yml',
+  '/.github/workflows/review-signal.yml',   // 승인 체인 구성(S4: 승인·취소 즉시 재검사 신호) — 권한은 없지만 내용 기준과 별개로 명시 보호
   '/.github/workflows/rules-core-sync.yml',
   '/.github/workflows/status-guard.yml',
   '/.github/workflows/status-report.yml',
