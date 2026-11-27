@@ -3,7 +3,8 @@
 // 목록은 한 곳(scripts/ci/protected-paths.mjs)에만 있다 — 여기서는 따로 적지 않고 .github/CODEOWNERS가 그 목록과 정확히 같은지만 본다.
 // 같은 목록에서 Actions 승인 판정(decision-approval-gate.mjs GATE_CODE)도 나오므로 CODEOWNERS와 승인 게이트 범위는 구조상 어긋날 수 없다.
 import { readFileSync, readdirSync } from 'node:fs'
-import { OWNER_PATHS, OWNER_HANDLE } from './ci/protected-paths.mjs'
+import { OWNER_PATHS, OWNER_HANDLE, matchesOwnerPath } from './ci/protected-paths.mjs'
+import { workflowPrivileged, workflowDefinesRequiredCheck } from './decision-approval-gate.mjs'
 const fail = (m) => { console.error('APPROVAL_SCOPE: ' + m); process.exit(1) }
 export function parseOwners(text) {
   return text.split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#')).map((l) => { const [path, ...owners] = l.split(/\s+/); return { path, owners } })
@@ -17,9 +18,21 @@ export function problems(text, allowed = OWNER_PATHS) {
   for (const p of allowed) if (!rows.some((r) => r.path === p)) out.push(`필수 항목 없음: ${p}`)
   return out
 }
+// 워크플로는 폴더 전체가 아니라 실제 권한·비밀값·실행기·필수 검사를 가진 파일만 보호 목록에 둔다 — 그 기준(승인 판정기와 같은 함수)에 걸리는데 목록에 없으면 우회 통로가 된다.
+// 반대로 목록에 있는데 파일이 없는 항목(지운 워크플로)도 알린다. files: { 경로(.github/workflows/x.yml): 파일 내용 }
+export function workflowCoverageProblems(files, list = OWNER_PATHS) {
+  const out = []
+  for (const [path, text] of Object.entries(files)) {
+    if ((workflowPrivileged(text) || workflowDefinesRequiredCheck(text)) && !matchesOwnerPath(path, list)) out.push(`권한·비밀값·실행기·필수 검사를 가진 워크플로가 보호 목록에 없음: ${path}`)
+  }
+  for (const p of list) if (p.startsWith('/.github/workflows/') && !(p.slice(1) in files)) out.push(`보호 목록의 워크플로 파일이 없음: ${p}`)
+  return out
+}
 if (process.argv[1]?.endsWith('check-approval-scope.mjs')) {
   const text = readFileSync('.github/CODEOWNERS', 'utf8')
   for (const p of problems(text)) fail(p)
+  const wfDir = '.github/workflows/'
+  for (const m of workflowCoverageProblems(Object.fromEntries(readdirSync(wfDir).filter((f) => /\.ya?ml$/.test(f)).map((f) => [wfDir + f, readFileSync(wfDir + f, 'utf8')])))) fail(m)
   const nums = (dir) => readdirSync(`docs/decisions/${dir}`).filter((f) => /^\d{4}-.*\.md$/.test(f)).map((f) => f.slice(0, 4)).sort().join(',')
   if (nums('ko') !== nums('en')) fail(`한국어·영어 결정 번호가 다름: ko=${nums('ko')} en=${nums('en')}`)
   console.log(`approval scope OK (${parseOwners(text).length} owner lines = protected-paths.mjs, decisions ${nums('ko')})`)

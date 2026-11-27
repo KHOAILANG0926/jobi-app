@@ -31,7 +31,8 @@ export const BOT = { name: 'claude[bot]', email: '209825114+claude[bot]@users.no
 // Claude가 고치면 안 되는 곳: 검사·보호 장치(GATE_CODE — Lee 승인 대상과 같은 목록), Claude·도구 설정, git 동작을 바꾸는 파일.
 export function forbiddenPath(path) {
   // + 병합되면 운영 DB 열쇠로 바로 실행되는 곳(운영 SQL·migration)은 Claude 자동 수정 대상이 아니다(독립 검토 3차 지적 4)
-  return GATE_CODE(path) || /^scripts\/ops\/jobs\//.test(path) || /^supabase\/migrations\//.test(path) || /^\.claude(\/|$)/.test(path) || /(^|\/)CLAUDE\.md$/.test(path) || /(^|\/)\.mcp\.json$/.test(path)
+  // .github/ 전체(보호 목록 밖 일반 워크플로 포함)는 Claude 게시 금지 — CODEOWNERS 보호 목록을 내용 기준으로 좁혀도 Claude 쪽 제한은 그대로(Lee 2026-11-23 정책 + S4 게시 제한 유지).
+  return GATE_CODE(path) || /^\.github\//.test(path) || /^scripts\/ops\/jobs\//.test(path) || /^supabase\/migrations\//.test(path) || /^\.claude(\/|$)/.test(path) || /(^|\/)CLAUDE\.md$/.test(path) || /(^|\/)\.mcp\.json$/.test(path)
     || /(^|\/)\.git(attributes|modules|ignore)?$/.test(path) || /^\.husky(\/|$)/.test(path) || /(^|\/)(\.ripgreprc|\.claude\.json|CLAUDE\.local\.md)$/.test(path) || /(^|\/)\.git\//.test(path) || path.startsWith('.claude-out')
     || path.startsWith('/') || path.split('/').includes('..')
 }

@@ -167,7 +167,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     const r = run([p]); assert.equal(r.approved, true, `정상 통과: ${p}`); assert.equal(r.risk, 'normal', p)
   }
   // 고위험: Lee 승인 전 막힘, 승인 뒤 통과
-  for (const p of ['.github/workflows/status-x.yml', 'scripts/ci/claude-publish.mjs', 'docs/decisions/ko/0009-x.md', 'AGENTS.md', 'CLAUDE.md', '.claude/RULES_CORE.md', 'scripts/check-repository-policy.mjs']) {
+  for (const p of ['scripts/ci/claude-publish.mjs', 'docs/decisions/ko/0009-x.md', 'AGENTS.md', 'CLAUDE.md', '.claude/RULES_CORE.md', 'scripts/check-repository-policy.mjs']) {
     const r = run([p]); assert.equal(r.approved, false, `고위험 막힘: ${p}`); assert.equal(r.risk, 'high', p)
     assert.equal(run([p], lee).approved, true, `고위험 Lee 승인 뒤 통과: ${p}`)
   }
@@ -583,3 +583,22 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.equal(approvalLinks('o/r', '12; rm -rf'), '', 'PR 번호는 숫자만')
   assert.equal(requestText(sha, [], ['x']), requestText(sha, [], ['x'], [], ''), '링크 없으면 예전 문구와 같음') }
 console.log('decision-approval-gate: #1004 승인 안내 링크·멘션 시험 통과')
+
+// Lee 2026-11-23 정책 정렬(#1070 2순위): 보호 목록(CODEOWNERS) 밖 일반 워크플로는 '안전한 수정'만 승인 불필요, 경계·권한·비밀값·새 파일·status 계열은 계속 승인
+{
+  const { decisionApproval } = await import('./decision-approval-gate.mjs')
+  const sha = 'e'.repeat(40)
+  const plain = 'name: x\non:\n  workflow_dispatch:\npermissions:\n  contents: read\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n'
+  const run = (name, patch, head, status = 'modified') => decisionApproval({ files: [{ filename: name, status, patch }], reviews: [], comments: [], sha, author: 'viecganban-bot', body: '', repo: 'KHOAILANG0926/jobi-app', deps: { workflows: { [name]: { base: plain, head: head ?? plain } } } })
+  const n = '.github/workflows/dup-count.yml'
+  assert.equal(run(n, '@@ -9,3 +9,4 @@ jobs:\n       - run: echo hi\n+      - run: echo more', plain + '      - run: echo more\n').approved, true, '일반 워크플로의 안전한 수정은 승인 불필요')
+  for (const [why, patch, head] of [
+    ['쓰기 권한', '@@ -4,2 +4,2 @@\n-  contents: read\n+  contents: write', plain.replace('contents: read', 'contents: write')],
+    ['비밀값', '@@ -9,3 +9,4 @@ jobs:\n       - run: echo hi\n+      - run: echo ${{ secrets.K }}', plain + '      - run: echo ${{ secrets.K }}\n'],
+    ['트리거 바꿈', '@@ -2,3 +2,3 @@\n-  workflow_dispatch:\n+  pull_request_target:', plain.replace('workflow_dispatch', 'pull_request_target')],
+    ['self-hosted', '@@ -8,3 +8,3 @@ jobs:\n-    runs-on: ubuntu-latest\n+    runs-on: self-hosted', plain.replace('ubuntu-latest', 'self-hosted')],
+  ]) assert.equal(run(n, patch, head).approved, false, `일반 워크플로라도 ${why} 변경은 승인`)
+  assert.equal(run('.github/workflows/brand-new.yml', '@@ -0,0 +1,3 @@\n+name: x', plain, 'added').approved, false, '새 워크플로 파일은 승인')
+  assert.equal(run('.github/workflows/status-x.yml', '@@ -9,3 +9,4 @@\n+      - run: echo hi', plain + '      - run: echo hi\n').approved, false, 'status 계열 워크플로는 목록 밖이어도 승인')
+  console.log('일반 워크플로 승인 판정 정렬 시험 통과')
+}

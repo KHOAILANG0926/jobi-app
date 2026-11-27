@@ -332,7 +332,8 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
   const wfUnknown = [...generalWf].filter(([, v]) => v === 'unknown').map(([k]) => `${k}: 워크플로 내용을 받지 못함(판단 불가)`)
   const gate = names.filter((f) => !PROTECTED(f) && GATE_CODE(f) && !safeWf.has(f) && generalWf.get(f) !== 'unknown')
   const strict = names.filter((f) => !PROTECTED(f) && STRICT_PATHS.some((re) => re.test(f)))  // 새 경로·옛 경로(이름 바꿈) 모두. 워크플로 안전 줄(safeWf)이어도 deploy*는 STRICT
-  const unknown = names.filter((f) => !PROTECTED(f) && !frameApproved(f, framePaths) && !GATE_CODE(f) && !NORMAL_PATH(f))
+  // 보호 목록(OWNER_PATHS)에 없는 워크플로는 내용 판정(⑪ 일반 워크플로)이 'safe'일 때만 승인 불필요 — 그 밖(경계 변경·새 파일·이름 바꿈·삭제·내용 미확인)은 판단 불가로 승인.
+  const unknown = names.filter((f) => !PROTECTED(f) && !frameApproved(f, framePaths) && !GATE_CODE(f) && !NORMAL_PATH(f) && !safeWf.has(f) && generalWf.get(f) !== 'unknown')
   const labeled = labels.includes(NEEDS_LEE_LABEL)
   const depRisk = dependencyRisks({ files, ...depFiles })
   // 경로만으로 이미 고위험인 파일(결정 문서·화면 틀·검사 장치)은 내용 검사를 겹치지 않는다
