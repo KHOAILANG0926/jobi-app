@@ -1,4 +1,5 @@
 import { normalizeViText } from './jobCoords'
+import { jobCategories } from './jobRoles.ts'
 import type { JobArea } from './jobAreaWards'
 import { parseWorkDays, parseWorkHourBuckets, type DayCode, type TimeBucket } from './workScheduleParse'
 import type { Job, JobCategory } from '../types/job'
@@ -42,7 +43,7 @@ export function filterJobsByListConditions(
       return area.wards.some((w) => c.selectedWards.has(w))
     })
   }
-  if (c.categoryIds.size > 0) list = list.filter((j) => c.categoryIds.has(j.category))
+  if (c.categoryIds.size > 0) list = list.filter((j) => jobCategories(j).some((cat) => c.categoryIds.has(cat as never)))
   if (c.selectedSubcategoryKeys.size > 0) {
     list = list.filter((j) => !!j.subcategory && c.selectedSubcategoryKeys.has(`${j.category}:${j.subcategory}`))
   }
