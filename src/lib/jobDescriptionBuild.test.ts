@@ -139,3 +139,13 @@ console.log('jobDescriptionBuild.test.ts: 실제 원문 #4878·#4879 + 글자 �
   console.log('jobDescriptionBuild.test.ts: "VỊ TRÍ:" 제목 줄 + 글머리 없는 직무 줄(운영 6337 원문) 검사 통과')
 }
 
+
+// 2026-11-27 #701(#5368 bảo an): 같은 원문 안에서 낱말이 많이 겹치는 줄을 '중복'으로 빼면 이름표가 다른 원문 줄('HỒ SƠ NHẬN VIỆC: …')이 사라져 검사표가 원문 줄 빠짐으로 잡았다.
+// 같은 원문 안의 줄은 글자가 같을 때만 중복. (홍보 줄은 검사 쪽 판별이 #1133으로 맞아 이미 일치 — 5342·5437)
+{
+  const build = (text: string) => buildDescriptionFromSources([{ name: 'source_text', text }], { title: 't', company: 'Joy Thái' })
+  const b = build('Yêu cầu\nHồ sơ đơn giản: Sơ yếu lý lịch, CCCD công chứng, Giấy khám sức khỏe.\nHỒ SƠ NHẬN VIỆC: Sơ yếu lý lịch. CCCD công chứng. Giấy khám sức khỏe.\nPhục vụ bàn\nPhục vụ bàn\n#TuyenDung #ViecLam')
+  assert(b.description.includes('HỒ SƠ NHẬN VIỆC'), '이름표가 다른 비슷한 줄은 남김(#5368)')
+  assert(b.description.split('\n').filter((l) => l.trim() === 'Phục vụ bàn').length === 1 && !b.description.includes('#TuyenDung'), '같은 글자 반복·해시태그는 뺌')
+  console.log('jobDescriptionBuild.test.ts: 같은 원문 안 비슷한 줄은 남김·같은 글자 반복만 뺌(#5368) 통과')
+}

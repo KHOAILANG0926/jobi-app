@@ -212,7 +212,9 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
         if (item.role && /^\(tg:/.test(bare(item.line))) { item.key = '03'; item.how = 'line'; item.rule = 'role_hours' }
 
         // 2026-11-01 Lee "빠짐 0": 급여 총액·위쪽 칸과 겹치는 줄도 뺀다 하지 않는다(10-30 확정 ④ 원문 전체).
-        if (lines.some((l) => l.role === item.role && sameLine(l.line, item.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
+        // 같은 원문 안의 줄은 글자가 같을 때만 중복이다(10-30 확정 ④ '애매하면 남긴다') — 낱말이 85% 겹친다고 이름표가 다른 줄(예 '…NHẬN VIỆC:' 제목 줄)을 빼면 원문 줄이 사라진다(#5368).
+        // 낱말 겹침으로 같은 줄로 보는 것은 서로 다른 원문(게시글↔포스터 읽기)끼리만. 검사기 기준을 가져다 쓰지 않는다(독립성) — 이 쪽이 스스로 더 보수적인 기준을 가진다.
+        if (lines.some((l) => l.role === item.role && (bare(l.line) === bare(item.line) || (l.from !== item.from && sameLine(l.line, item.line))))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
         // 2026-11-01 #5157: 게시글 "Ca A: 06h30 – 14h30"과 포스터 "CA 1: 6h30 - 14h30"은 같은 교대다(이름표만 다름).
         if (shiftOnlyLine(item.line) && timeRanges(item.line).every((r) => lines.some((l) => l.role === item.role && timeRanges(l.line).includes(r)))) {
           dropped.push({ line: item.line, reason: 'duplicate' }); continue
