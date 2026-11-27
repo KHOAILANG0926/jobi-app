@@ -27,6 +27,7 @@ import { chainWheelToPage } from './pageScrollChain'
 import MobileDetailSheet from './MobileDetailSheet'
 import { jobsNearPlace, type PickedPlace } from '../../lib/mapPlace'
 import { occupationGroupsInJobs, useOccupationNames } from '../../lib/occupations'
+import { mainCardOccupationGroups } from '../../lib/mainJobCards'
 import { DEFAULT_VIEWPORT, VIEWPORT_KEY, readViewport, mapSearch, selectedMapEntry, LOCATION_LABELS, validPoint, type RepresentativePoints, type MapBounds } from '../../lib/mapR1'
 import type { HomeMapViewport } from './map/HomeMapTypes'
 import { observeInViewOnce } from '../../lib/inViewOnce'
@@ -163,7 +164,8 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
     const r = mapSearch(mapJobs, { ...filters, occupationGroups: [] }, searchOrigin, radiusActive ? filters.radiusKm : null, bounds, representatives)
     // Mobile discovery includes text locations; desktop keeps its previous viewport-only occupation scope.
     const available = radiusActive ? r.radiusJobs : isMobileLayout ? r.entries : r.entries.filter(e => r.visibleIds.has(e.job.id))
-    const groups = occupationGroupsInJobs(available.map(e => e.job))
+    // 모바일 목록은 메인 카드(급여를 읽은 공고)만 보여 주므로 칩 숫자도 같은 집합으로 센다. 데스크톱은 기존 지도 구역 기준 그대로.
+    const groups = isMobileLayout ? mainCardOccupationGroups(available.map(e => e.job)) : occupationGroupsInJobs(available.map(e => e.job))
     const missing = (filters.occupationGroups ?? []).filter(c => !groups.some(g => g.code === c)).map(code => ({ code, count: 0 }))
     return [...groups, ...missing]
   }, [mapJobs, filters, origin, radiusActive, bounds, representatives, isMobileLayout])
