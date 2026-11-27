@@ -168,6 +168,8 @@ jobs:
         run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs --test scripts/ci/admin-location-queue.test.mjs
       - name: 빌드
         run: npm run build
+      - name: 앱 단독 타입 검사·빌드 (웹 화면 코드 없이 앱이 따로 빌드되는지, #1031 후속)
+        run: npm run typecheck:app && npm run build:app
       - name: STATUS 생성기 점검 (가짜 응답으로 끝까지 실행)
         run: |
           node scripts/status/status-lib.test.mjs
