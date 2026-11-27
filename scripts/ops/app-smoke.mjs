@@ -72,6 +72,17 @@ for (const v of VIEWPORTS) {
       if (!h1) throw new Error('상세 제목이 비어 있음')
     }, v.name)) })
   }
+  // 이력서(CV) PDF 내려받기(웹 /ho-so, 로그인 없이 열림): 'Tải xuống PDF'를 누르면 실제 PDF 파일이 받아져야 한다. PDF 도구(jspdf·html2canvas)는 이 단추에서 따로 불러오는 묶음이라
+  // 빌드 설정(청크 분리)이 바뀌어도 깨지지 않는지 운영에서 확인한다(#1147).
+  if (v.name === 'PC') results.push({ device: v.name, ...(await checkPage(context, '/ho-so', async (page) => {
+    const btn = page.getByRole('button', { name: 'Tải xuống PDF' })
+    await btn.waitFor({ state: 'visible', timeout: 30_000 })
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 60_000 }), btn.click()])
+    const file = await download.path()
+    const bytes = readFileSync(file)
+    if (bytes.subarray(0, 5).toString() !== '%PDF-') throw new Error('내려받은 파일이 PDF가 아님')
+    if (bytes.length < 5_000) throw new Error(`PDF가 너무 작음(${bytes.length}바이트)`)
+  }, v.name)) })
   // 앱(/app): 같은 데이터가 앱 화면에서도 열려야 한다(웹과 독립 운영, 공통 데이터 규격 확인)
   results.push({ device: v.name, ...(await checkPage(context, '/app/', async (page) => {
     await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
