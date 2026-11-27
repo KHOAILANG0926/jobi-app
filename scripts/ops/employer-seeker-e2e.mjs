@@ -14,6 +14,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_DB_URL) {
 const base = process.env.E2E_BASE_URL || 'https://www.viecganban.vn'
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
 const db = new pg.Client({ connectionString: SUPABASE_DB_URL, connectionTimeoutMillis: 15000 })
+const SWEEP_ONLY = process.argv.includes('--sweep')
 const marker = randomUUID().replace(/-/g, '').slice(0, 10)
 const password = `${randomUUID()}aA1!`
 const users = [] // { id, email, role }
@@ -39,8 +40,41 @@ async function uiLogin(page, u) {
   if (!hasSession) throw Error(`${u.role}: 로그인 뒤 브라우저에 세션 없음`)
 }
 
+// 이전 실행이 강제 종료(취소·시간 초과·실행기 중단)돼 남긴 일회용 계정을 먼저 지운다. 이 실행기가 만든 계정만 지운다:
+// 이메일이 vgb-e2e-*@example.invalid 이고 가입 정보에 e2e_marker가 있는 계정(실제 회원 계정은 이 조건에 걸리지 않는다).
+async function sweepLeftovers() {
+  const r = await db.query("select id, email from auth.users where email like 'vgb-e2e-%@example.invalid' and raw_user_meta_data ? 'e2e_marker'")
+  for (const row of r.rows) {
+    const { error } = await admin.auth.admin.deleteUser(row.id)
+    if (error) { console.error('SWEEP error:', row.email, error.message); process.exitCode = 1 }
+    else console.log('SWEEP: 남아 있던 시험 계정 삭제', row.email)
+  }
+  const left = await db.query("select count(*)::int as n from auth.users where email like 'vgb-e2e-%@example.invalid' and raw_user_meta_data ? 'e2e_marker'")
+  if (left.rows[0].n !== 0) { console.error('CRITICAL: 잔존 시험 계정 삭제 확인 실패', left.rows[0].n); process.exitCode = 1 }
+  else console.log('PASS: 잔존 시험 계정 0건 확인')
+}
+let cleaned = false
+async function cleanup() {
+  if (cleaned) return
+  cleaned = true
+  if (browser) await browser.close().catch(() => {})
+  for (const u of users) {
+    const { error } = await admin.auth.admin.deleteUser(u.id)
+    if (error) { console.error('CLEANUP user error:', u.role, error.message); process.exitCode = 1 }
+  }
+  if (users.length) {
+    const left = await db.query('select (select count(*) from auth.users where id = any($1::uuid[]))::int as au, (select count(*) from public.account_roles where user_id = any($1::uuid[]))::int as ar', [users.map((u) => u.id)]).catch(() => null)
+    if (left?.rows[0]?.au !== 0 || left?.rows[0]?.ar !== 0) { console.error('CRITICAL: 시험 계정 삭제 확인 실패', JSON.stringify(left?.rows[0])); process.exitCode = 1 }
+    else console.log('PASS: 시험 계정 2개와 역할 행 삭제 확인(auth.users·account_roles 0)')
+  }
+}
+// 실행 취소·종료 신호가 오면 계정부터 지우고 끝낸다(GitHub Actions 취소는 SIGINT→SIGTERM으로 온다).
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => { console.error('신호', sig, '— 시험 계정 정리 후 종료'); await cleanup().catch(() => {}); await db.end().catch(() => {}); process.exit(1) })
+
 try {
   await db.connect()
+  await sweepLeftovers()
+  if (SWEEP_ONLY) { await db.end(); process.exit(process.exitCode ?? 0) }
   const employer = await createUser('employer')
   const seeker = await createUser('seeker')
   pass(`일회용 시험 계정 2개 생성(기존 관리자 계정 생성 경로) — 표식 ${marker}`)
@@ -72,15 +106,6 @@ try {
   console.error('E2E FAIL:', e instanceof Error ? e.stack : String(e))
   process.exitCode = 1
 } finally {
-  if (browser) await browser.close().catch(() => {})
-  for (const u of users) {
-    const { error } = await admin.auth.admin.deleteUser(u.id)
-    if (error) { console.error('CLEANUP user error:', u.role, error.message); process.exitCode = 1 }
-  }
-  if (users.length) {
-    const left = await db.query('select (select count(*) from auth.users where id = any($1::uuid[]))::int as au, (select count(*) from public.account_roles where user_id = any($1::uuid[]))::int as ar', [users.map((u) => u.id)]).catch(() => null)
-    if (left?.rows[0]?.au !== 0 || left?.rows[0]?.ar !== 0) { console.error('CRITICAL: 시험 계정 삭제 확인 실패', JSON.stringify(left?.rows[0])); process.exitCode = 1 }
-    else console.log('PASS: 시험 계정 2개와 역할 행 삭제 확인(auth.users·account_roles 0)')
-  }
+  await cleanup()
   await db.end().catch(() => {})
 }

@@ -38,6 +38,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: 일회용 계정 생성·실제 로그인·권한 화면 확인·계정 삭제
         run: node scripts/ops/employer-seeker-e2e.mjs
+      - name: 강제 종료·취소돼도 남은 일회용 시험 계정 정리(이 실행기가 만든 계정만)
+        if: always()
+        run: node scripts/ops/employer-seeker-e2e.mjs --sweep
       - uses: actions/upload-artifact@v4
         if: always()
         with:
