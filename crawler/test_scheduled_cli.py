@@ -195,12 +195,12 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertIn("CRAWL_SLOT_ME: ${{ github.run_id }}", slot_job)
         self.assertNotIn("secrets.", slot_job)
         self.assertIn("    needs: slot\n", wf)
-        # 보충은 수집·보관만(저장 잡을 돌리는 입력을 넘기지 않음) + 정기 DB 저장 중단 그대로
+        # 보충은 수집·보관만(저장 잡을 돌리는 입력을 넘기지 않음) — 정기 DB 저장 재개 준비본(Draft)
         self.assertIn("-f dry_run=true", catchup)
         self.assertIn("-f keep_for_save=true", catchup)
         self.assertNotIn("verify_save_run_id", catchup)
         self.assertNotIn("publish_one", catchup)
-        self.assertIn("if: false && github.event_name == 'schedule'", wf)
+        self.assertIn("if: github.event_name == 'schedule'", wf)
         # 수집 결과 요약은 연락처를 DB 게이트와 같은 8자리 기준(job_criteria 한 곳)으로 따로 보이고, 크롤러의 지원경로 판정을 '공개 판정'이라 부르지 않는다
         self.assertIn("from job_criteria import has_enough_contact", wf)
         self.assertNotIn("공개 판정 {j.get('active')}", wf)
@@ -223,7 +223,7 @@ class ScheduledCallerTests(unittest.TestCase):
             "if: " + slot_if,   # slot 잡(#1071: 오늘 자리 판정)
             "if: needs.slot.outputs.skip != 'true' && (" + slot_if + ")",   # crawl 잡: 자리가 이미 찼으면 건너뜀
             # Lee 2026-11-26 「웹 정상화 종료 전 신규 공개 금지 … 정기 DB 저장만 일시 중단」: 정기 저장 잡은 꺼 둔다(수집·원문 보관은 그대로).
-            "if: false && github.event_name == 'schedule'",
+            "if: github.event_name == 'schedule'",
             "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.verify_save_run_id != ''"])
         # 상세 결과는 수집이 받은 것을 그대로 남긴다(다시 접속하는 단계 없음, 2026-11-26)
         self.assertNotIn("--dry-run-urls", crawl)
