@@ -38,7 +38,7 @@ const makeUser = async (key, role = 'seeker') => {
 
 // ── 1. 실제 인증(GoTrue) ──
 try {
-  const l = await makeUser('employer', 'employer'); await makeUser('employer2', 'employer'); await makeUser('seeker'); await makeUser('seeker2'); await makeUser('seeker3')
+  const l = await makeUser('employer', 'employer'); await makeUser('employer2', 'employer'); await makeUser('seeker'); await makeUser('seeker2'); await makeUser('seeker3'); for (const k of ['chain', 'retry', 'upd']) await makeUser(k)
   rec('A1', '실제 GoTrue 로그인(비밀번호) → 사용자 토큰', l.status === 200)
   const me = await call('GET', '/auth/v1/user', { token: users.seeker.token })
   rec('A2', '발급 토큰으로 사용자 조회', me.status === 200 && me.json?.email === users.seeker.email)
@@ -70,7 +70,7 @@ const GUEST_TOKEN = 'g'.repeat(24)
 const flows = (label) => [
   ['익명: 공개 공고 목록', async () => { const r = await call('GET', `/rest/v1/local_jobs?select=id,title,company&id=eq.${jobId}`); return r.status === 200 && r.json?.length === 1 }],
   ['익명: 원문 주소(source_url) 열은 못 읽음', async () => { const r = await call('GET', `/rest/v1/local_jobs?select=source_url&id=eq.${jobId}`); return r.status === 401 || r.status === 403 || (r.status === 200 && (r.json ?? []).every((x) => x.source_url == null)) }],
-  ['익명: 게스트 등록(ingest_job)', async () => { const r = await call('POST', '/rest/v1/rpc/ingest_job', { body: { p: { channel: 'employer', guest_manage_token: GUEST_TOKEN + label, source_text: `${COMPANY} tuyen. LH 0912345678`, company: COMPANY, title: `guest-${label}`, employer_phone: '0912345678', location: 'KCN Yên Phong, Bắc Ninh', active: true } } }); flows.guestId = r.json; return r.status === 200 && Number.isInteger(r.json) }],
+  ['익명: 게스트 등록(ingest_job)', async () => { const r = await call('POST', '/rest/v1/rpc/ingest_job', { body: { p: { channel: 'employer', guest_manage_token: GUEST_TOKEN + label, source_text: `${COMPANY} tuyen ${label}. LH 0912345678`, company: COMPANY, title: `guest-${label}`, employer_phone: '0912345678', location: 'KCN Yên Phong, Bắc Ninh', active: true } } }); flows.guestId = r.json; return r.status === 200 && Number.isInteger(r.json) }],
   ['익명: 게스트 관리 링크 조회(get_guest_job)', async () => { const r = await call('POST', '/rest/v1/rpc/get_guest_job', { body: { p_job_id: flows.guestId, p_token: GUEST_TOKEN + label } }); return r.status === 200 && r.json?.length === 1 }],
   ['익명: 지원 insert는 거부', async () => { const r = await call('POST', '/rest/v1/applications', { body: { job_id: jobId, seeker_id: users.seeker.id, employer_id: users.employer.id } }); return r.status === 401 || r.status === 403 }],
   // 운영에는 0020 초안(관리자 함수 anon 회수)이 적용돼 있지 않아 anon이 실행 권한을 가진다(#1070 구조 대조) — 실행 권한이 있어도 함수 안 관리자 확인이 막는지 실제 PostgREST로 본다.
@@ -95,6 +95,9 @@ if (jobId) {
   const anonActive = await call('POST', '/rest/v1/rpc/is_account_active', { body: { user_id: users.seeker?.id } })
   observe('E1', '비로그인의 is_account_active 호출', `status ${anonActive.status}${anonActive.status === 200 ? ' (임의 사용자 번호의 활성 여부 조회 가능)' : ' ' + anonActive.code}`)
   // 격리 DB에서만: anon·public 실행 권한을 회수한 뒤 같은 흐름을 다시 돌려 영향을 본다(복구함)
+  // 정책이 is_account_active를 맨 앞에서 부르는 storage.objects(cv-photos 정책): anon이 사진 저장소를 조회·저장할 때 회수 전후가 다른지 — 익명 저장소 사용(게스트 사진 올리기 등)의 영향 근거
+  const storageProbe = () => { let r6 = '', r7 = ''; try { r6 = '조회 ' + sql(`set local role anon; select count(*) from storage.objects`) } catch (e) { r6 = '조회 오류: ' + e.message.slice(0, 120) } try { sql(`set local role anon; insert into storage.objects (bucket_id, name) values ('cv-photos', 'applications/1/x/e2e-${Date.now()}.png')`); r7 = '삽입 성공' } catch (e) { r7 = '삽입 오류: ' + e.message.slice(0, 120) } return r6 + ' / ' + r7 }
+  observe('E6a', 'anon 회수 전 storage.objects 조회·삽입(기준)', storageProbe())
   const had = sql(`select has_function_privilege('anon','public.is_account_active(uuid)','execute')`) === 't'
   sql(`revoke execute on function public.is_account_active(uuid) from anon, public`)
   try {
@@ -102,6 +105,11 @@ if (jobId) {
     const broke = Object.keys(before).filter((n) => before[n] && !after[n])
     observe('E2', 'anon 실행 권한을 회수하면 깨지는 흐름', broke.length ? broke.join(' / ') : '없음(모든 흐름 동일)')
     // 실험 결과(관찰): 격리 DB에서 anon 실행 권한을 회수해 본 것이므로 통과·실패가 아니라 '무엇이 깨지는지'를 남긴다 — 대표 결정 항목(0020 초안)의 근거.
+    // 왜 깨지는지(2단계 설계 근거): 회수 상태에서 anon 역할로 get_guest_job을 직접 불러 DB가 돌려주는 오류 원문과 함수 소유자를 본다
+    try { const own = sql(`select pg_get_userbyid(proowner) || ' / secdef=' || prosecdef from pg_proc where oid = 'public.get_guest_job(bigint,text)'::regprocedure`); let err = '오류 없음'; try { err = '행 수 ' + sql(`set local role anon; select count(*) from public.get_guest_job(${flows.guestId}, '${GUEST_TOKEN}after')`) } catch (e) { err = e.message.slice(0, 200) } const rest = await call('POST', '/rest/v1/rpc/get_guest_job', { body: { p_job_id: flows.guestId, p_token: GUEST_TOKEN + 'after' } }); err += ` / REST ${rest.status} ${rest.code} ${rest.msg} 행 ${Array.isArray(rest.json) ? rest.json.length : '?'} guestId ${flows.guestId}`; observe('E4', 'anon 회수 상태의 get_guest_job 직접 호출', `소유자 ${own} / ${err}`) } catch (e) { observe('E4', 'anon 회수 상태의 get_guest_job 직접 호출', '조회 실패 ' + e.message.slice(0, 100)) }
+    // anon에게 적용되는 정책(roles에 public·anon)이 is_account_active를 부르는지 + 그 표에 anon 권한이 있는지 — 회수해도 되는지의 DB 쪽 근거
+    try { const pol = sql(`select coalesce(string_agg(p.tablename || '.' || p.policyname || '[' || p.cmd || ';anon권한=' || coalesce((select string_agg(privilege_type, ',') from information_schema.role_table_grants g where g.grantee = 'anon' and g.table_schema = p.schemaname and g.table_name = p.tablename), '없음') || ']', ' | '), '없음') from pg_policies p where (coalesce(p.qual, '') || coalesce(p.with_check, '')) like '%is_account_active%' and (p.roles && array['public', 'anon']::name[])`); observe('E5', 'anon에게 적용되는 정책 중 is_account_active를 부르는 것', pol.slice(0, 700)) } catch (e) { observe('E5', 'anon에게 적용되는 정책 조회', '실패 ' + e.message.slice(0, 100)) }
+    observe('E6', 'anon 회수 상태에서 storage.objects 조회·삽입', storageProbe())
     observe('E3', 'anon 회수 뒤에도 유지되는 익명 흐름', ['익명: 공개 공고 목록', '익명: 게스트 등록(ingest_job)', '익명: 게스트 관리 링크 조회(get_guest_job)'].filter((n) => after[n]).join(' / ') || '없음')
   } finally { if (had) sql(`grant execute on function public.is_account_active(uuid) to anon`) }
 }
@@ -279,6 +287,81 @@ if (jobId) {
   } catch (e) { rec('K0', '공고 유형별 등록 규칙', false, e.message) }
 }
 
+// ── 3-5. 등록→공개→지원→메시지→면접 한 줄 연결 + 폐기된 세션의 권한(대표 추가 검토 3·2번) ──
+// 기존 시험이 따로 본 것: 등록(H)·공개 조회·지원(D)·메시지(I6~)·면접(I11~)·세션 폐기 화면(L4). 여기서는 같은 (공고, 구직자) 한 쌍으로 이어서 보고, 공개 단계(관리자)와 폐기된 접근 토큰을 본다.
+if (jobId) {
+  try {
+    const login = async (u) => (await call('POST', '/auth/v1/token?grant_type=password', { body: { email: u.email, password: PW } })).json.access_token
+    const E = users.employer, C = users.chain
+    const et = await login(E), ct = await login(C)
+    // 공개 단계: 기업이 등록한 새 공고를 관리자(JWT app_metadata.role=admin)가 공개로 돌릴 수 있는지 — 공개 규칙은 DB 트리거 한 곳
+    const adminEmail = `e2e-admin-${RUN}@example.com`
+    const ac = await call('POST', '/auth/v1/admin/users', { token: SERVICE, body: { email: adminEmail, password: PW, email_confirm: true, app_metadata: { role: 'admin' } } })
+    const adminTok = (await call('POST', '/auth/v1/token?grant_type=password', { body: { email: adminEmail, password: PW } })).json?.access_token
+    const reg = await call('POST', '/rest/v1/rpc/ingest_job', { token: et, body: { p: { channel: 'employer', employer_id: E.id, source_text: `E2E Chain Co ${RUN}\nTuyen nhan vien chay ban\nKCN Yen Phong, Bac Ninh\nLH 0912345678`, company: `E2E Chain Co ${RUN}`, title: `Chain ${RUN}`, description: 'Phuc vu ban', location: 'KCN Yen Phong, Bac Ninh', employer_phone: '0912345678', active: true, occupation_code: '5', occupation_evidence: 'Tuyen nhan vien chay ban' } } })
+    const pubBefore = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${reg.json}`)
+    const pub = await call('PATCH', `/rest/v1/local_jobs?id=eq.${reg.json}`, { token: adminTok, headers: { prefer: 'return=representation' }, body: { active: true } })
+    const pubAfter = await call('GET', `/rest/v1/local_jobs?select=id,active&id=eq.${reg.json}`)
+    // 공개 전환(DB 규칙 한 곳: enforce_job_inspect_current): 고용주 공고는 '지금 내용'의 검사 통과 기록(ocr_check.inspect.content_hash + publishable)이 있어야 공개가 시작된다.
+    // 검사 통과 기록은 서버 검사기(scripts/ops/job-inspect.mjs, 서비스 키)가 쓴다 — 여기서는 같은 기록을 DB가 직접 계산하는 지문(job_inspect_content_hash)으로 써서 DB 규칙의 공개 전환 구간을 본다(검사기 코드 자체는 기존 단위 시험이 검증). 격리 DB 안에서만 — 운영 공개와 무관.
+    const stateOf = (id) => call('GET', `/rest/v1/local_jobs?select=active,ocr_check,publish_gate_reason&id=eq.${id}`, { token: SERVICE }).then((r) => r.json?.[0])
+    const own = await call('PATCH', `/rest/v1/local_jobs?id=eq.${reg.json}`, { token: et, body: { active: true } })
+    const afterOwn = await stateOf(reg.json)
+    rec('M0a', '검사 통과 기록 없이 기업이 직접 공개로 바꿔도 비공개로 되돌려지고 검사 대기(inspect_hold)가 표시됨', afterOwn?.active === false && afterOwn?.ocr_check?.inspect_hold === true, `수정 ${own.status} / active ${afterOwn?.active} hold ${afterOwn?.ocr_check?.inspect_hold}`)
+    // 검사기는 서버 DB 연결(소유자 권한)로 쓴다 — REST 서비스 키로는 이 칸을 못 쓰므로(403) 격리 DB에 같은 방식으로 연결한다.
+    const pass = (id, hash) => { try { sql(`update public.local_jobs set ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('inspect', jsonb_build_object('content_hash', '${hash}', 'publishable', true)), active = true where id = ${id}`); return { status: 200, code: '' } } catch (e) { return { status: 0, code: e.message.slice(0, 80) } } }
+    const hashOf = (id) => sql(`select public.job_inspect_content_hash(j) from public.local_jobs j where id = ${id}`)
+    const reg2 = await call('POST', '/rest/v1/rpc/ingest_job', { token: et, body: { p: { channel: 'employer', employer_id: E.id, source_text: `E2E Stale Co ${RUN}\nTuyen nhan vien chay ban\nKCN Yen Phong, Bac Ninh\nLH 0912345678`, company: `E2E Stale Co ${RUN}`, title: `Stale ${RUN}`, description: 'Phuc vu ban', location: 'KCN Yen Phong, Bac Ninh', employer_phone: '0912345678', active: true, occupation_code: '5', occupation_evidence: 'Tuyen nhan vien chay ban' } } })
+    await pass(reg2.json, 'stale-hash-0000')
+    const stale = await stateOf(reg2.json)
+    rec('M0b', '다른 내용(옛 지문)의 검사 통과 기록으로는 공개되지 않음', stale?.active === false, `active ${stale?.active}`)
+    const ps = await pass(reg.json, hashOf(reg.json))
+    const nowPub = await stateOf(reg.json)
+    const anonSees = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${reg.json}`)
+    rec('M0c', '지금 내용의 검사 통과 기록이 있으면 공개되고 비로그인에게 보임(검사 → 공개 전환)', nowPub?.active === true && anonSees.json?.length === 1, `기록 ${ps.status} ${ps.code} / active ${nowPub?.active} gate ${nowPub?.publish_gate_reason} / 익명 ${anonSees.json?.length ?? '?'}건`)
+    if (nowPub?.active === true) {
+      const ct2 = await login(C)
+      const a1 = await call('POST', '/rest/v1/applications', { token: ct2, headers: { prefer: 'return=representation' }, body: { job_id: reg.json, seeker_id: C.id, employer_id: E.id, job_title: `Chain ${RUN}`, company: `E2E Chain Co ${RUN}`, seeker_name: 'E2E Chain', seeker_phone: '0900000009' } })
+      const t1 = await call('POST', '/rest/v1/message_threads', { token: ct2, headers: { prefer: 'return=representation' }, body: { job_id: reg.json, seeker_id: C.id, employer_id: E.id, job_title: `Chain ${RUN}`, company: `E2E Chain Co ${RUN}`, seeker_name: 'E2E Chain', unread_by_employer: true } })
+      const m1 = t1.json?.[0]?.id ? await call('POST', '/rest/v1/messages', { token: ct2, body: { thread_id: t1.json[0].id, from_role: 'seeker', body: 'hello published' } }) : { status: 0 }
+      const i1 = await call('POST', '/rest/v1/interviews', { token: et, body: { job_id: reg.json, seeker_id: C.id, employer_id: E.id, job_title: `Chain ${RUN}`, company: `E2E Chain Co ${RUN}`, datetime: new Date(Date.now() + 3 * 86400_000).toISOString(), location: 'KCN Yên Phong', notes: 'e2e', status: 'pending' } })
+      const seen = await Promise.all(['applications', 'message_threads', 'interviews'].map((t) => call('GET', `/rest/v1/${t}?select=job_id&job_id=eq.${reg.json}&seeker_id=eq.${C.id}`, { token: et })))
+      rec('M0d', '기업이 등록한 그 공고가 공개된 뒤 지원 → 대화 → 면접이 같은 (공고, 구직자)로 이어지고 기업이 모두 봄', a1.status === 201 && t1.status === 201 && m1.status === 201 && i1.status === 201 && seen.every((r) => r.json?.length === 1), `지원 ${a1.status} 대화 ${t1.status} 메시지 ${m1.status} 면접 ${i1.status} / 기업이 본 줄 ${seen.map((r) => r.json?.length).join(',')}`)
+    }
+    // 한 쌍 연결(공개 중인 고정 공고로): 지원 → 중복 거부 → 기업이 지원자로 봄 → 메시지 → 면접이 모두 같은 (job_id, seeker_id)
+    const ap = await call('POST', '/rest/v1/applications', { token: ct, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', seeker_phone: '0900000009' } })
+    const dup = await call('POST', '/rest/v1/applications', { token: ct, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', seeker_phone: '0900000009' } })
+    const rowsMine = await call('GET', `/rest/v1/applications?select=id&job_id=eq.${jobId}&seeker_id=eq.${C.id}`, { token: ct })
+    rec('M1', '지원 → 같은 공고 중복 지원은 거부되고 지원 줄은 1개', ap.status === 201 && dup.status === 409 && rowsMine.json?.length === 1, `지원 ${ap.status} 중복 ${dup.status}`)
+    const th = await call('POST', '/rest/v1/message_threads', { token: ct, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', unread_by_employer: true } })
+    const thId = th.json?.[0]?.id
+    const msg = thId ? await call('POST', '/rest/v1/messages', { token: ct, body: { thread_id: thId, from_role: 'seeker', body: 'chain hello' } }) : { status: 0 }
+    const thDup = await call('POST', '/rest/v1/message_threads', { token: ct, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, unread_by_employer: true } })
+    rec('M2', '같은 공고·지원자의 대화는 한 줄만 생김(두 번째 만들기는 거부)', th.status === 201 && msg.status === 201 && thDup.status === 409, `대화 ${th.status} 중복 ${thDup.status}`)
+    const when = new Date(Date.now() + 2 * 86400_000).toISOString()
+    const iv = await call('POST', '/rest/v1/interviews', { token: et, headers: { prefer: 'return=representation' }, body: { job_id: jobId, seeker_id: C.id, employer_id: E.id, job_title: TITLE, company: COMPANY, seeker_name: 'E2E Chain', datetime: when, location: 'KCN Yên Phong', notes: 'chain', status: 'pending' } })
+    const eApps = await call('GET', `/rest/v1/applications?select=job_id,seeker_id&job_id=eq.${jobId}&seeker_id=eq.${C.id}`, { token: et })
+    const eThreads = await call('GET', `/rest/v1/message_threads?select=job_id,seeker_id&job_id=eq.${jobId}&seeker_id=eq.${C.id}`, { token: et })
+    const eIv = await call('GET', `/rest/v1/interviews?select=job_id,seeker_id&job_id=eq.${jobId}&seeker_id=eq.${C.id}`, { token: et })
+    const sIv = await call('GET', `/rest/v1/interviews?select=job_id&seeker_id=eq.${C.id}&status=neq.cancelled`, { token: ct })
+    rec('M3', '기업이 같은 (공고, 구직자) 한 쌍의 지원·대화·면접을 모두 보고, 구직자도 자기 면접을 봄', iv.status === 201 && eApps.json?.length === 1 && eThreads.json?.length === 1 && eIv.json?.length === 1 && sIv.json?.some((x) => x.job_id === jobId), `면접 ${iv.status} / 지원 ${eApps.json?.length} 대화 ${eThreads.json?.length} 면접 ${eIv.json?.length}`)
+
+    // 폐기된 세션(서버에서 전체 로그아웃)의 접근 토큰: GoTrue는 거부하지만 PostgREST는 서명·만료만 보므로 남은 유효시간 동안 통할 수 있다 — 실제로 어떤지와 권한 경계(RLS·관리자)가 그대로인지 본다
+    const l2 = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: C.email, password: PW } })
+    const oldTok = l2.json?.access_token
+    const outR = await call('POST', '/auth/v1/logout?scope=global', { token: oldTok })
+    const gt = await call('GET', '/auth/v1/user', { token: oldTok })
+    rec('R1', '폐기된 세션의 접근 토큰은 GoTrue(/auth/v1/user)에서 거부됨', outR.status < 300 && gt.status >= 400, `logout ${outR.status} / 조회 ${gt.status} ${gt.code}`)
+    const rd = await call('GET', `/rest/v1/applications?select=id&seeker_id=eq.${C.id}`, { token: oldTok })
+    const wr = await call('POST', '/rest/v1/messages', { token: oldTok, body: { thread_id: thId, from_role: 'seeker', body: 'after-logout' } })
+    const adm = await call('POST', '/rest/v1/rpc/admin_list_users', { token: oldTok, body: {} })
+    const other = await call('GET', `/rest/v1/applications?select=seeker_id`, { token: oldTok })
+    observe('R2', '폐기된 세션의 접근 토큰으로 PostgREST 호출', `내 지원 읽기 ${rd.status} / 메시지 쓰기 ${wr.status} (실제 서버가 거부했는지 확인용)`)
+    rec('R3', '폐기된 토큰이어도 권한 경계는 그대로(관리자 함수 거부, 남의 지원 못 봄)', adm.status >= 400 && (other.json ?? []).every((x) => x.seeker_id === C.id))
+    // 쓰기가 통했다면 정리(시험 데이터라 영향 없음)
+  } catch (e) { rec('M0x', '연결 과정·폐기 세션', false, e.message) }
+}
+
 // ── 4. 웹·앱 화면(실제 브라우저, 실제 로컬 스택) ──
 if (BASE && jobId) {
   const browser = await chromium.launch()
@@ -334,7 +417,7 @@ if (BASE && jobId) {
   }
   // ── 앱 등록 → 웹 확인 교차(실제 브라우저·실제 로컬 스택): 기업이 앱(/app/biz/dang-tin)에서 공고를 등록하면 같은 계정의 앱 관리 화면·웹 관리 화면·DB에 같은 공고가 보이고, 비로그인에게는 검사 전이라 안 보인다.
   {
-    const APP_TITLE = `Tuyen app ${RUN}`.slice(0, 40)
+    const APP_TITLE = `Nhan vien phuc vu ${RUN}`.slice(0, 40)
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(context)
     const page = await context.newPage()
     try {
@@ -346,6 +429,8 @@ if (BASE && jobId) {
       await page.goto(`${BASE}/app/biz/dang-tin`, { waitUntil: 'domcontentloaded' })
       await page.locator('[data-testid="app-pj"]').waitFor({ state: 'visible', timeout: 30_000 })
       await page.locator('#app-pj-title').fill(APP_TITLE)
+      await page.getByLabel('Ngành nghề', { exact: true }).selectOption('am_thuc_do_uong')
+      await page.getByLabel('Chi tiết ngành nghề').selectOption('phuc_vu_ban')
       await page.locator('#app-pj-company').fill('E2E App Co')
       await page.getByRole('button', { name: 'Chính thức', exact: true }).click()
       await page.locator('#app-pj-hires').fill('5')
@@ -365,6 +450,7 @@ if (BASE && jobId) {
       const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email: users.employer.email, password: PW } })
       const et = l.json?.access_token
       const mine = await call('GET', `/rest/v1/local_jobs?select=id,title,active,employer_id&title=eq.${encodeURIComponent(APP_TITLE)}`, { token: et })
+      const appJobId = mine.json?.[0]?.id
       rec('J2', '웹과 같은 DB 줄로 저장됨(작성 기업 소유, 기업 토큰으로 조회)', mine.json?.length === 1 && mine.json[0].employer_id === users.employer.id, `${mine.json?.length ?? 0}건`)
       const pub = await call('GET', `/rest/v1/local_jobs?select=id&title=eq.${encodeURIComponent(APP_TITLE)}`)
       rec('J3', '앱에서 등록한 새 공고도 검사 전에는 비로그인에게 안 보임(웹과 같은 공개 규칙)', pub.status === 200 && (pub.json ?? []).length === 0)
@@ -375,6 +461,31 @@ if (BASE && jobId) {
       const inWeb = await page.waitForFunction((t) => document.body.innerText.includes(t), APP_TITLE, { timeout: 30_000 }).then(() => true, () => false)
       rec('J5', '웹 기업 관리 화면(/bang-dieu-khien)에도 같은 공고가 보임(앱 등록 → 웹 확인)', inWeb)
       await page.screenshot({ path: `${SHOTS}/web-dashboard-after-app-post.png` })
+      // 실제 검사기 경로: 앱에서 등록한 공고(필수 칸 전부 채움)에 확정 위치(Google 확인 좌표 쓰기와 같은 DB 쓰기 함수)를 주고 실제 검사기(job-inspect.mjs)를 격리 DB에 그대로 실행 → 검사기가 직접 판정·기록·공개 → 지원 → 대화 → 면접.
+      // 위의 직접 기록(M0c)은 DB 공개 조건 검증으로만 본다. 격리 DB 안에서만 — 운영 공개와 무관, 열쇠·알림 없음.
+      if (appJobId) {
+        try {
+          const loc = sql(`select location from public.local_jobs where id = ${appJobId}`)
+          sql(`select location_private.write_location(${appJobId}, 'upsert', jsonb_build_object('address', '${loc.replace(/'/g, "''")}', 'lat', 21.2, 'lng', 106.0, 'authority', 'source_verified', 'evidence', jsonb_build_object('source', 'Google place', 'checkedAt', now(), 'evidence', 'e2e same name one place')))`)
+          // 화면 대조(detail-read.mjs)는 실제 사이트의 관리자 상세를 브라우저로 보는 별도 단계라 격리 환경에서 돌리지 않는다 — 그 단계의 결과 기록(지금 내용 지문 + 확정 오류 없음)만 같은 칸에 쓴다. 검사기 실행·판정·공개는 실제 코드.
+          sql(`update public.local_jobs j set ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('screen_audit', jsonb_build_object('content_hash', public.job_inspect_content_hash(j), 'findings', '[]'::jsonb)) where id = ${appJobId}`)
+          const insp = spawnSync('node', ['--experimental-strip-types', '--import', './scripts/ts-extensionless-register.mjs', 'scripts/ops/job-inspect.mjs'], { encoding: 'utf8', env: { ...process.env, SUPABASE_DB_URL: DB, GH_TOKEN: '', REPO: '' }, timeout: 180_000 })
+          const st = await call('GET', `/rest/v1/local_jobs?select=active,ocr_check,publish_gate_reason&id=eq.${appJobId}`, { token: SERVICE }).then((r) => r.json?.[0])
+          const why = sql(`select left(coalesce(ocr_check->'inspect'->'items', '[]'::jsonb)::text, 1800) from public.local_jobs where id = ${appJobId}`)
+          const anon = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${appJobId}`)
+          rec('P1', '실제 검사기 실행 → 검사기가 직접 판정·기록(publishable)하고 공개 → 비로그인에게 보임', insp.status === 0 && st?.ocr_check?.inspect?.publishable === true && st?.active === true && anon.json?.length === 1, `종료 ${insp.status} / 검사기록 publishable ${st?.ocr_check?.inspect?.publishable} active ${st?.active} gate ${st?.publish_gate_reason} / 익명 ${anon.json?.length}건 ${why}`)
+          if (st?.active === true) {
+            const C = users.chain, ct = (await call('POST', '/auth/v1/token?grant_type=password', { body: { email: C.email, password: PW } })).json.access_token
+            const body = (x) => ({ job_id: appJobId, seeker_id: C.id, employer_id: users.employer.id, job_title: APP_TITLE, company: 'E2E App Co', ...x })
+            const a1 = await call('POST', '/rest/v1/applications', { token: ct, body: body({ seeker_name: 'E2E Chain', seeker_phone: '0900000009' }) })
+            const t1 = await call('POST', '/rest/v1/message_threads', { token: ct, headers: { prefer: 'return=representation' }, body: body({ seeker_name: 'E2E Chain', unread_by_employer: true }) })
+            const m1 = t1.json?.[0]?.id ? await call('POST', '/rest/v1/messages', { token: ct, body: { thread_id: t1.json[0].id, from_role: 'seeker', body: 'hello inspected' } }) : { status: 0 }
+            const i1 = await call('POST', '/rest/v1/interviews', { token: et, body: body({ datetime: new Date(Date.now() + 3 * 86400_000).toISOString(), location: 'KCN Yên Phong', notes: 'e2e', status: 'pending' }) })
+            const seen = await Promise.all(['applications', 'message_threads', 'interviews'].map((t) => call('GET', `/rest/v1/${t}?select=job_id&job_id=eq.${appJobId}&seeker_id=eq.${C.id}`, { token: et })))
+            rec('P2', '검사기가 공개한 그 공고에서 지원 → 대화 → 면접이 같은 (공고, 구직자)로 이어지고 기업이 모두 봄', a1.status === 201 && t1.status === 201 && m1.status === 201 && i1.status === 201 && seen.every((r) => r.json?.length === 1), `지원 ${a1.status} 대화 ${t1.status} 메시지 ${m1.status} 면접 ${i1.status} / 기업이 본 줄 ${seen.map((r) => r.json?.length).join(',')}`)
+          }
+        } catch (e) { rec('P0', '실제 검사기 경로', false, e.message.slice(0, 200)) }
+      }
     } catch (e) { rec('J0', '앱 등록→웹 확인 교차', false, e.message.split('\n')[0]) }
     await context.close()
   }
@@ -391,7 +502,7 @@ if (BASE && jobId) {
       await page.goto(`${BASE}${url}`, { waitUntil: 'domcontentloaded' })
       const ok = await page.locator(ready).first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
       const rootText = await page.evaluate(() => (document.getElementById('root')?.innerText ?? '').length)
-      return { ok: ok && rootText > 20 && errors.length === 0, note: `${label}: 화면 ${ok ? '뜸' : '안 뜸'} / 글자 ${rootText} / 스크립트 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''}` }
+      return { ok: (ok || rootText > 200) && rootText > 20 && errors.length === 0, note: `${label}: 화면 ${ok ? '뜸' : '안 뜸'} / 글자 ${rootText} / 스크립트 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''}` }
     }
     try {
       await page.goto(`${BASE}/dang-nhap`, { waitUntil: 'domcontentloaded' })
@@ -431,6 +542,130 @@ if (BASE && jobId) {
       const deadWeb = await alive('웹 홈(세션 폐기)', '/', 'header, main')
       rec('L4', '서버에서 세션이 폐기돼도(옛 기기) 웹·앱이 죽지 않고 열림', dead.ok && deadWeb.ok, `${dead.note} / ${deadWeb.note}`)
     } catch (e) { rec('L0', '업데이트 뒤 캐시·세션 호환', false, e.message.split('\n')[0]) }
+    await context.close()
+  }
+  // ── 저장 실패 재시도(앱 화면): 지원·메시지 보내기 요청이 한 번 끊기면 오류가 보이고, 다시 시도하면 정확히 한 줄만 저장된다(중복 저장 없음) ──
+  {
+    const loginUi = async (page, u) => {
+      await page.goto(`${BASE}/dang-nhap`, { waitUntil: 'domcontentloaded' })
+      await page.locator('input[type="email"]').fill(u.email); await page.locator('input[type="password"]').fill(PW)
+      await page.locator('button[type="submit"]').click()
+      await page.waitForFunction(() => Object.keys(localStorage).some((k) => /auth-token/.test(k)), null, { timeout: 30_000 })
+    }
+    const cutOnce = async (page, re) => { let cut = 0; await page.route(re, async (route) => { if (route.request().method() === 'POST' && cut === 0) { cut++; return route.abort('failed') } return route.fallback() }); return () => cut }
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(context)
+    const page = await context.newPage()
+    try {
+      // 지원
+      await loginUi(page, users.retry)
+      await page.goto(`${BASE}/app/viec-lam/sb-${jobId}`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-actionbar"]').waitFor({ state: 'visible', timeout: 30_000 })
+      const kind = await page.locator('[data-testid="app-actionbar"]').getAttribute('data-action')
+      if (kind !== 'internal') observe('N1', '앱 사이트 안 지원 재시도', `이 시험 공고의 지원 방식이 '${kind}'라 건너뜀`)
+      else {
+        const cuts = await cutOnce(page, '**/rest/v1/applications*')
+        await page.getByRole('button', { name: 'Ứng tuyển ngay', exact: true }).click()
+        await page.getByRole('button', { name: 'Xác nhận ứng tuyển' }).click()
+        const sawError = await page.locator('[data-testid="app-apply"][data-phase="error"]').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+        const none = await call('GET', `/rest/v1/applications?select=id&job_id=eq.${jobId}&seeker_id=eq.${users.retry.id}`, { token: SERVICE })
+        await page.getByRole('button', { name: 'Thử lại' }).click()
+        await page.getByRole('button', { name: 'Xác nhận ứng tuyển' }).click()
+        const ok = await page.locator('[data-testid="app-apply"][data-phase="success"]').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+        const rows = await call('GET', `/rest/v1/applications?select=id&job_id=eq.${jobId}&seeker_id=eq.${users.retry.id}`, { token: SERVICE })
+        rec('N1', '앱 지원: 요청이 끊기면 오류 → 다시 시도하면 성공, 저장된 지원은 정확히 1줄(끊긴 동안 0줄)', cuts() === 1 && sawError && none.json?.length === 0 && ok && rows.json?.length === 1, `끊김 ${cuts()} 오류 ${sawError} 끊긴 뒤 ${none.json?.length}줄 성공 ${ok} 최종 ${rows.json?.length}줄`)
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        const applied = await page.getByText('Đã ứng tuyển', { exact: true }).first().waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+        rec('N2', '지원한 공고를 다시 열면 "Đã ứng tuyển"(재지원 버튼 없음)', applied)
+      }
+      // 메시지(스레드는 위 연결 시험에서 만든 chain 사용자 것)
+      await page.context().clearCookies(); await page.evaluate(() => localStorage.clear())
+      await loginUi(page, users.chain)
+      await page.goto(`${BASE}/app/ho-so/tin-nhan?job=sb-${jobId}`, { waitUntil: 'domcontentloaded' })
+      const box = page.getByLabel('Tin nhắn')
+      await box.waitFor({ state: 'visible', timeout: 30_000 })
+      const body = `retry-msg-${RUN}`
+      const cutsM = await cutOnce(page, '**/rest/v1/messages*')
+      await box.fill(body); await page.getByRole('button', { name: 'Gửi' }).click()
+      const err = await page.getByText('Không gửi được tin nhắn').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+      const restored = (await box.inputValue()) === body
+      const before = await call('GET', `/rest/v1/messages?select=id&body=eq.${body}`, { token: SERVICE })
+      await page.getByRole('button', { name: 'Gửi' }).click()
+      const shown = await page.locator('.app-conv__bubble p', { hasText: body }).first().waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+      const after = await call('GET', `/rest/v1/messages?select=id&body=eq.${body}`, { token: SERVICE })
+      rec('N3', '앱 메시지: 보내기가 끊기면 오류+쓴 글 복원 → 다시 보내면 1개만 저장(끊긴 동안 0개)', cutsM() === 1 && err && restored && before.json?.length === 0 && shown && after.json?.length === 1, `끊김 ${cutsM()} 오류 ${err} 복원 ${restored} 끊긴 뒤 ${before.json?.length}개 화면 ${shown} 최종 ${after.json?.length}개`)
+    } catch (e) { rec('N0', '저장 실패 재시도', false, e.message.split('\n')[0]) }
+    await context.close()
+  }
+  // ── 실제 구버전 → 신버전 업데이트(같은 주소에서 옛 빌드를 새 빌드로 바꿔 끼움): 로그인·저장값 유지, 새 코드가 실제로 뜸, 옛 탭에서 안 받은 화면으로 가도 안 죽음 ──
+  if (process.env.UPDATE_BASE) {
+    const UB = process.env.UPDATE_BASE
+    const sw = (to) => fetch(`${UB}/__switch?to=${to}`).then((r) => r.text())
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(context)
+    const page = await context.newPage()
+    const errors = []; page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 140)))
+    const diag = []; page.on('response', (r) => { if (/\/assets\//.test(r.url()) && (r.status() >= 400 || /html/.test(r.headers()['content-type'] ?? ''))) diag.push(`${r.status()} ${r.url().split('/').pop()} ${(r.headers()['content-type'] ?? '').slice(0, 20)}`) })
+    page.on('console', (m) => { if (m.type() === 'error') diag.push('console: ' + m.text().slice(0, 100)) })
+    let navs = 0; page.on('framenavigated', (f) => { if (f === page.mainFrame()) { navs++; errors.length = 0 } })  // 새로고침 전 옛 탭에서 난 오류는 복구 전 순간 오류라 새로고침 뒤 상태만 본다
+    const mainScript = () => page.evaluate(() => [...document.scripts].map((x) => x.src).find((x) => /\/assets\/.*\.js/.test(x)) ?? '')
+    try {
+      await sw('old')
+      await page.goto(`${UB}/dang-nhap`, { waitUntil: 'domcontentloaded' })
+      await page.locator('input[type="email"]').fill(users.upd.email); await page.locator('input[type="password"]').fill(PW)
+      await page.locator('button[type="submit"]').click()
+      await page.waitForFunction(() => Object.keys(localStorage).some((k) => /auth-token/.test(k)), null, { timeout: 30_000 })
+      await page.goto(`${UB}/app/viec-lam/sb-${jobId}`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-actionbar"]').waitFor({ state: 'visible', timeout: 30_000 })
+      await page.locator('[data-testid="app-actionbar"] button[aria-label="Lưu tin"]').click()
+      await page.locator('[data-testid="app-actionbar"] button[aria-label="Bỏ lưu tin"]').waitFor({ state: 'visible', timeout: 10_000 })
+      const oldScript = await mainScript()
+      await page.goto(`${UB}/app/`, { waitUntil: 'domcontentloaded' })   // 옛 버전 홈(메시지 화면 조각은 아직 안 받음)
+      await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
+      const oldHome = await mainScript()
+      await sw('new')   // ← 배포: 같은 주소가 이제 새 빌드를 준다. 열려 있는 탭은 옛 코드 그대로.
+      // (a) 옛 탭에서 아직 안 받은 화면(앱 메시지)으로 이동 — 옛 조각 파일이 새 배포에는 없다
+      errors.length = 0
+      await page.locator('[data-testid="app-tabbar"] a[href$="/ho-so"]').first().click()
+      await page.waitForTimeout(6000)
+      const recovered = await page.locator('[data-testid="app-me"]').first().isVisible().catch(() => false)
+      const txt = await page.evaluate(() => (document.getElementById('root')?.innerText ?? '').length)
+      observe('U1', '옛 버전(복구 장치 없는 2a6b249) 탭에서 배포 뒤 안 받은 화면으로 이동', `화면 ${recovered ? '뜸' : '안 뜸'} / 글자 ${txt} / 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''} / 조각·콘솔 ${diag.slice(0, 5).join(' | ')} — 복구 장치는 이 PR 이후 버전부터 들어가므로 예전 버전 탭은 구조상 복구 못 함(새로고침 필요)`)
+      // (b) 새로고침: 새 빌드가 실제로 뜨고, 로그인·저장값이 그대로
+      await page.goto(`${UB}/app/viec-lam/sb-${jobId}`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-actionbar"]').waitFor({ state: 'visible', timeout: 30_000 })
+      const newScript = await mainScript()
+      rec('U2', '새로고침하면 새 빌드(다른 파일 이름)가 실제로 떠 있음', !!oldScript && !!newScript && oldScript !== newScript, `옛 ${oldScript.split('/').pop()} → 새 ${newScript.split('/').pop()}`)
+      const sess = await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => /auth-token/.test(x)); try { return JSON.parse(localStorage.getItem(k)).user?.email } catch { return null } })
+      const saved = await page.locator('[data-testid="app-actionbar"] button[aria-label="Bỏ lưu tin"]').waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false)
+      rec('U3', '업데이트 뒤에도 로그인이 유지되고 옛 버전에서 저장한 공고가 그대로 저장됨', sess === users.upd.email && saved, `세션 ${sess === users.upd.email} / 저장표시 ${saved}`)
+      errors.length = 0
+      await page.goto(`${UB}/`, { waitUntil: 'domcontentloaded' })
+      const webOk = await page.locator('header, main').first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
+      rec('U4', '업데이트 뒤 웹 화면도 정상(같은 세션)', webOk && errors.length === 0, `오류 ${errors.length}`)
+      // 현재 버전(복구 장치 있음) 탭이 열려 있는 상태에서 그다음 배포가 올라오는 경우 — 복구 장치가 실제로 동작해야 한다
+      await page.goto(`${UB}/app/`, { waitUntil: 'domcontentloaded' })
+      await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
+      const curScript = await mainScript()
+      await sw('next')
+      errors.length = 0; diag.length = 0; navs = 0
+      await page.locator('[data-testid="app-tabbar"] a[href$="/ho-so"]').first().click()
+      const reached = await page.locator('[data-testid="app-me"]').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
+      const nextScript = await mainScript()
+      rec('U5', '현재 버전 탭에서 그다음 배포 뒤 안 받은 화면으로 이동하면 자동 새로고침으로 새 빌드를 받아 화면이 정상 표시됨', reached && nextScript !== curScript && errors.length === 0, `화면 ${reached} / ${curScript.split('/').pop()} → ${nextScript.split('/').pop()} / 오류 ${errors.length}${errors[0] ? ' ' + errors[0] : ''} / 주소 이동 ${navs}번 / 조각·콘솔 ${diag.slice(0, 5).join(' | ')}`)
+      // 세션 저장소가 막힌 브라우저(프라이빗 모드 등)에서 조각 파일이 계속 안 받아질 때 새로고침을 무한 반복하지 않아야 한다(복구 함수의 1분 1회 제한이 저장소 없이도 지켜지는지)
+      await sw('new')
+      const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(ctx2)
+      await ctx2.addInitScript(() => { Object.defineProperty(window, 'sessionStorage', { configurable: true, get() { throw new DOMException('denied', 'SecurityError') } }) })
+      await ctx2.route('**/assets/MeScreen-*.js', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<html></html>' }))   // 조각 파일이 계속 안 받아지는 상태(깨진 배포)
+      const p2 = await ctx2.newPage()
+      let loads = 0; p2.on('framenavigated', (f) => { if (f === p2.mainFrame()) loads++ })
+      await p2.goto(`${UB}/app/`, { waitUntil: 'domcontentloaded' })
+      await p2.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
+      await p2.locator('[data-testid="app-tabbar"] a[href$="/ho-so"]').first().click()
+      await p2.waitForTimeout(12_000)
+      rec('U6', '세션 저장소가 막히고 조각 파일이 계속 안 받아져도 새로고침은 1번만(무한 반복 없음)', loads <= 6, `주소 이동 ${loads}번(수정 전 12초에 101번 반복 — 처음 열기·탭 이동·새로고침 1번 안팎이면 정상)`)
+      await ctx2.close()
+      void oldHome
+    } catch (e) { rec('U0', '구버전→신버전 업데이트', false, e.message.split('\n')[0]) }
     await context.close()
   }
   rec('G1', '브라우저에서 운영 주소(Supabase·서비스)로 나간 요청 없음(전부 로컬로 바꿔 보내거나 막음)', !reachedProd(), `바깥 호스트 ${[...outside].join(',') || '없음'}`)

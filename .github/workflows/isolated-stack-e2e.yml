@@ -25,8 +25,10 @@ jobs:
       PROD_CATALOG_RUN: ${{ inputs.prod_catalog_run || '45828209586' }}
       PROD_LINES_RUN: ${{ inputs.prod_lines_run || '45837472926' }}
       GH_TOKEN: ${{ github.token }}
+      OLD_REF: 2a6b249   # 업데이트 호환 시험의 옛 버전(앱 화면이 처음 갖춰진 2026-11-26 아침 master). 바꾸려면 이 줄만 고친다.
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
@@ -84,13 +86,26 @@ jobs:
           node scripts/ops/schema-catalog-compare.mjs prod-lines.log iso-lines.txt --lines | tee lines.json
       - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - name: 앱 띄우기
+      - name: 옛 버전 빌드 (실제 업데이트 호환 시험용 — 옛 커밋 소스 그대로)
+        run: |
+          git worktree add "$RUNNER_TEMP/old" "$OLD_REF"
+          (cd "$RUNNER_TEMP/old" && npm ci && npm run build)
+      - name: 다음 버전 빌드 (같은 소스에서 내 정보 화면 파일 한 줄(실행되는 코드)만 바꿔 조각 파일 이름이 달라지게 — 현재 버전에서 그다음 배포로 넘어가는 경우 시험용)
+        run: |
+          git worktree add "$RUNNER_TEMP/next" HEAD
+          ln -s "$PWD/node_modules" "$RUNNER_TEMP/next/node_modules"
+          echo "console.debug('next-build-marker')" >> "$RUNNER_TEMP/next/src/app/account/MeScreen.tsx"
+          (cd "$RUNNER_TEMP/next" && npm run build)
+      - name: 앱 띄우기 (새 빌드 4173 · 옛 빌드 4174 · 다음 빌드 4175 · 전환 프록시 4180)
         run: |
           npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
-          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && exit 0; sleep 1; done
-          cat preview.log; exit 1
+          (cd "$RUNNER_TEMP/old" && npx vite preview --port 4174 --strictPort > "$RUNNER_TEMP/preview-old.log" 2>&1 &)
+          (cd "$RUNNER_TEMP/next" && npx vite preview --port 4175 --strictPort > "$RUNNER_TEMP/preview-next.log" 2>&1 &)
+          node scripts/ops/switch-proxy.mjs 4180 4174 4173 4175 > "$RUNNER_TEMP/proxy.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && curl -fsS http://localhost:4174/ >/dev/null && curl -fsS http://localhost:4175/ >/dev/null && curl -fsS http://localhost:4180/ >/dev/null && exit 0; sleep 1; done
+          cat preview.log "$RUNNER_TEMP/preview-old.log" "$RUNNER_TEMP/proxy.log"; exit 1
       - name: 실제 로그인·PostgREST 권한·is_account_active·웹/앱 교차 E2E
-        run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=isolated-stack-proof node scripts/ops/isolated-stack-e2e.mjs
+        run: BASE_URL=http://localhost:4173 UPDATE_BASE=http://localhost:4180 SCREENSHOT_DIR=isolated-stack-proof node scripts/ops/isolated-stack-e2e.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
