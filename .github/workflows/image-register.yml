@@ -1,0 +1,69 @@
+name: 이미지 등록 (사진 묶음 자동 등록)
+# Lee 2026-11-27: 사진 묶음(ZIP) 주소만 넣으면 서버(GitHub Actions)에서 기존 등록 스크립트(scripts/images/register-images.mjs)가 돌아
+# 이름 해석·webp 최적화(ImageMagick)·중복 검사·번호 부여·목록 등록까지 하고 초안 PR을 만든다. 공고 배정은 기존 30분 파이프라인(assign-image.mjs)이 새 공고에 자동으로 한다.
+# ZIP 안: manifest.csv가 있으면 그 목록대로, 없으면 파일 이름 <직무>_<환경>_<번호>.png 규칙으로 읽는다. 새 서비스·유료 API 없음.
+on:
+  workflow_dispatch:
+    inputs:
+      zip_url:
+        description: '사진 묶음 ZIP 주소(https)'
+        required: true
+      ai:
+        description: 'AI 생성 그림이면 true (파일 이름 방식일 때; manifest.csv 방식은 목록의 ai_generated를 따름)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: image-register
+  cancel-in-progress: false
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 입력 확인
+        env:
+          ZIP_URL: ${{ inputs.zip_url }}
+        run: |
+          [[ "$ZIP_URL" =~ ^https://[^[:space:]\"\'\<\>]+$ ]] || { echo "::error::zip_url은 https 주소"; exit 1; }
+      - name: 받아서 풀기
+        env:
+          ZIP_URL: ${{ inputs.zip_url }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick webp unzip >/dev/null
+          mkdir -p "$RUNNER_TEMP/in"
+          curl -sSfL -m 300 "$ZIP_URL" -o "$RUNNER_TEMP/in.zip"
+          [ "$(stat -c %s "$RUNNER_TEMP/in.zip")" -le 209715200 ] || { echo "::error::ZIP이 200MB 초과"; exit 1; }
+          unzip -q -o "$RUNNER_TEMP/in.zip" -d "$RUNNER_TEMP/in"
+      - name: 등록
+        env:
+          AI: ${{ inputs.ai }}
+        run: |
+          set -euo pipefail
+          ARGS=(); [ "$AI" = "true" ] && ARGS+=(--ai)
+          node scripts/images/register-images.mjs "$RUNNER_TEMP/in" "${ARGS[@]}" | tee "$RUNNER_TEMP/result.txt"
+          git status --porcelain data public | head -5
+      - name: 초안 PR 만들기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain data public)" ]; then echo "새로 등록할 사진이 없습니다(모두 중복이거나 이름 불명)."; exit 0; fi
+          TS=$(TZ=Asia/Ho_Chi_Minh date +%Y%m%d%H%M%S); BR="images/register-$TS"
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BR"
+          git add data/industry-photos/manifest.json public/images
+          git commit -m "feat(images): 사진 묶음 자동 등록 $TS"
+          git push -u origin "$BR"
+          { echo "image-register.yml 자동 등록 결과(scripts/images/register-images.mjs). 등록·건너뜀 내역:"; echo; sed 's/^/    /' "$RUNNER_TEMP/result.txt"; } > "$RUNNER_TEMP/body.md"
+          gh pr create --draft --base master --head "$BR" --title "feat(images): 사진 묶음 자동 등록 $TS" --body-file "$RUNNER_TEMP/body.md"

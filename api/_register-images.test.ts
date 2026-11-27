@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { assignRepresentativeImages } from '../scripts/ocr/assign-image.mjs'
 import { imageTool, parseLooseName, register } from '../scripts/images/register-images.mjs'
 
 // 이미지 자동 등록 시험(2026-11-27 Lee): 파일 이름만 맞으면 이름 해석 → 최적화 → 중복 검사 → 번호 부여 → 목록 등록이 한 번에 되고, 다시 돌려도 아무것도 바뀌지 않는다.
@@ -38,5 +39,18 @@ try {
   eq([pho.env, pho.roles, pho.group], ['nha_hang_pho', ['5120'], 'am_thuc_do_uong'], '직무·환경·업종 분류')
   eq(register(src, { root, ai: true }).added, [], '다시 돌려도 새 등록 없음')
   eq(JSON.parse(readFileSync(join(root, 'data', 'industry-photos', 'manifest.json'), 'utf8')).images.length, m.images.length, '목록 그대로')
+  // 등록 → 공고 배정(기존 고정 배정 실행기, 방금 등록한 목록으로): 직무·환경이 맞는 새 공고가 방금 등록한 사진을 받고, 이미 배정된 공고는 그대로다.
+  const newManifest = JSON.parse(readFileSync(join(root, 'data', 'industry-photos', 'manifest.json'), 'utf8'))
+  const job = (id: number, over: Record<string, unknown>) => ({ id, title: 'Tuyển nhân viên', company: 'Quán ' + id, category: 'am_thuc_do_uong', subcategory: null, occupation_code: '5120', description: 'Công việc\nNấu phở', representative_image_id: null as string | null, ...over })
+  const jobs = [job(1, { company: 'Phở Hà Nội', title: 'Tuyển đầu bếp nấu phở' }), job(2, { company: 'Phở Bắc', title: 'Tuyển nấu phở' }), job(3, { company: 'Phở cũ', title: 'Tuyển nấu phở', representative_image_id: 'cooking_pho_001_old' })]
+  const upd: Array<[number, string]> = []
+  const fake = { async query(sql: string, p: unknown[] = []) {
+    if (sql.includes('group by 1')) return { rows: [] }
+    if (sql.includes('select id, title')) return { rows: jobs.filter((j) => !j.representative_image_id) }
+    const j = jobs.find((x) => x.id === p[0] && !x.representative_image_id); if (!j) return { rowCount: 0, rows: [] }
+    j.representative_image_id = String(p[1]); upd.push([j.id, j.representative_image_id]); return { rowCount: 1, rows: [] } } }
+  await assignRepresentativeImages(fake, { manifest: newManifest, log: () => {} })
+  if (upd.length !== 2 || !upd.every(([, id]) => id.startsWith('cooking_pho_')) || !upd.some(([, id]) => mine.some((i: { id: string }) => i.id === id))) throw new Error('방금 등록한 사진이 배정되지 않음 ' + JSON.stringify(upd))
+  eq(jobs[2].representative_image_id, 'cooking_pho_001_old', '이미 배정된 공고는 그대로')
 } finally { rmSync(root, { recursive: true, force: true }); rmSync(src, { recursive: true, force: true }) }
 console.log('register-images ok')
