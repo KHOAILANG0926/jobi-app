@@ -95,6 +95,9 @@ if (jobId) {
   const anonActive = await call('POST', '/rest/v1/rpc/is_account_active', { body: { user_id: users.seeker?.id } })
   observe('E1', '비로그인의 is_account_active 호출', `status ${anonActive.status}${anonActive.status === 200 ? ' (임의 사용자 번호의 활성 여부 조회 가능)' : ' ' + anonActive.code}`)
   // 격리 DB에서만: anon·public 실행 권한을 회수한 뒤 같은 흐름을 다시 돌려 영향을 본다(복구함)
+  // 정책이 is_account_active를 맨 앞에서 부르는 storage.objects(cv-photos 정책): anon이 사진 저장소를 조회·저장할 때 회수 전후가 다른지 — 익명 저장소 사용(게스트 사진 올리기 등)의 영향 근거
+  const storageProbe = () => { let r6 = '', r7 = ''; try { r6 = '조회 ' + sql(`set local role anon; select count(*) from storage.objects`) } catch (e) { r6 = '조회 오류: ' + e.message.slice(0, 120) } try { sql(`set local role anon; insert into storage.objects (bucket_id, name) values ('cv-photos', 'applications/1/x/e2e-${Date.now()}.png')`); r7 = '삽입 성공' } catch (e) { r7 = '삽입 오류: ' + e.message.slice(0, 120) } return r6 + ' / ' + r7 }
+  observe('E6a', 'anon 회수 전 storage.objects 조회·삽입(기준)', storageProbe())
   const had = sql(`select has_function_privilege('anon','public.is_account_active(uuid)','execute')`) === 't'
   sql(`revoke execute on function public.is_account_active(uuid) from anon, public`)
   try {
@@ -106,6 +109,7 @@ if (jobId) {
     try { const own = sql(`select pg_get_userbyid(proowner) || ' / secdef=' || prosecdef from pg_proc where oid = 'public.get_guest_job(bigint,text)'::regprocedure`); let err = '오류 없음'; try { err = '행 수 ' + sql(`set local role anon; select count(*) from public.get_guest_job(${flows.guestId}, '${GUEST_TOKEN}after')`) } catch (e) { err = e.message.slice(0, 200) } const rest = await call('POST', '/rest/v1/rpc/get_guest_job', { body: { p_job_id: flows.guestId, p_token: GUEST_TOKEN + 'after' } }); err += ` / REST ${rest.status} ${rest.code} ${rest.msg} 행 ${Array.isArray(rest.json) ? rest.json.length : '?'} guestId ${flows.guestId}`; observe('E4', 'anon 회수 상태의 get_guest_job 직접 호출', `소유자 ${own} / ${err}`) } catch (e) { observe('E4', 'anon 회수 상태의 get_guest_job 직접 호출', '조회 실패 ' + e.message.slice(0, 100)) }
     // anon에게 적용되는 정책(roles에 public·anon)이 is_account_active를 부르는지 + 그 표에 anon 권한이 있는지 — 회수해도 되는지의 DB 쪽 근거
     try { const pol = sql(`select coalesce(string_agg(p.tablename || '.' || p.policyname || '[' || p.cmd || ';anon권한=' || coalesce((select string_agg(privilege_type, ',') from information_schema.role_table_grants g where g.grantee = 'anon' and g.table_schema = p.schemaname and g.table_name = p.tablename), '없음') || ']', ' | '), '없음') from pg_policies p where (coalesce(p.qual, '') || coalesce(p.with_check, '')) like '%is_account_active%' and (p.roles && array['public', 'anon']::name[])`); observe('E5', 'anon에게 적용되는 정책 중 is_account_active를 부르는 것', pol.slice(0, 700)) } catch (e) { observe('E5', 'anon에게 적용되는 정책 조회', '실패 ' + e.message.slice(0, 100)) }
+    observe('E6', 'anon 회수 상태에서 storage.objects 조회·삽입', storageProbe())
     observe('E3', 'anon 회수 뒤에도 유지되는 익명 흐름', ['익명: 공개 공고 목록', '익명: 게스트 등록(ingest_job)', '익명: 게스트 관리 링크 조회(get_guest_job)'].filter((n) => after[n]).join(' / ') || '없음')
   } finally { if (had) sql(`grant execute on function public.is_account_active(uuid) to anon`) }
 }
