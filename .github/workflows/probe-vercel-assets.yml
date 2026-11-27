@@ -1,0 +1,19 @@
+name: probe-vercel-assets (일회성 읽기 전용 확인 — 병합 안 함)
+on:
+  pull_request:
+    paths: ['.github/workflows/probe-vercel-assets.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 운영에서 옛 조각 파일이 아직 내려오는지(읽기 전용 GET만)
+        run: |
+          B=https://viecganban.vn
+          echo "== /app 응답 머리"; curl -sS -m 30 -D - -o app.html "$B/app" | grep -iE "^(HTTP|server|x-vercel|cache-control|content-type)"
+          echo "== 현재 앱 조각"; grep -oE '/assets/[A-Za-z0-9_.-]+\.(js|css)' app.html | sort -u | head -8
+          for f in app-C7o4BjRg.js MeScreen-bLfh3xnN.js user-round-PjE87_d6.js nonexistent-zzzzzzzz.js; do
+            echo "== 2a6b249 시절 파일 $f"; curl -sS -m 30 -o /dev/null -w "status=%{http_code} type=%{content_type} size=%{size_download}\n" "$B/assets/$f"
+          done
+          cur=$(grep -oE '/assets/app-[A-Za-z0-9_-]+\.js' app.html | head -1); echo "== 현재 진입 파일 $cur"; curl -sS -m 30 -o /dev/null -w "status=%{http_code} type=%{content_type}\n" "$B$cur"
