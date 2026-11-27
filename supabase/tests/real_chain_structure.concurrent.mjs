@@ -208,15 +208,16 @@ try {
     const direct = rows.filter((r) => r[1] === 'false')
     const names = (role) => direct.filter((r) => r[2].split(',').includes(role)).map((r) => r[0]).sort()
     // 허용 목록(각각 이유): 토큰·소유 확인을 함수 안에서 하거나, 공개 조회·집계용
+    // is_account_active는 20261127010000_is_account_active_revoke_anon이 anon 실행 권한을 회수했다(로그인 사용자·서버만 — 호출하는 정책·함수는 모두 로그인 세션 또는 SECURITY DEFINER, #1070).
     // 관리자 함수 4개는 20261127000000_admin_functions_revoke_anon이 anon 실행 권한을 회수했다(운영엔 0020 초안이 적용된 적 없어 그 전까지 anon 실행 가능이었음, #1070).
-    const ANON_OK = ['public.community_increment_views', 'public.crawl_source_allowed', 'public.get_guest_job', 'public.get_job_conditions', 'public.is_account_active',
+    const ANON_OK = ['public.community_increment_views', 'public.crawl_source_allowed', 'public.get_guest_job', 'public.get_job_conditions',
       'public.job_signal_record_status', 'public.map_r1_public_points', 'public.set_job_pinned_location', 'public.update_guest_job', 'public.update_job_conditions',
       // 입구(ingest_job)가 부르는 비공개 도우미 — 게스트 등록도 같은 입구를 써서 비로그인에도 실행 권한을 준다(20261029010000). 이 스키마가 REST에 노출되지 않는다는 전제에 기대는 구조(아래 FINDING)
       'ingest_private.audit_admin_create', 'ingest_private.branch_key', 'ingest_private.find_existing', 'ingest_private.job_state', 'ingest_private.link', 'ingest_private.log', 'ingest_private.open_raw'].sort()
     assert.deepEqual(names('anon'), ANON_OK, `G5: 비로그인이 실행할 수 있는 SECURITY DEFINER 함수 목록이 허용 목록과 다름 — 새 함수는 권한 점검을 거쳐 목록에 이유와 함께 추가: ${JSON.stringify(names('anon'))}`)
     const adminFns = names('authenticated').filter((n) => n.startsWith('public.admin_'))
     const authOther = names('authenticated').filter((n) => !n.startsWith('public.admin_') && !ANON_OK.includes(n)).sort()
-    assert.deepEqual(authOther, ['public.job_alert_is_active_seeker', 'public.job_duplicate_decide', 'public.ks_add_review', 'public.ks_my_profile'], `G5: 로그인 사용자만 실행할 수 있는 비관리자 함수 목록: ${JSON.stringify(authOther)}`)
+    assert.deepEqual(authOther, ['public.is_account_active', 'public.job_alert_is_active_seeker', 'public.job_duplicate_decide', 'public.ks_add_review', 'public.ks_my_profile'], `G5: 로그인 사용자만 실행할 수 있는 비관리자 함수 목록: ${JSON.stringify(authOther)}`)
     // job_duplicate_decide(관리자 전용 의도): 함수 안의 관리자 확인이 current_user를 보는데, SECURITY DEFINER 안의 current_user는 호출자가 아니라 함수 소유자(postgres)라 언제나 통과한다
     {
       const sus = lastNum(await reg('service_role', null, job('g5d', { channel: 'crawler_topcv', source_url: 'https://src.example/g5d' })))
