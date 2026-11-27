@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import runpy
+import tempfile
 import shlex
 import shutil
 import subprocess
@@ -62,7 +63,9 @@ def enter_cli(argv):
     for name in ("main", "process_single_url", "reprocess_jobs",
                  "process_urls_verify_write", "process_urls_dry_run"):
         ns[name] = recorder(name)
-    with patch.object(sys, "argv", ["crawl_topcv.py", *argv]):
+    # 실제 CLI 진입(--save-details-to 등)이 작업 폴더에 파일을 쓰지 않게 임시 폴더에서 돌린다(2026-11-27: crawler/details.json이 시험마다
+    # 생겨 커밋에 3번 섞여 들어간 공통 원인).
+    with tempfile.TemporaryDirectory() as tmp, patch.object(sys, "argv", ["crawl_topcv.py", *argv]), contextlib.chdir(tmp):
         with contextlib.redirect_stdout(io.StringIO()):
             try:
                 exec(compile(ast.Module(body=ENTRYPOINTS, type_ignores=[]),

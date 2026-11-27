@@ -136,9 +136,24 @@ def _post_hook(body: dict, failed: dict) -> dict:
         return {**failed, "reason": "precheck_unavailable"}
 
 
+def trace_line(verdict: dict) -> str:
+    """서버가 돌려준 위치 근거(trace)를 실행 로그 한 줄로. 주소·회사·키는 담지 않는다 — 근거 종류와 외부 호출 '시도' 횟수만
+    (Lee 2026-11-27, #1086 운영 실증: 우리 사업장 기억을 썼는지·외부(VietMap·Goong·Google)를 불렀는지를 수집 로그로 확인). trace가 없으면 빈 글자."""
+    trace = verdict.get("trace") if isinstance(verdict, dict) else None
+    if not isinstance(trace, dict) or not trace.get("source"):
+        return ""
+    a = trace.get("external_attempts") if isinstance(trace.get("external_attempts"), dict) else {}
+    n = {k: int(a.get(k) or 0) for k in ("vietmap", "goong", "google")}
+    return f"📍 위치 확인 근거: {str(trace['source'])[:24]} — 외부 호출 시도 VietMap {n['vietmap']}·Goong {n['goong']}·Google {n['google']}"
+
+
 def http_precheck(job: dict) -> dict:
     """서버의 위치 확인(Google·지도 조회 포함)."""
-    return _post_hook({"precheck": precheck_input(job)}, {"findable": False})
+    verdict = _post_hook({"precheck": precheck_input(job)}, {"findable": False})
+    line = trace_line(verdict)
+    if line:
+        print("    " + line)
+    return verdict
 
 
 def http_read_location(source_text: str, region: str = "") -> dict:
