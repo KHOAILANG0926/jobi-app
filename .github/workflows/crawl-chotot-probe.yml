@@ -1,9 +1,16 @@
-name: Chợ Tốt 박닌 읽기 시험 (저장 없음)
+name: 수집원 읽기 시험 — Chợ Tốt·Muaban (저장 없음)
 
 # Lee 2026-11-06 "2번(Chợ Tốt) 먼저 하자": 수집기를 만들기 전에 VPS에서 로그인 없이
 # 박닌 목록·상세·전화번호를 읽을 수 있는지만 본다. DB 저장 없음, 키 사용 없음, 정기 실행 없음(수동만).
+# Muaban(#1140)도 같은 실행기·권한으로 source 선택만 달리 해서 읽는다(새 워크플로를 만들지 않음).
 on:
   workflow_dispatch:
+    inputs:
+      source:
+        description: 읽을 수집원
+        type: choice
+        options: [chotot, muaban]
+        default: chotot
 
 permissions:
   contents: read
@@ -21,4 +28,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: 읽기 시험(요청 몇 번, 2~4초 간격)
         working-directory: crawler
-        run: python3 -u chotot_probe.py
+        env:
+          PROBE_SOURCE: ${{ inputs.source }}
+        run: python3 -u "${PROBE_SOURCE}_probe.py"
