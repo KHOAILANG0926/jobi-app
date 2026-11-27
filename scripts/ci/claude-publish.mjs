@@ -244,6 +244,17 @@ export function prRequest(a, title, text) {
   return { title: String(title ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: text, draft: a.draft === true }
 }
 
+/** 큐(task-pickup)가 시작한 이슈 작업이 PR 없이 끝났을 때 그 이슈에 남기는 고정 안내(모델 출력은 담지 않는다 — Lee 2026-11-27).
+ *  이 안내가 없으면 이슈가 `ai-task-running`으로 영구히 남아 결과 없이 큐에서 사라진다(#894·#633: 이미 해결돼 '바꾼 파일 없음'이었는데 아무 기록이 없었음). */
+export function noPrIssueComment(a, reason, env = process.env) {
+  if (!/^\d+$/.test(String(a?.issue ?? ''))) return null
+  const run = env.GITHUB_SERVER_URL && env.GITHUB_REPOSITORY && env.GITHUB_RUN_ID ? ` 실행: ${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` : ''
+  const why = reason === 'unchanged'
+    ? '바꾼 파일이 없어 PR을 만들지 않았습니다. 지시가 이미 반영됐거나 지시만으로는 고칠 것이 없다는 뜻입니다.'
+    : 'Claude의 수정이 상자 검사(타입·시험)를 통과하지 못해 PR을 만들지 않았습니다.'
+  return { number: Number(a.issue), body: `<!-- claude-task-result -->\nClaude 작업 결과: ${why} 코드를 확인해 이미 해결됐으면 이슈를 닫고, 아니면 지시를 구체화한 뒤 \`ai-task-running\` 라벨을 지우세요(다시 집힙니다).${run}` }
+}
+
 export function parseArgs(argv) {
   const [mode, ...rest] = argv
   const a = { mode, dryRun: false }
@@ -304,6 +315,11 @@ export async function main(argv) {
 
   if (a.mode === 'pr' && (!patch.trim() || meta.result !== '통과')) {
     console.log(patch.trim() ? '::warning::Claude 수정이 상자 검사를 통과하지 못해 PR을 만들지 않음' : '바꾼 파일 없음 — PR 안 만듦')
+    const note = noPrIssueComment(a, patch.trim() ? 'failed' : 'unchanged')
+    if (note) {
+      try { await gh(await appToken(), 'POST', `repos/${a.repo}/issues/${note.number}/comments`, { body: note.body }) }
+      catch (e) { console.log(`::warning::이슈 #${note.number}에 결과 안내를 남기지 못함(PR 게시 결과와 무관): ${String(e?.message ?? e).slice(0, 120)}`) }
+    }
     return { ok: true, problems: [], pushed: '' }
   }
   const out = a.mode === 'pr' ? null : outgoingComment(a.mode, text, patch, meta)

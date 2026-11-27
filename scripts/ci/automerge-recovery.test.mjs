@@ -201,6 +201,7 @@ const pick = (fx, env) => exec(PICK, fx, { SHA, RUN_ID: '100', RUN_ATTEMPT: '1',
   assert.equal(runs1.length, 1, '정확히 1건 착수')
   assert.match(runs1[0], /이슈 #950 /, '진행 중(#940)·닫힌(#930) 이슈는 건너뛰고 가장 오래된 대기 이슈')
   assert.match(runs1[0], /-f draft=true/, '결과는 Draft PR(승인 전 병합 없음)')
+  assert.match(runs1[0], /-f issue=950/, '착수가 이슈 번호를 넘겨 PR 없이 끝나도 그 이슈에 결과 안내가 남음(Lee 2026-11-27)')
   assert.match(r1.calls, /label POST #950 ai-task-running/, '착수 표시로 중복 방지')
   assert.match(r1.calls, /comment #950 Claude 작업 시작 \(계기: 운영 검사 성공 커밋 ccccccc/, '착수 계기 기록')
   writeFileSync(join(r1.dir, 'calls.log'), '')
