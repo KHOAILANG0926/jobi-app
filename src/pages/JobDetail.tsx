@@ -44,6 +44,7 @@ import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
 import { sanitizeTemplateHtml } from '../lib/templateHtml'
 import { detailLook } from '../lib/albamonTemplate'
+import { photoCategory } from '../lib/cardPhoto'
 import { DetailRich } from '../components/DetailRich'
 import { richPill } from '../lib/detailRich'
 import '../components/template/AlbamonTemplate.css'
@@ -581,7 +582,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   // 카드 사진과 같은 입력(cardPhoto.industryPhotoUrl): 공장 그림은 회사 이름·제목만, 가게·식당 종류는 원문까지(Lee 2026-11-11)
   const lookText = `${job.company ?? ''} ${job.title ?? ''}`
   // 가게·식당 종류는 카드 사진과 같은 글(회사·제목·원문)로 고른다(cardPhoto.photoKind, 2026-11-11)
-  const look = detailLook(job.category, Number(String(job.id).replace(/\D/g, '')), new URLSearchParams(location.search).get('tpl'), lookText, `${lookText} ${job.description ?? ''}`, job.subcategory)
+  const look = detailLook(photoCategory(job), Number(String(job.id).replace(/\D/g, '')), new URLSearchParams(location.search).get('tpl'), lookText, `${lookText} ${job.description ?? ''}`, job.subcategory, job.primaryRoleCode ?? job.occupationCode)
   const showDescriptionSection = !!templateHtml || descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 

@@ -1,4 +1,5 @@
 import { JOB_DURATION_OPTIONS } from '../data/jobDuration'
+import { jobCategories } from './jobRoles.ts'
 import { jobMatchesRegion, type JobRegionId } from '../data/jobRegions'
 import { normalizeViText } from './jobCoords'
 import { groupJobsForSalarySort } from './recommendStorage'
@@ -83,8 +84,10 @@ export function filterAndSortJobs(jobs: Job[], params: JobSearchParams, preferre
   const q = normalizeViText(params.search)
   let result = jobs.filter((j) => {
     if (params.category !== 'all') {
-      if (j.category !== params.category) return false
-      if (params.subcategory && j.subcategory !== params.subcategory) return false
+      // 복수 직무 공고는 대표 category뿐 아니라 확인된 모집 직무의 category로도 찾힌다(같은 공고는 한 번만 나온다). 소분류는 대표 category에만 있다.
+      if (params.subcategory) {
+        if (j.category !== params.category || j.subcategory !== params.subcategory) return false
+      } else if (!jobCategories(j).includes(params.category)) return false
     }
     if (params.urgentOnly && !j.urgent) return false
     if (params.jobDurations?.length && (!j.jobDuration || !params.jobDurations.includes(j.jobDuration))) return false

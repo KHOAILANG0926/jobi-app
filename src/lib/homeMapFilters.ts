@@ -2,6 +2,7 @@
 // 2026-10-01: 지도·거리에는 확인된 근무지(verifiedWorkLocationPoint)만 쓴다. 기준 위치(사용자 위치
 // 또는 사용자가 고른 지역 중심)는 "검색 출발점"일 뿐 공고 좌표가 아니다.
 import { calcDistanceKm, verifiedWorkLocationPoint } from './jobCoords'
+import { jobCategories } from './jobRoles.ts'
 import { matchesOccupationGroups } from './occupationGroups'
 import { parseSalaryInfo } from './recommendStorage'
 import type { Job, JobCategory } from '../types/job'
@@ -145,7 +146,7 @@ export function matchesSalary(job: Job, minSalary: number | null, _includeNegoti
 
 export function matchesFilters(job: Job, f: HomeMapFilterState): boolean {
   if (!matchesSalary(job, f.minSalary, f.includeNegotiable, f.salaryMode)) return false
-  if (f.categories.length > 0 && !f.categories.includes(job.category)) return false
+  if (f.categories.length > 0 && !jobCategories(job).some((c) => f.categories.includes(c as never))) return false
   if (!matchesOccupationGroups(job, f.occupationGroups ?? [])) return false
   for (const key of f.extras) {
     const match = EXTRA_BY_KEY.get(key)?.match

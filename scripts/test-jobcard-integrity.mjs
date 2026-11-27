@@ -18,12 +18,15 @@ function inspectCards(selector) {
     totalCards: hrefs.length,
     uniqueCards: new Set(hrefs).size,
     duplicateHrefs: [...new Set(hrefs.filter((href, i) => hrefs.indexOf(href) !== i))],
+    // 직무 중심 대표 이미지(2026-11-27): 카드 로고 자리 그림 주소가 깨지지 않았는지(다 받았는데 폭 0인 것만 — 지연 로딩 대기분은 제외).
+    brokenLogos: [...document.querySelectorAll('.jc__logo')].filter((img) => img.complete && img.naturalWidth === 0).map((img) => img.getAttribute('src')),
   }
 }
 function problems(result) {
   const errors = []
   if (result.nestedAnchorCount) errors.push('Nested anchor tags')
   if (result.duplicateHrefs.length) errors.push('Duplicate cards: ' + result.duplicateHrefs.join(', '))
+  if (result.brokenLogos?.length) errors.push('Broken card pictures: ' + result.brokenLogos.join(', '))
   if (!result.totalCards) errors.push('No job cards rendered')
   return errors
 }
@@ -40,6 +43,7 @@ try {
       ['mixed', section('home-featured', ['1']) + section('home-jobs-grid', ['2']), true],
       ['duplicate across sections', section('home-featured', ['1']) + section('home-jobs-grid', ['1']), false],
       ['empty', '<main></main>', false],
+      ['broken card picture', section('home-featured', ['1']) + '<img class="jc__logo" src="data:image/png;base64,AAAA">', false],
     ]) {
       await page.setContent(html)
       const result = await page.evaluate(inspectCards, CARD_SELECTOR)
@@ -76,6 +80,7 @@ try {
   if (result.duplicateHrefs.length > 0) {
     failures.push(`Found ${result.duplicateHrefs.length} duplicate job card(s): ${result.duplicateHrefs.slice(0, 10).join(', ')}`)
   }
+  if (result.brokenLogos?.length) failures.push(`Found broken card picture(s): ${result.brokenLogos.slice(0, 10).join(', ')}`)
   if (result.totalCards === 0) {
     failures.push('No job cards rendered at all — page likely failed to load real data')
   }
