@@ -1,8 +1,239 @@
 {
-  "_doc": "대표 이미지 목록(Lee 2026-11-27 승인 설계). 이미지를 추가할 때는 파일을 public/images에 넣고 여기에 한 줄만 더하면 되고 코드는 고치지 않는다. group = 업종(category) 이름, roles = 이 사진이 맞는 공식 직업코드 앞자리(없으면 그 업종 전체에 쓰는 일반 사진), kind = stock(실제 사진, 출처는 SOURCES.json)·ai(우리가 만든 그림). 한 업종에 roles가 적힌 사진이 있으면 그 업종은 직무별 사진으로만 고르고, 직무가 맞는 사진이 없으면 중립 기본 사진을 쓴다(엉뚱한 직종 사진 금지).",
+  "_doc": "대표 이미지 목록(Lee 2026-11-27 승인 설계). 이미지를 추가할 때는 파일을 public/images에 넣고 여기에 한 줄만 더하면 되고 코드는 고치지 않는다. group = 업종(category) 이름, roles = 이 사진이 맞는 공식 직업코드 앞자리(없으면 그 업종 전체에 쓰는 일반 사진), kind = stock(실제 사진, 출처는 SOURCES.json)·ai(우리가 만든 그림). 한 업종에 roles가 적힌 사진이 있으면 그 업종은 직무별 사진으로만 고르고, 직무가 맞는 사진이 없으면 중립 기본 사진을 쓴다(엉뚱한 직종 사진 금지). 전달받은 이미지 묶음은 scripts/images/register-images.mjs로 등록한다(sha256 검증·중복 건너뜀, id·role·environment·AI 생성 여부 그대로 보존). 이렇게 등록만 된 항목은 group이 전달받은 이름(직무_환경)이라 업종과 같지 않아 사진 선택에는 아직 쓰이지 않는다 — 업종(group)·직무 코드(roles) 연결은 대표 승인 3단계에서 채운다.",
   "images": [
-    { "id": "dich_vu-cleaning", "file": "/images/industry/dich_vu.jpg", "group": "dich_vu", "roles": ["911"], "kind": "stock" },
-    { "id": "dich_vu-salon-1", "file": "/images/template/04-dich-vu.jpg", "group": "dich_vu", "roles": ["514"], "kind": "ai" },
-    { "id": "dich_vu-salon-2", "file": "/images/template/04b-dich-vu.jpg", "group": "dich_vu", "roles": ["514"], "kind": "ai" }
+    {
+      "id": "dich_vu-cleaning",
+      "file": "/images/industry/dich_vu.jpg",
+      "group": "dich_vu",
+      "roles": [
+        "911"
+      ],
+      "kind": "stock"
+    },
+    {
+      "id": "dich_vu-salon-1",
+      "file": "/images/template/04-dich-vu.jpg",
+      "group": "dich_vu",
+      "roles": [
+        "514"
+      ],
+      "kind": "ai"
+    },
+    {
+      "id": "dich_vu-salon-2",
+      "file": "/images/template/04b-dich-vu.jpg",
+      "group": "dich_vu",
+      "roles": [
+        "514"
+      ],
+      "kind": "ai"
+    },
+    {
+      "id": "kitchen_assistant_restaurant_001",
+      "file": "/images/industry/kitchen_assistant_restaurant/kitchen_assistant_restaurant_001.webp",
+      "group": "kitchen_assistant_restaurant",
+      "role": "kitchen_assistant",
+      "environment": "restaurant",
+      "kind": "ai",
+      "sha256": "f05bc8844113c4a5557e5b857ac25d1d597174d64e2d22ab61b2cb1974cc7a4e"
+    },
+    {
+      "id": "ordering_cafe_001",
+      "file": "/images/industry/ordering_cafe/ordering_cafe_001.webp",
+      "group": "ordering_cafe",
+      "role": "ordering",
+      "environment": "cafe",
+      "kind": "ai",
+      "sha256": "af103b8b1d6707a4ee29e776732ddf3d53bfef2277e2eb06e3e11ca80fcb5058"
+    },
+    {
+      "id": "dishwashing_restaurant_001",
+      "file": "/images/industry/dishwashing_restaurant/dishwashing_restaurant_001.webp",
+      "group": "dishwashing_restaurant",
+      "role": "dishwashing",
+      "environment": "restaurant",
+      "kind": "ai",
+      "sha256": "d304207d912ba1a82af135ab7c641fde45a21681c27ff051265309a0b46747c0"
+    },
+    {
+      "id": "serving_restaurant_001",
+      "file": "/images/industry/serving_restaurant/serving_restaurant_001.webp",
+      "group": "serving_restaurant",
+      "role": "serving",
+      "environment": "restaurant",
+      "kind": "ai",
+      "sha256": "80731acdd3c085d698ae45a6927498c953765767a08cdf09c04f9812cf4acde0"
+    },
+    {
+      "id": "cashier_restaurant_001",
+      "file": "/images/industry/cashier_restaurant/cashier_restaurant_001.webp",
+      "group": "cashier_restaurant",
+      "role": "cashier",
+      "environment": "restaurant",
+      "kind": "ai",
+      "sha256": "ddb9387e5936395d06907873a85116e52864cd7a238a7af56268724198104d86"
+    },
+    {
+      "id": "cooking_restaurant_001",
+      "file": "/images/industry/cooking_restaurant/cooking_restaurant_001.webp",
+      "group": "cooking_restaurant",
+      "role": "cooking",
+      "environment": "restaurant",
+      "kind": "ai",
+      "sha256": "b43ae5951f16d926d36ebd784e6036a75a5433ec9452d3f170191893b059fe42"
+    },
+    {
+      "id": "cleaning_restaurant_001",
+      "file": "/images/industry/cleaning_restaurant/cleaning_restaurant_001.webp",
+      "group": "cleaning_restaurant",
+      "role": "cleaning",
+      "environment": "restaurant",
+      "kind": "ai",
+      "sha256": "bd3cc99ed5a8e4598b3afa60396a1acfa21ea5dbb66d8cf5896a1cb924251fe3"
+    },
+    {
+      "id": "delivery_appliances_001",
+      "file": "/images/industry/delivery_appliances/delivery_appliances_001.webp",
+      "group": "delivery_appliances",
+      "role": "delivery",
+      "environment": "appliances",
+      "kind": "ai",
+      "sha256": "d1f4aefbd5de02719a9086f67170cd7d5b92c38993f3453edd303ac48b907413"
+    },
+    {
+      "id": "dishwashing_restaurant_002",
+      "file": "/images/industry/dishwashing_restaurant/dishwashing_restaurant_002.webp",
+      "group": "dishwashing_restaurant",
+      "role": "dishwashing",
+      "environment": "restaurant",
+      "kind": "ai",
+      "sha256": "6b6e4d0cfa8eec842e7892534417cf7022310d485ddac738772c8275ebf5bcc9"
+    },
+    {
+      "id": "quality_inspection_electronics_001",
+      "file": "/images/industry/quality_inspection_electronics/quality_inspection_electronics_001.webp",
+      "group": "quality_inspection_electronics",
+      "role": "quality_inspection",
+      "environment": "electronics",
+      "kind": "ai",
+      "sha256": "c86dbf7a6b2b27509913375b51f277155260f5e3a0bf7c63c3aae750dded6c56"
+    },
+    {
+      "id": "ordering_noodle_restaurant_001",
+      "file": "/images/industry/ordering_noodle_restaurant/ordering_noodle_restaurant_001.webp",
+      "group": "ordering_noodle_restaurant",
+      "role": "ordering_noodle",
+      "environment": "restaurant",
+      "kind": "ai",
+      "sha256": "211bc363a0f4859f98f187f5e4a2224371060e9cad005de51327d687874bd5dd"
+    },
+    {
+      "id": "forklift_warehouse_001",
+      "file": "/images/industry/forklift_warehouse/forklift_warehouse_001.webp",
+      "group": "forklift_warehouse",
+      "role": "forklift",
+      "environment": "warehouse",
+      "kind": "ai",
+      "sha256": "a0fe723989b2ac67fc0c6f87647115c9ee60fc4fce6a05b0a7275095d0554637"
+    },
+    {
+      "id": "cooking_pho_001",
+      "file": "/images/industry/cooking_pho/cooking_pho_001.webp",
+      "group": "cooking_pho",
+      "role": "cooking",
+      "environment": "pho",
+      "kind": "ai",
+      "sha256": "bf5bc916900eedff0a468b24fb812e83ad665c5822756d58ba6092c732f0c62b"
+    },
+    {
+      "id": "barista_cafe_001",
+      "file": "/images/industry/barista_cafe/barista_cafe_001.webp",
+      "group": "barista_cafe",
+      "role": "barista",
+      "environment": "cafe",
+      "kind": "ai",
+      "sha256": "da9df3adf3797ac50f4d44e0b93b8430c8487e419b68dcf6d8bc601349bbb8a8"
+    },
+    {
+      "id": "ordering_noodle_restaurant_002",
+      "file": "/images/industry/ordering_noodle_restaurant/ordering_noodle_restaurant_002.webp",
+      "group": "ordering_noodle_restaurant",
+      "role": "ordering_noodle",
+      "environment": "restaurant",
+      "kind": "ai",
+      "sha256": "0782d5f2b266b9a3928d7a0da9dd82600e74f32775bee1848439204a22703e67"
+    },
+    {
+      "id": "packing_electronics_001",
+      "file": "/images/industry/packing_electronics/packing_electronics_001.webp",
+      "group": "packing_electronics",
+      "role": "packing",
+      "environment": "electronics",
+      "kind": "ai",
+      "sha256": "9d8dd56e6c208381d721ed062c7e7000a7f918536f6a9cd5344c2c59a3111ede"
+    },
+    {
+      "id": "sorting_plastics_001",
+      "file": "/images/industry/sorting_plastics/sorting_plastics_001.webp",
+      "group": "sorting_plastics",
+      "role": "sorting",
+      "environment": "plastics",
+      "kind": "ai",
+      "sha256": "85c30dfbec2eabb56345a391ae63162cf90a8952ef9d2bccf9eed3a466c2d050"
+    },
+    {
+      "id": "inventory_warehouse_001",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_001.webp",
+      "group": "inventory_warehouse",
+      "role": "inventory",
+      "environment": "warehouse",
+      "kind": "ai",
+      "sha256": "5491485d3cfb07ba8bc1e1330778a21c21fe64f2dd43efb4324503a49ee60be3"
+    },
+    {
+      "id": "inventory_warehouse_002",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_002.webp",
+      "group": "inventory_warehouse",
+      "role": "inventory",
+      "environment": "warehouse",
+      "kind": "ai",
+      "sha256": "5da9f9bf1b81bbc83d22134595c69c6ae327ab8fad0b349c42d5cac8b86d6d2a"
+    },
+    {
+      "id": "inventory_warehouse_003",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_003.webp",
+      "group": "inventory_warehouse",
+      "role": "inventory",
+      "environment": "warehouse",
+      "kind": "ai",
+      "sha256": "00443e8dc6f98e51dec67fe1a26cf14287f2c3ff812973357a7cebe397b79fe6"
+    },
+    {
+      "id": "inventory_warehouse_004",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_004.webp",
+      "group": "inventory_warehouse",
+      "role": "inventory",
+      "environment": "warehouse",
+      "kind": "ai",
+      "sha256": "a259a2e50d737df00ef9179b2006f04e4181404c3c76174d260f68dc3cd7f08b"
+    },
+    {
+      "id": "inventory_warehouse_005",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_005.webp",
+      "group": "inventory_warehouse",
+      "role": "inventory",
+      "environment": "warehouse",
+      "kind": "ai",
+      "sha256": "a6703e643cd3ce650fdeaa8ea96819aca40998e86a467881938c81090ff2ce08"
+    },
+    {
+      "id": "inventory_warehouse_006",
+      "file": "/images/industry/inventory_warehouse/inventory_warehouse_006.webp",
+      "group": "inventory_warehouse",
+      "role": "inventory",
+      "environment": "warehouse",
+      "kind": "ai",
+      "sha256": "6e3cbf10c2002e6ad8a3836b4dc505f34962cf25666fa3488ac9757f252499bb"
+    }
   ]
 }

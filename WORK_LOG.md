@@ -1,3 +1,9 @@
+## 2026-11-27 밤 — 전달 이미지 ZIP 23장 이미지 목록 등록(Claude)
+- 요청(Lee 11-27): JOBI_images_all_2.zip을 #1180 이미지 관리(manifest)에 등록, 중복 제외, 이후 전달분도 같은 방식.
+- 변경: data/industry-photos/manifest.json(23건 추가 — id·role·environment·ai·sha256 보존) / public/images/industry/<직무_환경>/ 23장 / scripts/images/register-images.mjs(재사용 등록 스크립트, sha256 검증·중복 건너뜀) / src/lib/managedImages.test.ts.
+- 검증 [직접 확인]: 등록 23건·재실행 시 0건·23 건너뜀, ZIP 내·저장소 기존 그림과 해시 중복 0, tsc 0·npm test 148/148·build 통과. 사진 선택·화면 코드 무변경(group이 업종과 달라 선택에 안 쓰임).
+- 남은 것: 업종·직무 코드(roles) 연결은 #1180 3단계(대표 승인). 이 브랜치는 #1180(claude/role-image-2) 위에 쌓임 — #1179→#1180 병합 뒤 병합.
+
 ## 2026-11-27 낮 — Muaban·Chợ Tốt 읽기 시험·#921·#886 안 A 대조(Claude)
 - 요청(Lee 11-27): Muaban 실제 읽기 시험, Chợ Tốt 병행, #921·#1071·#701 잔여, #886 안 A, #728 대조. 로그인 키 제공 안 함 확정.
 - 변경: #1146·#1150·#1152·#1153·#1154(Muaban 읽기 시험 — 기존 crawl-chotot-probe.yml에 source 선택, 차단 오판·공고 객체·contact 칸 보정), #1149(#921 직무 이름 중간 Full Time 유지·근무기간 Khác가 근무 형태를 가리지 않음), #1119 종료·#916 종료.
