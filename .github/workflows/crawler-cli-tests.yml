@@ -50,6 +50,7 @@ jobs:
           python crawler/test_work_location_protection.py
           python crawler/test_address_pipeline_integration.py
           python crawler/test_geocode.py
+          python crawler/test_muaban_probe.py
       # 상세 화면 읽기 시험(실제 크롬, 가짜 화면) — 섹션 읽기·vieclam24h 공개 연락처 버튼(#896). 열쇠·사이트 접속 없음.
       - name: 상세 화면 읽기 시험 (실제 크롬, 가짜 화면)
         run: python crawler/test_detail_section_parser_dom.py
