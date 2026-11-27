@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Eye, Heart, Image as ImageIcon, MessageSquare, Pencil, Search } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { POST_CATEGORY_META, loadPosts, type CommunityPost } from '../../lib/communityStorage'
-import { filterPosts, timeAgo, type CommunityCatFilter, type CommunitySort } from './communityView'
+import { filterPosts, timeAgo, type CommunityCatFilter } from './communityView'
 
 const PostComposer = lazy(() => import('./PostComposer')) // 글쓰기 시트는 열 때 처음 불러온다
 
@@ -23,7 +23,7 @@ export default function CommunityScreen() {
   const [loadError, setLoadError] = useState('')
   const [cat, setCat] = useState<CommunityCatFilter>('all')
   const [search, setSearch] = useState('')
-  const [sort, setSort] = useState<CommunitySort>('new')
+  const [morePopular, setMorePopular] = useState(false)
   const [composing, setComposing] = useState(false)
 
   const reload = useCallback(async () => {
@@ -32,7 +32,8 @@ export default function CommunityScreen() {
   }, [])
   useEffect(() => { void reload() }, [reload])
 
-  const shown = useMemo(() => filterPosts(posts, cat, search, sort), [posts, cat, search, sort])
+  const shown = useMemo(() => filterPosts(posts, cat, search, 'new'), [posts, cat, search])
+  const popular = useMemo(() => filterPosts(posts, cat, search, 'popular').filter((p) => p.likes > 0), [posts, cat, search])
   const write = () => { if (!user) { navigate('/dang-nhap?redirect=' + encodeURIComponent('/cong-dong')); return } setComposing(true) }
 
   return (
@@ -40,11 +41,17 @@ export default function CommunityScreen() {
       <header className="app-pagebar"><h1 className="app-pagebar__title">Cộng đồng</h1><button type="button" className="app-btn app-btn--primary app-com__write" onClick={write}><Pencil size={16} aria-hidden />Đăng bài</button></header>
       <div className="app-com__top">
         <label className="app-com__search"><Search size={18} aria-hidden /><input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm bài viết..." aria-label="Tìm bài viết" /></label>
-        <select className="app-com__sort" aria-label="Sắp xếp" value={sort} onChange={(e) => setSort(e.target.value as CommunitySort)}><option value="new">Mới nhất</option><option value="popular">Phổ biến</option></select>
       </div>
       <div className="app-chip-row app-com__cats" role="group" aria-label="Phân loại">
         {CATS.map((c) => <button key={c.value} type="button" className={'app-chip' + (cat === c.value ? ' app-on' : '')} aria-pressed={cat === c.value} onClick={() => setCat(c.value)}>{c.label}</button>)}
       </div>
+      {!loading && !loadError && popular.length > 0 && (
+        <section className="app-com__hot" aria-label="Bài viết nổi bật" data-testid="app-com-hot">
+          <h2>Bài viết nổi bật</h2>
+          {popular.slice(0, morePopular ? popular.length : 3).map((p) => <Link key={p.id} to={`/cong-dong/${p.id}`}><strong>{p.title}</strong><small>♥ {p.likes}</small></Link>)}
+          {popular.length > 3 && !morePopular && <button type="button" className="app-more" onClick={() => setMorePopular(true)}>Xem thêm</button>}
+        </section>
+      )}
       {loading ? <p className="app-state" role="status">Đang tải bài viết…</p>
         : loadError ? <p className="app-state" role="alert">{loadError}</p>
         : shown.length === 0 ? <p className="app-state">Không tìm thấy bài viết nào.</p>
