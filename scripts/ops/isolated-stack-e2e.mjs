@@ -308,7 +308,7 @@ if (jobId) {
     const stale = await stateOf(reg2.json)
     rec('M0b', '다른 내용(옛 지문)의 검사 통과 기록으로는 공개되지 않음', stale?.active === false, `active ${stale?.active}`)
     // 실제 검사기(scripts/ops/job-inspect.mjs)를 격리 DB에 그대로 실행해 본다 — 위 직접 기록과 달리 검사기가 직접 판정·기록·공개하는 경로. 격리 DB 연결만 넘기고 알림용 열쇠는 없다.
-    const insp = spawnSync('node', ['--experimental-strip-types', 'scripts/ops/job-inspect.mjs'], { encoding: 'utf8', env: { ...process.env, SUPABASE_DB_URL: DB, GH_TOKEN: '', REPO: '' }, timeout: 180_000 })
+    const insp = spawnSync('node', ['--experimental-strip-types', '--import', './scripts/ts-extensionless-register.mjs', 'scripts/ops/job-inspect.mjs'], { encoding: 'utf8', env: { ...process.env, SUPABASE_DB_URL: DB, GH_TOKEN: '', REPO: '' }, timeout: 180_000 })
     const afterInsp = await stateOf(reg.json)
     const insNote = (insp.stdout + insp.stderr).split('\n').filter((l) => /통과|실패|검사|publishable|공개|error/i.test(l)).slice(-4).join(' | ').slice(0, 300)
     observe('M0e', '실제 검사기(job-inspect.mjs)를 격리 DB에 실행', `종료 ${insp.status} / 기업 공고 active ${afterInsp?.active} 검사기록 ${JSON.stringify(afterInsp?.ocr_check?.inspect ? { publishable: afterInsp.ocr_check.inspect.publishable } : null)} / ${insNote}`)

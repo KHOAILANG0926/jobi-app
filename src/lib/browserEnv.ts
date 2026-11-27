@@ -20,12 +20,20 @@ export const browserEventBus: EventBusAdapter = {
 /** 새 버전이 배포돼 옛 조각 파일(assets/*.js)이 사라진 뒤, 그 전에 열어 둔 탭이 아직 안 받은 화면을 받으려 하면 Vite가 'vite:preloadError'를 보낸다.
  *  그대로 두면 React가 화면 전체를 내려 빈 화면이 된다(격리 실제 스택 E2E U1로 확인, #1070 G) — 새로고침해 새 빌드를 받는다. 무한 새로고침을 막으려 1분 안에는 한 번만. */
 function installStaleBuildRecovery(): void {
+  const KEY = 'vgb:stale-build-reload'
+  // 직전 새로고침 시각: 세션 저장소가 막혀 있으면(프라이빗 모드 등) 같은 탭에서 새로고침을 건너 남는 window.name에 대신 적는다 — 저장소가 막힌 탭이 새로고침을 무한 반복하지 않게.
+  const last = (): number => {
+    try { const v = window.sessionStorage.getItem(KEY); if (v) return Number(v) } catch { /* 아래 window.name으로 */ }
+    const m = new RegExp(KEY + '=(\\d+)').exec(window.name)
+    return m ? Number(m[1]) : 0
+  }
+  const mark = (t: number): void => {
+    try { window.sessionStorage.setItem(KEY, String(t)) } catch { /* 아래 window.name으로 */ }
+    window.name = window.name.replace(new RegExp(KEY + '=\\d+;?'), '') + `${KEY}=${t};`
+  }
   window.addEventListener('vite:preloadError', (event) => {
-    try {
-      const last = Number(window.sessionStorage.getItem('vgb:stale-build-reload') ?? 0)
-      if (Date.now() - last < 60_000) return
-      window.sessionStorage.setItem('vgb:stale-build-reload', String(Date.now()))
-    } catch { /* 저장소가 막혀도 한 번은 새로고침 */ }
+    if (Date.now() - last() < 60_000) return
+    mark(Date.now())
     event.preventDefault()
     window.location.reload()
   })
