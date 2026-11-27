@@ -57,3 +57,12 @@ console.log('mainJobCards #5231 VNĐ passed')
   assert.equal(c('lương cứng 8–15 triệu/tháng + hoa hồng')?.text, 'lương cứng 8–15 triệu/tháng + hoa hồng', 'non-listed words keep the full text (unchanged)')
   console.log('mainJobCards #1168 allowance-word salary passed')
 }
+
+// #1168 후속: 직무별 급여 줄을 못 읽는 'Theo vị trí — xem chi tiết' 공고(운영 sb-5942 행)도 메인 목록에서 빠지지 않고, 새 숫자 없이 '직무별 급여' 표시로 나온다.
+{
+  const c = _cs({ salary: 'Theo vị trí — xem chi tiết', description: 'Thu nhập: 8 – 11 triệu/tháng + thưởng\nLương 30 – 40k/h + phụ cấp' } as never)
+  assert.equal(!!c, true, '#1168 multi-role header kept on main list')
+  assert.deepEqual(c?.lines, [], '#1168 shown as per-position salary note, no invented number')
+  assert.equal(c?.text, 'Theo vị trí — xem chi tiết')
+  console.log('mainJobCards #1168 multi-role header passed')
+}

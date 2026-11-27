@@ -33,6 +33,10 @@ export function cardSalary(job: Pick<Job, 'salary' | 'salaryPeriod'> & Partial<P
   const text = (job.salary || '').trim()
   // 2026-11-01 #5231: "25.000 VNĐ/giờ"의 VNĐ도 돈 단위(전에는 vnd만 알아봐 메인 목록에서 빠짐).
   const amount = /(?:\d[\d.,]*\s*(?:triệu|tr\b|k\b|đồng|dong\b|vn[dđ](?!\p{L})|đ|usd\b)|\$\s*\d)/iu
+  // #1168 후속(sb-5942 운영 행): 직무마다 급여가 다른 공고의 위쪽 칸은 'Theo vị trí — xem chi tiết'(salaryReader MULTI_ROLE_SALARY)이고 직무별 급여 줄을 못 읽는 경우도 있다.
+  // 원문 급여 줄(lương·thu nhập)에 금액이 있으면 메인 목록에서 빼지 않고, 직무가 여럿일 때와 같은 'Xem lương theo vị trí' 표시(lines 빈 배열)로 보여 준다 — 숫자를 새로 만들지 않는다.
+  // 급여가 어디에도 없으면 기존대로 메인에서 뺀다(mainJobCards.test 'no salary anywhere').
+  if (/^theo vị trí(?!\p{L})/iu.test(text) && String(job.description ?? '').split(/\r?\n/).some(line => /lương|luong|thu nhập|thu nhap/iu.test(line) && amount.test(line))) return { label: 'Lương', text, lines: [], lineKinds: [] }
   if (!amount.test(text)) return null
   // #1168: "Lương 30 – 40k/h + phụ cấp"처럼 월급·시급 뒤에 수당·상여 낱말이 붙은 한 줄은 통째로 빼지 않고 수당 낱말 앞의 금액만 남긴다
   // (전에는 줄 전체가 빠져 메인 목록에서 공고가 사라졌다). 수당·상여 금액만 있는 줄은 그대로 뺀다.
