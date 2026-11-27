@@ -102,6 +102,8 @@ if (jobId) {
     const broke = Object.keys(before).filter((n) => before[n] && !after[n])
     observe('E2', 'anon 실행 권한을 회수하면 깨지는 흐름', broke.length ? broke.join(' / ') : '없음(모든 흐름 동일)')
     // 실험 결과(관찰): 격리 DB에서 anon 실행 권한을 회수해 본 것이므로 통과·실패가 아니라 '무엇이 깨지는지'를 남긴다 — 대표 결정 항목(0020 초안)의 근거.
+    // 왜 깨지는지(2단계 설계 근거): 회수 상태에서 anon 역할로 get_guest_job을 직접 불러 DB가 돌려주는 오류 원문과 함수 소유자를 본다
+    try { const own = sql(`select pg_get_userbyid(proowner) || ' / secdef=' || prosecdef from pg_proc where oid = 'public.get_guest_job(bigint,text)'::regprocedure`); let err = '오류 없음'; try { sql(`set role anon; select count(*) from public.get_guest_job(${flows.guestId}, '${GUEST_TOKEN}after')`) } catch (e) { err = e.message.slice(0, 200) } observe('E4', 'anon 회수 상태의 get_guest_job 직접 호출', `소유자 ${own} / ${err}`) } catch (e) { observe('E4', 'anon 회수 상태의 get_guest_job 직접 호출', '조회 실패 ' + e.message.slice(0, 100)) }
     observe('E3', 'anon 회수 뒤에도 유지되는 익명 흐름', ['익명: 공개 공고 목록', '익명: 게스트 등록(ingest_job)', '익명: 게스트 관리 링크 조회(get_guest_job)'].filter((n) => after[n]).join(' / ') || '없음')
   } finally { if (had) sql(`grant execute on function public.is_account_active(uuid) to anon`) }
 }
