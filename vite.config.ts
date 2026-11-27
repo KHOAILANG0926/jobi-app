@@ -34,10 +34,14 @@ export default defineConfig(({ isSsrBuild }) => ({
           // 웹(index.html)과 앱(app.html) 두 입구. 앱은 src/app만 불러온다(경계 검사: src/app/boundary.test.ts).
           input: { main: 'index.html', app: 'app.html' },
           output: {
-            manualChunks(id) {
-              if (id.includes('node_modules/html2canvas')) return 'html2canvas'
-              if (id.includes('node_modules/jspdf')) return 'jspdf'
-              return undefined
+            // 큰 PDF 도구(jspdf·html2canvas)는 따로 묶되, 그 묶음이 Vite의 동적 import 도우미(__vitePreload)까지 끌어안지 않게 한다 —
+            // 끌어안으면 도우미를 쓰는 모든 화면(웹·앱 첫 화면 포함)이 jspdf 400KB를 미리 받는다(앱 첫 화면 modulepreload로 확인, #1031 후속 과제 1).
+            codeSplitting: {
+              includeDependenciesRecursively: false,
+              groups: [
+                { name: 'html2canvas', test: /node_modules[\\/]html2canvas/ },
+                { name: 'jspdf', test: /node_modules[\\/]jspdf/ },
+              ],
             },
           },
         },
