@@ -1,6 +1,7 @@
 import { photoCategory, jobPhotoUrl, industryPhotoUrl, managedPhoto, managedPhotoKind, photoEnvironment } from './cardPhoto.ts'
 import { detailLook } from './albamonTemplate.ts'
 import { jobRoleInfo } from './jobRoles.ts'
+import { rowToJob } from './jobRows.ts'
 
 // 직무 중심 대표 이미지 선택(2026-11-27 Lee 승인): 실제 모집 직무 우선, 근무환경 보조, 직무에 맞는 사진이 없으면 중립 기본 사진.
 // 운영 공개 공고 30건을 바꾸기 전·후 코드로 계산해 비교하면 27건은 카드·상세 ④ 사진이 그대로이고 6337·5994·5368만 바뀐다(PR 본문 [직접 확인]).
@@ -49,4 +50,9 @@ eq(photoEnvironment('Tuyển nhân viên kho hàng Bắc Ninh'), 'kho_hang', 'wa
 eq(photoEnvironment('Công việc không khó, kho hàng'), 'kho_hang', 'khó (hard) is not kho')
 eq(photoEnvironment('Công việc không khó'), null, 'hard is not a warehouse')
 eq(photoEnvironment('Tuyển nhân viên'), null, 'unknown environment')
+// 저장된 배정 번호는 DB 행에서 그대로 화면까지: rowToJob이 representative_image_id를 읽고, 사진 선택이 그 이미지를 쓴다.
+const stored = rowToJob({ id: 9001, title: 'Tuyển bảo vệ', company: 'Công ty X', category: 'dich_vu', occupation_code: '540', description: 'Công việc\nBảo vệ', representative_image_id: 'dich_vu-salon-002' })
+eq(stored.representativeImageId, 'dich_vu-salon-002', 'rowToJob maps representative_image_id')
+eq(jobPhotoUrl(stored), '/images/template/04b-dich-vu.jpg', 'stored assignment wins over the computed pick')
+eq(rowToJob({ id: 9002, title: 't', company: 'c', category: 'dich_vu', occupation_code: '540', description: 'd' }).representativeImageId, undefined, 'null column = not assigned')
 console.log('representativePhoto: role-first selection checks passed')
