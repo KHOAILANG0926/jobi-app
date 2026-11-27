@@ -39,9 +39,9 @@ export function cardSalary(job: Pick<Job, 'salary' | 'salaryPeriod'> & Partial<P
   const extra = /chuyên cần|chuyen can|phụ cấp|phu cap|thưởng|thuong/iu
   const clauses = text.split(/\s*[,;|\n]\s*/).flatMap(clause => {
     if (!amount.test(clause)) return []
-    const hit = extra.exec(clause)
-    if (!hit) return [clause]
-    const head = clause.slice(0, hit.index).replace(/[\s+\-–]+$/u, '')
+    const at = clause.search(extra)
+    if (at < 0) return [clause]
+    const head = clause.slice(0, at).replace(/[\s+\-–]+$/u, '')
     return head && amount.test(head) ? [head] : []
   })
   if (!clauses.length) return null
