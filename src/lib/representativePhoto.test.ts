@@ -45,5 +45,8 @@ eq(photoEnvironment('Nhà hàng nướng Ngô Tất Tố'), 'nha_hang_nuong', 'b
 eq(photoEnvironment('Highlands Coffee'), 'cafe', 'cafe')
 eq(photoEnvironment('SIÊU THỊ ĐIỆN MÁY MEDIAMART'), 'ban_hang_dien_may', 'electronics store')
 eq(photoEnvironment('Tuyển bảo vệ cho khu công nghiệp VSIP'), 'nha_may', 'industrial park')
+eq(photoEnvironment('Tuyển nhân viên kho hàng Bắc Ninh'), 'kho_hang', 'warehouse')
+eq(photoEnvironment('Công việc không khó, kho hàng'), 'kho_hang', 'khó (hard) is not kho')
+eq(photoEnvironment('Công việc không khó'), null, 'hard is not a warehouse')
 eq(photoEnvironment('Tuyển nhân viên'), null, 'unknown environment')
 console.log('representativePhoto: role-first selection checks passed')

@@ -66,14 +66,15 @@ export function industryPhotoUrl(category: string | null | undefined, subcategor
 /** 대표 이미지 목록(data/industry-photos/manifest.json) — 이미지 추가는 이 목록에 한 줄만(코드 수정 없음, 2026-11-27 Lee 승인).
  *  id = 고유 번호(고정 배정이 이 번호를 저장), file, group = 업종(category), roles = 맞는 공식 직업코드 앞자리, env = 근무환경(ENV_KEYS 중 하나, 없으면 null),
  *  kind = stock(실제 사진)·ai(우리가 만든 그림), source = SOURCES.json 열쇠(stock) 또는 origin = 제작 출처 글(ai). 출처·라이선스는 지우지 않는다(photoManifest.test가 지킴). */
-export const ENV_KEYS = ['nha_hang', 'nha_hang_nuong', 'nha_hang_lau', 'cafe', 'ban_hang_dien_may', 'ban_hang_dien_thoai', 'ban_hang_noi_that', 'ban_hang_thoi_trang', 'ban_hang_tien_loi', 'nha_may', 'khach_san'] as const
+export const ENV_KEYS = ['nha_hang', 'nha_hang_nuong', 'nha_hang_lau', 'cafe', 'ban_hang_dien_may', 'ban_hang_dien_thoai', 'ban_hang_noi_that', 'ban_hang_thoi_trang', 'ban_hang_tien_loi', 'nha_may', 'kho_hang', 'khach_san'] as const
 export type PhotoEnv = (typeof ENV_KEYS)[number]
-export interface ManagedImage { id: string; file: string; group: string; roles?: string[]; env?: PhotoEnv | null; kind: 'stock' | 'ai'; source?: string; origin?: string }
+export interface ManagedImage { id: string; file: string; group: string; roles?: string[]; env?: PhotoEnv | null; kind: 'stock' | 'ai'; source?: string; origin?: string; sha256?: string }
 interface ManifestGroup { fallback?: 'legacy' | 'neutral' }
 const MANIFEST = photoManifest as unknown as { images: ManagedImage[]; groups?: Record<string, ManifestGroup> }
 const MANAGED: ManagedImage[] = MANIFEST.images
 const NEUTRAL_PHOTO = '/images/industry/khac.jpg'
 const HOTEL_WORDS = /khách\s*sạn|hotel|resort|homestay/iu
+const WAREHOUSE_WORDS = /(?<!\p{L})(?:kho|kho\s*(?:bãi|vận|hàng)|logistics?|warehouse)(?!\p{L})/iu
 /** 근무환경 낱말(기존 낱말표 그대로 — 식당 종류·카페·판매 가게 종류·공장 이름·공단·호텔). 모르면 null. */
 export function photoEnvironment(text: string | null | undefined): PhotoEnv | null {
   const t = String(text ?? '')
@@ -84,6 +85,7 @@ export function photoEnvironment(text: string | null | undefined): PhotoEnv | nu
   const shop = shopKindOf(t)
   if (shop && SHOP_PHOTOS.has(shop)) return shop as PhotoEnv
   if (mentionsIndustrialPark(t) || factoryPhotos(t)) return 'nha_may'
+  if (WAREHOUSE_WORDS.test(t)) return 'kho_hang'
   if (HOTEL_WORDS.test(t)) return 'khach_san'
   return null
 }
