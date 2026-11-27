@@ -23,7 +23,9 @@ export function employmentText(job: Job, roleSummary: RoleSummaryLike, sourceRol
   if (roleSummary?.workPeriod) return roleSummary.workPeriod
   if (sourceRoles.workTypes.length > 1) return sourceRoles.workTypes.join(' / ')
   if (job.employmentType) return [EMPLOYMENT_TYPE_LABEL[job.employmentType], job.employmentTypeExtra && EMPLOYMENT_TYPE_EXTRA_LABEL[job.employmentTypeExtra]].filter(Boolean).join(' · ')
-  return workPeriodText ?? sourceRoles.workTypes[0]
+  // "Khác"(사이트 선택지 '기타' 기본값)는 정보가 아니라 원문 근무 형태를 가리지 않는다(#921).
+  const period = workPeriodText && !/^(?:khác|khac)$/iu.test(workPeriodText.trim()) ? workPeriodText : undefined
+  return period ?? sourceRoles.workTypes[0]
 }
 
 export type BenefitKey = 'bus' | 'dorm' | 'meal' | 'attendance' | 'housing' | 'fuel' | 'performance'
