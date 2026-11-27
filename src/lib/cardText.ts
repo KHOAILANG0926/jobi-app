@@ -5,7 +5,7 @@
  *  - 전부 대문자인 제목은 첫 글자만 대문자로(소리치는 느낌 방지). 낱말은 바꾸지 않는다.
  */
 import { bare } from './jobDetailSections.ts'
-import { ADMINISTRATIVE_AREAS } from './administrativeArea.ts'
+import { ORIGINAL_PROVINCE_ALIASES } from '../data/originalProvinceAliases.ts'
 
 const strip = (s: string) => s.replace(/^[\s\-–—:|·,]+|[\s\-–—:|·,]+$/gu, '').trim()
 
@@ -27,7 +27,7 @@ export function cardCompany(company: string | null | undefined, area: string | n
 //  - 지점이 있으면 지역 줄 대신 "지점, 성"을 쓴다(2번 방식).
 const LEGAL_RX = /(?<![\p{L}\p{N}])(?:công ty|cty|trách nhiệm hữu hạn|một thành viên|tnhh|mtv|cổ phần|jsc|co\.?,?\s*ltd\.?|limited|corporation|corp)(?![\p{L}\p{N}])/giu
 const BRANCH_SPLIT = /\s+[–—|-]\s+|\s*\(|\s+(?:chi nhánh|cơ sở|cn|cs)\s+/iu
-const PLACE_WORDS = new Set([...ADMINISTRATIVE_AREAS.flatMap((a) => a.aliases.flatMap((x) => x.split(' '))), 'tp', 'thanh', 'pho', 'tinh', 'phuong', 'p', 'xa', 'quan', 'huyen', 'thi', 'tran'])
+const PLACE_WORDS = new Set([...ORIGINAL_PROVINCE_ALIASES.flatMap((x) => x.split(' ')), 'tp', 'thanh', 'pho', 'tinh', 'phuong', 'p', 'xa', 'quan', 'huyen', 'thi', 'tran'])
 
 export interface CardCompanyParts { name: string; branch: string; place: string }
 
