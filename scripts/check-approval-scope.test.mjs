@@ -11,9 +11,9 @@ assert.deepEqual(problems(base), [])
 assert.ok(problems(base + `\n/src/ ${OWNER_HANDLE}`).some((m) => /허용 안 된 항목: \/src\//.test(m)), '일반 폴더를 넣으면 빨간불(일반 PR 자동 병합 보호)')
 assert.ok(problems(base + `\n/scripts/ ${OWNER_HANDLE}`).length, 'scripts 전체 같은 넓은 범위 금지')
 assert.ok(problems(base + `\n* ${OWNER_HANDLE}`).length, '전체(*) 소유 금지 — 일반 PR 자동 병합이 막힘')
-assert.ok(problems(base.replace(`/.github/ ${OWNER_HANDLE}`, '/.github/')).some((m) => /소유자/.test(m)), '소유자를 비워 승인 대상을 푸는 것 금지')
+assert.ok(problems(base.replace(`/.github/CODEOWNERS ${OWNER_HANDLE}`, '/.github/CODEOWNERS')).some((m) => /소유자/.test(m)), '소유자를 비워 승인 대상을 푸는 것 금지')
 assert.ok(problems(base + '\n/docs/decisions/x @someone').length, '다른 소유자 금지')
-assert.ok(problems(base.split('\n').filter((l) => !l.startsWith('/.github/')).join('\n')).some((m) => /필수 항목 없음: \/\.github\//.test(m)), '핵심 항목 삭제 금지')
+assert.ok(problems(base.split('\n').filter((l) => !l.startsWith('/.github/CODEOWNERS')).join('\n')).some((m) => /필수 항목 없음: \/\.github\/CODEOWNERS/.test(m)), '핵심 항목 삭제 금지')
 // 허용 목록이 검사 장치 목록(GATE_CODE)·결정 문서(PROTECTED) 파일을 실제로 덮는다(GitHub CODEOWNERS 패턴을 단순 흉내)
 const owned = (path) => matchesOwnerPath(path)  // CODEOWNERS가 덮는 파일 = 단일 목록(보호 대상)
 for (const f of ['.github/workflows/pr-checks.yml', '.github/CODEOWNERS', 'scripts/ci/claude-publish.mjs', 'scripts/status/x.mjs', 'scripts/check-approval-scope.mjs', 'scripts/decision-approval-gate.mjs', 'scripts/codex-review-gate.mjs', 'scripts/approved-migrations.mjs', 'AGENTS.md', 'docs/decisions/ko/0003-x.md']) {
@@ -37,7 +37,7 @@ console.log('봇 활성화 변수 시험 통과')
   const rows = (await import('./check-approval-scope.mjs')).parseOwners(real).map((r) => r.path)
   assert.deepEqual([...rows].sort(), [...OWNER_PATHS].sort(), 'CODEOWNERS 항목이 단일 목록과 정확히 같음')
   // GATE_CODE 동작 보존(예전 정규식과 같은 결과): 경계 사례
-  for (const [f, want] of [['.github/workflows/a.yml', true], ['.github/ISSUE_TEMPLATE/x.md', true], ['scripts/ci/protected-paths.mjs', true], ['scripts/status/x.mjs', true], ['scripts/check-x.mjs', true], ['scripts/codex-review-gate.mjs', true],
+  for (const [f, want] of [['.github/workflows/pr-checks.yml', true], ['.github/workflows/a.yml', false], ['.github/ISSUE_TEMPLATE/x.md', false], ['.github/CODEOWNERS', true], ['scripts/ci/protected-paths.mjs', true], ['scripts/status/x.mjs', true], ['scripts/check-x.mjs', true], ['scripts/codex-review-gate.mjs', true],
     ['scripts/approved-migrations.mjs', true], ['AGENTS.md', true], ['scripts/-gate.mjs', false], ['scripts/check-.mjs', false], ['scripts/ops/check-x.mjs', false], ['scripts/a/b-gate.mjs', false], ['scripts/check-x.mjs.bak', false],
     ['docs/AGENTS.md', false], ['src/a.ts', false], ['package.json', false], ['CLAUDE.md', true], ['.claude/RULES_CORE.md', true], ['docs/decisions/ko/0003-x.md', false]]) assert.equal(GATE_CODE(f), want, `GATE_CODE(${f})`)
   assert.equal(PROTECTED('docs/decisions/ko/0003-x.md'), true)
@@ -55,3 +55,18 @@ console.log('봇 활성화 변수 시험 통과')
   }
   assert.ok(!OWNER_PATHS.includes('/scripts/') && !OWNER_PATHS.includes('/src/') && !OWNER_PATHS.some((p) => p === '*' || p === '/*'), '넓은 범위 금지') }
 console.log('보호 경로 단일 목록 시험 통과(CODEOWNERS = 승인 게이트 범위)')
+
+// Lee 2026-11-23 정책 정렬(#1070 2순위): 워크플로 보호 목록은 내용 기준 — 권한·비밀값·실행기·필수 검사 워크플로는 반드시 목록에 있고, 일반 워크플로만 목록 밖이다
+{ const { workflowCoverageProblems } = await import('./check-approval-scope.mjs')
+  const { readdirSync } = await import('node:fs')
+  const d = new URL('../.github/workflows/', import.meta.url)
+  const files = Object.fromEntries(readdirSync(d).filter((f) => /\.ya?ml$/.test(f)).map((f) => ['.github/workflows/' + f, readFileSync(new URL(f, d), 'utf8')]))
+  assert.deepEqual(workflowCoverageProblems(files), [], '실제 워크플로: 보호 대상은 모두 목록에 있고 목록 항목은 모두 존재')
+  // 우회 시도: 일반 워크플로에 비밀값·쓰기 권한·pull_request_target·self-hosted·environment·필수 검사 이름을 넣으면 목록에 없다고 빨간불
+  const plain = 'name: x\non:\n  workflow_dispatch:\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n'
+  assert.deepEqual(workflowCoverageProblems({ '.github/workflows/dup-count.yml': plain }).filter((m) => /보호 목록에 없음/.test(m)), [], '일반 워크플로는 목록 밖이어도 통과')
+  for (const [why, text] of [['비밀값', plain.replace('echo hi', 'echo ${{ secrets.MY_KEY }}')], ['쓰기 권한', 'permissions:\n  contents: write\n' + plain], ['pull_request_target', plain.replace('workflow_dispatch', 'pull_request_target')], ['self-hosted', plain.replace('ubuntu-latest', 'self-hosted')], ['environment', plain.replace('    runs-on', '    environment: prod\n    runs-on')], ['필수 검사 이름(checks)', plain.replace('  t:', '  checks:')]])
+    assert.ok(workflowCoverageProblems({ '.github/workflows/dup-count.yml': text }).some((m) => /보호 목록에 없음: \.github\/workflows\/dup-count\.yml/.test(m)), `일반 워크플로가 ${why}을(를) 가지면 목록에 없다고 막힘`)
+  assert.ok(workflowCoverageProblems({ '.github/workflows/new-secret.yml': plain.replace('echo hi', 'echo ${{ secrets.K }}') }).length, '새 비밀값 워크플로도 목록 밖이면 막힘')
+  console.log('워크플로 보호 목록 내용 기준 시험 통과')
+}
