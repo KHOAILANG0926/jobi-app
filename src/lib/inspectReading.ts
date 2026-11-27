@@ -39,10 +39,12 @@ export function promoLike(line: string): boolean {
   const t = String(line).trim()
   if (/^(?:#\S+\s*)+$/.test(t)) return true
   if (!(/[!?]\s*$/.test(t) && !/\d/.test(t) && !/[:：]/.test(t) && !/@|https?:\/\/|zalo|hotline/i.test(t) && t.length <= 120)) return false
-  return !FACT_WORDS.test(' ' + fold(t) + ' ')   // 근무 조건·지원 방법·주소·회사 낱말이 있으면 홍보가 아니라 정보(CLAUDE.md 10-30 ④ "애매하면 남긴다")
+  return !FACT_WORDS.test(' ' + fold(t) + ' ') && !ADDRESS_TONED.test(t.normalize('NFC').toLowerCase())   // 근무 조건·지원 방법·주소·회사 낱말이 있으면 홍보가 아니라 정보(CLAUDE.md 10-30 ④ "애매하면 남긴다")
 }
 // 검사 쪽 사본(만드는 쪽 JOB_FACT_HINT·ADDRESS_HINT·COMPANY_HINT와 일부러 따로, 성조 없는 형태). 낱말 목록은 보수적으로 넓게 — 홍보로 오인해 빠짐을 놓치는 쪽이 더 나쁘다.
-const FACT_WORDS = / (?:lau dai|on dinh|chinh thuc|thoi vu|bao an|bao o|an o|ky tuc|ktx|xe dua don|dua don|bao hiem|bhxh|thuong|phu cap|tang ca|nghi|ca ngay|ca dem|xoay ca|part ?time|full ?time|kinh nghiem|dao tao|luong|thu nhap|tuoi|nam|nu|cv|ho so|phong van|tang|duong|pho|phuong|xa|huyen|quan|thi tran|thanh pho|tp|kcn|khu cong nghiep|ccn|thon|ngo|ngach|so nha|toa|plaza|chi nhanh|co so|cong ty|tnhh|co phan|tap doan|don vi|van phong) /
+// 성조를 빼면 흔한 낱말과 같아지는 주소 낱말은 성조 그대로 본다(2026-11-22 5342 "tỏa sáng"≠tòa, 5437 "đi đâu xa"≠xã — 성조 없이 보면 홍보 인사말을 정보로 오인해 '빠짐'으로 잡았다).
+const ADDRESS_TONED = /(?:^|[^\p{L}])(?:tầng|đường|phố|phường|xã|quận|thôn|ngõ|tòa|toà)(?![\p{L}])/u
+const FACT_WORDS = / (?:lau dai|on dinh|chinh thuc|thoi vu|bao an|bao o|an o|ky tuc|ktx|xe dua don|dua don|bao hiem|bhxh|thuong|phu cap|tang ca|nghi|ca ngay|ca dem|xoay ca|part ?time|full ?time|kinh nghiem|dao tao|luong|thu nhap|tuoi|nam|nu|cv|ho so|phong van|huyen|thi tran|thanh pho|tp|kcn|khu cong nghiep|ccn|ngach|so nha|plaza|chi nhanh|co so|cong ty|tnhh|co phan|tap doan|don vi|van phong) /
 
 // 베트남 국가번호(+84·84)와 국내 0 표기를 같은 번호로 본다("0901234567" = "+84 901 234 567").
 const DIGITS = (s: string) => [...String(s).matchAll(/\+?\d[\d .()-]{7,}\d/g)].map((m) => m[0].replace(/\D/g, '').replace(/^840?(?=\d{9}$)|^0(?=\d{9}$)/, ''))
