@@ -11,7 +11,7 @@ name: Claude 자동 작업 (지시 실행 + Codex 검사 대응)
 #    지적이 있으면 ②와 같은 codex-response가 고치거나 답한다(의견 — 병합을 막지 않음). 표시 문자열은 scripts/codex-review-gate.mjs.
 # ⑤ S5(#808, Lee 2026-11-17 "S5 진행하자"): 이슈 지시 → Claude 작업. 이슈에 `ai-task` 라벨을 붙이면(라벨은 저장소 쓰기 권한자만 붙일 수 있음)
 #    task-pickup이 그 이슈 글을 지시로 ①(claude-task)을 시작한다 — crawl-guard 자동 수리와 같은 workflow_dispatch 경로를 그대로 쓴다.
-#    예약 실행(밤 근무)은 아직 시작 안 한 `ai-task` 이슈 중 가장 오래된 1건을 집는다. 시작한 이슈는 `ai-task-running`(중복 시작 방지).
+#    예약 실행(밤 근무)은 아직 시작 안 한 `ai-task` 이슈 중 막히지 않은(needs-lee 아님) 가장 오래된 1건을 먼저 집고, 막힌 것(needs-lee)은 막히지 않은 것이 없을 때만 집는다(Lee 2026-11-27 "의존성 없는 다음 작업 우선" — 대표 결정 대기 이슈가 앞 번호라고 큐 전체가 그 뒤에서 멈추지 않게). 시작한 이슈는 `ai-task-running`(중복 시작 방지).
 # ⑥ S1(Lee 2026-11-20 확정): 보호 변경 초안 — workflow_dispatch protected=true(+draft=true)일 때만, Claude는 지금처럼 쓰기 토큰·id-token·DB 키 없이 파일만 고치고,
 #    task-publish(claude-publish.mjs pr --protected --draft)가 허용 파일 8개(PROTECTED_PUBLISH_ALLOW)만 Draft PR로 올린다. 허용 밖 파일이 하나라도 있으면 게시 전체 거절.
 #    이슈 지시(task-pickup)·Codex 대응·검토관·@claude 답은 보호 변경 경로가 없다(codex·issue·review 모드는 --protected를 줘도 거절). 병합은 approval-gate(Lee 최신 커밋 Approve)가 판단.
@@ -99,7 +99,7 @@ jobs:
           n="${EVENT_ISSUE:-}"
           if [ -z "$n" ]; then
             n=$(gh api "repos/$REPO/issues?labels=ai-task&state=open&sort=created&direction=asc&per_page=50" \
-                  --jq "$ready"' [.[] | select(ready("'"$OWNER"'"))][0].number // empty')
+                  --jq "$ready"' [.[] | select(ready("'"$OWNER"'"))] | sort_by([(any(.labels[]; .name == "needs-lee")), .number]) | .[0].number // empty')
           fi
           [ -n "$n" ] || { echo "시작할 ai-task 이슈 없음"; exit 0; }
           gh api "repos/$REPO/issues/$n" > issue.json

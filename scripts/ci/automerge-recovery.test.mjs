@@ -212,6 +212,19 @@ const pick = (fx, env) => exec(PICK, fx, { SHA, RUN_ID: '100', RUN_ATTEMPT: '1',
   const r3 = runShell(script, r1.dir, env)
   assert.doesNotMatch(r3.calls, /workflow run/, '대기 이슈가 없으면 아무것도 시작하지 않음')
   console.log('5 작업 큐: 다음 이슈 정확히 1건·중복 착수 없음·needs-lee는 Draft만 통과')
+  // 5b. 의존성 없는 일 우선(Lee 2026-11-27): 막힌(needs-lee) 이슈가 더 오래돼도 막히지 않은 이슈를 먼저 집는다. 막히지 않은 것이 없으면 그때 막힌 것(Draft 준비)을 집는다.
+  {
+    const fxB = { issues: [issue(900, ['ai-team', 'ai-task', 'needs-lee']), issue(910, ['ai-team', 'ai-task']), issue(920, ['ai-team', 'ai-task', 'needs-lee'])] }
+    const b1 = exec(script, fxB, env)
+    assert.equal(b1.status, 0, b1.stderr + b1.stdout)
+    const runsB1 = b1.calls.match(/workflow run claude-auto\.yml.*/g) || []
+    assert.equal(runsB1.length, 1); assert.match(runsB1[0], /이슈 #910 /, '막히지 않은 #910을 먼저(오래된 needs-lee #900이 앞이어도)')
+    writeFileSync(join(b1.dir, 'calls.log'), '')
+    const b2 = runShell(script, b1.dir, env)
+    const runsB2 = b2.calls.match(/workflow run claude-auto\.yml.*/g) || []
+    assert.equal(runsB2.length, 1); assert.match(runsB2[0], /이슈 #900 /, '막히지 않은 것이 없으면 막힌 것 중 가장 오래된 #900')
+    console.log('5b 작업 큐: 막히지 않은 이슈 우선, 없을 때만 막힌 이슈(Draft 준비)')
+  }
 }
 
 // ── 6. 보호 유지: 봇이 병합 직전 판정기·운영 잠금 재확인·sha 고정 병합을 그대로 거친다
