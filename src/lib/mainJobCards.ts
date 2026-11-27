@@ -1,5 +1,6 @@
 import type { Job } from '../types/job'
 import { roleSalaryLines } from './jobRolePresentation.ts'
+import { occupationGroupsInJobs } from './occupationGroups.ts'
 
 export type PayKind = 'hour' | 'day' | 'month' | 'year' | 'other'
 export interface CardSalary { label: string; text: string; lines?: string[]; kind?: PayKind; lineKinds?: PayKind[] }
@@ -61,6 +62,11 @@ export function mainCardJobs(jobs: Job[]): Job[] {
     seen.add(job.id)
     return true
   })
+}
+
+/** 모바일 직업 칩 숫자는 메인 목록이 실제로 보여 주는 카드(mainCardJobs)와 같은 집합으로 센다(#1168 — 급여를 못 읽어 메인에서 빠지는 공고는 칩에서도 뺀다). */
+export function mainCardOccupationGroups(jobs: Job[]) {
+  return occupationGroupsInJobs(mainCardJobs(jobs))
 }
 
 export function partitionMainCards(jobs: Job[], selected: Job[]): { featured: Job[]; remaining: Job[] } {
