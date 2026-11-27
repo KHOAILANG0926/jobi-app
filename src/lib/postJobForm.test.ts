@@ -14,6 +14,10 @@ eq(normalizeVnPhone('abc'), null, 'letters')
 
 // 급여·시간·나이·인원·주소
 eq(composeSalary('30.000 đ', 'hour', false), { salary: '30.000 đ/giờ', salaryPeriod: 'hour' }, 'salary + unit')
+eq(composeSalary('8.000.000', 'month', false), { salary: '8.000.000 VNĐ/tháng', salaryPeriod: 'month' }, '단위 없는 큰 금액은 VNĐ를 붙여 메인 카드가 읽게(안내 예시 그대로 쓴 경우)')
+eq(composeSalary('25000', 'hour', false), { salary: '25000 VNĐ/giờ', salaryPeriod: 'hour' }, '점 없는 숫자도')
+eq(composeSalary('8', 'month', false), { salary: '8/tháng', salaryPeriod: 'month' }, '작은 수는 단위를 추정하지 않음')
+eq(composeSalary('8 triệu', 'month', false), { salary: '8 triệu/tháng', salaryPeriod: 'month' }, '이미 단위가 있으면 그대로')
 eq(composeSalary('', 'month', true), { salary: 'Thỏa thuận' }, 'negotiable')
 eq(composeSalary('', 'month', false), null, 'salary required')
 eq(composeHours('08:00', '17:00', '60'), '08:00 - 17:00 (nghỉ 60 phút)', 'hours with break')

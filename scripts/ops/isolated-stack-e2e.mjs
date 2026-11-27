@@ -409,7 +409,7 @@ if (BASE && jobId) {
   }
   // ── 앱 등록 → 웹 확인 교차(실제 브라우저·실제 로컬 스택): 기업이 앱(/app/biz/dang-tin)에서 공고를 등록하면 같은 계정의 앱 관리 화면·웹 관리 화면·DB에 같은 공고가 보이고, 비로그인에게는 검사 전이라 안 보인다.
   {
-    const APP_TITLE = `Tuyen app ${RUN}`.slice(0, 40)
+    const APP_TITLE = `Nhan vien phuc vu ${RUN}`.slice(0, 40)
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(context)
     const page = await context.newPage()
     try {
@@ -421,6 +421,8 @@ if (BASE && jobId) {
       await page.goto(`${BASE}/app/biz/dang-tin`, { waitUntil: 'domcontentloaded' })
       await page.locator('[data-testid="app-pj"]').waitFor({ state: 'visible', timeout: 30_000 })
       await page.locator('#app-pj-title').fill(APP_TITLE)
+      await page.getByLabel('Ngành nghề', { exact: true }).selectOption('am_thuc_do_uong')
+      await page.getByLabel('Chi tiết ngành nghề').selectOption('phuc_vu_ban')
       await page.locator('#app-pj-company').fill('E2E App Co')
       await page.getByRole('button', { name: 'Chính thức', exact: true }).click()
       await page.locator('#app-pj-hires').fill('5')
@@ -457,6 +459,8 @@ if (BASE && jobId) {
         try {
           const loc = sql(`select location from public.local_jobs where id = ${appJobId}`)
           sql(`select location_private.write_location(${appJobId}, 'upsert', jsonb_build_object('address', '${loc.replace(/'/g, "''")}', 'lat', 21.2, 'lng', 106.0, 'authority', 'source_verified', 'evidence', jsonb_build_object('source', 'Google place', 'checkedAt', now(), 'evidence', 'e2e same name one place')))`)
+          // 화면 대조(detail-read.mjs)는 실제 사이트의 관리자 상세를 브라우저로 보는 별도 단계라 격리 환경에서 돌리지 않는다 — 그 단계의 결과 기록(지금 내용 지문 + 확정 오류 없음)만 같은 칸에 쓴다. 검사기 실행·판정·공개는 실제 코드.
+          sql(`update public.local_jobs j set ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('screen_audit', jsonb_build_object('content_hash', public.job_inspect_content_hash(j), 'findings', '[]'::jsonb)) where id = ${appJobId}`)
           const insp = spawnSync('node', ['--experimental-strip-types', '--import', './scripts/ts-extensionless-register.mjs', 'scripts/ops/job-inspect.mjs'], { encoding: 'utf8', env: { ...process.env, SUPABASE_DB_URL: DB, GH_TOKEN: '', REPO: '' }, timeout: 180_000 })
           const st = await call('GET', `/rest/v1/local_jobs?select=active,ocr_check,publish_gate_reason&id=eq.${appJobId}`, { token: SERVICE }).then((r) => r.json?.[0])
           const why = sql(`select left(coalesce(ocr_check->'inspect'->'items', '[]'::jsonb)::text, 1800) from public.local_jobs where id = ${appJobId}`)

@@ -20,7 +20,10 @@ export function composeSalary(amount: string, unit: PayUnit, negotiable: boolean
   if (negotiable) return { salary: 'Thỏa thuận' }
   const a = amount.trim()
   if (!a) return null
-  return { salary: /\/\s*\S+$/.test(a) ? a : `${a}/${UNIT_TEXT[unit]}`, salaryPeriod: unit }
+  // 숫자만 쓴 금액("8.000.000", "8000000")은 돈 단위가 없어 메인 목록 카드가 급여를 못 읽고(cardSalary) 검사표 '메인 화면 카드' 항목이 막혀 공개되지 않는다 —
+  // 입력 안내 예시("Ví dụ: 8.000.000")대로 쓴 사람이 그대로 겪는다(격리 실제 스택 E2E로 확인). 숫자만이고 4자리 이상이면 VNĐ를 붙인다(작은 수는 단위를 추정하지 않음). 이미 단위(triệu·k·đ·VNĐ 등)가 있으면 그대로.
+  const withUnit = /^\d[\d.,\s]*$/.test(a) && a.replace(/\D/g, '').length >= 4 ? `${a} VNĐ` : a   // 4자리 이상만("8"은 8 triệu인지 알 수 없어 지어내지 않는다)
+  return { salary: /\/\s*\S+$/.test(a) ? a : `${withUnit}/${UNIT_TEXT[unit]}`, salaryPeriod: unit }
 }
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
