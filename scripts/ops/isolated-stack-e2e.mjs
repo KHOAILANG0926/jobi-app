@@ -459,7 +459,7 @@ if (BASE && jobId) {
           sql(`select location_private.write_location(${appJobId}, 'upsert', jsonb_build_object('address', '${loc.replace(/'/g, "''")}', 'lat', 21.2, 'lng', 106.0, 'authority', 'source_verified', 'evidence', jsonb_build_object('source', 'Google place', 'checkedAt', now(), 'evidence', 'e2e same name one place')))`)
           const insp = spawnSync('node', ['--experimental-strip-types', '--import', './scripts/ts-extensionless-register.mjs', 'scripts/ops/job-inspect.mjs'], { encoding: 'utf8', env: { ...process.env, SUPABASE_DB_URL: DB, GH_TOKEN: '', REPO: '' }, timeout: 180_000 })
           const st = await call('GET', `/rest/v1/local_jobs?select=active,ocr_check,publish_gate_reason&id=eq.${appJobId}`, { token: SERVICE }).then((r) => r.json?.[0])
-          const why = (insp.stdout + insp.stderr).split('\n').filter((l) => new RegExp(`#${appJobId} `).test(l)).slice(0, 2).join(' | ').slice(0, 400)
+          const outLines = (insp.stdout + insp.stderr).split('\n'), at = outLines.findIndex((l) => new RegExp(`#${appJobId} `).test(l)); const why = at < 0 ? '' : outLines.slice(at, at + 9).join(' | ').slice(0, 1500)
           const anon = await call('GET', `/rest/v1/local_jobs?select=id&id=eq.${appJobId}`)
           rec('P1', '실제 검사기 실행 → 검사기가 직접 판정·기록(publishable)하고 공개 → 비로그인에게 보임', insp.status === 0 && st?.ocr_check?.inspect?.publishable === true && st?.active === true && anon.json?.length === 1, `종료 ${insp.status} / 검사기록 publishable ${st?.ocr_check?.inspect?.publishable} active ${st?.active} gate ${st?.publish_gate_reason} / 익명 ${anon.json?.length}건 ${why}`)
           if (st?.active === true) {
