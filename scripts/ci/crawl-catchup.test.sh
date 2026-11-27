@@ -69,4 +69,8 @@ runs;                                                         expect "gate: 10�
 runs;                                                         expect "gate: 자리 밖 목록 위치(20)는 판정 대상 아님" "$(gate 20 10 | tr '\n' ' ')" "skip=false rc=0 "
 # 조회 실패로 건너뛴 자리는 조회가 되는 때 보충이 채운다(상한은 그대로 — 그 자리는 아직 안 찼으므로)
 runs;                                                         catchup ${TODAY}T05:00:00Z; ok_ev "조회 실패로 건너뛴 자리 → 조회되면 보충이 같은 자리를 채움" 1 "sample_offset=0"
+
+# 검증 저장 실행은 제목이 달라(검증 저장(수집 실행 N)) 자리를 채우지 않는다
+printf '{"workflow_runs":[{"id":20,"display_title":"채용공고 자동 크롤링 · 검증 저장(수집 실행 10)","status":"in_progress","conclusion":null,"created_at":"%sT03:10:00Z"}]}' "$TODAY" > "$D/runs.json"
+expect "검증 저장 실행은 자리를 채우지 않음" "$(slot 0)$(slot 10)" 11
 exit $fail

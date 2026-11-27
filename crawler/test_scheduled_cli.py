@@ -180,7 +180,9 @@ class ScheduledCallerTests(unittest.TestCase):
         # 예약의 목록 위치(08:23=10, 그 밖=0)와 보충이 넘기는 목록 위치가 같은 식을 쓴다
         self.assertIn("'23 8 * * *' && '10' || '0'", wf)
         # 제목(run-name)에 목록 위치·건수 — 자리 판정(crawl-slot.sh)이 읽는 값
-        self.assertIn("run-name: ${{ format('채용공고 자동 크롤링 · 목록 위치 {0} · {1}건'", wf)
+        self.assertIn("format('채용공고 자동 크롤링 · 목록 위치 {0} · {1}건'", wf)
+        # 검증 저장 실행은 수집 제목(목록 위치·건수)을 쓰지 않는다 — 자리를 채운 것으로 보이지 않게
+        self.assertIn("run-name: ${{ inputs.verify_save_run_id && format('채용공고 자동 크롤링 · 검증 저장(수집 실행 {0})'", wf)
         slot_job = wf.split("\n  slot:\n", 1)[1].split("\n  crawl:\n", 1)[0]
         self.assertIn('scripts/ci/crawl-slot.sh gate "$OFFSET" "$LIMIT"', slot_job)
         # 조회 실패는 건너뜀(닫힌 방향) — 하루 20건 상한이 조회 성공 여부에 기대지 않는다
