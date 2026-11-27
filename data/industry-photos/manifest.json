@@ -1,0 +1,11 @@
+{
+  "_doc": "대표 이미지 목록(Lee 2026-11-27 승인 설계, 이미지 840장 계획 중 현재 일부). 이미지를 추가할 때는 파일을 public/images에 넣고 images에 한 줄만 더하면 되고 코드는 고치지 않는다. id = 고유 번호(고정 배정이 저장하므로 바꾸거나 재사용하지 않는다), group = 업종(category), roles = 맞는 공식 직업코드 앞자리(없으면 그 업종의 일반 사진), env = 근무환경(cardPhoto.ENV_KEYS 중 하나, 없으면 null), kind = stock(실제 사진)·ai(우리가 만든 그림), source = SOURCES.json 열쇠(stock), origin = 제작 출처(ai). 선택 순서: ① 세부 직무+근무환경 ② 세부 직무 ③ 업종 일반 ④ groups[업종].fallback(legacy = 기존 선택, neutral = 중립 기본 사진). 출처·라이선스(source/origin, SOURCES.json)는 지우지 않는다.",
+  "groups": {
+    "dich_vu": { "fallback": "neutral" }
+  },
+  "images": [
+    { "id": "dich_vu-cleaning-001", "file": "/images/industry/dich_vu.jpg", "group": "dich_vu", "roles": ["911"], "env": null, "kind": "stock", "source": "dich_vu" },
+    { "id": "dich_vu-salon-001", "file": "/images/template/04-dich-vu.jpg", "group": "dich_vu", "roles": ["514"], "env": null, "kind": "ai", "origin": "우리 그림 — 간편 템플릿 업종별 그림(Lee 2026-11-09, 커밋 f8aa7986 feat(template))" },
+    { "id": "dich_vu-salon-002", "file": "/images/template/04b-dich-vu.jpg", "group": "dich_vu", "roles": ["514"], "env": null, "kind": "ai", "origin": "우리 그림 — 간편 템플릿 업종별 그림(Lee 2026-11-09, 커밋 f8aa7986 feat(template))" }
+  ]
+}

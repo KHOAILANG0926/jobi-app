@@ -122,6 +122,8 @@ export interface Job {
   roleCodes?: string[]
   /** 대표 모집 직무 코드(인원 많은 순 → 나열 순서, lib/jobRoles). */
   primaryRoleCode?: string
+  /** local_jobs.representative_image_id — 고정 배정된 대표 이미지 번호(data/industry-photos/manifest.json의 id). 없으면 그때그때 계산. */
+  representativeImageId?: string
   salary: string
   location: string
   description: string
