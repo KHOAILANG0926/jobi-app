@@ -40,12 +40,14 @@ export function parseLooseName(file) {
 }
 
 // 1280px 이내·webp·300KB 이하로 줄인다(품질을 낮춰 가며). ImageMagick만 쓴다(유료·외부 서비스 없음).
+export const imageTool = () => { for (const t of ['magick', 'convert']) { try { execFileSync(t, ['-version'], { stdio: 'ignore' }); return t } catch {} } }
 export function optimize(srcFile) {
+  if (!imageTool()) throw new Error('ImageMagick(magick/convert) 없음')
   const dir = mkdtempSync(join(tmpdir(), 'img-'))
   try {
     const out = join(dir, 'o.webp')
     for (const q of [82, 72, 62, 50, 40]) {
-      execFileSync('convert', [srcFile + '[0]', '-auto-orient', '-strip', '-resize', '1280x1280>', '-quality', String(q), out])
+      execFileSync(imageTool(), [srcFile + '[0]', '-auto-orient', '-strip', '-resize', '1280x1280>', '-quality', String(q), out])
       const buf = readFileSync(out)
       if (buf.length <= MAX_BYTES) return buf
     }
