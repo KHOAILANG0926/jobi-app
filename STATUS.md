@@ -3,14 +3,14 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-27 13:57 (VN)**
-- 기준 커밋: `57d80b0` (fix(ops): 큐가 시작한 이슈 작업이 PR 없이 끝나면 그 이슈에 결과 안내를 남김 — 결과 없이 ai-task-running으로 영구 방치되던 것 (#894·#633) (#1145))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/45955117395
+- 생성 시각: **2026-11-27 23:39 (VN)**
+- 기준 커밋: `1fad83f` (feat(photo): 대표 이미지 고정 배정 + 카드·앱 화면 연동 (3단계) (#1185))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/46035257517
 - 검증 스크립트 지문(SHA-256): `a7387291a9c75cc7`
 
 ## 한눈에 보기
 
-**확인 필요 29건**
+**확인 필요 28건**
 
 - 핀 #4824: ❌ 공고 주소에 번지 없음
 - 핀 #4824: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
@@ -33,7 +33,6 @@
 - 핀 #5422: ❌ 공고 주소에 번지 없음
 - 핀 #5422: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
 - 검증 장치가 최근 바뀜 (2c4f399)
-- 검증 장치가 최근 바뀜 (804a4ae)
 - 규칙 시험 실패: R1_phone_digits_only
 - 규칙 시험 실패: R2_decision_columns_code_only
 - 규칙 시험 실패: R3_source_evidence_required
@@ -47,12 +46,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 145/145 파일 통과 |
+| 테스트 `npm test` | ✅ 150/150 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `57d80b0` · 상태 **success** · 2026-11-27 13:56 (VN)
+- 마지막 Production 배포: `1fad83f` · 상태 **success** · 2026-11-27 23:39 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -60,20 +59,20 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
-| #1145 | 2026-11-27 13:56 (VN) | `57d80b0` | fix(ops): 큐가 시작한 이슈 작업이 PR 없이 끝나면 그 이슈에 결과 안내를 남김 (#894·#633) |
-| #1154 | 2026-11-27 13:06 (VN) | `675631d` | fix(crawler): Muaban 읽기 시험 — contact 칸 안의 칸 이름·값 모양 확인 (#1140) |
-| #1147 | 2026-11-27 13:01 (VN) | `ca67bf5` | fix(build): 웹·앱 첫 화면이 jspdf 400KB를 미리 받던 청크 묶음 분리 (#1031 후속 1) |
-| #1153 | 2026-11-27 13:00 (VN) | `50d0e13` | fix(crawler): Muaban 읽기 시험 — 공고 객체의 contact 칸을 전화 후보로 확인 (#1140) |
-| #1152 | 2026-11-27 12:55 (VN) | `e7080a5` | fix(crawler): Muaban 읽기 시험 상세 추출을 주소의 공고 번호 객체로 좁힘 — 연락처 열람 여부 판정 가능하게 (#1140) |
-| #1151 | 2026-11-27 12:53 (VN) | `59fbd69` | test(smoke): 실제 화면 검사에 이력서 PDF 내려받기 확인 추가 (#1147 후속) |
-| #1150 | 2026-11-27 12:48 (VN) | `9443c08` | fix(crawler): Muaban 읽기 시험의 차단 오판 수정 — 정상 목록 페이지(200)를 robots 메타 낱말로 중단 (#1140) |
-| #1149 | 2026-11-27 12:47 (VN) | `6cfaad0` | fix(detail): 직무 이름 중간 Full Time 유지·근무기간 Khác가 원문 근무 형태를 가리지 않게 (#921) |
-| #1146 | 2026-11-27 12:41 (VN) | `45ef7d7` | feat(crawler): Muaban 박닌 읽기 시험(probe) + 수동 실행 워크플로 — 저장·키 없음 (#1140) |
-| #1143 | 2026-11-27 11:51 (VN) | `b01ed90` | ci(approval): CODEOWNERS 보호 목록을 내용 기준 워크플로로 정렬 — 일반 워크플로 자동 병합(11-23 정책)을 서버 쪽에도 (#1070 2순위) |
+| #1185 | 2026-11-27 23:37 (VN) | `1fad83f` | feat(photo): 대표 이미지 고정 배정 + 카드·앱 화면 연동 (3단계) |
+| #1184 | 2026-11-27 23:26 (VN) | `bfa3659` | ops(e2e): 고용주·구직자 실제 로그인 시험 — 대표 가입 없이 일회용 시험 계정 생성·삭제 (#701 D) |
+| #1181 | 2026-11-27 23:09 (VN) | `5beba48` | feat(photo): 전달 이미지 ZIP 23장을 이미지 목록(manifest)에 등록 (#1180 연동, Draft) |
+| #1180 | 2026-11-27 22:59 (VN) | `852f798` | feat(photo): 직무 중심 대표 이미지 선택 + 이미지 목록 (설계 2단계, Draft) |
+| #1182 | 2026-11-27 22:58 (VN) | `2f094fa` | feat(db): 대표 이미지 고정 배정 칸 representative_image_id (대표 Approve 대상) |
+| #1183 | 2026-11-27 22:48 (VN) | `3f549fd` | docs: HANDOFF·WORK_LOG — 직무 중심 분류·대표 이미지 1·2단계 |
+| #1179 | 2026-11-27 22:39 (VN) | `77acd04` | feat(roles): 복수 직무 공고를 모든 모집 직무로 검색 — category·공식 코드 유지 (설계 1단계, Draft) |
+| #1175 | 2026-11-27 17:29 (VN) | `2ce49c0` | fix(home): Theo vị trí 공고가 원문 급여 금액이 있으면 메인 목록에서 빠지지 않게 (#1168 후속) |
+| #1174 | 2026-11-27 17:11 (VN) | `9f8fad4` | fix(home): 모바일 직업 칩 숫자를 메인 목록 카드 집합으로 센다 — 급여를 못 읽어 메인에서 빠지는 공고는 칩에서도 제외 (#1168) |
+| #1170 | 2026-11-27 16:57 (VN) | `3947087` | fix(home): 급여 줄에 수당·상여 낱말이 붙어도 금액을 남겨 메인 목록에서 공고가 빠지지 않게 (#1168) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **30건** (전체 57건, 숨김·비활성 27건)
+- 공개 중: **30건** (전체 56건, 숨김·비활성 26건)
 - 출처별: 출처 없음 26 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -97,6 +96,7 @@
 
 | 날짜 | 호출 | 마지막 갱신 |
 |---|---|---|
+| 2026-11-27 | 1 | 2026-11-27 22:49 (VN) |
 | 2026-11-26 | 1 | 2026-11-26 07:19 (VN) |
 - 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
 
@@ -104,16 +104,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-27 13:57 (VN) | location_candidate.approve | job 6769 |
-| 2026-11-27 13:57 (VN) | location_candidate.add | job 6769 |
-| 2026-11-27 13:07 (VN) | location_candidate.approve | job 6766 |
-| 2026-11-27 13:07 (VN) | location_candidate.add | job 6766 |
-| 2026-11-27 13:03 (VN) | location_candidate.approve | job 6763 |
-| 2026-11-27 13:03 (VN) | location_candidate.add | job 6763 |
-| 2026-11-27 13:02 (VN) | location_candidate.approve | job 6761 |
-| 2026-11-27 13:02 (VN) | location_candidate.add | job 6761 |
-| 2026-11-27 12:56 (VN) | location_candidate.approve | job 6757 |
-| 2026-11-27 12:56 (VN) | location_candidate.add | job 6757 |
+| 2026-11-27 23:27 (VN) | location_candidate.approve | job 6818 |
+| 2026-11-27 23:27 (VN) | location_candidate.add | job 6818 |
+| 2026-11-27 23:11 (VN) | location_candidate.approve | job 6815 |
+| 2026-11-27 23:11 (VN) | location_candidate.add | job 6815 |
+| 2026-11-27 23:03 (VN) | location_candidate.approve | job 6813 |
+| 2026-11-27 23:03 (VN) | location_candidate.add | job 6813 |
+| 2026-11-27 23:01 (VN) | location_candidate.approve | job 6809 |
+| 2026-11-27 23:01 (VN) | location_candidate.add | job 6809 |
+| 2026-11-27 22:49 (VN) | location_candidate.approve | job 6806 |
+| 2026-11-27 22:49 (VN) | location_candidate.add | job 6806 |
 
 ## 8. 검증 장치 변경 이력
 
