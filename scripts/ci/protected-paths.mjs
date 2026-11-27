@@ -25,6 +25,7 @@ export const OWNER_PATHS = [
   '/.github/workflows/bot-pr-automerge.yml',
   '/.github/workflows/brand-logo-watch.yml',
   '/.github/workflows/brand-logo.yml',
+  '/.github/workflows/image-register.yml',
   '/.github/workflows/business-search-compare.yml',
   '/.github/workflows/claude-auto.yml',
   '/.github/workflows/codex-wait-timer.yml',
