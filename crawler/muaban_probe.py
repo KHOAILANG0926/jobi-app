@@ -97,33 +97,45 @@ def detail_links(html: str) -> list:
     return seen
 
 
-def summarize_detail(html: str) -> dict:
-    """상세 화면에서 제목·회사·주소·본문 길이·전화(끝 3자리만)를 뽑는다. 값은 요약만."""
+def url_ad_id(url: str) -> str:
+    m = re.search(r"-id(\d+)$", url)
+    return m.group(1) if m else ""
+
+
+def summarize_detail(html: str, ad_id: str = "") -> dict:
+    """상세 화면에서 제목·회사·주소·본문 길이·전화(끝 3자리만)를 뽑는다. 값은 요약만.
+    ad_id(주소 끝 -id숫자)가 있으면 그 번호의 공고 객체만 쓴다 — 첫 객체를 쓰면 추천·옆 공고 정보를 그 공고 것으로 오인한다
+    (2026-11-27 첫 읽기: 링크한 공고와 다른 제목·두 공고에서 같은 번호). 찾지 못하면 matched=False이고 전화·본문은 '판정 불가'로 둔다."""
     nd = next_data(html)
     ads: list = []
     if nd:
         find_ads(nd, ads)
-    ad = ads[0] if ads else {}
-    body = str(ad.get("body") or ad.get("description") or "")
-    if not body:
-        body = re.sub(r"<[^>]+>", " ", html)
-    phone = ad.get("phone") or ad.get("contact_phone") or ""
-    tel = re.search(r'href="tel:([^"]+)"', html)
-    if not phone and tel:
-        phone = tel.group(1)
+    if ad_id:
+        ad = next((a for a in ads if str(a.get("id")) == ad_id), {})
+    else:
+        ad = ads[0] if ads else {}
+    matched = bool(ad)
+    body = str(ad.get("body") or ad.get("description") or "") if matched else ""
+    phone = (ad.get("phone") or ad.get("contact_phone") or "") if matched else ""
+    # 페이지 전체의 tel: 링크는 사이트 공통 번호일 수 있어 공고 자신의 번호로 쓰지 않고 개수만 센다.
+    tels = sorted(set(re.findall(r'href="tel:([^"]+)"', html)))
     title = ad.get("title") or ad.get("subject")
-    if not title:
+    if not title and not matched:
         t = re.search(r"<title>(.*?)</title>", html, re.S)
         title = t.group(1).strip() if t else ""
     return {
         "has_next_data": bool(nd),
-        "title": str(title)[:80],
+        "matched": matched,
+        "ad_ids": [str(a.get("id")) for a in ads[:5]],
+        "title": str(title or "")[:80],
         "company": str(ad.get("company_name") or ad.get("shop_name") or ad.get("user_name") or "")[:60],
         "address": str(ad.get("address") or ad.get("location") or "")[:120],
         "body_len": len(body),
         "body_phone": mask((PHONE.findall(body) or [""])[0]),
         "phone": mask(phone),
         "phone_masked": is_masked(phone),
+        "page_tel_links": len(tels),
+        "ad_keys": sorted(ad.keys())[:60] if matched else [],
     }
 
 
@@ -161,8 +173,11 @@ def main() -> int:
         if is_blocked(st, body):
             print("::error::상세 차단 — 중단(우회하지 않음)", st, "걸린 낱말:", block_phrase(st, body))
             return 2
-        s = summarize_detail(body)
+        s = summarize_detail(body, url_ad_id(url))
         print("  __NEXT_DATA__", "있음" if s["has_next_data"] else "없음")
+        print("  그 공고 객체", "찾음" if s["matched"] else "못 찾음(전화·본문 판정 불가)", "| 페이지 속 공고 번호", s["ad_ids"], "| 페이지 tel: 링크", s["page_tel_links"], "개")
+        if s["ad_keys"]:
+            print("  공고 키 목록:", s["ad_keys"])
         print("  제목", s["title"])
         print("  회사", s["company"] or "없음")
         print("  주소", s["address"] or "없음")

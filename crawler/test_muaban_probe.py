@@ -41,6 +41,21 @@ class MuabanProbeTest(unittest.TestCase):
         self.assertTrue(s["phone_masked"])
         self.assertNotIn("0987654321", json.dumps(s))
 
+    def test_summarize_detail_uses_ad_of_url_id(self):
+        html = page({"a": [{"id": 1, "title": "옆 공고", "address": "x", "phone": "0900000111"}, {"id": 2, "title": "이 공고", "address": "y", "phone": "0911222333"}]})
+        s = p.summarize_detail(html, "2")
+        self.assertTrue(s["matched"])
+        self.assertEqual(s["title"], "이 공고")
+        self.assertEqual(s["phone"], "…333(10자리)")
+        self.assertEqual(p.url_ad_id("https://muaban.net/viec-lam/x/abc-id71399107"), "71399107")
+
+    def test_summarize_detail_unmatched_is_indeterminate(self):
+        html = page({"a": [{"id": 1, "title": "옆 공고", "address": "x", "phone": "0900000111"}]}) .replace("</html>", '<a href="tel:0123456789">t</a></html>')
+        s = p.summarize_detail(html, "5")
+        self.assertFalse(s["matched"])
+        self.assertEqual(s["phone"], "없음")
+        self.assertEqual(s["page_tel_links"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
