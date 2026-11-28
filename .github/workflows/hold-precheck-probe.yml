@@ -1,0 +1,44 @@
+name: 보류함 공고 위치 확인(읽기 전용 프로브)
+
+# Lee 2026-11-28 단건 게시 후보 사전 검증. 보류함(research_artifacts location-hold)의 공고 1건에 대해 기존 서버 위치 확인(수집·보류 재확인과 같은 hook)만 묻는다.
+# DB에 아무것도 쓰지 않는다(등록·상태 변경·공개 없음). 로그(공개 저장소)에는 전화·원문·주소·좌표를 찍지 않고 찾음 여부·종류·사유만. 수동 실행만.
+# 열쇠는 기존 ops-keys 환경(master에서만)의 SUPABASE_SERVICE_ROLE_KEY만 쓴다.
+on:
+  workflow_dispatch:
+    inputs:
+      company:
+        description: '보류함 공고의 회사 이름(대소문자·앞뒤 공백만 무시하고 정확히 일치, 그 한 곳만)'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hold-precheck-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: github.ref == 'refs/heads/master'
+    environment: ops-keys
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      HOLD_COMPANY: ${{ inputs.company }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 의존성 설치
+        run: python -m pip install -r crawler/requirements.txt
+      - name: 시험(네트워크 없음)
+        run: python crawler/test_hold_precheck_probe.py
+      - name: 위치 확인 1건(읽기 전용)
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::ops-keys에 SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
+          python crawler/hold_precheck_probe.py
