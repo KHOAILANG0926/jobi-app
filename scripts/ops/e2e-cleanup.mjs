@@ -23,7 +23,6 @@ export const TABLES = {
   byUser: [
     ['public.job_alert_notifications', 'seeker_id'], ['public.job_alert_preferences', 'seeker_id'], ['public.job_alert_home_locations', 'seeker_id'],
     ['public.account_roles', 'user_id'], ['public.account_statuses', 'user_id'], ['public.user_profiles', 'user_id'], ['public.user_cvs', 'user_id'],
-    ['public.admin_audit_logs', 'admin_user_id'],
   ],
 }
 
@@ -33,9 +32,12 @@ export function cleanupSql(marker, { maxJobs = 1, maxUsers = 2 } = {}) {
   const del = ([t, col], src) => `select pg_temp.vgb_del('${t}.${col}', $c$select count(*) from ${t} where ${col} in (select id from ${src})$c$, $d$delete from ${t} where ${col} in (select id from ${src}) returning 1$d$);`
   return `
 begin;
-create temp table vgb_jobs on commit drop as select id from public.local_jobs where company like 'VGB-E2E ${marker}%';
+create temp table vgb_jobs on commit drop as select id from public.local_jobs where company = 'VGB-E2E ${marker}' or company like 'VGB-E2E ${marker} %';
 create temp table vgb_users on commit drop as select id from auth.users where email like 'vgb-e2e-${marker}-%@example.invalid' and raw_user_meta_data->>'e2e_marker' = '${marker}';
 create temp table vgb_log (tbl text, n bigint) on commit drop;
+-- 식별 뒤 삭제까지 뿌리 행을 잠가, 그 사이 실제 이용자가 시험 공고·계정에 새 행(지원 등)을 붙이지 못하게 한다(자식 행 삽입은 부모 행 잠금을 기다리다 부모가 지워지면 외래키 오류)
+select id from public.local_jobs where id in (select id from vgb_jobs) for update;
+select id from auth.users where id in (select id from vgb_users) for update;
 
 -- ① 뿌리 상한
 do $g$ begin
@@ -58,12 +60,34 @@ do $o$
 declare bad bigint; nm text;
 begin
   for nm in select unnest(array['vgb_apps', 'vgb_threads', 'vgb_ivs']) loop
-    execute format('select count(*) from %I where not (job_id in (select id from vgb_jobs) and seeker_id in (select id from vgb_users) and employer_id in (select id from vgb_users))', nm) into bad;
+    execute format('select count(*) from %I where coalesce(job_id in (select id from vgb_jobs) and seeker_id in (select id from vgb_users) and employer_id in (select id from vgb_users), false) is not true', nm) into bad;
     if bad > 0 then raise exception 'vgb_cleanup: % 에 시험 뿌리가 아닌 공고·이용자가 섞인 행 % 건 — 실제 데이터 보호를 위해 중단', nm, bad; end if;
   end loop;
+  select count(*) into bad from public.job_alert_notifications where job_id in (select id from vgb_jobs) and seeker_id not in (select id from vgb_users);
+  if bad > 0 then raise exception 'vgb_cleanup: 시험 공고에 걸린 알림 중 구독자가 시험 계정이 아님 % 건 — 중단', bad; end if;
   select count(*) into bad from public.local_jobs where id in (select id from vgb_jobs) and employer_id is not null and employer_id not in (select id from vgb_users);
   if bad > 0 then raise exception 'vgb_cleanup: 시험 공고의 고용주 칸이 시험 계정이 아님 % 건 — 중단', bad; end if;
 end $o$;
+
+-- ③-2 삭제 전 읽기 점검: 공고·계정을 외래키로 참조하는 모든 표(모든 스키마, auth 내부 표 제외) 중 아래 명시 처리 목록에 없는 표에 시험 뿌리를 가리키는 행이 있으면 중단
+-- (공고·계정 삭제의 ON DELETE CASCADE로 실제 이용자 행이 조용히 따라 지워지는 일을 막는다)
+do $p$
+declare fk record; c bigint; src text; handled text[] := array[${[
+    'public.applications', 'public.message_threads', 'public.interviews', 'public.local_jobs', 'public.job_ingest_raw', 'public.admin_audit_logs',
+    ...TABLES.byJob.map((t) => t[0]), ...TABLES.byUser.map((t) => t[0]),
+  ].filter((v, i, a) => a.indexOf(v) === i).map((v) => `'${v}'`).join(', ')}];
+begin
+  for fk in select (select n.nspname || '.' || r.relname from pg_class r join pg_namespace n on n.oid = r.relnamespace where r.oid = k.conrelid) as tbl, a.attname as col,
+      case when k.confrelid = 'public.local_jobs'::regclass then 'public.local_jobs' else 'auth.users' end as parent
+    from pg_constraint k join pg_attribute a on a.attrelid = k.conrelid and a.attnum = k.conkey[1]
+    where k.contype = 'f' and array_length(k.conkey, 1) = 1 and k.confrelid in ('public.local_jobs'::regclass, 'auth.users'::regclass)
+      loop
+    continue when fk.tbl = any (handled) or fk.tbl like 'auth.%';
+    src := case when fk.parent = 'public.local_jobs' then 'vgb_jobs' else 'vgb_users' end;
+    execute format('select count(*) from %s where %I in (select id from %s)', fk.tbl, fk.col, src) into c;
+    if c > 0 then raise exception 'vgb_cleanup: 명시 처리 목록에 없는 표 %.% 가 시험 뿌리를 참조(% 건) — 실제 데이터가 연쇄 삭제될 수 있어 중단', fk.tbl, fk.col, c; end if;
+  end loop;
+end $p$;
 
 -- ④ 표별 DELETE … RETURNING 수 = 예상 수
 create or replace function pg_temp.vgb_del(label text, count_sql text, delete_sql text) returns void language plpgsql as $f$
@@ -84,6 +108,8 @@ select pg_temp.vgb_del('public.job_ingest_raw', 'select count(*) from public.job
 ${TABLES.byJob.map((t) => del(t, 'vgb_jobs')).join('\n')}
 select pg_temp.vgb_del('public.local_jobs', 'select count(*) from public.local_jobs where id in (select id from vgb_jobs)', 'delete from public.local_jobs where id in (select id from vgb_jobs) returning 1');
 ${TABLES.byUser.map((t) => del(t, 'vgb_users')).join('\n')}
+-- 감사 기록: 시험 계정이 시험 공고에 한 것만 지운다(시험 계정이 실제 대상에 한 기록이 있으면 아래 ⑤가 남은 참조로 보고 중단)
+select pg_temp.vgb_del('public.admin_audit_logs(시험 공고 대상)', $c$select count(*) from public.admin_audit_logs where admin_user_id in (select id from vgb_users) and target_type = 'job' and target_id in (select id::text from vgb_jobs)$c$, $d$delete from public.admin_audit_logs where admin_user_id in (select id from vgb_users) and target_type = 'job' and target_id in (select id::text from vgb_jobs) returning 1$d$);
 
 -- ⑤ 남은 참조(외래키 유무 무관, 읽기만): 공고 번호·계정 id를 값으로 가진 모든 표
 do $r$
@@ -109,7 +135,7 @@ do $z$ begin
 end $z$;
 
 select tbl, n as deleted from vgb_log order by tbl;
-select 'residual' as what, 0 as roots_left;
+select 'residual' as what, (select count(*) from public.local_jobs where id in (select id from vgb_jobs)) + (select count(*) from auth.users where id in (select id from vgb_users)) as roots_left;
 commit;
 `
 }
@@ -117,6 +143,6 @@ commit;
 // 정리 전 영향 확인(읽기만): 뿌리 공고·계정 수
 export function countSql(marker) {
   if (!SAFE_MARKER.test(marker)) throw new Error('marker 형식 오류(16진 8~32자)')
-  return `select (select count(*) from public.local_jobs where company like 'VGB-E2E ${marker}%') as jobs,
+  return `select (select count(*) from public.local_jobs where company = 'VGB-E2E ${marker}' or company like 'VGB-E2E ${marker} %') as jobs,
  (select count(*) from auth.users where email like 'vgb-e2e-${marker}-%@example.invalid' and raw_user_meta_data->>'e2e_marker' = '${marker}') as users;`
 }
