@@ -29,7 +29,7 @@ const VIEWPORTS = [
   { name: '모바일', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
 ]
 
-const shotName = (path) => (path === '/' ? 'home' : path === '/app/' ? 'app-home' : path.startsWith('/app/') ? 'app-detail' : 'detail')
+const shotName = (path) => (path === '/ho-so' ? 'cv' : path === '/cong-dong' ? 'community' : path === '/' ? 'home' : path === '/app/' ? 'app-home' : path.startsWith('/app/') ? 'app-detail' : 'detail')
 // 화면이 가로로 넘치면(칸 밀림·잘림) 실패 — 앱·웹 공통 기본 검사
 const noHorizontalOverflow = async (page) => {
   const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }))
@@ -83,6 +83,17 @@ for (const v of VIEWPORTS) {
     if (bytes.subarray(0, 5).toString() !== '%PDF-') throw new Error('내려받은 파일이 PDF가 아님')
     if (bytes.length < 5_000) throw new Error(`PDF가 너무 작음(${bytes.length}바이트)`)
   }, v.name)) })
+  // 웹 휴대폰 화면 가로 넘침(#1208, 2026-11-28): /cong-dong 목록 표와 /ho-so 이력서 만들기(미리보기 포함)가 화면보다 넓어 옆으로 밀리던 것의 재발 방지 — 운영에서 매 배포 확인.
+  if (v.name !== 'PC') {
+    results.push({ device: v.name, ...(await checkPage(context, '/cong-dong', async (page) => {
+      await page.locator('.community-table').first().waitFor({ state: 'visible', timeout: 30_000 })
+      await noHorizontalOverflow(page)
+    }, v.name)) })
+    results.push({ device: v.name, ...(await checkPage(context, '/ho-so', async (page) => {
+      await page.locator('.cv-builder__preview-wrap').first().waitFor({ state: 'attached', timeout: 30_000 })
+      await noHorizontalOverflow(page)
+    }, v.name)) })
+  }
   // 앱(/app): 같은 데이터가 앱 화면에서도 열려야 한다(웹과 독립 운영, 공통 데이터 규격 확인)
   results.push({ device: v.name, ...(await checkPage(context, '/app/', async (page) => {
     await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
