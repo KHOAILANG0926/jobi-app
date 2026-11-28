@@ -169,10 +169,10 @@ jobs:
     # 신규는 등록 입구(ingest_job: 위치 확인·회사 이름·직업분류·중복 판정), 기존 공고는 다시 수집 갱신, 공개는 DB 공개 판정.
     # 운영 DB 열쇠는 ops-keys 환경(master만)에서 이 단계에만 — VPS로 가지 않는다.
     needs: crawl
-    # 일시 중단(Lee 2026-11-26 「웹 정상화 종료 전 신규 공개 금지 … 안전한 기존 저장 경로가 없다면 정기 DB 저장만 일시 중단」):
+    # 재개 준비본(Draft — Lee가 웹 정상화 종료를 결정한 뒤에만 Ready·Approve). 아래는 중단 당시 기록(Lee 2026-11-26 「웹 정상화 종료 전 신규 공개 금지 … 안전한 기존 저장 경로가 없다면 정기 DB 저장만 일시 중단」):
     #   이 저장은 새 공고를 일반 입구로 넣어 DB 공개 판정이 통과시키면 바로 공개될 수 있다. 수집과 원문 보관(위 crawl 잡, 30일)은 그대로.
     #   다시 켤 때는 아래 줄의 `false &&`만 지운다(Lee 승인).
-    if: false && github.event_name == 'schedule'
+    if: github.event_name == 'schedule'
     environment: ops-keys
     runs-on: ubuntu-22.04
     timeout-minutes: 30
