@@ -4,7 +4,7 @@
 //  A 정상: 시험 공고·계정·지원·대화·메시지·면접 삭제, 실제 데이터 불변, 표별 삭제 건수 표, 뿌리 잔존 0
 //  B 반례: 실제 데이터 글자에 같은 marker가 들어 있어도 지우지 않음(글자 일괄 삭제 없음)
 //  C 중단(fail-closed, 삭제 0건·전체 취소): 실제 이용자가 시험 공고에 지원 / 시험 계정이 실제 공고에 지원 / 뿌리 개수가 상한 초과 /
-//     허용 목록 밖 표가 외래키로 닿음 / 허용 목록 밖 표에 외래키 없는 참조
+//     명시 목록 밖 표가 외래키로 붙잡음 / 명시 목록 밖 표에 외래키 없는 참조 / DELETE RETURNING 수 ≠ 예상 수
 //  D 끊긴 실행(계정만)·재실행·표식 없는 계정 보존
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
@@ -54,12 +54,12 @@ try {
   }
   // C1 실제 이용자가 시험 공고에 지원
   raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${tJob}, '${rS}', '${tE}');`)
-  mustAbort('실제 이용자가 시험 공고에 지원', null, /시험 계정이 아닌 이용자/)
+  mustAbort('실제 이용자가 시험 공고에 지원', null, /시험 뿌리가 아닌/)
   raw(`delete from public.applications where seeker_id = '${rS}' and job_id = ${tJob};`)
   // C2 시험 계정이 실제 공고에 지원 → 시험 계정 쪽 행이라도 실제 공고에 걸린 건 정리 대상이지만, 실제 고용주(employer_id) 칸이 시험 계정이 아니므로 중단
   const rJob2 = newJob(`CTY Real2 ${real}`)
   raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${rJob2}, '${tS}', '${rE}');`)
-  mustAbort('시험 계정이 실제 공고에 지원(실제 고용주 칸)', null, /시험 계정이 아닌 이용자/)
+  mustAbort('시험 계정이 실제 공고에 지원(실제 고용주 칸)', null, /시험 뿌리가 아닌/)
   raw(`delete from public.applications where job_id = ${rJob2};`)
   // C3 뿌리 개수 상한 초과(표식 충돌 시뮬레이션)
   const extraJob = newJob(`VGB-E2E ${marker}-extra`)
@@ -67,17 +67,22 @@ try {
   raw(`delete from public.local_jobs where id = ${extraJob};`)
   // C4 허용 목록 밖 표가 외래키로 닿음
   c.admin(`create table public.zz_unexpected (id serial primary key, job_id bigint references public.local_jobs(id)); insert into public.zz_unexpected (job_id) values (${tJob});`)
-  mustAbort('허용 목록 밖 표가 외래키로 닿음', null, /허용 목록에 없는 표/)
+  mustAbort('명시 목록 밖 표가 외래키로 붙잡음(DB가 삭제 거부)', null, /foreign key|violates/i)
   c.admin('drop table public.zz_unexpected;')
   // C5 허용 목록 밖 표에 외래키 없는 참조
   c.admin(`create table public.zz_nofk (job_id bigint); insert into public.zz_nofk values (${tJob});`)
-  mustAbort('외래키 없는 참조가 허용 목록 밖에 남음', null, /허용 목록 밖에/)
+  mustAbort('외래키 없는 참조가 명시 목록 밖에 남음', null, /남은 참조/)
   c.admin('drop table public.zz_nofk;')
+
+  // C6 DELETE … RETURNING 수가 예상과 다름(트리거가 삭제를 가로채는 경우) → 전체 취소
+  c.admin(`create function public.zz_skip_del() returns trigger language plpgsql as $$ begin return null; end $$;
+    create trigger zz_skip before delete on public.interviews for each row execute function public.zz_skip_del();`)
+  mustAbort('DELETE RETURNING 수 ≠ 예상 수', null, /삭제 0 건 ≠ 예상 1 건/)
+  c.admin('drop trigger zz_skip on public.interviews; drop function public.zz_skip_del();')
 
   // ── A 정상 + B 반례
   const out1 = c.admin(cleanupSql(marker))
-  const table = out1.split('\n').filter((l) => /\|/.test(l) && /plan|deleted|residual/.test(l)).map((l) => l.replace(/\s+/g, ' ').trim())
-  console.log(table.join('\n'))
+  console.log(out1.split('\n').filter((l) => /\|/.test(l)).map((l) => l.replace(/\s+/g, ' ').trim()).join('\n'))
   const after = snapshot()
   // 시험 데이터가 만든 행만큼 줄었고, 실제 역할(공고 2: rJob·rJob2, 계정 2, 지원 1, 대화 1, 면접 1, 감사 1)만 남는다
   assert.equal(c.scalar(`select count(*) from public.local_jobs where id in (${rJob}, ${rJob2})`), '2', '실제 공고 보존')
@@ -89,7 +94,7 @@ try {
   assert.equal(c.scalar(`select count(*) from public.admin_audit_logs where metadata->>'note' = '${marker}'`), '1', 'B: marker 글자가 든 실제 감사 기록 보존')
   assert.equal(c.scalar(`select count(*) from public.local_jobs where source_text like '%${marker}%'`), '1', 'B: marker 글자가 든 실제 공고 원문 보존')
   assert.match(out1, /residual\s*\|\s*0/)
-  assert.match(out1, /deleted\s*\|\s*applications\s*\|\s*1/)
+  assert.match(out1, /public\.applications\s*\|\s*1/)
   console.log('PASS(정상·반례): 표식 소유 데이터만 삭제, marker 글자가 든 실제 데이터 보존, 뿌리 잔존 0 /', after)
 
   // ── D 재실행·끊긴 실행·표식 없는 계정
@@ -102,5 +107,5 @@ try {
   assert.equal(c.scalar(`select count(*) from auth.users where id = '${qE}'`), '1', '가입 정보 표식 없는 계정은 보존')
   assert.throws(() => cleanupSql("x'; select 1;--"), /marker/)
   assert.throws(() => cleanupSql(marker, { maxJobs: -1 }), /maxJobs/)
-  console.log('PASS: 시험 데이터 정리 경로 전 사례 — 소유권 기준 삭제·fail-closed 5종·반례·재실행·끊긴 실행·표식 없는 계정 보존')
+  console.log('PASS: 시험 데이터 정리 경로 전 사례 — 소유권 기준 삭제·fail-closed 6종·반례·재실행·끊긴 실행·표식 없는 계정 보존')
 } finally { c.drop() }
