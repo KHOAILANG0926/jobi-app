@@ -142,6 +142,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
       const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), { goong: false })
       if (found) return found
     }
+    let vmQueried = false // 실제로 VietMap에 물어본 적이 있는지 — 주소가 검색 가능한 모양이 아니면 0번(위치 못 찾은 이유를 '못 맞춤'과 '안 물어봄'으로 가른다, 2026-11-28 #701)
     for (const target of sorted) {
       if (failed || calls >= 2) break
       const address = target.address.trim()
@@ -149,6 +150,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
       const park = findIndustrialPark(address, job.location)
       const strategy: LocateStrategy | null = parseStreetAddress(address).searchable ? ADDRESS_STRATEGY : job.company.trim() && park ? COMPANY_STRATEGY : null
       if (!strategy || strategy.precheck?.(address)) continue
+      vmQueried = true
       const hits = await query('search', { text: strategy.searchText(job.company, address), ...(strategy === COMPANY_STRATEGY ? {layers:'POI'} : {}) })
       const pick = strategy.pick(job.company, address, hits)
       if (!pick.hit || pick.multiple || !pick.hit.ref_id || failed) continue
@@ -170,7 +172,8 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
     const park = findIndustrialPark(...targets.map(t => t.address), job.location)
     // Goong 회사 이름 찾기(같은 이름 1곳): Google·VietMap·Goong 번지가 모두 못 찾았을 때만.
     if (job.company.trim()) {
-      reasons.push(failed ? 'vietmap:provider_failed' : deferred ? 'vietmap:budget_deferred' : 'vietmap:no_verified_match', 'goong:no_verified_match')
+      reasons.push(failed ? 'vietmap:provider_failed' : deferred ? 'vietmap:budget_deferred' : vmQueried ? 'vietmap:no_verified_match' : 'vietmap:no_address_query')
+      if (!deps.goong) reasons.push('goong:not_configured')
       if (!deps.google) reasons.push('google:not_configured')
       const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), { google: false })
       if (found) return found
@@ -225,6 +228,7 @@ async function resolveWithGoong(job: ResolverJob, targets: ResolverJob['targets'
         evidence: [`[Tự động] Tên công ty khớp chính xác trên Goong: ${place.name}`, `Nằm trong ranh giới ${park.name} (OpenStreetMap ${park.source.ref})`, `Địa chỉ trong tin: ${address}`, `Goong place: ${pick.placeId}`].join('\n') }
     }
   }
+  reason(calls > 0 ? 'goong:no_verified_match' : 'goong:no_address_query') // 실제로 물어본 뒤 못 맞춘 것과 안 물어본 것을 구분
   return null
 }
 
