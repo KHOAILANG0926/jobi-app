@@ -222,6 +222,21 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   const none = await run(calls, { google: { places: [] }, vietmap: false })
   assert(none.kind === 'unresolved' && !('lat' in none), 'all three miss → unresolved, no approximate pin')
   assert(calls.includes('google') && calls.some((c) => c.startsWith('vietmap')) && calls.some((c) => c.startsWith('goong')), 'all three providers were asked: ' + calls.join(','))
+  // 못 찾은 이유 구분(2026-11-28, #701 HƯNG LONG): 실제로 물어보고 못 맞춘 것('no_verified_match')과 주소가 검색 가능한 모양이 아니라 아예 안 물어본 것('no_address_query' — 번지·도로가 있는 주소 검색을 안 한 것, 회사 이름 검색은 따로 했을 수 있음)을 가른다.
+  {
+    const ev = String((none as { evidence?: string }).evidence ?? '')
+    assert(ev.includes('vietmap:no_verified_match') && ev.includes('goong:no_verified_match') && !ev.includes('no_address_query'), 'asked and missed → no_verified_match: ' + ev)
+    const vague = 'Bắc Ninh'
+    const vcalls: string[] = []
+    const skipped = await resolver.resolveAutoLocation({ id: 42, company, location: vague, targets: [{ address: vague, workLocationId: 1 }] }, {
+      ...deps, async reserve() { return true },
+      async request(action: string) { vcalls.push(`vietmap:${action}`); return [] },
+      async google() { vcalls.push('google'); return { places: [] } },
+      async goong(action: string) { vcalls.push(`goong:${action}`); return null },
+    } as never)
+    const sev = String((skipped as { evidence?: string }).evidence ?? '')
+    assert(skipped.kind === 'unresolved' && !vcalls.some((c) => c.startsWith('vietmap')) && sev.includes('vietmap:no_address_query') && sev.includes('goong:no_address_query') && !sev.includes('no_verified_match'), 'vague address → no VietMap call, address-query reasons: ' + JSON.stringify({ vcalls, sev }))
+  }
   // Google이 한도(429)에 걸리면 못 찾음이 아니라 보류(기존 규칙 그대로)
   const quota = await resolver.resolveAutoLocation({ id: 41, company, location: streetAddr, targets: [{ address: streetAddr, workLocationId: 1 }] }, {
     ...deps, async reserve() { return true }, async request() { return [] }, async google() { throw new Error('quota_exhausted') },
