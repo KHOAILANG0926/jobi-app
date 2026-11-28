@@ -665,7 +665,12 @@ if (BASE && jobId) {
       rec('U6', '세션 저장소가 막히고 조각 파일이 계속 안 받아져도 새로고침은 1번만(무한 반복 없음)', loads <= 6, `주소 이동 ${loads}번(수정 전 12초에 101번 반복 — 처음 열기·탭 이동·새로고침 1번 안팎이면 정상)`)
       await ctx2.close()
       void oldHome
-    } catch (e) { rec('U0', '구버전→신버전 업데이트', false, e.message.split('\n')[0]) }
+    } catch (e) {
+      // #1194 간헐 실패 원인 확인용: 실패한 클릭의 Playwright 호출 기록(어느 요소·무슨 이유로 대기했는지)·주소·화면 일부·진단 목록을 남긴다(첫 줄만 보면 원인을 알 수 없었다).
+      const url = page.url(); const shot = `${SHOTS}/u0-fail.png`; await page.screenshot({ path: shot }).catch(() => {})
+      const body = await page.evaluate(() => (document.body?.innerText ?? '').slice(0, 160).replace(/\s+/g, ' ')).catch(() => '')
+      rec('U0', '구버전→신버전 업데이트', false, `${e.message.split('\n').slice(0, 9).map((l) => l.trim()).filter(Boolean).join(' | ')} || 주소 ${url} / 화면 ${body} / 이동 ${navs}번 / 진단 ${diag.slice(0, 4).join(' ; ')}`)
+    }
     await context.close()
   }
   rec('G1', '브라우저에서 운영 주소(Supabase·서비스)로 나간 요청 없음(전부 로컬로 바꿔 보내거나 막음)', !reachedProd(), `바깥 호스트 ${[...outside].join(',') || '없음'}`)
