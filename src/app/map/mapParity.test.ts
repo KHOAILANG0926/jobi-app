@@ -6,7 +6,7 @@ import { computeMapData } from './useMapData.ts'
 
 // 웹·앱 지도 일치 시험(Lee 2026-11-28, #1031 (3)): 같은 공고·같은 조건이면 웹 지도(lib/mapR1.mapSearch + homeMapFilters)와 앱 지도(computeMapData)의 핀 수·위치·목록이 같다.
 const assert = { eq(a: unknown, b: unknown, m: string) { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`) } }
-const pt = (lat: number, lng: number) => ({ lat, lng, locationVerified: true, pointKind: 'exact' })
+const pt = (lat: number, lng: number) => ({ lat, lng, locationVerified: true, pointKind: 'exact' } as unknown as NonNullable<Job['workLocations']>[number])
 const job = (id: string, extra: Partial<Job> = {}) => ({ id, title: id, company: 'Fixture', salary: '12 triệu', category: 'dich_vu', workLocations: [pt(21.03, 105.85)], ...extra } as Job)
 const jobs = [
   job('a', { dormitory: true, workLocations: [pt(21.03, 105.85)] }),
