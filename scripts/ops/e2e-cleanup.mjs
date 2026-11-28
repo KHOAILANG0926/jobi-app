@@ -5,7 +5,7 @@
 //  ① 뿌리: 계정 = 이메일 vgb-e2e-<marker>-*@example.invalid AND 가입 정보 e2e_marker = marker / 공고 = 회사 이름 'VGB-E2E <marker>'로 시작.
 //     뿌리 개수가 상한(maxJobs·maxUsers)을 넘으면 중단(표식 충돌).
 //  ② 정확한 id 목록: 지원서·대화·면접은 id(uuid) 목록으로, 메시지는 그 대화 id로, 공고·계정 하위 표는 아래 **명시 표·열 목록**(TABLES)에서 뿌리 id로만 고른다.
-//  ③ 소유권: 지원서·대화·면접 행은 공고·구직자·고용주가 **모두 시험 뿌리**여야 한다(실제 이용자·실제 공고가 하나라도 섞이면 중단). 시험 공고의 고용주 칸도 시험 계정(또는 비어 있음)이어야 한다.
+//  ③ 소유권: 지원서·대화·면접 행은 **구직자와 고용주가 모두 시험 계정**이어야 한다(실제 이용자가 한쪽이라도 섞이면 중단). 공고는 시험 공고일 수도, **시험 계정이 상호작용한 실제 공고**일 수도 있다 — 실제 공고는 지우거나 바꾸지 않고, 그 공고에 걸린 시험 계정 소유 지원·대화·면접·메시지만 지운다. 시험 공고의 고용주 칸도 시험 계정(또는 비어 있음)이어야 한다.
 //  ④ 표마다 `DELETE … RETURNING`으로 지운 행 수를 세어 미리 센 예상 수와 다르면 중단. 명시 목록에 없는 표가 외래키로 이 행들을 붙잡고 있으면 DB가 삭제를 거부 → 전체 취소.
 //  ⑤ 마지막으로 공고 번호·계정 id를 값으로 가진 모든 표(외래키 유무 무관)에 남은 참조를 읽기로 확인해, 있으면 중단.
 //  ⑥ 뿌리가 모두 사라졌는지 확인(잔존 0).
@@ -55,13 +55,13 @@ create temp table vgb_ivs on commit drop as select id, job_id, seeker_id, employ
 create temp table vgb_msgs on commit drop as select id from public.messages where thread_id in (select id from vgb_threads);
 create temp table vgb_raw on commit drop as select id from public.job_ingest_raw where job_id in (select id from vgb_jobs);
 
--- ③ 소유권: 공고·구직자·고용주가 모두 시험 뿌리여야 한다
+-- ③ 소유권: 구직자·고용주가 모두 시험 계정이어야 한다(공고는 시험 공고 또는 시험 계정이 상호작용한 실제 공고)
 do $o$
 declare bad bigint; nm text;
 begin
   for nm in select unnest(array['vgb_apps', 'vgb_threads', 'vgb_ivs']) loop
-    execute format('select count(*) from %I where coalesce(job_id in (select id from vgb_jobs) and seeker_id in (select id from vgb_users) and employer_id in (select id from vgb_users), false) is not true', nm) into bad;
-    if bad > 0 then raise exception 'vgb_cleanup: % 에 시험 뿌리가 아닌 공고·이용자가 섞인 행 % 건 — 실제 데이터 보호를 위해 중단', nm, bad; end if;
+    execute format('select count(*) from %I where coalesce(seeker_id in (select id from vgb_users) and employer_id in (select id from vgb_users), false) is not true', nm) into bad;
+    if bad > 0 then raise exception 'vgb_cleanup: % 에 시험 계정이 아닌 이용자가 섞인 행 % 건 — 실제 데이터 보호를 위해 중단', nm, bad; end if;
   end loop;
   select count(*) into bad from public.job_alert_notifications where job_id in (select id from vgb_jobs) and seeker_id not in (select id from vgb_users);
   if bad > 0 then raise exception 'vgb_cleanup: 시험 공고에 걸린 알림 중 구독자가 시험 계정이 아님 % 건 — 중단', bad; end if;
