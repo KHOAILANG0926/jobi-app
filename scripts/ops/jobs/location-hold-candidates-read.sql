@@ -18,3 +18,20 @@ select '::notice::[후보 행] 상태 ' || coalesce(meta->>'status', '?') || ' �
    and length(regexp_replace(coalesce(payload->>'employer_phone', '') || coalesce(payload->>'contact_zalo', ''), '[^0-9]', '', 'g')) >= 8
  order by meta->>'held_at' desc
  limit 30;
+-- 사전 검증용 불리언(Lee 2026-11-28, 후보 4건): 공개 저장소의 실행 로그에는 전화번호·원문을 찍을 수 없어 '조건 충족 여부'만 계산해 보여 준다. 위치 확정 좌표는 보류함 사유(위 줄)가 곧 결과이며 여기서 새로 찾지 않는다.
+-- 전화: 숫자만 남겨 앞 84를 0으로 바꾼 뒤 10자리·0으로 시작·둘째 자리 2/3/5/7/8/9면 유효한 베트남 번호로 본다(번호 자체는 출력하지 않음). 급여·주소 글자·사진·중복은 원문·보류 줄의 칸에서 있음/없음만 계산한다.
+select '::notice::[사전 검증] 회사 ' || left(coalesce(payload->>'company', '없음'), 40) || ' · 상태 ' || coalesce(meta->>'status', '?') || ' · 사유 ' || coalesce(nullif(meta->>'reason', ''), '-')
+       || ' · 전화 유효 ' || (case when length(d.phone) = 10 and substr(d.phone, 1, 1) = '0' and substr(d.phone, 2, 1) in ('2', '3', '5', '7', '8', '9') then '예' else '아니오' end)
+       || ' · Zalo 칸 ' || (case when length(regexp_replace(coalesce(payload->>'contact_zalo', ''), '[^0-9]', '', 'g')) >= 9 then '있음' else '없음' end)
+       || ' · 제목 ' || (case when length(coalesce(payload->>'title', '')) > 3 then '있음' else '없음' end)
+       || ' · 원문 길이 ' || length(coalesce(payload->>'source_text', ''))
+       || ' · 급여 표시 ' || (case when length(coalesce(payload->>'salary', '')) > 0 then '칸에 있음' when coalesce(payload->>'source_text', '') ~* '(triệu|tr/|[0-9]k|lương|luong|[0-9][.,][0-9]{3})' then '원문에만 있음' else '없음' end)
+       || ' · 주소 글자 ' || (case when length(coalesce(payload->>'location', '')) >= 10 or coalesce(payload->>'source_text', '') ~* '(số |so [0-9]|đường|duong|phố|pho |ngõ|ngo |phường|phuong|xã |kcn|khu công nghiệp|khu cong nghiep|quận|quan |huyện|huyen)' then '있음' else '없음' end)
+       || ' · 사진 ' || (case when jsonb_typeof(payload->'images') = 'array' and jsonb_array_length(payload->'images') > 0 then '있음' else '없음' end)
+       || ' · 같은 회사·같은 번호 기존 공고 ' || (select count(*) from public.local_jobs l where lower(l.company) = lower(coalesce(payload->>'company', '')) and regexp_replace(coalesce(l.employer_phone, ''), '[^0-9]', '', 'g') = regexp_replace(coalesce(payload->>'employer_phone', ''), '[^0-9]', '', 'g')) || '건'
+       || ' · 확인 횟수 ' || coalesce(meta->>'attempts', '0') || ' · 다음 확인 ' || coalesce(left(meta->>'next_at', 10), '?')
+  from public.research_artifacts r, lateral (select regexp_replace(regexp_replace(coalesce(r.payload->>'employer_phone', ''), '[^0-9]', '', 'g'), '^84', '0') as phone) d
+ where r.kind = 'location-hold' and coalesce(r.meta->>'status', '') in ('unfound', 'held', 'review')
+   and length(regexp_replace(coalesce(r.payload->>'employer_phone', '') || coalesce(r.payload->>'contact_zalo', ''), '[^0-9]', '', 'g')) >= 8
+ order by r.meta->>'held_at' desc
+ limit 30;
