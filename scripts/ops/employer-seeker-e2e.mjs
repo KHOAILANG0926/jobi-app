@@ -101,7 +101,84 @@ try {
     pass(`${label} 접근·표시 확인(${protectedPath}, 글자 ${text.length}자, 스크립트 오류 0)`)
     await ctx.close()
   }
-  console.log('E2E PASS: 고용주·구직자 로그인·권한 화면 확인(공고 공개·지원 없음)')
+
+  // ── 앱(/app) 실제 화면(Lee 2026-11-28, #1031 (2)~(5)): 모바일 폭에서 기업·구직자 로그인 연결, 지도, 한국 일자리 칸, 상세 고정 하단 버튼 ──
+  const mobile = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
+  const appLogin = async (page, u) => {
+    await page.goto(base + '/app/dang-nhap', { waitUntil: 'domcontentloaded' })
+    await page.locator('input[type="email"]').fill(u.email)
+    await page.locator('input[type="password"]').fill(password)
+    await page.locator('button[type="submit"]').click()
+    await page.waitForURL((url) => !url.pathname.startsWith('/app/dang-nhap'), { timeout: 30000 })
+  }
+  const tabCount = async (page) => Number(await page.locator('[data-testid="app-tabbar"]').first().getAttribute('data-tab-count', { timeout: 30000 }))
+  {
+    const ctx = await browser.newContext(mobile)
+    const page = await ctx.newPage()
+    const errors = []
+    page.on('pageerror', (e) => errors.push(e.message))
+    await page.goto(base + '/app/', { waitUntil: 'networkidle', timeout: 60000 })
+    if ((await tabCount(page)) !== 5) throw Error('앱 구직자 탭이 5개가 아님')
+    // (4) 한국 일자리 칸: 사진이 실제로 받아지고 링크가 열린다
+    const kr = page.locator('.app-kr').first()
+    await kr.waitFor({ state: 'visible', timeout: 30000 })
+    const bg = await kr.locator('.app-kr__photo').evaluate((el) => getComputedStyle(el).backgroundImage)
+    const m = /url\("?([^")]+)"?\)/.exec(bg)
+    if (!m) throw Error('한국 일자리 칸에 사진 배경이 없음')
+    const img = await page.request.get(new URL(m[1], base).toString())
+    if (!img.ok() || !String(img.headers()['content-type']).startsWith('image/')) throw Error('한국 일자리 사진 받기 실패 ' + img.status())
+    const krHref = await kr.getAttribute('href')
+    const krPage = await page.request.get(new URL(krHref, base).toString())
+    if (!krPage.ok()) throw Error('한국 일자리 페이지가 열리지 않음 ' + krPage.status())
+    pass(`앱 홈: 탭 5개 · 한국 일자리 칸(사진 ${img.status()} · 링크 ${krHref} ${krPage.status()})`)
+    // (3) 지도: 앱 지도 화면에 지도 캔버스와 핀이 있다(웹 홈 지도는 app-smoke가 같은 데이터로 확인)
+    await page.goto(base + '/app/ban-do', { waitUntil: 'networkidle', timeout: 60000 })
+    const mapEl = page.locator('[data-testid="app-map"]').first()
+    await mapEl.waitFor({ state: 'visible', timeout: 45000 })
+    await page.locator('[data-testid="app-map"] canvas').first().waitFor({ state: 'attached', timeout: 45000 })
+    const pins = Number(await mapEl.getAttribute('data-pins'))
+    if (!(pins > 0)) throw Error('앱 지도 핀 0개')
+    pass(`앱 지도: 캔버스 표시 · 핀 ${pins}개`)
+    // (5) 상세 하단 고정 버튼: 공고 상세를 열어 스크롤해도 하단 바가 화면 아래에 붙어 있다
+    await page.goto(base + '/app/', { waitUntil: 'networkidle' })
+    const href = await page.locator('a[href^="/app/viec-lam/"], a[href^="/viec-lam/"]').first().getAttribute('href')
+    await page.goto(new URL(href.startsWith('/app/') ? href : '/app' + href, base).toString(), { waitUntil: 'networkidle', timeout: 60000 })
+    const bar = page.locator('[data-testid="app-actionbar"]').first()
+    await bar.waitFor({ state: 'visible', timeout: 30000 })
+    const kind = await bar.getAttribute('data-action')
+    const box1 = await bar.boundingBox()
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2)); await page.waitForTimeout(400)
+    const box2 = await bar.boundingBox()
+    if (!box1 || !box2 || Math.abs(box1.y - box2.y) > 2 || box2.y + box2.height < 800) throw Error(`상세 하단 바가 고정되지 않음 ${JSON.stringify([box1, box2])}`)
+    if (!(await bar.locator('a, button').count())) throw Error('상세 하단 바에 단추가 없음')
+    await page.screenshot({ path: 'employer-seeker-e2e-app-detail.png' })
+    pass(`앱 상세: 하단 고정 바(동작 ${kind}) 스크롤 후에도 같은 위치`)
+    if (errors.length) throw Error('앱 비로그인 화면 스크립트 오류 ' + errors[0])
+    await ctx.close()
+  }
+  for (const u of [employer, seeker]) {
+    const ctx = await browser.newContext(mobile)
+    const page = await ctx.newPage()
+    const errors = []
+    page.on('pageerror', (e) => errors.push(e.message))
+    await appLogin(page, u)
+    if (u.role === 'employer') {
+      await page.waitForURL((url) => url.pathname.replace(/\/$/, '') === '/app/biz', { timeout: 30000 })   // (2) 기업 로그인 → 기업 홈 자동 전환
+      await page.locator('[data-testid="app-biz-home"]').first().waitFor({ state: 'visible', timeout: 30000 })
+      if ((await tabCount(page)) !== 4) throw Error('기업 탭이 4개가 아님')
+      await page.screenshot({ path: 'employer-seeker-e2e-app-biz.png' })
+      pass('앱 기업 로그인 → /app/biz 기업 홈 · 기업 탭 4개')
+    } else {
+      await page.waitForURL((url) => url.pathname.replace(/\/$/, '') === '/app', { timeout: 30000 })
+      if ((await tabCount(page)) !== 5) throw Error('구직자 로그인 뒤 탭이 5개가 아님')
+      await page.goto(base + '/app/biz', { waitUntil: 'networkidle', timeout: 45000 })
+      await page.locator('[data-testid="app-biz-denied"]').first().waitFor({ state: 'visible', timeout: 30000 })
+      pass('앱 구직자 로그인 → 홈 · 기업 화면은 접근 거절 안내')
+    }
+    if (errors.length) throw Error(`앱 ${u.role} 화면 스크립트 오류 ${errors[0]}`)
+    await ctx.close()
+  }
+  console.log('E2E PASS: 고용주·구직자 로그인·권한 화면 확인(공고 공개·지원 없음, 앱 /app 화면 포함)')
 } catch (e) {
   console.error('E2E FAIL:', e instanceof Error ? e.stack : String(e))
   process.exitCode = 1
