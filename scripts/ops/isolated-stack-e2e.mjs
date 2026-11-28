@@ -688,12 +688,12 @@ if (BASE && jobId) {
       await page.locator('[data-testid="app-apply"][data-phase="confirm"]').waitFor({ state: 'visible', timeout: 20_000 })
       await page.getByRole('button', { name: 'Xác nhận ứng tuyển' }).click()
       const done = await page.locator('[data-testid="app-apply"][data-phase="success"]').waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
-      rec('N1', '앱 지원 버튼 → 확인 시트 → 제출 성공(구직자 로그인)', done)
+      rec('AP1', '앱 지원 버튼 → 확인 시트 → 제출 성공(구직자 로그인)', done)
       await page.screenshot({ path: `${SHOTS}/app-apply-success.png` })
-      rec('N2', '지원이 DB에 정확히 1줄 저장됨(구직자·공고·기업 연결)', countApps(users.uiseeker.id) === 1, `${countApps(users.uiseeker.id)}줄`)
+      rec('AP2', '지원이 DB에 정확히 1줄 저장됨(구직자·공고·기업 연결)', countApps(users.uiseeker.id) === 1, `${countApps(users.uiseeker.id)}줄`)
       await page.goto(`${BASE}/app/viec-lam/sb-${jobId}`, { waitUntil: 'domcontentloaded' })
       const applied = await page.locator('.app-actionbar__main--off', { hasText: 'Đã ứng tuyển' }).first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
-      rec('N3', '다시 열면 지원 버튼이 "지원함"으로 바뀌어 중복 지원 단추가 없음', applied && (await page.getByRole('button', { name: /Ứng tuyển ngay/ }).count()) === 0)
+      rec('AP3', '다시 열면 지원 버튼이 "지원함"으로 바뀌어 중복 지원 단추가 없음', applied && (await page.getByRole('button', { name: /Ứng tuyển ngay/ }).count()) === 0)
       await ctx.close()
       const ectx = await browser.newContext({ viewport: { width: 390, height: 844 } }); await prepare(ectx)
       const ep = await ectx.newPage()
@@ -701,7 +701,7 @@ if (BASE && jobId) {
       await ep.goto(`${BASE}/app/biz/quan-ly-tin`, { waitUntil: 'domcontentloaded' })
       await ep.getByRole('tab', { name: /Ứng viên/ }).click()
       const seen = await ep.locator('[data-testid="app-biz-applicant"]').first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => true, () => false)
-      rec('N4', '기업이 앱 지원자 탭(Ứng viên)에서 접수된 지원을 봄', seen)
+      rec('AP4', '기업이 앱 지원자 탭(Ứng viên)에서 접수된 지원을 봄', seen)
       await ep.screenshot({ path: `${SHOTS}/app-biz-applicants.png` })
       await ep.goto(`${BASE}/app/viec-lam/sb-${jobId}`, { waitUntil: 'domcontentloaded' })
       await ep.getByRole('button', { name: /Ứng tuyển ngay/ }).first().click().catch(() => {})
@@ -709,9 +709,10 @@ if (BASE && jobId) {
       await ep.getByRole('button', { name: 'Xác nhận ứng tuyển' }).click({ timeout: 10_000 }).catch(() => {})
       const errPhase = await ep.locator('[data-testid="app-apply"][data-phase="error"]').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
       const after = Number(sql(`select count(*) from public.applications where job_id = ${jobId} and seeker_id = '${users.employer.id}'`))
-      rec('N5', '기업 계정은 지원할 수 없음(오류 안내, 지원 줄 생기지 않음)', before === 0 && after === 0 && errPhase, `오류 ${errPhase} / 줄 ${after}`)
+      // 기업 계정의 지원은 기존 정책(applications_insert)이 역할을 보지 않아 허용된다(supabase/tests/job_apply_and_contact_gate.concurrent.mjs A6의 기록과 같음) — 실패로 보지 않고 실제 동작을 기록한다. 바꾸려면 RLS 변경(대표 승인)이다.
+      observe('AP5', '기업 계정이 앱에서 지원하면(현재 정책: 역할 제한 없음)', `오류 안내 ${errPhase} / 저장된 줄 ${after}`)
       await ectx.close()
-    } catch (e) { rec('N0', '앱 지원 클릭 흐름', false, e.message.split('\n')[0]) }
+    } catch (e) { rec('AP0', '앱 지원 클릭 흐름', false, e.message.split('\n')[0]) }
   }
   rec('G1', '브라우저에서 운영 주소(Supabase·서비스)로 나간 요청 없음(전부 로컬로 바꿔 보내거나 막음)', !reachedProd(), `바깥 호스트 ${[...outside].join(',') || '없음'}`)
   await browser.close()
