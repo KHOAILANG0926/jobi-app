@@ -1,7 +1,8 @@
-name: 보류함 공고 위치 확인(읽기 전용 프로브)
+name: 보류함 공고 위치 확인 프로브(공고·보류 상태 변경 없음)
 
 # Lee 2026-11-28 단건 게시 후보 사전 검증. 보류함(research_artifacts location-hold)의 공고 1건에 대해 기존 서버 위치 확인(수집·보류 재확인과 같은 hook)만 묻는다.
-# DB에 아무것도 쓰지 않는다(등록·상태 변경·공개 없음). 로그(공개 저장소)에는 전화·원문·주소·좌표를 찍지 않고 찾음 여부·종류·사유만. 수동 실행만.
+# 공고(local_jobs)·보류 줄(상태·횟수·다음 확인일)을 바꾸지 않고 등록·공개도 하지 않는다. 단 서버 위치 확인이 기존대로 남기는 기록(위치 결과 보관 map-r1-query·외부 API 월 사용량 external_api_reserve)은 발생한다.
+# 로그(공개 저장소)에는 전화·원문·주소·좌표를 찍지 않고 찾음 여부·종류·사유만. 수동 실행만.
 # 열쇠는 기존 ops-keys 환경(master에서만)의 SUPABASE_SERVICE_ROLE_KEY만 쓴다.
 on:
   workflow_dispatch:
@@ -38,7 +39,7 @@ jobs:
         run: python -m pip install -r crawler/requirements.txt
       - name: 시험(네트워크 없음)
         run: python crawler/test_hold_precheck_probe.py
-      - name: 위치 확인 1건(읽기 전용)
+      - name: 위치 확인 1건(공고·보류 줄 변경 없음)
         run: |
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::ops-keys에 SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
           python crawler/hold_precheck_probe.py

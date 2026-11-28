@@ -61,6 +61,7 @@ def test_found_prints_no_secret_and_writes_nothing():
     code, out, writes, seen = run_probe([ROW], " cty a ", {"findable": True, "kind": "exact", "reason": "exact_address"})
     assert code == 0 and "확정 좌표 확보 가능" in out and "exact_address" in out
     assert "0912345678" not in out and "bí mật" not in out
+    assert "공고·보류 줄은 바꾸지 않음" in out and "위치 결과 보관과 API 사용량 기록" in out  # 부수 효과를 숨기지 않음
     assert writes == [] and seen["payload"]["_recheck"] is True
     assert "_recheck" not in ROW["payload"]  # 보류 줄 원본은 바뀌지 않음
 
