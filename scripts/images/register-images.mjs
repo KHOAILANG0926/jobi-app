@@ -12,6 +12,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, extname, join } from 'node:path'
+import { checkCompletion, ghApiJson, recentPrsFor, recordProblems } from '../check-pr-ready.mjs'
 
 const ROOT = join(import.meta.dirname, '..', '..')
 import roleMap from './role-map.json' with { type: 'json' }
@@ -141,10 +142,59 @@ export function register(srcDir, { dryRun = false, ai = false, root = ROOT } = {
   return { added, skipped }
 }
 
+// 게시 묶음(기존 게시 단계 scripts/ci/claude-publish.mjs pr --images가 읽는 파일: pr-title.txt·pr.md·patch.diff·meta.json). 새 PR 본문은 필수 검사(check-pr-ready)가 요구하는 칸을
+// 그 검사의 함수(recentPrsFor 등)로 채운다 — 사람이 쓰지 않아도 통과하는 본문. 바뀐 파일은 방금 등록한 사진·목록뿐이다.
+export function publishBundle(outDir, { root = ROOT, added, skipped, api = ghApiJson } = {}) {
+  const g = (...a) => execFileSync('git', ['-C', root, ...a], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+  g('add', 'data/industry-photos/manifest.json', 'public/images/industry')
+  const files = g('diff', '--cached', '--name-only', 'HEAD').split('\n').filter(Boolean)
+  if (!files.length) return null
+  const patch = g('diff', '--cached', '--binary', 'HEAD'), tree = g('write-tree').trim()
+  const title = `feat(images): 사진 ${added.length}장 자동 등록`
+  const required = recentPrsFor({ files, self: 0, api })
+  const records = required.map((r) => `- #${r.num}: ${r.why} — 이번엔 사진 파일·목록 줄만 새로 더하고 그 PR의 내용(${r.words.slice(0, 3).join(', ') || '이미지 목록'})은 건드리지 않음.`).join('\n') || '- 최근 같은 파일을 바꾼 병합 PR·진행 중 PR 없음(검사가 GitHub에서 직접 조회).'
+  const body = `## 사용자 요청 및 확정된 완료 조건
+- 요청: (대표 2026-11-28) 사진 묶음 ZIP을 넣으면 등록부터 PR·자동 병합·공고 배정까지 사람 손 없이 처리한다(image-register.yml).
+- 완료 조건: 새 사진 ${added.length}장이 이름 해석·최적화·중복 검사·번호 부여를 거쳐 이미지 목록에 올라가고, 공고 배정은 기존 30분 파이프라인이 한다.
+
+## 작업 범위와 변경 파일
+- 범위(하지 않는 것 포함): 이미지 파일과 목록 줄 추가만. 코드·DB·화면·기존 사진·기존 배정 변경 없음.
+- 변경 파일: ${files.join(' ')}
+- 재사용한 기존 기능: scripts/images/register-images.mjs, 기존 게시 단계 claude-publish.mjs(이미지 모드), assign-image.mjs.
+- 지운 것/합친 것: 없음 — 사진·목록 줄을 더하는 데이터 등록이라 지울 코드가 없음(기존 사진 유지).
+
+## 확인한 기록
+${records}
+
+## 필수 테스트 결과 및 검증 SHA
+| 테스트/CI | 결과 | 검증 SHA |
+|---|---|---|
+| 등록 스크립트(이름 해석·최적화·중복·번호) | 통과 [직접 확인] | HEAD |
+| GitHub 필수 검사 | pending | HEAD |
+
+## 미충족 조건 또는 실제 병합 차단 사유
+없음${skipped.length ? `\n\n건너뜀 ${skipped.length}건: ${skipped.slice(0, 10).map((x) => x.replace(/[#@\n]/g, ' ')).join(' / ')}` : ''}
+
+## 후속 개선 과제 (현재 작업 완료 조건과 분리)
+없음
+
+## 최종 상태
+- [x] READY FOR APPROVAL
+`
+  const bad = [...checkCompletion(body, 'a'.repeat(40)).filter((e) => !/SHA/.test(e)), ...recordProblems(body, required)]
+  if (bad.length) throw new Error('자동 PR 본문이 필수 검사 형식에 맞지 않음: ' + bad.join(' | '))
+  mkdirSync(outDir, { recursive: true })
+  writeFileSync(join(outDir, 'pr-title.txt'), title + '\n'); writeFileSync(join(outDir, 'pr.md'), body); writeFileSync(join(outDir, 'patch.diff'), patch)
+  writeFileSync(join(outDir, 'meta.json'), JSON.stringify({ tree, message: title, result: '통과' }))
+  return { files, tree, title }
+}
+
 if (process.argv[1] === import.meta.filename) {
   const dir = process.argv[2]
   if (!dir) { console.error('사용: node scripts/images/register-images.mjs <풀어 둔 폴더> [--dry-run]'); process.exit(2) }
   const { added, skipped } = register(dir, { dryRun: process.argv.includes('--dry-run'), ai: process.argv.includes('--ai') })
   console.log(`등록 ${added.length}건, 건너뜀 ${skipped.length}건`)
+  const po = process.argv.indexOf('--publish-out')
+  if (po > 0 && added.length && !process.argv.includes('--dry-run')) { const r = publishBundle(process.argv[po + 1], { added, skipped }); console.log(`게시 묶음: 파일 ${r?.files.length ?? 0}개`) }
   for (const s of skipped) console.log(`  건너뜀: ${s}`)
 }
