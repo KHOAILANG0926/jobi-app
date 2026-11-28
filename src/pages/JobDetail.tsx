@@ -44,6 +44,7 @@ import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
 import { sanitizeTemplateHtml } from '../lib/templateHtml'
 import { detailLook } from '../lib/albamonTemplate'
+import { AiPhotoBadge } from '../lib/AiPhotoBadge'
 import { photoCategory } from '../lib/cardPhoto'
 import { DetailRich } from '../components/DetailRich'
 import { richPill } from '../lib/detailRich'
@@ -1002,6 +1003,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
                 {albamonLayout && (
                 <div className="jd2-desc-visual">
                   <img className="jd2-desc-visual__img" src={look.photo} alt="" loading="lazy" />
+                  <AiPhotoBadge url={look.photo} variant="banner" />
                   {job.company && <p className="jd2-desc-visual__company">{job.company}</p>}
                   <p className="jd2-desc-visual__title">{shownTitle}</p>
                 </div>

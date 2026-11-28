@@ -139,6 +139,9 @@ export function managedPhoto(category: string | null | undefined, roleCode: stri
 export const photoManifestData = MANIFEST
 /** 이미지 종류(AI 그림/실제 사진) — 목록에 있는 사진만 안다. 표시 방식은 승인된 화면 변경이라 따로 한다. */
 export function managedPhotoKind(file: string): 'stock' | 'ai' | undefined { return MANAGED.find((m) => m.file === file)?.kind }
+/** AI 그림 표시 대상 판정(대표 2026-11-28) — 이미지 목록 kind='ai'인 우리 그림만. 기업 사진·브랜드 로고·실제 사진(stock)은 아니다. */
+export const AI_PHOTO_LABEL = 'Ảnh minh họa (AI)'
+export const isAiPhoto = (url?: string | null): boolean => !!url && managedPhotoKind(url) === 'ai'
 
 export interface PhotoJob {
   category?: string | null; subcategory?: string | null; company?: string | null; title?: string | null; description?: string | null

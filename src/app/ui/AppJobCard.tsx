@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Bookmark, MapPin } from 'lucide-react'
 import { useBrandsOptional } from '../../context/BrandsContext'
 import { jobPhotoUrl } from '../../lib/cardPhoto'
+import { AiPhotoBadge } from '../../lib/AiPhotoBadge'
 import { cardCompanyParts, cardTitle } from '../../lib/cardText'
 import { jobRepresentativeImageUrl } from '../../lib/companyLogo'
 import { conditionBadges } from '../../lib/jobConditions'
@@ -23,7 +24,7 @@ function Thumb({ job }: { job: Job }) {
   return (
     <div className="app-card__thumb">
       {src
-        ? <img src={src} alt="" loading="lazy" onError={() => setFailed((f) => [...f, src])} />
+        ? <><img src={src} alt="" loading="lazy" onError={() => setFailed((f) => [...f, src])} />{src === photo && <AiPhotoBadge url={src} variant="corner" />}</>
         : <span className="app-card__thumb-text">{job.company?.trim().slice(0, 2) || 'VL'}</span>}
     </div>
   )
