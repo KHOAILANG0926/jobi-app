@@ -2,6 +2,7 @@
 import {chromium} from 'playwright'
 import {readFileSync,mkdirSync,writeFileSync} from 'node:fs'
 import assert from 'node:assert/strict'
+import {skipImages} from './skip-images.mjs'
 const base=process.env.BASE_URL||'https://www.viecganban.vn'
 const src=readFileSync('src/lib/supabase.ts','utf8')
 const db=src.match(/https:\/\/[a-z0-9]+\.supabase\.co/)[0]
@@ -26,6 +27,7 @@ try{
  let target
  for(const width of [1366,390]){
   const ctx=await browser.newContext({viewport:{width,height:width===390?844:900},isMobile:width===390,hasTouch:width===390,permissions:[]})
+  await skipImages(ctx,new URL(base).origin)
   const page=await ctx.newPage()
   if(width===1366){
    await page.goto(base+'/viec-lam/tim-kiem',{waitUntil:'domcontentloaded'})

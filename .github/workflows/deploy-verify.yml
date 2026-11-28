@@ -32,6 +32,8 @@ jobs:
       PROD_URL: https://viecganban.vn
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # 변경 영향 판정(HEAD~1..HEAD)용
       - name: Vercel Production 배포 READY 확인 (이 커밋)
         run: |
           set -euo pipefail
@@ -55,20 +57,49 @@ jobs:
           done
           echo "::error::20분 안에 이 커밋의 Production 배포가 READY가 되지 않음"
           exit 1
+      - name: 운영 검사 범위 판정 (같은 커밋 중복 제거 + 기존 변경 영향 범위 재사용)
+        # 사용량 정리(Lee 2026-11-27): ① 같은 커밋이 이미 운영 검사에 성공했으면(수동 재실행·중복 호출) 브라우저 검사를 되풀이하지 않는다
+        # ② 바뀐 파일이 화면과 무관한 병합(문서·크롤러·CI·시험)은 PC·모바일 기본 화면 검사(app-smoke)만 — 그 밖의 지도·메뉴·업종 검사는
+        #    PR 단계와 같은 판정기(scripts/ci/change-impact.mjs)가 map·menu 영향이 있다고 한 병합에서만 돌린다(닫힌 방향: 모르면 전부).
+        id: scope
+        run: |
+          set -uo pipefail
+          dup=$(gh api "repos/${{ github.repository }}/actions/workflows/deploy-verify.yml/runs?head_sha=${{ github.sha }}&status=success&per_page=5" --jq "[.workflow_runs[]|select(.id != ${{ github.run_id }})]|length" 2>/dev/null || echo 0)
+          [ "$dup" -gt 0 ] 2>/dev/null && dup=true || dup=false
+          printf 'dup=%s\n' "$dup" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify HEAD~1 >/dev/null; then
+            node scripts/ci/change-impact.mjs HEAD~1 HEAD
+          else
+            printf 'screen=true\nmap=true\nmenu=true\n' >> "$GITHUB_OUTPUT"
+          fi
+          echo "- 운영 검사 범위: 같은 커밋 이전 성공 있음=$dup" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-node@v4
+        if: steps.scope.outputs.dup != 'true'
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: steps.scope.outputs.dup != 'true'
       - name: 브라우저 설치
+        if: steps.scope.outputs.dup != 'true'
         run: npx playwright install --with-deps chromium
       - name: 운영 주소 실제 화면 검사 (PC·모바일)
+        if: steps.scope.outputs.dup != 'true'
         run: BASE_URL="$PROD_URL" node scripts/ops/app-smoke.mjs
       - name: 직업코드 업종 메뉴 운영 직접 확인
+        if: steps.scope.outputs.dup != 'true' && steps.scope.outputs.menu == 'true'
+        env:
+          SKIP_IMAGES: '1'  # 글자·메뉴만 확인 — 그림 요청 생략(scripts/ops/skip-images.mjs)
         run: BASE_URL="$PROD_URL" node scripts/ops/occupation-category-proof.mjs
       - name: 지도 요약·m 입력·위쪽 검색 결과 운영 확인
+        if: steps.scope.outputs.dup != 'true' && steps.scope.outputs.map == 'true'
+        env:
+          SKIP_IMAGES: '1'
         run: BASE_URL="$PROD_URL" SCREENSHOT_DIR=app-smoke-screens/map-summary node scripts/ops/map-summary-check.mjs
       - name: 기간·계약 메뉴 전체 검색 운영 확인
+        if: steps.scope.outputs.dup != 'true' && steps.scope.outputs.menu == 'true'
+        env:
+          SKIP_IMAGES: '1'
         run: BASE_URL="$PROD_URL" SCREENSHOT_DIR=app-smoke-screens/menu-search node scripts/ops/menu-search-check.mjs
       - name: 운영 화면 확인 근거 보존
         if: always()
