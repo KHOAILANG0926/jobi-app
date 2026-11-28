@@ -1,0 +1,45 @@
+name: 보류함 공고 위치 확인 프로브(공고·보류 상태 변경 없음)
+
+# Lee 2026-11-28 단건 게시 후보 사전 검증. 보류함(research_artifacts location-hold)의 공고 1건에 대해 기존 서버 위치 확인(수집·보류 재확인과 같은 hook)만 묻는다.
+# 공고(local_jobs)·보류 줄(상태·횟수·다음 확인일)을 바꾸지 않고 등록·공개도 하지 않는다. 서버 위치 확인이 기존대로 하는 DB 쓰기는 두 가지뿐: 위치 결과 보관(research_artifacts map-r1-query upsert)·Google 월 사용량(external_api_reserve). 외부 호출: VietMap·Goong·Google(기존 한도 안). 자세한 범위는 crawler/hold_precheck_probe.py 설명.
+# 로그(공개 저장소)에는 전화·원문·주소·좌표를 찍지 않고 찾음 여부·종류·사유만. 수동 실행만.
+# 열쇠는 기존 ops-keys 환경(master에서만)의 SUPABASE_SERVICE_ROLE_KEY만 쓴다.
+on:
+  workflow_dispatch:
+    inputs:
+      company:
+        description: '보류함 공고의 회사 이름(대소문자·앞뒤 공백만 무시하고 정확히 일치, 그 한 곳만)'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hold-precheck-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: github.ref == 'refs/heads/master'
+    environment: ops-keys
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      HOLD_COMPANY: ${{ inputs.company }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 의존성 설치
+        run: python -m pip install -r crawler/requirements.txt
+      - name: 시험(네트워크 없음)
+        run: python crawler/test_hold_precheck_probe.py
+      - name: 위치 확인 1건(공고·보류 줄 변경 없음)
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::ops-keys에 SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
+          python crawler/hold_precheck_probe.py

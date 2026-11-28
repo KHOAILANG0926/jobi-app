@@ -41,6 +41,7 @@ export const OWNER_PATHS = [
   '/.github/workflows/detail-read.yml',
   '/.github/workflows/employer-seeker-e2e.yml',
   '/.github/workflows/fetch-occupation-source.yml',
+  '/.github/workflows/hold-precheck-probe.yml',
   '/.github/workflows/job-ocr-check.yml',
   '/.github/workflows/job-repair-preview.yml',
   '/.github/workflows/job-rules-apply.yml',

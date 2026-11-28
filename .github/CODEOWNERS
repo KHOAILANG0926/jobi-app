@@ -34,6 +34,7 @@
 /.github/workflows/detail-read.yml                          @KHOAILANG0926
 /.github/workflows/employer-seeker-e2e.yml                   @KHOAILANG0926
 /.github/workflows/fetch-occupation-source.yml              @KHOAILANG0926
+/.github/workflows/hold-precheck-probe.yml                  @KHOAILANG0926
 /.github/workflows/job-ocr-check.yml                        @KHOAILANG0926
 /.github/workflows/job-repair-preview.yml                   @KHOAILANG0926
 /.github/workflows/job-rules-apply.yml                      @KHOAILANG0926
