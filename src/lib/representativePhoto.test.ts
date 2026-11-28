@@ -1,4 +1,4 @@
-import { photoCategory, jobPhotoUrl, industryPhotoUrl, managedPhoto, managedPhotoKind, photoEnvironment } from './cardPhoto.ts'
+import { photoCategory, jobPhotoUrl, industryPhotoUrl, managedPhoto, managedPhotoKind, isAiPhoto, photoEnvironment } from './cardPhoto.ts'
 import { detailLook } from './albamonTemplate.ts'
 import { jobRoleInfo } from './jobRoles.ts'
 import { rowToJob } from './jobRows.ts'
@@ -39,6 +39,8 @@ eq(photoCategory({ category: 'am_thuc_do_uong', occupationCode: '5131', roleCode
 eq(photoCategory({ category: 'am_thuc_do_uong', occupationCode: '5', roleCodes: ['5'] }), 'am_thuc_do_uong', "code '5' unchanged")
 eq(managedPhotoKind('/images/template/04-dich-vu.jpg'), 'ai', 'AI picture is marked')
 eq(managedPhotoKind('/images/industry/dich_vu.jpg'), 'stock', 'stock photo is marked')
+// AI 표시(대표 2026-11-28): AI 그림에만. 실제 사진·기업이 올린 사진·브랜드 로고·빈 값에는 없다. 중립 기본 이미지(khac)도 표시 대상이 아니다.
+eq([isAiPhoto('/images/template/04-dich-vu.jpg'), isAiPhoto('/images/industry/dich_vu.jpg'), isAiPhoto('https://x.supabase.co/storage/v1/object/public/job-images/a.jpg'), isAiPhoto('/brand-logos/x.png'), isAiPhoto(undefined), isAiPhoto('/images/industry/khac.jpg')], [true, false, false, false, false, false], 'AI badge only on AI pictures')
 // 고정 배정: 저장된 이미지 번호가 있으면 이미지가 추가돼도 그 이미지 그대로(번호만 목록에 있으면 된다).
 eq(managedPhoto('dich_vu', '9112', 7, null, 'dich_vu-salon-002'), '/images/template/04b-dich-vu.jpg', 'assigned id is honoured')
 eq(managedPhoto('dich_vu', '5141', 1, null, 'no-such-id'), managedPhoto('dich_vu', '5141', 1), 'unknown assigned id falls back to computed pick')

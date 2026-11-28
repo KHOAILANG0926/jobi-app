@@ -4,6 +4,7 @@ import { Bookmark, BookmarkCheck, ChevronLeft, MapPin, MessageCircle, Phone, Bus
 import { useBrandsOptional } from '../../context/BrandsContext'
 import { useJobs } from '../../context/JobsContext'
 import { jobPhotoUrl } from '../../lib/cardPhoto'
+import { AiPhotoBadge } from '../../components/AiPhotoBadge'
 import { jobImagePublicUrl, jobRepresentativeImageUrl } from '../../lib/companyLogo'
 import { DIRECTIONS_LABEL, planJobDirections } from '../../lib/directionsPlan'
 import { JOB_SECTION_LABELS, contactOf } from '../../lib/jobDetailView'
@@ -90,6 +91,7 @@ export default function DetailScreen() {
       <section className="app-dcard" aria-label="Thông tin chính">
         <div className="app-dcard__top">
           {logo && <img className="app-dcard__logo" src={logo} alt="" />}
+          {logo && <AiPhotoBadge url={logo} variant="dcard" />}
           <div className="app-dcard__chips">
             {model.categoryChip && <span className="app-pill">{model.categoryChip}</span>}
             {model.chips.map((c) => <span key={c.text} className={'app-pill' + (c.tone === 'urgent' ? ' app-pill--urgent' : c.tone === 'soon' ? ' app-pill--soon' : '')}>{c.text}</span>)}

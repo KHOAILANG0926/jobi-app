@@ -21,6 +21,8 @@ function inspectCards(selector) {
     // 직무 중심 대표 이미지(2026-11-27): 카드 로고 자리 그림 주소가 깨지지 않았는지(다 받았는데 폭 0인 것만 — 지연 로딩 대기분은 제외).
     // 우리 이미지(/images/…)가 로고 자리에 올 때는 항상 사진 모양(jc__logo--photo, 꽉 채움)이어야 한다 — 고정 배정 이미지가 계산한 사진과 달라도 같은 모양.
     unstyledPhotos: [...document.querySelectorAll('.jc__logo')].filter((img) => (img.getAttribute('src') || '').startsWith('/images/') && !img.classList.contains('jc__logo--photo')).map((img) => img.getAttribute('src')),
+    // AI 그림 표시(2026-11-28 대표): 'AI' 칸은 우리 업종 사진(jc__logo--photo) 바로 뒤에만 있어야 한다 — 기업이 올린 사진·로고 뒤에 붙으면 실제 사진을 AI로 표시한 것.
+    strayAiBadges: [...document.querySelectorAll('.jc .ai-badge, .home-card-wrap .ai-badge')].filter((b) => !(b.previousElementSibling?.classList.contains('jc__logo--photo'))).length,
     brokenLogos: [...document.querySelectorAll('.jc__logo')].filter((img) => img.complete && img.naturalWidth === 0).map((img) => img.getAttribute('src')),
   }
 }
@@ -29,6 +31,7 @@ function problems(result) {
   if (result.nestedAnchorCount) errors.push('Nested anchor tags')
   if (result.duplicateHrefs.length) errors.push('Duplicate cards: ' + result.duplicateHrefs.join(', '))
   if (result.unstyledPhotos?.length) errors.push('Industry picture without photo styling: ' + result.unstyledPhotos.join(', '))
+  if (result.strayAiBadges) errors.push('AI badge not directly after a managed photo: ' + result.strayAiBadges)
   if (result.brokenLogos?.length) errors.push('Broken card pictures: ' + result.brokenLogos.join(', '))
   if (!result.totalCards) errors.push('No job cards rendered')
   return errors
@@ -51,6 +54,8 @@ try {
       ['empty', '<main></main>', false],
       ['managed picture without photo styling', FIXTURE_BASE + section('home-featured', ['1']) + '<img class="jc__logo" src="/images/industry/khac.jpg">', false],
       ['managed picture with photo styling', FIXTURE_BASE + section('home-featured', ['1']) + '<img class="jc__logo jc__logo--photo" src="/images/industry/khac.jpg">', true],
+      ['ai badge after managed photo', FIXTURE_BASE + section('home-featured', ['1']) + '<div class="jc"><img class="jc__logo jc__logo--photo" src="/images/industry/khac.jpg"><span class="ai-badge">AI</span></div>', true],
+      ['ai badge after real company picture', FIXTURE_BASE + section('home-featured', ['1']) + '<div class="jc"><img class="jc__logo" src="/real-company.png"><span class="ai-badge">AI</span></div>', false],
       ['broken card picture', section('home-featured', ['1']) + '<img class="jc__logo" src="data:image/png;base64,AAAA">', false],
     ]) {
       await page.setContent(html)

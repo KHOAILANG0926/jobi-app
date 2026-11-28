@@ -15,6 +15,7 @@ function PayLine({ kind, text, block }: { kind: PayKind; text: string; block?: b
   )
 }
 import { conditionBadges } from '../lib/jobConditions'
+import { AiPhotoBadge } from './AiPhotoBadge'
 import { shortArea } from '../lib/shortArea'
 import { cardCompanyParts, cardTitle } from '../lib/cardText'
 
@@ -25,7 +26,7 @@ export function CompanyLogo({ company, imageUrl, category, subcategory, text, bo
   const photo = category !== undefined ? industryPhotoUrl(category, subcategory, text, body, roleCode, assignedId) : undefined
   const src = [imageUrl, photo].find((u): u is string => !!u && !failed.includes(u))
   if (!src) return <span className="jc__logo-text" aria-label={company}>{company?.trim() || "Việc làm"}</span>
-  return <img src={src} alt={company} className={`jc__logo${src === photo ? ' jc__logo--photo' : ''}`} loading="lazy" onError={() => setFailed((f) => [...f, src])} />
+  return <><img src={src} alt={company} className={`jc__logo${src === photo ? ' jc__logo--photo' : ''}`} loading="lazy" onError={() => setFailed((f) => [...f, src])} />{src === photo && <AiPhotoBadge url={src} variant="flow" />}</>
 }
 
 export function sanitizeSalary(salary: string): string {

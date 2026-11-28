@@ -71,9 +71,11 @@ async function readJobDetail(page, href) {
     const mapEl = document.querySelector('.jd2-vmap')
     const dirAboveMap = mapEl ? [...document.querySelectorAll('a.jd2-map-dir--google')].filter((a) => a.compareDocumentPosition(mapEl) & Node.DOCUMENT_POSITION_FOLLOWING).length : 0
     const detailPhotoSrc = document.querySelector('.jd2-desc-visual__img')?.getAttribute('src') ?? null
+    // AI 그림 표시(2026-11-28 대표): ④ 머리 그림 안에 있는 표시는 하나 이하이고, 문구는 'Ảnh minh họa (AI)'이며, 그림 영역(.jd2-desc-visual) 밖에는 없어야 한다.
+    const aiBadges = [...document.querySelectorAll('.ai-badge')].map((b) => ({ text: (b.textContent || '').trim(), inVisual: !!b.closest('.jd2-desc-visual') }))
     const brokenDetailPhotos = [...document.querySelectorAll('.jd2-desc-visual__img')].filter((img) => img.complete && img.naturalWidth === 0).map((img) => img.getAttribute('src'))
     const unverifiedDirNote = /chưa xác minh|không phải địa chỉ nơi làm việc/iu.test(document.body.innerText || '')
-    return { detailPhotoSrc, brokenDetailPhotos, plannedPoints, actualPoints, addrItems, singleAddr, note, markerCount, plannedMarkerCount, mapUnavailable, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState, oldStyleButtons, nonStandardDirections, dirAboveMap }
+    return { aiBadges, detailPhotoSrc, brokenDetailPhotos, plannedPoints, actualPoints, addrItems, singleAddr, note, markerCount, plannedMarkerCount, mapUnavailable, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState, oldStyleButtons, nonStandardDirections, dirAboveMap }
   })
 }
 
@@ -95,6 +97,7 @@ function checkInvariants(href, d, truth) {
   // Current UI distinguishes an explicitly unverified area map from a verified workplace.
   // Area maps are permitted by the current rules; they must not claim an exact workplace.
   if (typeof d.detailPhotoSrc === 'string' && !d.detailPhotoSrc.startsWith('/images/')) failures.push(`${href}: detail ④ picture is not one of our images: ${d.detailPhotoSrc}`)
+  if (d.aiBadges?.length > 1 || d.aiBadges?.some((b) => !b.inVisual || b.text !== 'Ảnh minh họa (AI)')) failures.push(`${href}: AI badge misplaced or wrong text: ${JSON.stringify(d.aiBadges)}`)
   if (d.brokenDetailPhotos?.length) failures.push(`${href}: detail ④ picture failed to load: ${d.brokenDetailPhotos.join(', ')}`)
   if (d.oldStyleButtons) failures.push(`${href}: old small Google buttons shown (standard KDA directions button required)`)
   if (d.dirAboveMap && (d.addrItems?.length ?? 0) <= 1) failures.push(`${href}: directions button above the map (standard: below the map)`)
