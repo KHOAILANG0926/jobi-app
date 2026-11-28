@@ -4,7 +4,7 @@ import { Bookmark, MapPin } from 'lucide-react'
 import { useBrandsOptional } from '../../context/BrandsContext'
 import { jobPhotoUrl } from '../../lib/cardPhoto'
 import { cardCompanyParts, cardTitle } from '../../lib/cardText'
-import { jobRepresentativeImageUrl } from '../../lib/companyLogo'
+import { cardThumbnailUrl, jobRepresentativeImageUrl } from '../../lib/companyLogo'
 import { conditionBadges } from '../../lib/jobConditions'
 import { formatDistanceLabel } from '../../lib/jobCoords'
 import { cardSalary, PAY_LABELS } from '../../lib/mainJobCards'
@@ -19,7 +19,7 @@ function Thumb({ job }: { job: Job }) {
   const url = jobRepresentativeImageUrl(job, brands)
   const photo = jobPhotoUrl(job)
   const [failed, setFailed] = useState<string[]>([])
-  const src = [url, photo].find((u): u is string => !!u && !failed.includes(u))
+  const src = [cardThumbnailUrl(url), url, photo].find((u): u is string => !!u && !failed.includes(u))
   return (
     <div className="app-card__thumb">
       {src

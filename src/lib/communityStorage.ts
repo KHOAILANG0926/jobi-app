@@ -135,6 +135,7 @@ async function uploadPostPhotos(userId: string, mediaId: string, files: File[]):
     const path = `${userId}/${mediaId}/${index}.${extension}`
     const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, {
       contentType: file.type,
+      cacheControl: '31536000', // 경로가 글(mediaId)마다 새로 생겨 올린 파일은 바뀌지 않음 — 오래 캐시
     })
     if (error) throw new Error(error.message)
     paths.push(path)

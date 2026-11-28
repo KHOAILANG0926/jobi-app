@@ -21,6 +21,9 @@ function inspectCards(selector) {
     // 직무 중심 대표 이미지(2026-11-27): 카드 로고 자리 그림 주소가 깨지지 않았는지(다 받았는데 폭 0인 것만 — 지연 로딩 대기분은 제외).
     // 우리 이미지(/images/…)가 로고 자리에 올 때는 항상 사진 모양(jc__logo--photo, 꽉 채움)이어야 한다 — 고정 배정 이미지가 계산한 사진과 달라도 같은 모양.
     unstyledPhotos: [...document.querySelectorAll('.jc__logo')].filter((img) => (img.getAttribute('src') || '').startsWith('/images/') && !img.classList.contains('jc__logo--photo')).map((img) => img.getAttribute('src')),
+    // 카드 썸네일(사용량 정리): 우리 저장소 job-images 그림은 카드 칸(≤96px)에 작은 사본 주소(/storage/v1/render/image/…)로 받는다 — 원본 주소가 그대로 쓰이면
+    // 변환 후보가 빠졌거나(회귀) 변환이 실패해 원본으로 넘어간 것이다.
+    fullSizeStorageLogos: [...document.querySelectorAll('.jc__logo')].filter((img) => (img.getAttribute('src') || '').includes('/storage/v1/object/public/job-images/')).map((img) => img.getAttribute('src')),
     brokenLogos: [...document.querySelectorAll('.jc__logo')].filter((img) => img.complete && img.naturalWidth === 0).map((img) => img.getAttribute('src')),
   }
 }
@@ -30,6 +33,7 @@ function problems(result) {
   if (result.duplicateHrefs.length) errors.push('Duplicate cards: ' + result.duplicateHrefs.join(', '))
   if (result.unstyledPhotos?.length) errors.push('Industry picture without photo styling: ' + result.unstyledPhotos.join(', '))
   if (result.brokenLogos?.length) errors.push('Broken card pictures: ' + result.brokenLogos.join(', '))
+  if (result.fullSizeStorageLogos?.length) errors.push('Card picture uses the full-size original instead of the small copy: ' + result.fullSizeStorageLogos.join(', '))
   if (!result.totalCards) errors.push('No job cards rendered')
   return errors
 }
@@ -51,6 +55,8 @@ try {
       ['empty', '<main></main>', false],
       ['managed picture without photo styling', FIXTURE_BASE + section('home-featured', ['1']) + '<img class="jc__logo" src="/images/industry/khac.jpg">', false],
       ['managed picture with photo styling', FIXTURE_BASE + section('home-featured', ['1']) + '<img class="jc__logo jc__logo--photo" src="/images/industry/khac.jpg">', true],
+      ['card picture uses small copy', section('home-featured', ['1']) + '<img class="jc__logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" data-small="1">', true],
+      ['card picture uses full-size original', section('home-featured', ['1']) + '<img class="jc__logo" src="http://fixture.test/storage/v1/object/public/job-images/kda/a.png">', false],
       ['broken card picture', section('home-featured', ['1']) + '<img class="jc__logo" src="data:image/png;base64,AAAA">', false],
     ]) {
       await page.setContent(html)
