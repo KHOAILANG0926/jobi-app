@@ -673,7 +673,8 @@ if (BASE && jobId) {
 } else observe('F', '웹·앱 화면 단계', 'BASE_URL 없음 또는 시험 공고 없음 — 건너뜀')
 
 // ── W. 시험 데이터 정리 경로(#1192, scripts/ops/e2e-cleanup.mjs)를 실제 GoTrue·Storage·PostgREST 스택에서 확인 ──
-// 운영 --full 실행이 쓸 순서 그대로: 저장소 경로 읽기 → cleanupSql(deleteUsers:false) → 저장소 API 삭제 → GoTrue 관리자 API로 계정 삭제 → 잔존 0(인증 내부 표 포함).
+// 운영 --full 실행이 쓸 순서 그대로: 저장소 경로 읽기·소유 검증 → 저장소 API 삭제(되풀이 안전) → cleanupSql(deleteUsers:false) → GoTrue 관리자 API로 계정 삭제 → 잔존 0(인증 내부 표 포함).
+// 같은 순서를 함수 하나(runSequence)로 두어 부분 실패 뒤 재실행(두 번째 호출)도 같은 코드로 시험한다.
 // 실제 이용자 역할(위에서 쓴 users.* 와 고정 공고 jobId)은 그대로여야 한다. 격리 스택 전용, 운영 접속 없음.
 try {
   const { createClient } = await import('@supabase/supabase-js')
@@ -682,7 +683,7 @@ try {
   const m = RUN.toString(16).padStart(10, '0').slice(-10)
   const mk = async (role) => {
     const email = `vgb-e2e-${m}-${role}@example.invalid`
-    const c = await call('POST', '/auth/v1/admin/users', { token: SERVICE, body: { email, password: PW, email_confirm: true, user_metadata: { role, e2e_marker: m } } })
+    const c = await call('POST', '/auth/v1/admin/users', { token: SERVICE, body: { email, password: PW, email_confirm: true, user_metadata: { role }, app_metadata: { e2e_marker: m } } })
     const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email, password: PW } })   // 세션·새로고침 토큰 생성
     if (c.status !== 200 || l.status !== 200) throw new Error(`시험 계정 준비 실패(${role}): ${c.status}/${l.status}`)
     return { id: c.json.id, token: l.json.access_token }
@@ -708,21 +709,34 @@ try {
   const idList = [kE.id, kS.id].map((x) => `'${x}'`).join(',')
   const before = authRows(idList)
   rec('W3', '정리 전: 인증 내부 표(identities·sessions·refresh_tokens)에 시험 계정 행이 실제로 있음', before.split('/').every((n) => Number(n) > 0), before)
-  const realBefore = sql(`select (select count(*) from auth.users where id in ('${users.employer.id}', '${users.seeker.id}')) || '/' || (select count(*) from public.local_jobs where id = ${jobId}) || '/' || (select count(*) from public.applications where job_id = ${jobId})`)
-  const planOut = sql(storagePlanSql(m)).split('\n').filter(Boolean).map((l) => l.split('|'))
-  const planRows = planOut.map(([bucket, name]) => ({ bucket, name }))
-  rec('W4', '정리 전 저장소 경로 계획이 시험 파일 2개만 가리킴', planRows.length === 2 && planRows.some((r) => r.name === snapPath) && planRows.some((r) => r.name === `k1-${m}.png`), JSON.stringify(planRows.map((r) => r.name)))
-  const cl = spawnSync('psql', [DB, '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: cleanupSql(m, { deleteUsers: false }), encoding: 'utf8' })
-  rec('W5', '공개 데이터 정리 SQL(단일 트랜잭션, 계정 제외)이 오류 없이 끝남', cl.status === 0, (cl.stderr.match(/ERROR:.*/) || [''])[0])
-  if (cl.status === 0) {
-    await removeStorageObjects(sb, planRows)
-    await removeTestUsers(sb, [kE.id, kS.id])
-    const left = sql(`select (select count(*) from auth.users where id in (${idList})) || '/' || (select count(*) from public.local_jobs where id = ${kJob}) || '/' || (select count(*) from public.applications where job_id = ${kJob}) || '/' || (select count(*) from public.message_threads where job_id = ${kJob}) || '/' || (select count(*) from public.interviews where job_id = ${kJob}) || '/' || (select count(*) from public.messages where thread_id::text = '${kThread ?? ''}') || '/' || (select count(*) from storage.objects where (bucket_id = 'cv-photos' and name = '${snapPath}') or (bucket_id = 'job-images' and name = 'k1-${m}.png'))`)
-    rec('W6', '정리 뒤 계정·공고·지원·대화·면접·메시지·저장소 파일 잔존 0', left.split('/').every((n) => Number(n) === 0), left)
-    rec('W7', '정리 뒤 인증 내부 표(identities·sessions·refresh_tokens)에도 시험 계정 행 0', authRows(idList).split('/').every((n) => Number(n) === 0), authRows(idList))
-    const realAfter = sql(`select (select count(*) from auth.users where id in ('${users.employer.id}', '${users.seeker.id}')) || '/' || (select count(*) from public.local_jobs where id = ${jobId}) || '/' || (select count(*) from public.applications where job_id = ${jobId})`)
-    rec('W8', '실제 이용자 역할 데이터(다른 계정·고정 공고·그 지원)는 그대로', realAfter === realBefore, `${realBefore} → ${realAfter}`)
+  // 실제 이용자 역할: 보존돼야 하는 저장소 파일 1개와 전표 스냅샷(시험 계정·시험 공고 행 제외, 실제 역할의 모든 관련 표)
+  const realFile = `real-${m}.png`
+  await sb.storage.from('job-images').upload(realFile, new Uint8Array([137, 80, 78, 71]), { contentType: 'image/png', upsert: true })
+  const realSnap = () => sql(`select (select count(*) from auth.users where id in ('${users.employer.id}', '${users.seeker.id}')) || '/' || (select count(*) from public.local_jobs where id = ${jobId}) || '/' || (select count(*) from public.applications where id not in (select id from public.applications where job_id = ${kJob})) || '/' || (select count(*) from public.message_threads where job_id <> ${kJob}) || '/' || (select count(*) from public.interviews where job_id <> ${kJob}) || '/' || (select count(*) from public.messages where thread_id::text <> '${kThread ?? ''}') || '/' || (select count(*) from public.admin_audit_logs) || '/' || (select count(*) from public.job_alert_notifications) || '/' || (select count(*) from storage.objects where bucket_id = 'job-images' and name = '${realFile}') || '/' || (select count(*) from auth.identities where user_id in ('${users.employer.id}', '${users.seeker.id}')) || '/' || (select count(*) from auth.sessions where user_id in ('${users.employer.id}', '${users.seeker.id}'))`)
+  const realBefore = realSnap()
+  const runSequence = async () => {
+    const out = sql(storagePlanSql(m)).split('\n').filter(Boolean).map((l) => l.split('|'))
+    const rows = out.map(([bucket, name, ok]) => ({ bucket, name, ok: ok === 't' }))
+    console.log('저장소 계획(정리 전 기록):', JSON.stringify(rows.map((r) => `${r.bucket}/${r.name}`)))
+    await removeStorageObjects(sb, rows)
+    const cl = spawnSync('psql', [DB, '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: cleanupSql(m, { deleteUsers: false }), encoding: 'utf8' })
+    if (cl.status !== 0) throw new Error('정리 SQL 실패: ' + (cl.stderr.match(/ERROR:.*/) || [''])[0])
+    return rows
   }
+  const planRows = sql(storagePlanSql(m)).split('\n').filter(Boolean).map((l) => l.split('|')).map(([bucket, name, ok]) => ({ bucket, name, ok: ok === 't' }))
+  rec('W4', '정리 전 저장소 경로 계획이 시험 파일 2개만 가리키고 모두 소유 검증 통과(ok)', planRows.length === 2 && planRows.every((r) => r.ok) && planRows.some((r) => r.name === snapPath) && planRows.some((r) => r.name === `k1-${m}.png`), JSON.stringify(planRows.map((r) => `${r.bucket}/${r.name}:${r.ok}`)))
+  // 부분 실패 모사: 첫 호출에서 계정 삭제를 한 명만 하고 끝났다고 가정 → 같은 순서를 다시 호출해도 안전하게 끝나야 한다
+  const rows1 = await runSequence()
+  rec('W5', '저장소 파일 삭제 → 공개 데이터 정리 SQL(단일 트랜잭션, 계정 제외)이 오류 없이 끝남', rows1.length === 2, `파일 ${rows1.length}개`)
+  await sb.auth.admin.deleteUser(kE.id)   // 계정 삭제 도중 중단된 상태(고용주만 삭제)
+  const rows2 = await runSequence()       // 재실행: 계획은 비어 있고(이미 지움) SQL은 통과
+  await removeTestUsers(sb, [kE.id, kS.id])   // 이미 없는 계정은 건너뛰고 나머지를 삭제, 조회로 잔존 0 확인
+  const left = sql(`select (select count(*) from auth.users where id in (${idList})) || '/' || (select count(*) from public.local_jobs where id = ${kJob}) || '/' || (select count(*) from public.applications where job_id = ${kJob}) || '/' || (select count(*) from public.message_threads where job_id = ${kJob}) || '/' || (select count(*) from public.interviews where job_id = ${kJob}) || '/' || (select count(*) from public.messages where thread_id::text = '${kThread ?? ''}') || '/' || (select count(*) from storage.objects where (bucket_id = 'cv-photos' and name = '${snapPath}') or (bucket_id = 'job-images' and name = 'k1-${m}.png'))`)
+  rec('W6', '정리 뒤 계정·공고·지원·대화·면접·메시지·저장소 파일 잔존 0(부분 실패 뒤 재실행 포함, 재실행 계획 비어 있음)', left.split('/').every((n) => Number(n) === 0) && rows2.length === 0, `${left} / 재실행 계획 ${rows2.length}`)
+  rec('W7', '정리 뒤 인증 내부 표(identities·sessions·refresh_tokens)에도 시험 계정 행 0', authRows(idList).split('/').every((n) => Number(n) === 0), authRows(idList))
+  const realAfter = realSnap()
+  rec('W8', '실제 이용자 역할 데이터(계정·고정 공고·지원·대화·면접·메시지·감사 기록·알림·저장소 파일·인증 내부 표)는 그대로', realAfter === realBefore, `${realBefore} → ${realAfter}`)
+  await sb.storage.from('job-images').remove([realFile])
 } catch (e) { rec('W0', '시험 데이터 정리 경로(실제 스택)', false, String(e.message).split('\n')[0]) }
 
 const failed = results.filter((r) => r.pass === false)

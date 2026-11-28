@@ -17,7 +17,8 @@ const hex = () => randomBytes(5).toString('hex')
 const uid = () => c.scalar('select gen_random_uuid()')
 const run = (sql) => { try { return { ok: true, out: c.admin(sql) } } catch (e) { return { ok: false, out: String(e.message) } } }
 const marker = hex(), real = hex()
-const user = (id, email, meta) => c.admin(`insert into auth.users (id, email, raw_user_meta_data) values ('${id}', '${email}', '${JSON.stringify(meta)}'::jsonb);`)
+// role은 가입 정보(raw_user_meta_data), 시험 표식은 서비스 롤만 쓸 수 있는 앱 메타데이터(raw_app_meta_data)
+const user = (id, email, meta) => { const { role, ...app } = meta; c.admin(`insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data) values ('${id}', '${email}', '${JSON.stringify({ role })}'::jsonb, '${JSON.stringify(app)}'::jsonb);`) }
 const jobIdOf = (company) => Number(c.scalar(`select id from public.local_jobs where company like '${company}%' order by id desc limit 1`))
 const newJob = (company, extra = {}) => { c.admin(callSql(jobPayload(hex(), { company, ...extra }))); return jobIdOf(company) }
 const raw = (sql) => c.admin(`set session_replication_role = replica; -- 지원 열림 검사 등은 따로 시험됨(job_apply_and_contact_gate) — 여기선 정리 경로만 본다\n${sql}`)
@@ -74,7 +75,7 @@ try {
   raw(`delete from public.local_jobs where id = ${extraJob};`)
   // C4 허용 목록 밖 표가 외래키로 닿음
   c.admin(`create table public.zz_unexpected (id serial primary key, job_id bigint references public.local_jobs(id)); insert into public.zz_unexpected (job_id) values (${tJob});`)
-  mustAbort('명시 목록 밖 표가 외래키로 붙잡음(삭제 전 점검)', null, /명시 처리 목록에 없는 표/)
+  mustAbort('명시 목록 밖 표가 외래키로 붙잡음(삭제 전 점검)', null, /명시 처리 열이 아닌/)
   c.admin('drop table public.zz_unexpected;')
   // C5 허용 목록 밖 표에 외래키 없는 참조
   c.admin(`create table public.zz_nofk (job_id bigint); insert into public.zz_nofk values (${tJob});`)
@@ -91,18 +92,26 @@ try {
   // C8 감사 기록은 보존 정책상 지우지 않는다: 시험 계정 명의 기록이 있으면(대상이 시험·실제 어느 쪽이든) 삭제하지 않고 중단
   for (const target of [tJob, rJob]) {
     c.admin(`insert into public.admin_audit_logs (admin_user_id, action, target_type, target_id, metadata) values ('${tE}', 'e2e-audit', 'job', '${target}', '{}'::jsonb);`)
-    mustAbort(`시험 계정 명의 감사 기록(대상 ${target === tJob ? '시험' : '실제'} 공고)은 보존하고 중단`, null, /명시 처리 목록에 없는 표/)
+    mustAbort(`시험 계정 명의 감사 기록(대상 ${target === tJob ? '시험' : '실제'} 공고)은 보존하고 중단`, null, /명시 처리 열이 아닌/)
     c.admin(`delete from public.admin_audit_logs where action = 'e2e-audit';`)
   }
   // C9 명시 처리 목록 밖 표(reports)가 시험 계정을 참조 → 연쇄 삭제 전에 중단
   c.admin(`insert into public.reports (reporter_id, target_type, target_id, category) values ('${tS}', 'job', '${rJob}', 'x');`)
-  mustAbort('명시 목록 밖 표(reports)가 시험 계정을 참조(삭제 전 점검)', null, /명시 처리 목록에 없는 표/)
+  mustAbort('명시 목록 밖 표(reports)가 시험 계정을 참조(삭제 전 점검)', null, /명시 처리 열이 아닌/)
   c.admin(`delete from public.reports where reporter_id = '${tS}';`)
   // C10 실제 구독자의 알림이 시험 공고에 걸림
   c.admin(`insert into public.job_alert_preferences (seeker_id, region_importance, region_ids) values ('${rS}', 'required', array['bac-ninh']);
     insert into public.job_alert_notifications (seeker_id, preference_id, job_id, result) select '${rS}', id, ${tJob}, '{}'::jsonb from public.job_alert_preferences where seeker_id = '${rS}';`)
   mustAbort('실제 구독자의 알림이 시험 공고에 걸림(소유권)', null, /시험 공고에 걸린 알림/)
   c.admin(`delete from public.job_alert_notifications where seeker_id = '${rS}'; delete from public.job_alert_preferences where seeker_id = '${rS}';`)
+  // C11 삭제 대상 표(지원서)를 외래키로 참조하는 새 표 → 연쇄 삭제 전에 중단(부모 확대 점검)
+  c.admin(`create table public.zz_app_child (id serial primary key, app_id uuid references public.applications(id) on delete cascade); insert into public.zz_app_child (app_id) select id from public.applications where job_id = ${tJob};`)
+  mustAbort('지원서를 참조하는 명시 밖 표(연쇄 삭제 위험)', null, /명시 처리 열이 아닌/)
+  c.admin('drop table public.zz_app_child;')
+  // C12 명시 처리 표 안의 다른 열이 시험 계정을 가리킴(열 단위 점검): 실제 공고가 시험 계정을 승인자로 참조(SET NULL로 조용히 바뀔 경우)
+  c.admin(`alter table public.local_jobs add column zz_approved_by uuid references auth.users(id) on delete set null; update public.local_jobs set zz_approved_by = '${tE}' where id = ${rJob};`)
+  mustAbort('실제 공고의 다른 열이 시험 계정을 참조(열 단위 점검)', null, /명시 처리 열이 아닌/)
+  c.admin(`update public.local_jobs set zz_approved_by = null where id = ${rJob}; alter table public.local_jobs drop column zz_approved_by;`)
   // C6 DELETE … RETURNING 수가 예상과 다름(트리거가 삭제를 가로채는 경우) → 전체 취소
   c.admin(`create function public.zz_skip_del() returns trigger language plpgsql as $$ begin return null; end $$;
     create trigger zz_skip before delete on public.interviews for each row execute function public.zz_skip_del();`)
@@ -115,13 +124,21 @@ try {
     update public.applications set cv_photo_snapshot_path = 'applications/${tJob}/${tS}/photo.jpg' where job_id = ${tJob} and seeker_id = '${tS}';
     update public.applications set cv_photo_snapshot_path = 'applications/${rJob}/${rS}/photo.jpg' where job_id = ${rJob} and seeker_id = '${rS}';
     insert into public.user_cvs (user_id, cv_data, photo_path) values ('${tS}', '{}'::jsonb, '${tS}/profile.jpg'), ('${rS}', '{}'::jsonb, '${rS}/profile.jpg');`)
-  const plan = c.admin(storagePlanSql(marker)).split('\n').filter((l) => l.includes('|')).map((l) => l.replace(/\s+/g, ' ').trim()).slice(1)
-  assert.deepEqual(plan.sort(), [`cv-photos | ${tS}/profile.jpg`, `cv-photos | applications/${tJob}/${tS}/photo.jpg`, `job-images | t1-${marker}.jpg`, `job-images | t2-${marker}.jpg`].sort(), '저장소 계획은 시험 소유 경로만')
-  // 저장소 삭제 도우미(가짜 Storage 클라이언트): 정확한 경로만 remove, 잔존 확인(내려받기가 성공하면 오류)
-  const calls = []; const mk = (still) => ({ storage: { from: (b) => ({ remove: async (n) => { calls.push([b, n]); return { error: null } }, download: async () => ({ data: still ? {} : null }) }) } })
-  assert.equal(await removeStorageObjects(mk(false), [{ bucket: 'cv-photos', name: 'x' }, { bucket: 'job-images', name: 'y' }]), 2)
-  assert.deepEqual(calls, [['cv-photos', ['x']], ['job-images', ['y']]])
-  await assert.rejects(removeStorageObjects(mk(true), [{ bucket: 'cv-photos', name: 'x' }]), /storage 잔존/)
+  const planOf = () => c.admin(storagePlanSql(marker)).split('\n').filter((l) => l.includes('|')).map((l) => l.replace(/\s+/g, ' ').trim()).slice(1)
+  assert.deepEqual(planOf().sort(), [`cv-photos | ${tS}/profile.jpg | t`, `cv-photos | applications/${tJob}/${tS}/photo.jpg | t`, `job-images | t1-${marker}.jpg | t`, `job-images | t2-${marker}.jpg | t`].sort(), '저장소 계획은 시험 소유 경로만, 모두 ok')
+  // 소유 검증: 접두 위반·시험 밖 행이 같은 경로를 참조하면 ok=f
+  c.admin(`update public.local_jobs set images = '["t1-${marker}.jpg","t2-${marker}.jpg","noprefix.jpg"]'::jsonb where id = ${tJob}; update public.local_jobs set images = '["t2-${marker}.jpg"]'::jsonb where id = ${rJob};`)
+  const bad = planOf().filter((l) => l.endsWith('| f')).sort()
+  assert.deepEqual(bad, [`job-images | noprefix.jpg | f`, `job-images | t2-${marker}.jpg | f`].sort(), '접두 위반·실제 공고와 같은 경로는 ok=f')
+  c.admin(`update public.local_jobs set images = '["t1-${marker}.jpg","t2-${marker}.jpg"]'::jsonb where id = ${tJob}; update public.local_jobs set images = '["real-${real}.jpg"]'::jsonb where id = ${rJob};`)
+  // 저장소 삭제 도우미(가짜 Storage 클라이언트): 정확한 경로만 remove, 목록 조회로 잔존 확인, ok=false면 아무것도 지우지 않음
+  const calls = []; const mk = (still) => ({ storage: { from: (b) => ({ remove: async (n) => { calls.push([b, n]); return { error: null } }, list: async (dir, o) => ({ data: still ? [{ name: o.search }] : [], error: null }) }) } })
+  assert.equal(await removeStorageObjects(mk(false), [{ bucket: 'cv-photos', name: 'a/x', ok: true }, { bucket: 'job-images', name: 'y', ok: true }]), 2)
+  assert.deepEqual(calls, [['cv-photos', ['a/x']], ['job-images', ['y']]])
+  await assert.rejects(removeStorageObjects(mk(true), [{ bucket: 'cv-photos', name: 'x', ok: true }]), /storage 잔존/)
+  const n0 = calls.length
+  await assert.rejects(removeStorageObjects(mk(false), [{ bucket: 'cv-photos', name: 'ok1', ok: true }, { bucket: 'cv-photos', name: 'bad1', ok: false }]), /소유 검증 실패/)
+  assert.equal(calls.length, n0, 'ok=false가 있으면 어떤 파일도 지우지 않음')
   console.log('PASS: 저장소 경로 계획(시험 소유만)·삭제 도우미(정확한 경로·잔존 확인)')
 
   // ── A 정상 + B 반례
@@ -136,7 +153,7 @@ try {
   assert.equal(c.scalar(`select count(*) from public.applications where job_id = ${rJob3}`), '0', '실제 공고에 걸린 시험 계정 지원은 정리')
   assert.equal(c.scalar(`select count(*) from public.messages where body like '%${marker}%'`), '0')
   assert.equal(c.scalar(`select count(*) from public.local_jobs where company = 'VGB-E2E ${marker}' or company like 'VGB-E2E ${marker} %'`), '0')
-  assert.equal(c.scalar(`select count(*) from auth.users where raw_user_meta_data->>'e2e_marker' = '${marker}'`), '0')
+  assert.equal(c.scalar(`select count(*) from auth.users where raw_app_meta_data->>'e2e_marker' = '${marker}'`), '0')
   assert.equal(c.scalar(`select count(*) from public.applications where job_id = ${rJob}`), '1', '실제 지원 보존')
   assert.equal(c.scalar(`select count(*) from public.message_threads where job_id = ${rJob}`), '1')
   assert.equal(c.scalar(`select count(*) from public.interviews where job_id = ${rJob}`), '1')
@@ -167,5 +184,5 @@ try {
   assert.equal(c.scalar(`select count(*) from auth.users where id = '${qE}'`), '1', '가입 정보 표식 없는 계정은 보존')
   assert.throws(() => cleanupSql("x'; select 1;--"), /marker/)
   assert.throws(() => cleanupSql(marker, { maxJobs: -1 }), /maxJobs/)
-  console.log('PASS: 시험 데이터 정리 경로 전 사례 — 소유권 기준 삭제·fail-closed 6종·반례·재실행·끊긴 실행·표식 없는 계정 보존')
+  console.log('PASS: 시험 데이터 정리 경로 전 사례 — 소유권 기준 삭제·fail-closed·반례·재실행·끊긴 실행·표식 없는 계정 보존')
 } finally { c.drop() }
