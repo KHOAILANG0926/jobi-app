@@ -1,10 +1,12 @@
 """보류함 공고 1건의 위치 확정 가능 여부만 읽기로 확인한다(Lee 2026-11-28 단건 게시 후보 사전 검증).
 기존 위치 확인 경로(ingest_gateway.PRECHECK = 서버 위치 hook, 수집·보류 재확인과 같은 함수)를 그대로 쓴다 — 새 판정 규칙·새 위치 경로 없음.
 이 프로브는 공고(local_jobs)·보류 줄(location-hold의 상태·횟수·다음 확인일)을 바꾸지 않는다 — 등록(_ingest_new)·보류 갱신을 부르지 않는다.
-단, 서버 위치 확인 자체가 기존대로 남기는 기록은 그대로 발생한다(수집·보류 재확인과 같은 부수 효과, 이 프로브가 새로 만든 것이 아님):
-  ① 위치 결과 보관 research_artifacts(kind='map-r1-query') upsert(api/_lib/auto-location-runtime.mjs cache()) ② 외부 API 월 사용량 external_api_reserve(Google 한도 안, 한도에 닿으면 부르지 않고 held 사유 반환).
-  `_recheck=True`는 저장된 Google 결과를 읽지 않고 새로 물으므로(refreshGoogle) Google Text Search를 최대 1번 더 쓰고, 나중의 실제 재확인도 같은 이유로 새로 묻는다 — 재확인 일정(7일·최대 2번)은 보류 줄이 그대로라 바뀌지 않는다.
-실행 로그(공개 저장소)에는 전화·원문·주소·좌표를 찍지 않는다: 찾음 여부·종류·사유 코드·외부 호출 시도 횟수만.
+단, 서버 위치 확인(api/location-hook.js precheck → api/_lib/auto-location-runtime.mjs precheckLocation → src/lib/autoLocationResolver.ts)이 기존대로 하는 일은 그대로 발생한다(수집·보류 재확인과 같은 경로, 이 프로브가 새로 만든 것이 아님):
+  DB 쓰기(전부): ① research_artifacts(kind='map-r1-query') upsert — 외부 조회 결과 보관(cache(), 204–207줄) ② external_api_reserve RPC — Google Text Search 호출 전 월 사용량 증가(apiReserve(), 274–279줄, 한도에 닿으면 호출 안 함)
+  DB 읽기: location_memory_point·location_site_memory RPC, job_company_phones 조회, research_artifacts 보관 결과 조회.
+  외부 호출(비용): VietMap(매장당 최대 2번, 서버 메모리 카운터만 — DB 사용량 기록 없음, 기존 precheck와 동일)·Goong(키가 있을 때 최대 3번)·Google Text Search(검색어당 1번, DB 월 한도 안에서만).
+  쓰지 않는 것: local_jobs·job_work_locations·location_hold(보류 줄)·location_site_memory·map_r1_* 표·중복/신원 RPC·로고 기록.
+  `_recheck=True`는 Google 저장 결과를 읽지 않고 새로 묻는다(refreshGoogle) — 나중의 실제 재확인도 같은 이유로 새로 물으므로 재확인 일정(7일·최대 2번)은 보류 줄이 그대로라 바뀌지 않는다.
 사용: HOLD_COMPANY="회사 이름(정확히 그 한 곳)" SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… python crawler/hold_precheck_probe.py"""
 from __future__ import annotations
 
