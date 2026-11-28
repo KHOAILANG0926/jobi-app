@@ -55,6 +55,20 @@ export function optimize(srcFile) {
   } finally { rmSync(dir, { recursive: true, force: true }) }
 }
 
+// 눈으로 같은 그림 판별(8x8 흑백 평균 해시, 다른 형식·크기로 다시 저장해도 같게 나옴). 64칸 중 2칸 이하로 다르면 같은 그림이다.
+export const visualHash = (fileOrBuf) => {
+  const dir = mkdtempSync(join(tmpdir(), 'vh-'))
+  try {
+    let f = fileOrBuf
+    if (Buffer.isBuffer(fileOrBuf)) { f = join(dir, 'v.webp'); writeFileSync(f, fileOrBuf) }
+    const txt = execFileSync(imageTool(), [f + '[0]', '-auto-orient', '-resize', '8x8!', '-colorspace', 'Gray', '-depth', '8', 'txt:-'], { encoding: 'utf8' })
+    const v = [...txt.matchAll(/\((\d+)[,)]/g)].map((m) => Number(m[1]))
+    const avg = v.reduce((a, b) => a + b, 0) / v.length
+    return v.map((x) => (x >= avg ? '1' : '0')).join('')
+  } catch { return null } finally { rmSync(dir, { recursive: true, force: true }) }
+}
+const sameLook = (a, b) => a && b && a.length === b.length && [...a].filter((c, i) => c !== b[i]).length <= 2
+
 const categoryOf = (code) => { for (let n = code.length; n > 0; n--) { const hit = categoryRules[code.slice(0, n)]; if (hit) return hit } }
 
 export function register(srcDir, { dryRun = false, ai = false, root = ROOT } = {}) {
@@ -65,6 +79,8 @@ export function register(srcDir, { dryRun = false, ai = false, root = ROOT } = {
   const onDisk = new Map()
   for (const f of walk(join(root, 'public', 'images'))) onDisk.set(sha256(readFileSync(f)), '/' + f.slice(join(root, 'public').length + 1).replaceAll('\\', '/'))
   const added = [], skipped = []
+  const looks = new Map() // 눈으로 본 해시 → 파일(목록 + 이번 묶음)
+  if (!existsSync(join(srcDir, 'manifest.csv')) && imageTool()) for (const m of manifest.images) { const f = join(root, 'public', m.file); if (existsSync(f)) looks.set(m.id, visualHash(f)) }
   const csv = join(srcDir, 'manifest.csv')
   const loose = !existsSync(csv)
   const rows = loose ? [] : parseCsv(readFileSync(csv, 'utf8'))
@@ -89,6 +105,9 @@ export function register(srcDir, { dryRun = false, ai = false, root = ROOT } = {
       try { buf = optimize(r.loose) } catch (e) { skipped.push(`${basename(r.loose)} (${e.message})`); continue }
       const hash = sha256(buf), dup = knownHashes.get(hash) ?? onDisk.get(hash)
       if (dup) { skipped.push(`${basename(r.loose)} (같은 그림이 이미 있음: ${dup})`); continue }
+      const look = visualHash(buf)
+      const twin = [...looks].find(([, h]) => sameLook(h, look))
+      if (twin) { skipped.push(`${basename(r.loose)} (눈으로 같은 그림이 이미 있음: ${twin[0]})`); continue }
       const base = `${r.role}_${r.environment}`
       r.id = nextId(base); r.ai_generated = String(ai); r.group = r.environment
       r.proposed_repo_path = `public/images/industry/${base}/${r.id}.webp`
@@ -116,6 +135,7 @@ export function register(srcDir, { dryRun = false, ai = false, root = ROOT } = {
       sha256: hash,
     })
     knownIds.add(r.id); knownHashes.set(hash, file); added.push(r.id)
+    if (r.preloaded) looks.set(r.id, visualHash(r.preloaded))
   }
   if (!dryRun && added.length) writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + '\n')
   return { added, skipped }
