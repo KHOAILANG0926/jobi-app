@@ -672,6 +672,58 @@ if (BASE && jobId) {
   await browser.close()
 } else observe('F', '웹·앱 화면 단계', 'BASE_URL 없음 또는 시험 공고 없음 — 건너뜀')
 
+// ── K. 시험 데이터 정리 경로(#1192, scripts/ops/e2e-cleanup.mjs)를 실제 GoTrue·Storage·PostgREST 스택에서 확인 ──
+// 운영 --full 실행이 쓸 순서 그대로: 저장소 경로 읽기 → cleanupSql(deleteUsers:false) → 저장소 API 삭제 → GoTrue 관리자 API로 계정 삭제 → 잔존 0(인증 내부 표 포함).
+// 실제 이용자 역할(위에서 쓴 users.* 와 고정 공고 jobId)은 그대로여야 한다. 격리 스택 전용, 운영 접속 없음.
+try {
+  const { createClient } = await import('@supabase/supabase-js')
+  const { cleanupSql, storagePlanSql, removeStorageObjects, removeTestUsers } = await import('./e2e-cleanup.mjs')
+  const sb = createClient(API, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } })
+  const m = RUN.toString(16).padStart(10, '0').slice(-10)
+  const mk = async (role) => {
+    const email = `vgb-e2e-${m}-${role}@example.invalid`
+    const c = await call('POST', '/auth/v1/admin/users', { token: SERVICE, body: { email, password: PW, email_confirm: true, user_metadata: { role, e2e_marker: m } } })
+    const l = await call('POST', '/auth/v1/token?grant_type=password', { body: { email, password: PW } })   // 세션·새로고침 토큰 생성
+    if (c.status !== 200 || l.status !== 200) throw new Error(`시험 계정 준비 실패(${role}): ${c.status}/${l.status}`)
+    return { id: c.json.id, token: l.json.access_token }
+  }
+  const kE = await mk('employer'), kS = await mk('seeker')
+  const fx = spawnSync('psql', [DB, '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-v', `employer_id=${kE.id}`, '-f', 'supabase/tests/baseline/isolated_stack_fixture.sql'], { encoding: 'utf8' })
+  const kJob = Number(fx.stdout.split('\n').find((l) => /^\d+$/.test(l)))
+  sql(`update public.local_jobs set company = 'VGB-E2E ${m}', images = '["k1-${m}.png"]'::jsonb where id = ${kJob}`)
+  const ap = await call('POST', '/rest/v1/applications', { token: kS.token, body: { job_id: kJob, seeker_id: kS.id, employer_id: kE.id, job_title: TITLE, company: 'VGB-E2E ' + m, seeker_name: 'E2E', seeker_phone: '0900000000' } })
+  const th = await call('POST', '/rest/v1/message_threads', { token: kS.token, headers: { prefer: 'return=representation' }, body: { job_id: kJob, seeker_id: kS.id, employer_id: kE.id, job_title: TITLE, company: 'VGB-E2E ' + m, seeker_name: 'E2E' } })
+  const kThread = th.json?.[0]?.id
+  const msg = kThread ? await call('POST', '/rest/v1/messages', { token: kS.token, body: { thread_id: kThread, from_role: 'seeker', body: 'e2e cleanup' } }) : { status: 0 }
+  const iv = await call('POST', '/rest/v1/interviews', { token: kE.token, body: { job_id: kJob, seeker_id: kS.id, employer_id: kE.id, job_title: TITLE, company: 'VGB-E2E ' + m, seeker_name: 'E2E', datetime: new Date(Date.now() + 86400000).toISOString(), location: 'x', notes: 'e2e', status: 'pending' } })
+  rec('K1', '시험 계정·공고·지원·대화·메시지·면접을 실제 스택(GoTrue·PostgREST)으로 준비', Number.isInteger(kJob) && ap.status === 201 && !!kThread && msg.status === 201 && iv.status === 201, `공고 ${kJob} 지원 ${ap.status} 대화 ${th.status} 메시지 ${msg.status} 면접 ${iv.status}`)
+  // 저장소 파일(실제 Storage): 지원 시 CV 사진 스냅샷 경로·공고 사진
+  const snapPath = `applications/${kJob}/${kS.id}/photo.png`
+  const up1 = await sb.storage.from('cv-photos').upload(snapPath, new Uint8Array([137, 80, 78, 71]), { contentType: 'image/png', upsert: true })
+  const up2 = await sb.storage.from('job-images').upload(`k1-${m}.png`, new Uint8Array([137, 80, 78, 71]), { contentType: 'image/png', upsert: true })
+  sql(`update public.applications set cv_photo_snapshot_path = '${snapPath}' where job_id = ${kJob} and seeker_id = '${kS.id}'`)
+  rec('K2', '시험 저장소 파일 2개를 실제 Storage에 올림(CV 스냅샷·공고 사진)', !up1.error && !up2.error, `${up1.error?.message ?? ''} ${up2.error?.message ?? ''}`.trim())
+  const authRows = (ids) => sql(`select (select count(*) from auth.identities where user_id in (${ids})) || '/' || (select count(*) from auth.sessions where user_id in (${ids})) || '/' || (select count(*) from auth.refresh_tokens where user_id::text in (${ids}))`)
+  const idList = [kE.id, kS.id].map((x) => `'${x}'`).join(',')
+  const before = authRows(idList)
+  rec('K3', '정리 전: 인증 내부 표(identities·sessions·refresh_tokens)에 시험 계정 행이 실제로 있음', before.split('/').every((n) => Number(n) > 0), before)
+  const realBefore = sql(`select (select count(*) from auth.users where id in ('${users.employer.id}', '${users.seeker.id}')) || '/' || (select count(*) from public.local_jobs where id = ${jobId}) || '/' || (select count(*) from public.applications where job_id = ${jobId})`)
+  const planOut = sql(storagePlanSql(m)).split('\n').filter(Boolean).map((l) => l.split('|'))
+  const planRows = planOut.map(([bucket, name]) => ({ bucket, name }))
+  rec('K4', '정리 전 저장소 경로 계획이 시험 파일 2개만 가리킴', planRows.length === 2 && planRows.some((r) => r.name === snapPath) && planRows.some((r) => r.name === `k1-${m}.png`), JSON.stringify(planRows.map((r) => r.name)))
+  const cl = spawnSync('psql', [DB, '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: cleanupSql(m, { deleteUsers: false }), encoding: 'utf8' })
+  rec('K5', '공개 데이터 정리 SQL(단일 트랜잭션, 계정 제외)이 오류 없이 끝남', cl.status === 0, (cl.stderr.match(/ERROR:.*/) || [''])[0])
+  if (cl.status === 0) {
+    await removeStorageObjects(sb, planRows)
+    await removeTestUsers(sb, [kE.id, kS.id])
+    const left = sql(`select (select count(*) from auth.users where id in (${idList})) || '/' || (select count(*) from public.local_jobs where id = ${kJob}) || '/' || (select count(*) from public.applications where job_id = ${kJob}) || '/' || (select count(*) from public.message_threads where job_id = ${kJob}) || '/' || (select count(*) from public.interviews where job_id = ${kJob}) || '/' || (select count(*) from public.messages where thread_id = '${kThread}') || '/' || (select count(*) from storage.objects where (bucket_id = 'cv-photos' and name = '${snapPath}') or (bucket_id = 'job-images' and name = 'k1-${m}.png'))`)
+    rec('K6', '정리 뒤 계정·공고·지원·대화·면접·메시지·저장소 파일 잔존 0', left.split('/').every((n) => Number(n) === 0), left)
+    rec('K7', '정리 뒤 인증 내부 표(identities·sessions·refresh_tokens)에도 시험 계정 행 0', authRows(idList).split('/').every((n) => Number(n) === 0), authRows(idList))
+    const realAfter = sql(`select (select count(*) from auth.users where id in ('${users.employer.id}', '${users.seeker.id}')) || '/' || (select count(*) from public.local_jobs where id = ${jobId}) || '/' || (select count(*) from public.applications where job_id = ${jobId})`)
+    rec('K8', '실제 이용자 역할 데이터(다른 계정·고정 공고·그 지원)는 그대로', realAfter === realBefore, `${realBefore} → ${realAfter}`)
+  }
+} catch (e) { rec('K0', '시험 데이터 정리 경로(실제 스택)', false, String(e.message).split('\n')[0]) }
+
 const failed = results.filter((r) => r.pass === false)
 writeFileSync(`${SHOTS}/result.json`, JSON.stringify(results, null, 1))
 const summary = `## 격리 실제 스택 E2E\n통과 ${results.filter((r) => r.pass).length} / 실패 ${failed.length} / 관찰 ${results.filter((r) => r.pass === null).length}\n\n${results.map((r) => `- ${r.pass === null ? '👁' : r.pass ? '✅' : '❌'} ${r.id} ${r.label}${r.note ? ' — ' + r.note : ''}`).join('\n')}\n`

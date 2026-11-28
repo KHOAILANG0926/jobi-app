@@ -26,7 +26,7 @@ export const TABLES = {
   ],
 }
 
-export function cleanupSql(marker, { maxJobs = 1, maxUsers = 2 } = {}) {
+export function cleanupSql(marker, { maxJobs = 1, maxUsers = 2, deleteUsers = true } = {}) {
   if (!SAFE_MARKER.test(marker)) throw new Error('marker 형식 오류(16진 8~32자)')
   if (!Number.isInteger(maxJobs) || !Number.isInteger(maxUsers) || maxJobs < 0 || maxUsers < 0) throw new Error('maxJobs·maxUsers는 0 이상 정수')
   const del = ([t, col], src) => `select pg_temp.vgb_del('${t}.${col}', $c$select count(*) from ${t} where ${col} in (select id from ${src})$c$, $d$delete from ${t} where ${col} in (select id from ${src}) returning 1$d$);`
@@ -73,7 +73,7 @@ end $o$;
 -- (공고·계정 삭제의 ON DELETE CASCADE로 실제 이용자 행이 조용히 따라 지워지는 일을 막는다)
 do $p$
 declare fk record; c bigint; src text; handled text[] := array[${[
-    'public.applications', 'public.message_threads', 'public.interviews', 'public.local_jobs', 'public.job_ingest_raw', 'public.admin_audit_logs',
+    'public.applications', 'public.message_threads', 'public.interviews', 'public.local_jobs', 'public.job_ingest_raw',
     ...TABLES.byJob.map((t) => t[0]), ...TABLES.byUser.map((t) => t[0]),
   ].filter((v, i, a) => a.indexOf(v) === i).map((v) => `'${v}'`).join(', ')}];
 begin
@@ -108,8 +108,7 @@ select pg_temp.vgb_del('public.job_ingest_raw', 'select count(*) from public.job
 ${TABLES.byJob.map((t) => del(t, 'vgb_jobs')).join('\n')}
 select pg_temp.vgb_del('public.local_jobs', 'select count(*) from public.local_jobs where id in (select id from vgb_jobs)', 'delete from public.local_jobs where id in (select id from vgb_jobs) returning 1');
 ${TABLES.byUser.map((t) => del(t, 'vgb_users')).join('\n')}
--- 감사 기록: 시험 계정이 시험 공고에 한 것만 지운다(시험 계정이 실제 대상에 한 기록이 있으면 아래 ⑤가 남은 참조로 보고 중단)
-select pg_temp.vgb_del('public.admin_audit_logs(시험 공고 대상)', $c$select count(*) from public.admin_audit_logs where admin_user_id in (select id from vgb_users) and target_type = 'job' and target_id in (select id::text from vgb_jobs)$c$, $d$delete from public.admin_audit_logs where admin_user_id in (select id from vgb_users) and target_type = 'job' and target_id in (select id::text from vgb_jobs) returning 1$d$);
+-- 감사 기록(admin_audit_logs)은 보존 정책상 지우지 않는다: 시험 계정은 관리자가 아니라 기록을 만들지 못하며, 있으면 아래 ③-2·⑤가 중단시킨다
 
 -- ⑤ 남은 참조(외래키 유무 무관, 읽기만): 공고 번호·계정 id를 값으로 가진 모든 표
 do $r$
@@ -125,17 +124,17 @@ begin
   if left_total > 0 then raise exception 'vgb_cleanup: 명시 목록 밖에 남은 참조 % 건 — 전체 취소', left_total; end if;
 end $r$;
 
--- 계정 삭제(부속 표는 Supabase 기본 설정의 ON DELETE CASCADE, 그 밖에 붙잡는 행이 있으면 DB가 거부 → 전체 취소)
-select pg_temp.vgb_del('auth.users', 'select count(*) from auth.users where id in (select id from vgb_users)', 'delete from auth.users where id in (select id from vgb_users) returning 1');
+${deleteUsers ? `-- 계정 삭제(부속 표는 Supabase 기본 설정의 ON DELETE CASCADE, 그 밖에 붙잡는 행이 있으면 DB가 거부 → 전체 취소)
+select pg_temp.vgb_del('auth.users', 'select count(*) from auth.users where id in (select id from vgb_users)', 'delete from auth.users where id in (select id from vgb_users) returning 1');` : `-- deleteUsers=false: 계정은 GoTrue 관리자 API(auth.admin.deleteUser)로 지운다 — 인증 내부 표(identities·sessions·refresh_tokens 등)를 GoTrue가 직접 정리하는 지원 경로. 이 SQL은 공개 데이터까지만.`}
 
 -- ⑥ 결과 검증: 뿌리 잔존 0
 do $z$ begin
-  if exists (select 1 from public.local_jobs where id in (select id from vgb_jobs)) or exists (select 1 from auth.users where id in (select id from vgb_users)) then
+  if exists (select 1 from public.local_jobs where id in (select id from vgb_jobs)) ${deleteUsers ? 'or exists (select 1 from auth.users where id in (select id from vgb_users))' : ''} then
     raise exception 'vgb_cleanup: 삭제 뒤에도 뿌리가 남음 — 전체 취소'; end if;
 end $z$;
 
 select tbl, n as deleted from vgb_log order by tbl;
-select 'residual' as what, (select count(*) from public.local_jobs where id in (select id from vgb_jobs)) + (select count(*) from auth.users where id in (select id from vgb_users)) as roots_left;
+select 'residual' as what, (select count(*) from public.local_jobs where id in (select id from vgb_jobs)) + ${deleteUsers ? '(select count(*) from auth.users where id in (select id from vgb_users))' : '0'} as roots_left;
 commit;
 `
 }
@@ -145,4 +144,43 @@ export function countSql(marker) {
   if (!SAFE_MARKER.test(marker)) throw new Error('marker 형식 오류(16진 8~32자)')
   return `select (select count(*) from public.local_jobs where company = 'VGB-E2E ${marker}' or company like 'VGB-E2E ${marker} %') as jobs,
  (select count(*) from auth.users where email like 'vgb-e2e-${marker}-%@example.invalid' and raw_user_meta_data->>'e2e_marker' = '${marker}') as users;`
+}
+
+// 저장소(Storage) 파일: 지원 시점 CV 사진 스냅샷(applications.cv_photo_snapshot_path = `applications/<공고>/<구직자>/photo.*`),
+// 계정의 CV 사진(user_cvs.photo_path), 시험 공고가 올린 사진(local_jobs.images, 버킷 job-images)은 DB 행이 아니라 **파일**이다.
+// Supabase는 storage 표 직접 삭제를 막으므로(파일이 남음) SQL로 지우지 않고 Storage API(서비스 롤)로 **정확한 경로**만 지운다.
+// 순서: ① storagePlanSql로 경로 목록을 먼저 읽는다(정리 SQL이 지원서 행을 지우기 **전**) ② cleanupSql ③ removeStorageObjects ④ 잔존 확인.
+export function storagePlanSql(marker) {
+  if (!SAFE_MARKER.test(marker)) throw new Error('marker 형식 오류(16진 8~32자)')
+  return `with u as (select id from auth.users where email like 'vgb-e2e-${marker}-%@example.invalid' and raw_user_meta_data->>'e2e_marker' = '${marker}'),
+ j as (select id, images from public.local_jobs where company = 'VGB-E2E ${marker}' or company like 'VGB-E2E ${marker} %')
+ select 'cv-photos' as bucket, cv_photo_snapshot_path as name from public.applications where seeker_id in (select id from u) and cv_photo_snapshot_path is not null
+ union select 'cv-photos', photo_path from public.user_cvs where user_id in (select id from u) and photo_path is not null
+ union select 'job-images', jsonb_array_elements_text(images) from j where jsonb_typeof(images) = 'array'
+ order by 1, 2;`
+}
+
+// 경로 목록(rows: [{bucket, name}])을 Storage API로 지우고 목록 조회로 잔존 0을 확인한다. admin = service-role supabase 클라이언트.
+export async function removeStorageObjects(admin, rows) {
+  const byBucket = new Map()
+  for (const { bucket, name } of rows) { if (!byBucket.has(bucket)) byBucket.set(bucket, []); byBucket.get(bucket).push(name) }
+  for (const [bucket, names] of byBucket) {
+    const { error } = await admin.storage.from(bucket).remove(names)
+    if (error) throw new Error(`storage 삭제 실패 ${bucket}: ${error.message}`)
+    // 잔존 확인: 같은 경로를 다시 내려받아 보면 실패해야 한다(다른 파일은 건드리지 않음)
+    for (const name of names) {
+      const { data } = await admin.storage.from(bucket).download(name)
+      if (data) throw new Error(`storage 잔존: ${bucket}/${name}`)
+    }
+  }
+  return rows.length
+}
+
+// 계정 삭제(운영 실행기 경로, cleanupSql(..., {deleteUsers:false}) 뒤): GoTrue 관리자 API로 지우고 목록 조회로 잔존 0을 확인한다.
+export async function removeTestUsers(admin, ids) {
+  for (const id of ids) {
+    const { error } = await admin.auth.admin.deleteUser(id)
+    if (error) throw new Error(`계정 삭제 실패 ${id}: ${error.message}`)
+  }
+  return ids.length
 }

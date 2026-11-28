@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
 import { makeChain } from './lib/pg-chain.mjs'
 import { jobPayload, callSql } from './lib/pg-race.mjs'
-import { cleanupSql, countSql } from '../../scripts/ops/e2e-cleanup.mjs'
+import { cleanupSql, countSql, storagePlanSql, removeStorageObjects } from '../../scripts/ops/e2e-cleanup.mjs'
 
 const c = await makeChain()
 const hex = () => randomBytes(5).toString('hex')
@@ -44,8 +44,7 @@ try {
   raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${tJob}, '${tS}', '${tE}');
     insert into public.message_threads (job_id, seeker_id, employer_id) values (${tJob}, '${tS}', '${tE}');
     insert into public.messages (thread_id, from_role, body) select id, 'seeker', 'e2e ${marker}' from public.message_threads where job_id = ${tJob};
-    insert into public.interviews (job_id, seeker_id, employer_id, datetime) values (${tJob}, '${tS}', '${tE}', now());
-    insert into public.admin_audit_logs (admin_user_id, action, target_type, target_id, metadata) values ('${tE}', 'e2e', 'job', '${tJob}', '{"m":"x"}'::jsonb);`)
+    insert into public.interviews (job_id, seeker_id, employer_id, datetime) values (${tJob}, '${tS}', '${tE}', now());`)
   // 시험 계정(구직자·고용주 양쪽)이 실제 공고 rJob3에 한 지원·대화·메시지·면접
   raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${rJob3}, '${tS}', '${tE}');
     insert into public.message_threads (job_id, seeker_id, employer_id) values (${rJob3}, '${tS}', '${tE}');
@@ -89,10 +88,12 @@ try {
   raw(`insert into public.interviews (job_id, seeker_id, employer_id, datetime) values (${tJob}, '${rS}', '${tE}', now());`)
   mustAbort('실제 구직자가 시험 공고에 면접(소유권)', null, /시험 계정이 아닌 이용자/)
   raw(`delete from public.interviews where seeker_id = '${rS}' and job_id = ${tJob};`)
-  // C8 시험 계정이 실제 대상에 한 관리 기록 → 남은 참조로 중단(지우지 않음)
-  c.admin(`insert into public.admin_audit_logs (admin_user_id, action, target_type, target_id, metadata) values ('${tE}', 'e2e-real-target', 'job', '${rJob}', '{}'::jsonb);`)
-  mustAbort('시험 계정의 실제 대상 관리 기록은 지우지 않고 중단', null, /남은 참조/)
-  c.admin(`delete from public.admin_audit_logs where action = 'e2e-real-target';`)
+  // C8 감사 기록은 보존 정책상 지우지 않는다: 시험 계정 명의 기록이 있으면(대상이 시험·실제 어느 쪽이든) 삭제하지 않고 중단
+  for (const target of [tJob, rJob]) {
+    c.admin(`insert into public.admin_audit_logs (admin_user_id, action, target_type, target_id, metadata) values ('${tE}', 'e2e-audit', 'job', '${target}', '{}'::jsonb);`)
+    mustAbort(`시험 계정 명의 감사 기록(대상 ${target === tJob ? '시험' : '실제'} 공고)은 보존하고 중단`, null, /명시 처리 목록에 없는 표/)
+    c.admin(`delete from public.admin_audit_logs where action = 'e2e-audit';`)
+  }
   // C9 명시 처리 목록 밖 표(reports)가 시험 계정을 참조 → 연쇄 삭제 전에 중단
   c.admin(`insert into public.reports (reporter_id, target_type, target_id, category) values ('${tS}', 'job', '${rJob}', 'x');`)
   mustAbort('명시 목록 밖 표(reports)가 시험 계정을 참조(삭제 전 점검)', null, /명시 처리 목록에 없는 표/)
@@ -107,6 +108,21 @@ try {
     create trigger zz_skip before delete on public.interviews for each row execute function public.zz_skip_del();`)
   mustAbort('DELETE RETURNING 수 ≠ 예상 수', null, /삭제 0 건 ≠ 예상 2 건/)
   c.admin('drop trigger zz_skip on public.interviews; drop function public.zz_skip_del();')
+
+  // 저장소 경로 계획(정리 SQL이 지원서 행을 지우기 전에 읽는다): 시험 소유 경로만, 실제 이용자 경로는 제외
+  c.admin(`update public.local_jobs set images = '["t1-${marker}.jpg","t2-${marker}.jpg"]'::jsonb where id = ${tJob};
+    update public.local_jobs set images = '["real-${real}.jpg"]'::jsonb where id = ${rJob};
+    update public.applications set cv_photo_snapshot_path = 'applications/${tJob}/${tS}/photo.jpg' where job_id = ${tJob} and seeker_id = '${tS}';
+    update public.applications set cv_photo_snapshot_path = 'applications/${rJob}/${rS}/photo.jpg' where job_id = ${rJob} and seeker_id = '${rS}';
+    insert into public.user_cvs (user_id, cv_data, photo_path) values ('${tS}', '{}'::jsonb, '${tS}/profile.jpg'), ('${rS}', '{}'::jsonb, '${rS}/profile.jpg');`)
+  const plan = c.admin(storagePlanSql(marker)).split('\n').filter((l) => l.includes('|')).map((l) => l.replace(/\s+/g, ' ').trim()).slice(1)
+  assert.deepEqual(plan.sort(), [`cv-photos | ${tS}/profile.jpg`, `cv-photos | applications/${tJob}/${tS}/photo.jpg`, `job-images | t1-${marker}.jpg`, `job-images | t2-${marker}.jpg`].sort(), '저장소 계획은 시험 소유 경로만')
+  // 저장소 삭제 도우미(가짜 Storage 클라이언트): 정확한 경로만 remove, 잔존 확인(내려받기가 성공하면 오류)
+  const calls = []; const mk = (still) => ({ storage: { from: (b) => ({ remove: async (n) => { calls.push([b, n]); return { error: null } }, download: async () => ({ data: still ? {} : null }) }) } })
+  assert.equal(await removeStorageObjects(mk(false), [{ bucket: 'cv-photos', name: 'x' }, { bucket: 'job-images', name: 'y' }]), 2)
+  assert.deepEqual(calls, [['cv-photos', ['x']], ['job-images', ['y']]])
+  await assert.rejects(removeStorageObjects(mk(true), [{ bucket: 'cv-photos', name: 'x' }]), /storage 잔존/)
+  console.log('PASS: 저장소 경로 계획(시험 소유만)·삭제 도우미(정확한 경로·잔존 확인)')
 
   // ── A 정상 + B 반례
   const out1 = c.admin(cleanupSql(marker))
