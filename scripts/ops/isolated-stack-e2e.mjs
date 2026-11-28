@@ -621,6 +621,9 @@ if (BASE && jobId) {
       await page.goto(`${UB}/app/`, { waitUntil: 'domcontentloaded' })   // 옛 버전 홈(메시지 화면 조각은 아직 안 받음)
       await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
       const oldHome = await mainScript()
+      // 홈이 지도 조각(HomeMapCanvas) 등 다른 지연 조각을 다 받은 뒤에 배포로 바꾼다 — 안 받은 조각이 배포 뒤에 요청되면 이 시험이 보려는 '메시지 화면 조각'이 아닌 다른 조각 오류가 끼어
+      // 옛 홈이 다시 그려지는 동안 탭 클릭이 30초 내내 못 눌리던 간헐 실패(U0, 같은 SHA에서 성공·실패가 섞임)의 원인이다. 시험 대상(안 받은 화면으로 이동)은 그대로다.
+      await page.waitForLoadState('networkidle')
       await sw('new')   // ← 배포: 같은 주소가 이제 새 빌드를 준다. 열려 있는 탭은 옛 코드 그대로.
       // (a) 옛 탭에서 아직 안 받은 화면(앱 메시지)으로 이동 — 옛 조각 파일이 새 배포에는 없다
       errors.length = 0
@@ -645,6 +648,7 @@ if (BASE && jobId) {
       await page.goto(`${UB}/app/`, { waitUntil: 'domcontentloaded' })
       await page.locator('[data-testid="app-tabbar"]').first().waitFor({ state: 'visible', timeout: 30_000 })
       const curScript = await mainScript()
+      await page.waitForLoadState('networkidle')   // 위와 같은 이유: 홈의 다른 지연 조각을 다 받은 뒤 다음 배포로 바꾼다
       await sw('next')
       errors.length = 0; diag.length = 0; navs = 0
       await page.locator('[data-testid="app-tabbar"] a[href$="/ho-so"]').first().click()
