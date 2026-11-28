@@ -114,7 +114,7 @@ async function suite(patched) {
     await denied('authenticated', IDS.S1, applySql(id, IDS.S2), '다른 구직자 이름으로 지원')
     await denied('authenticated', IDS.S1, applySql(id, IDS.S1, IDS.E2), '다른 기업(employer_id 위조)으로 지원')
     await denied('authenticated', IDS.S3, applySql(id, IDS.S3), '정지 계정 지원')
-    // (참고: 기업 계정이 다른 기업 공고에 지원하는 것은 기존 정책(applications_insert)이 역할을 보지 않아 허용된다 — #1096이 바꾸는 범위가 아니라 별도 확인 항목)
+    // (참고: 기업 계정의 지원은 20261128060000_applications_insert_not_employer로 거절된다 — 시험은 applications_insert_not_employer.pglite.test.mjs·격리 스택 E2E AP5)
     await N.begin('anon'); assert.match(await N.run(applySql(id)), /permission denied/, 'A6: 비로그인 지원 거부'); await N.run('rollback')
     // 같은 사람이 두 연결에서 동시에 같은 공고 지원(이중 클릭·웹+앱): 하나만 저장
     const A = sess('A'), B = sess('B')

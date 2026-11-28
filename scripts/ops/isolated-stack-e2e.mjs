@@ -713,8 +713,8 @@ if (BASE && jobId) {
       await ep.getByRole('button', { name: 'Xác nhận ứng tuyển' }).click({ timeout: 10_000 }).catch(() => {})
       const errPhase = await ep.locator('[data-testid="app-apply"][data-phase="error"]').waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)
       const after = Number(sql(`select count(*) from public.applications where job_id = ${jobId} and seeker_id = '${users.employer.id}'`))
-      // 기업 계정의 지원은 기존 정책(applications_insert)이 역할을 보지 않아 허용된다(supabase/tests/job_apply_and_contact_gate.concurrent.mjs A6의 기록과 같음) — 실패로 보지 않고 실제 동작을 기록한다. 바꾸려면 RLS 변경(대표 승인)이다.
-      observe('AP5', '기업 계정이 앱에서 지원하면(현재 정책: 역할 제한 없음)', `오류 안내 ${errPhase} / 저장된 줄 ${after}`)
+      // 기업 계정의 지원은 거절된다(20261128060000_applications_insert_not_employer — applications_insert 정책의 기업 역할 거절 조건). 격리 스택은 저장소 migration 전체를 올리므로 이 migration이 적용된 상태다.
+      rec('AP5', '기업 계정은 앱에서 지원할 수 없음(오류 안내, 지원 줄 생기지 않음)', before === 0 && after === 0 && errPhase, `오류 ${errPhase} / 저장된 줄 ${after}`)
       await ectx.close()
     } catch (e) { rec('AP0', '앱 지원 클릭 흐름', false, e.message.split('\n')[0]) }
   }
