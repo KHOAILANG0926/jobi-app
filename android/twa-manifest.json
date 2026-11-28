@@ -13,7 +13,7 @@
   "navigationDividerColorDark": "#000000",
   "backgroundColor": "#ffffff",
   "enableNotifications": false,
-  "startUrl": "/",
+  "startUrl": "/app/",
   "iconUrl": "https://www.viecganban.vn/icons/icon-512.png",
   "maskableIconUrl": "https://www.viecganban.vn/icons/icon-maskable-512.png",
   "splashScreenFadeOutDuration": 300,
