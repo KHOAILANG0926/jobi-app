@@ -23,7 +23,7 @@ import { GATE_CODE } from '../decision-approval-gate.mjs'
 import { REPLY_MARKER, FALLBACK_MARKER } from '../codex-review-gate.mjs'
 
 export const ISSUE_MARKER = '<!-- claude-issue-reply -->'
-export const LIMITS = { text: 6000, issueTitle: 120, issueBody: 6000, issues: 3, patchBytes: 400_000, patchFiles: 60, message: 200 }
+export const LIMITS = { text: 6000, issueTitle: 120, issueBody: 6000, issues: 3, patchBytes: 400_000, imagePatchBytes: 24_000_000, patchFiles: 60, message: 200 }
 // claude[bot]의 실제 계정 번호 209825114(댓글 작성자 id로 확인). 액션 기본값 41898282는 github-actions[bot] 번호라, 그 메일로 만든 커밋은
 // GitHub이 github-actions[bot] 커밋으로 연결해 check-pr-ready의 봇 커밋 판정(claude[bot])이 늘 실패했다(독립 검토 3차 지적 8).
 export const BOT = { name: 'claude[bot]', email: '209825114+claude[bot]@users.noreply.github.com' }
@@ -141,8 +141,12 @@ export function checkIssues(raw, known = []) {
 // patch 요약(git apply --numstat --summary -z 출력이 아니라 사람이 읽는 --summary 줄 + --numstat 줄)을 검사
 // protectedMode(S1): 금지 경로 판정 대신 허용 목록(PROTECTED_PUBLISH_ALLOW)만 인정한다 — 목록 밖 파일이 하나라도 있으면 거절, 이름 바꿈·복사·삭제는 목록 안끼리도 거절
 // (보호 파일·시험을 옮기거나 지워 약화하는 길 차단). 링크·바이너리·비밀값·크기 검사는 그대로.
-export function checkPatchSummary({ numstat, summary, bytes, patchText, known = [], protectedMode = false }) {
-  if (bytes > LIMITS.patchBytes) return `patch가 너무 큼(${bytes}바이트)`
+// imageMode(Lee 2026-11-28, 이미지 자동 등록 image-register.yml): 바이너리를 받는 단 하나의 좁은 길 — 바뀐 파일이 전부 이미지 목록 manifest.json 또는
+// public/images/industry/<폴더>/<이름>.webp(새 파일 추가만)일 때만 통과한다. 그 밖 경로·삭제·이름 바꿈·복사가 하나라도 있으면 거절, 크기 상한은 이미지 묶음용.
+// 비밀값 검사는 글자 줄(+로 시작)에만 적용돼 그림 바이트는 보지 않는다 — 그림 파일 이름·manifest.json 글자는 그대로 검사한다.
+export const IMAGE_PUBLISH_PATH = /^(?:data\/industry-photos\/manifest\.json|public\/images\/industry\/[a-z0-9_]{1,80}\/[a-z0-9_]{1,80}\.webp)$/
+export function checkPatchSummary({ numstat, summary, bytes, patchText, known = [], protectedMode = false, imageMode = false }) {
+  if (bytes > (imageMode ? LIMITS.imagePatchBytes : LIMITS.patchBytes)) return `patch가 너무 큼(${bytes}바이트)`
   // -z 형식: "추가\t삭제\t경로\0", 이름 바꿈은 "추가\t삭제\t\0옛경로\0새경로\0"
   const parts = numstat.split('\0'), files = []
   for (let i = 0; i < parts.length; i++) {
@@ -152,16 +156,26 @@ export function checkPatchSummary({ numstat, summary, bytes, patchText, known = 
     else { files.push(parts[i + 1] ?? '', parts[i + 2] ?? ''); i += 2 }
   }
   if (files.length > LIMITS.patchFiles) return `바꾼 파일이 너무 많음(${files.length}개)`
-  if (protectedMode) {
+  if (imageMode) {
+    if (protectedMode) return '이미지 모드와 보호 모드는 함께 쓸 수 없음'
+    if (!files.length) return '이미지 모드: 바뀐 파일 목록을 읽지 못함'
+    for (const f of files) if (!IMAGE_PUBLISH_PATH.test(f)) return `이미지 모드 허용 경로 밖 파일: ${f}`
+    // 기존 것은 바꾸지 않는다: 그림은 새 파일 생성(create mode)만, 목록은 줄 추가만(삭제·수정된 줄 0).
+    for (const f of files) {
+      if (f.endsWith('.webp')) { if (!summary.split('\n').some((l) => /^\s*create mode \d+ /.test(l) && l.trim().endsWith(' ' + f))) return `이미지 모드: 기존 그림을 덮어쓸 수 없음(새 파일만): ${f}` }
+      else { const row = parts.find((x) => x.endsWith('\t' + f)); if (!row || row.split('\t')[1] !== '0') return `이미지 모드: 기존 목록 줄은 바꿀 수 없음(줄 추가만): ${f}` }
+    }
+  } else if (protectedMode) {
     if (!files.length) return '보호 모드: 바뀐 파일 목록을 읽지 못함'
     for (const f of files) if (!PROTECTED_PUBLISH_ALLOW.includes(f)) return `보호 모드 허용 목록 밖 파일: ${f}`
   } else for (const f of files) if (forbiddenPath(f)) return `고치면 안 되는 경로: ${f}`
   for (const line of summary.split('\n')) {
     if (/mode 1(2|6)0000/.test(line)) return `링크·하위 저장소는 넣을 수 없음: ${line.trim()}`
+    if (imageMode && /^\s*(rename|copy|delete mode)\b/.test(line)) return `이미지 모드: 이름 바꿈·복사·삭제는 받지 않음: ${line.trim()}`
     if (protectedMode && /^\s*(rename|copy|delete mode)\b/.test(line)) return `보호 모드: 이름 바꿈·복사·삭제는 받지 않음: ${line.trim()}`
     if (/\brename\b|\bcopy\b/.test(line) && [...line.matchAll(/\S+/g)].some((m) => forbiddenPath(m[0].replace(/[{}]/g, '')))) return `금지 경로로/에서 이름 바꿈: ${line.trim()}`
   }
-  if (/^GIT binary patch$/m.test(String(patchText))) return '바이너리 파일 변경은 받지 않음(내용 검사 불가)'
+  if (!imageMode && /^GIT binary patch$/m.test(String(patchText))) return '바이너리 파일 변경은 받지 않음(내용 검사 불가)'
   const added = String(patchText).split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')).join('\n')
   const sec = secretFinding(added, known)
   return sec ? `patch에 비밀값 의심: ${sec}` : ''
@@ -263,6 +277,7 @@ export function parseArgs(argv) {
     if (k === '--dry-run') a.dryRun = true
     else if (k === '--draft') a.draft = true
     else if (k === '--protected') a.protected = true
+    else if (k === '--images') a.images = true
     else a[k.replace(/^--/, '').replace(/-(.)/g, (_, c) => c.toUpperCase())] = rest[++i]
   }
   return a
@@ -278,6 +293,7 @@ export async function main(argv) {
   const text = cleanDraft(a.mode, readDraft(a.out, textName))
   const problems = []
   // S1: 보호 변경은 `pr --protected --draft`에서만. codex·issue·review는 --protected를 줘도 거절하고(보호 경로 게시 우회 금지), 보호 모드는 Draft가 아니면 거절한다.
+  if (a.images && (a.mode !== 'pr' || a.protected || !/^images\/register-[\w-]{1,60}$/.test(a.headRef ?? ''))) problems.push('--images는 pr 모드·보호 아님·브랜치 images/register-…에서만 가능')
   if (a.protected && a.mode !== 'pr') problems.push(`--protected는 pr 모드에서만 가능(${a.mode} 모드 거절)`)
   if (a.protected && a.mode === 'pr' && a.draft !== true) problems.push('--protected는 --draft(Draft PR)와 함께만 가능')
   if (text === null) problems.push(`${textName} 없음`)
@@ -299,7 +315,7 @@ export async function main(argv) {
       const pf = join(mkdtempSync(join(tmpdir(), 'cp-')), 'p.diff'); writeFileSync(pf, patch)
       const numstat = git(a.workdir, ['apply', '--numstat', '-z', pf])
       const summary = git(a.workdir, ['apply', '--summary', pf])
-      const e2 = checkPatchSummary({ numstat, summary, bytes: Buffer.byteLength(patch), patchText: patch, known, protectedMode: a.protected === true && a.mode === 'pr' && a.draft === true }); if (e2) problems.push(e2)
+      const e2 = checkPatchSummary({ numstat, summary, bytes: Buffer.byteLength(patch), patchText: patch, known, protectedMode: a.protected === true && a.mode === 'pr' && a.draft === true, imageMode: a.images === true && a.mode === 'pr' }); if (e2) problems.push(e2)
       if (!problems.length) {
         if (git(a.workdir, ['rev-parse', 'HEAD']).trim() !== a.headSha) problems.push('PR 사본이 검사한 커밋이 아님')
         else {

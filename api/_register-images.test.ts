@@ -3,7 +3,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assignRepresentativeImages } from '../scripts/ocr/assign-image.mjs'
-import { imageTool, parseLooseName, register } from '../scripts/images/register-images.mjs'
+import { main as publish } from '../scripts/ci/claude-publish.mjs'
+import { imageTool, parseLooseName, publishBundle, register } from '../scripts/images/register-images.mjs'
 
 // 이미지 자동 등록 시험(2026-11-27 Lee): 파일 이름만 맞으면 이름 해석 → 최적화 → 중복 검사 → 번호 부여 → 목록 등록이 한 번에 되고, 다시 돌려도 아무것도 바뀌지 않는다.
 const eq = (a: unknown, b: unknown, note: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${note}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`) }
@@ -24,6 +25,9 @@ try {
   cpSync(join(src, 'cooking_pho_1.png'), join(src, 'cooking_pho_2.png')) // 같은 그림 → 중복 건너뜀(번호 안 씀)
   mk('barista_cafe_1.jpg', 'gradient:red-blue')
   mk('mystery_thing.png', 'xc:white') // 이름을 못 읽음 → 보고만
+  const git = (...a: string[]) => execFileSync('git', ['-C', root, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' })
+  git('init', '-q'); git('add', '-A'); git('commit', '-qm', 'base')
+  const base = git('rev-parse', 'HEAD').trim()
   const first = register(src, { root, ai: true })
   eq(first.added.length, 2, '등록 2건')
   eq(first.skipped.length, 2, '중복 1 + 이름 불명 1')
@@ -39,6 +43,19 @@ try {
   eq([pho.env, pho.roles, pho.group], ['nha_hang_pho', ['5120'], 'am_thuc_do_uong'], '직무·환경·업종 분류')
   eq(register(src, { root, ai: true }).added, [], '다시 돌려도 새 등록 없음')
   eq(JSON.parse(readFileSync(join(root, 'data', 'industry-photos', 'manifest.json'), 'utf8')).images.length, m.images.length, '목록 그대로')
+  // 게시 묶음 → 기존 게시 단계(이미지 모드) 검증: 바뀐 파일은 사진·목록뿐, 새 PR 본문은 필수 검사 형식, 트리 대조까지 통과해야 한다(시험 실행 — 게시 안 함).
+  const out = join(root, '..', 'pub-out-' + Date.now())
+  const bundle = publishBundle(out, { root, added: first.added, skipped: first.skipped, api: () => [] })
+  if (!bundle || bundle.files.some((f: string) => !/^(data\/industry-photos\/manifest\.json|public\/images\/industry\/)/.test(f))) throw new Error('게시 묶음 파일 범위 오류 ' + JSON.stringify(bundle))
+  const pr = join(root, '..', 'pub-pr-' + Date.now())
+  git('worktree', 'add', '-q', '--detach', pr, base)
+  const log = console.log; const lines: string[] = []; console.log = (m: unknown) => { lines.push(String(m)) }
+  const res = await publish(['pr', '--repo', 'o/r', '--out', out, '--head-sha', base, '--head-ref', 'images/register-test', '--workdir', pr, '--images', '--dry-run'])
+  console.log = log
+  if (!res.ok) throw new Error('이미지 게시 단계 거절: ' + JSON.stringify(res.problems))
+  const bad = await publish(['pr', '--repo', 'o/r', '--out', out, '--head-sha', base, '--head-ref', 'feature/x', '--workdir', pr, '--images', '--dry-run'])
+  if (bad.ok) throw new Error('images/ 아닌 브랜치는 거절해야 함')
+  rmSync(out, { recursive: true, force: true })
   // 등록 → 공고 배정(기존 고정 배정 실행기, 방금 등록한 목록으로): 직무·환경이 맞는 새 공고가 방금 등록한 사진을 받고, 이미 배정된 공고는 그대로다.
   const newManifest = JSON.parse(readFileSync(join(root, 'data', 'industry-photos', 'manifest.json'), 'utf8'))
   const job = (id: number, over: Record<string, unknown>) => ({ id, title: 'Tuyển nhân viên', company: 'Quán ' + id, category: 'am_thuc_do_uong', subcategory: null, occupation_code: '5120', description: 'Công việc\nNấu phở', representative_image_id: null as string | null, ...over })
