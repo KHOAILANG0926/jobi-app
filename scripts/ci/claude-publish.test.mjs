@@ -127,8 +127,10 @@ ok(!(await run(draft(edit('.gitattributes', '* filter=evil\n')))).ok, '.gitattri
   ok(!(await prRun((d) => { g(d, 'mv', GATE, 'src/moved.ts') }, PROT)).ok, '추가: 보호 모드 — 허용 밖 경로로 이름 바꿈 거절')
   ok(!(await prRun((d) => rmSync(join(d, 'scripts/check-repository-policy.mjs')), PROT)).ok, '추가: 보호 모드 — 허용 파일 삭제 거절')
   { // 이미지 모드(Lee 2026-11-28): 바이너리는 이미지 목록·이미지 폴더 webp 추가만. 그 밖은 거절.
-    const im = (files, summary = '', patchText = 'GIT binary patch\nliteral 5\n') => checkPatchSummary({ numstat: files.map((f) => '-\t-\t' + f + '\0').join(''), summary, bytes: 5_000_000, patchText, imageMode: true })
+    const im = (files, summary = files.filter((f) => f.endsWith('.webp')).map((f) => ` create mode 100644 ${f}`).join('\n'), patchText = 'GIT binary patch\nliteral 5\n') => checkPatchSummary({ numstat: files.map((f) => (f.endsWith('.json') ? '5\t0\t' : '-\t-\t') + f + '\0').join(''), summary, bytes: 5_000_000, patchText, imageMode: true })
     ok(im(['public/images/industry/cooking_pho/cooking_pho_009.webp', 'data/industry-photos/manifest.json']) === '', '이미지 모드: 새 webp·목록은 통과(바이너리·500만 바이트)')
+    ok(im(['public/images/industry/cooking_pho/a.webp'], ' ').includes('덮어쓸 수 없음'), '이미지 모드: 기존 그림 덮어쓰기(수정) 거절')
+    ok(checkPatchSummary({ numstat: '3\t2\tdata/industry-photos/manifest.json\0', summary: '', bytes: 10, patchText: '+x', imageMode: true }).includes('줄 추가만'), '이미지 모드: 기존 목록 줄 수정 거절')
     ok(im(['public/images/industry/cooking_pho/x.png']).includes('허용 경로 밖'), '이미지 모드: png는 거절')
     ok(im(['public/images/industry/cooking_pho/a.webp', 'src/a.ts']).includes('허용 경로 밖'), '이미지 모드: 다른 경로가 섞이면 거절')
     ok(im(['public/images/industry/../../x.webp']).includes('허용 경로 밖'), '이미지 모드: 경로 이탈 거절')

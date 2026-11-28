@@ -160,6 +160,11 @@ export function checkPatchSummary({ numstat, summary, bytes, patchText, known = 
     if (protectedMode) return '이미지 모드와 보호 모드는 함께 쓸 수 없음'
     if (!files.length) return '이미지 모드: 바뀐 파일 목록을 읽지 못함'
     for (const f of files) if (!IMAGE_PUBLISH_PATH.test(f)) return `이미지 모드 허용 경로 밖 파일: ${f}`
+    // 기존 것은 바꾸지 않는다: 그림은 새 파일 생성(create mode)만, 목록은 줄 추가만(삭제·수정된 줄 0).
+    for (const f of files) {
+      if (f.endsWith('.webp')) { if (!summary.split('\n').some((l) => /^\s*create mode \d+ /.test(l) && l.trim().endsWith(' ' + f))) return `이미지 모드: 기존 그림을 덮어쓸 수 없음(새 파일만): ${f}` }
+      else { const row = parts.find((x) => x.endsWith('\t' + f)); if (!row || row.split('\t')[1] !== '0') return `이미지 모드: 기존 목록 줄은 바꿀 수 없음(줄 추가만): ${f}` }
+    }
   } else if (protectedMode) {
     if (!files.length) return '보호 모드: 바뀐 파일 목록을 읽지 못함'
     for (const f of files) if (!PROTECTED_PUBLISH_ALLOW.includes(f)) return `보호 모드 허용 목록 밖 파일: ${f}`
