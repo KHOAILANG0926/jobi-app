@@ -130,7 +130,15 @@ try {
     const krHref = await kr.getAttribute('href')
     const krPage = await page.request.get(new URL(krHref, base).toString())
     if (!krPage.ok()) throw Error('한국 일자리 페이지가 열리지 않음 ' + krPage.status())
-    pass(`앱 홈: 탭 5개 · 한국 일자리 칸(사진 ${img.status()} · 링크 ${krHref} ${krPage.status()})`)
+    pass(`앱 홈: 탭 5개 · 한국 일자리 칸(배너 사진 ${img.status()} · 링크 ${krHref} ${krPage.status()})`)
+    // 배너 사진(정적 파일)과 실제 한국 공고 사진 데이터는 구분한다: 공개 한국 공고 수, 한국 공고 뷰에 사진 칸이 있는지, 목록 화면에 공고가 표시되는지.
+    const kc = await db.query('select count(*)::int as n from public.korea_jobs_public')
+    const kcols = await db.query("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'korea_jobs_public' and column_name ~* '(image|photo|logo|picture|thumb)'")
+    await page.goto(base + '/viec-han-quoc/tim-viec', { waitUntil: 'networkidle', timeout: 60000 })
+    const krLinks = await page.locator('a[href^="/viec-han-quoc/"]:not([href$="/tim-viec"])').count()
+    if (kc.rows[0].n > 0 && krLinks === 0) throw Error(`한국 공고 ${kc.rows[0].n}건이 있는데 목록 화면에 공고 링크가 없음`)
+    pass(`한국 일자리: 공개 공고 ${kc.rows[0].n}건 · 목록 화면 공고 링크 ${krLinks}개 · 공고 사진 칸 ${kcols.rows.length}개(0이면 실제 공고 사진 데이터 없음, 배너 사진만 있음)`)
+    await page.goto(base + '/app/', { waitUntil: 'networkidle', timeout: 60000 })
     // (3) 지도: 앱 지도 화면에 지도 캔버스와 핀이 있다(웹 홈 지도는 app-smoke가 같은 데이터로 확인)
     await page.goto(base + '/app/ban-do', { waitUntil: 'networkidle', timeout: 60000 })
     const mapEl = page.locator('[data-testid="app-map"]').first()
@@ -153,6 +161,14 @@ try {
     if (!(await bar.locator('a, button').count())) throw Error('상세 하단 바에 단추가 없음')
     await page.screenshot({ path: 'employer-seeker-e2e-app-detail.png' })
     pass(`앱 상세: 하단 고정 바(동작 ${kind}) 스크롤 후에도 같은 위치`)
+    // 지원 버튼 클릭 연결: 내부 지원 공고(employer_id 있는 공개 공고)에서 비로그인이면 로그인으로 가고(되돌아올 주소 포함), 없으면 '표본 없음'으로 기록한다.
+    const internal = await db.query('select id from public.local_jobs where active and not admin_hidden and employer_id is not null order by id desc limit 1')
+    if (internal.rows[0]) {
+      await page.goto(`${base}/app/viec-lam/sb-${internal.rows[0].id}`, { waitUntil: 'networkidle', timeout: 60000 })
+      await page.getByRole('button', { name: /Ứng tuyển ngay/ }).first().click()
+      await page.waitForURL((url) => url.pathname.startsWith('/app/dang-nhap') && url.searchParams.get('redirect')?.includes('/viec-lam/'), { timeout: 20000 })
+      pass('앱 상세 지원 버튼(비로그인) → 로그인 화면(되돌아올 주소 포함)')
+    } else pass('내부 지원 공개 공고 0건 — 지원 버튼 클릭 시험 대상 없음(표본 없음, 기능 결함 아님)')
     if (errors.length) throw Error('앱 비로그인 화면 스크립트 오류 ' + errors[0])
     await ctx.close()
   }
@@ -168,12 +184,27 @@ try {
       if ((await tabCount(page)) !== 4) throw Error('기업 탭이 4개가 아님')
       await page.screenshot({ path: 'employer-seeker-e2e-app-biz.png' })
       pass('앱 기업 로그인 → /app/biz 기업 홈 · 기업 탭 4개')
+      for (const to of ['/app/biz/quan-ly-tin', '/app/biz/dang-tin', '/app/biz/doanh-nghiep', '/app/biz']) {
+        await page.locator(`[data-testid="app-tabbar"] a[href="${to}"]`).first().click()
+        await page.waitForURL((url) => url.pathname.replace(/\/$/, '') === to, { timeout: 20000 })
+        await page.waitForLoadState('networkidle')
+        if (await page.locator('[data-testid="app-biz-denied"]').count()) throw Error(`기업 탭 ${to}에서 접근 거절 화면`)
+        if ((await tabCount(page)) !== 4) throw Error(`기업 탭 ${to}에서 탭이 4개가 아님`)
+      }
+      pass('앱 기업 탭 4개 모두 눌러서 이동·표시(관리·등록·기업정보·홈)')
     } else {
       await page.waitForURL((url) => url.pathname.replace(/\/$/, '') === '/app', { timeout: 30000 })
       if ((await tabCount(page)) !== 5) throw Error('구직자 로그인 뒤 탭이 5개가 아님')
       await page.goto(base + '/app/biz', { waitUntil: 'networkidle', timeout: 45000 })
       await page.locator('[data-testid="app-biz-denied"]').first().waitFor({ state: 'visible', timeout: 30000 })
       pass('앱 구직자 로그인 → 홈 · 기업 화면은 접근 거절 안내')
+      const internal = await db.query('select id from public.local_jobs where active and not admin_hidden and employer_id is not null order by id desc limit 1')
+      if (internal.rows[0]) {
+        await page.goto(`${base}/app/viec-lam/sb-${internal.rows[0].id}`, { waitUntil: 'networkidle', timeout: 60000 })
+        await page.getByRole('button', { name: /Ứng tuyển ngay/ }).first().click()
+        await page.locator('[data-testid="app-apply"]').first().waitFor({ state: 'visible', timeout: 20000 })
+        pass('앱 상세 지원 버튼(구직자 로그인) → 지원 창 열림(제출은 하지 않음)')
+      } else pass('내부 지원 공개 공고 0건 — 로그인 후 지원 창 시험 대상 없음(표본 없음)')
     }
     if (errors.length) throw Error(`앱 ${u.role} 화면 스크립트 오류 ${errors[0]}`)
     await ctx.close()

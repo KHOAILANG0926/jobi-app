@@ -8,12 +8,15 @@ import { applyAppFilters, toMapFilters, type AppFilterState, type AppJobAreas } 
 /** 지도 핀·목록 데이터 — 웹 지도(HomeMapExplorer)가 쓰는 lib/mapR1.mapSearch를 그대로 쓴다. 핀은 확정 좌표(근무지 원본)만, 위치를 모르는 공고는 핀을 만들지 않는다. */
 export interface MapData { markers: HomeMapMarker[]; entries: ReturnType<typeof mapSearch>['entries']; visibleEntries: ReturnType<typeof mapSearch>['visibleEntries']; visibleCount: number; unresolvedCount: number }
 
+/** 훅 없이 계산하는 본체 — 웹 지도와 같은 조건에서 핀이 같은지 시험(mapParity.test.ts)이 직접 부른다. */
+export function computeMapData(jobs: Job[], areas: AppJobAreas, filters: AppFilterState, origin: MapPoint | null, radiusActive: boolean, bounds: MapBounds | null): MapData {
+  const scoped = applyAppFilters(jobs, filters, areas)
+  const r = mapSearch(scoped, toMapFilters(filters), origin, radiusActive ? filters.radiusKm : null, bounds, {})
+  return { markers: r.markers as HomeMapMarker[], entries: r.entries, visibleEntries: r.visibleEntries, visibleCount: r.visibleCount, unresolvedCount: r.unresolvedCount }
+}
+
 export function useMapData(jobs: Job[], areas: AppJobAreas, filters: AppFilterState, origin: MapPoint | null, radiusActive: boolean, bounds: MapBounds | null): MapData {
-  return useMemo(() => {
-    const scoped = applyAppFilters(jobs, filters, areas)
-    const r = mapSearch(scoped, toMapFilters(filters), origin, radiusActive ? filters.radiusKm : null, bounds, {})
-    return { markers: r.markers as HomeMapMarker[], entries: r.entries, visibleEntries: r.visibleEntries, visibleCount: r.visibleCount, unresolvedCount: r.unresolvedCount }
-  }, [jobs, areas, filters, origin, radiusActive, bounds])
+  return useMemo(() => computeMapData(jobs, areas, filters, origin, radiusActive, bounds), [jobs, areas, filters, origin, radiusActive, bounds])
 }
 
 /** 핀이 가장 많이 모인 곳이 보이도록 카메라를 맞춘다. 전국에 흩어진 공고 핀 전체를 한 화면에 맞추면(웹 HomeMapExplorer 방식) 평균 위치가
