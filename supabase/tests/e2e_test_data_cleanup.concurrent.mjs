@@ -1,0 +1,188 @@
+// 시험 데이터 정리 경로 사전 검증(대표 2026-11-28 지시 3, 독립 검토 반영): scripts/ops/e2e-cleanup.mjs가 소유권(식별자)으로만 지우고
+// 어긋나면 아무것도 지우지 않는(fail-closed) 것을 실제 migration 전체를 올린 시험용 DB에서 확인한다. 운영 DB 접속 없음.
+// 실행: PG_TEST_URL=<폐기용 서버> node supabase/tests/e2e_test_data_cleanup.concurrent.mjs  (real_chain_structure.concurrent.mjs와 같은 방식 — migration 이름 규칙에 걸리지 않아 자동 호출되지 않음)
+//  A 정상: 시험 공고·계정·지원·대화·메시지·면접 삭제, 실제 데이터 불변, 표별 삭제 건수 표, 뿌리 잔존 0
+//  B 반례: 실제 데이터 글자에 같은 marker가 들어 있어도 지우지 않음(글자 일괄 삭제 없음)
+//  C 중단(fail-closed, 삭제 0건·전체 취소): 실제 이용자가 시험 공고에 지원 / 시험 계정이 실제 공고에 지원 / 뿌리 개수가 상한 초과 /
+//     명시 목록 밖 표가 외래키로 붙잡음 / 명시 목록 밖 표에 외래키 없는 참조 / DELETE RETURNING 수 ≠ 예상 수
+//  D 끊긴 실행(계정만)·재실행·표식 없는 계정 보존
+import assert from 'node:assert/strict'
+import { randomBytes } from 'node:crypto'
+import { makeChain } from './lib/pg-chain.mjs'
+import { jobPayload, callSql } from './lib/pg-race.mjs'
+import { cleanupSql, countSql, storagePlanSql, removeStorageObjects } from '../../scripts/ops/e2e-cleanup.mjs'
+
+const c = await makeChain()
+const hex = () => randomBytes(5).toString('hex')
+const uid = () => c.scalar('select gen_random_uuid()')
+const run = (sql) => { try { return { ok: true, out: c.admin(sql) } } catch (e) { return { ok: false, out: String(e.message) } } }
+const marker = hex(), real = hex()
+// role은 가입 정보(raw_user_meta_data), 시험 표식은 서비스 롤만 쓸 수 있는 앱 메타데이터(raw_app_meta_data)
+const user = (id, email, meta) => { const { role, ...app } = meta; c.admin(`insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data) values ('${id}', '${email}', '${JSON.stringify({ role })}'::jsonb, '${JSON.stringify(app)}'::jsonb);`) }
+const jobIdOf = (company) => Number(c.scalar(`select id from public.local_jobs where company like '${company}%' order by id desc limit 1`))
+const newJob = (company, extra = {}) => { c.admin(callSql(jobPayload(hex(), { company, ...extra }))); return jobIdOf(company) }
+const raw = (sql) => c.admin(`set session_replication_role = replica; -- 지원 열림 검사 등은 따로 시험됨(job_apply_and_contact_gate) — 여기선 정리 경로만 본다\n${sql}`)
+const snapshot = () => c.scalar(`select (select count(*) from public.local_jobs) || '/' || (select count(*) from auth.users) || '/' || (select count(*) from public.applications) || '/' || (select count(*) from public.message_threads) || '/' || (select count(*) from public.interviews) || '/' || (select count(*) from public.job_work_locations) || '/' || (select count(*) from public.admin_audit_logs) || '/' || (select count(*) from public.messages) || '/' || (select count(*) from public.job_alert_notifications) || '/' || (select count(*) from public.reports)`)
+try {
+  // 실제 데이터 역할: 실제 계정 2·공고 1(원문에 같은 marker 글자 포함)·지원·대화·면접·감사 기록(메타에 marker 글자)
+  const rE = uid(), rS = uid(); user(rE, `real-${real}-e@example.com`, { role: 'employer' }); user(rS, `real-${real}-s@example.com`, { role: 'seeker' })
+  c.admin(callSql(jobPayload(real, { company: `CTY Real ${real}`, source_text: `원문 ${real} 우연히 ${marker} 글자 포함` })))
+  const rJob = jobIdOf(`CTY Real ${real}`); assert.ok(rJob > 0)
+  raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${rJob}, '${rS}', '${rE}');
+    insert into public.message_threads (job_id, seeker_id, employer_id) values (${rJob}, '${rS}', '${rE}');
+    insert into public.interviews (job_id, seeker_id, employer_id, datetime) values (${rJob}, '${rS}', '${rE}', now());
+    insert into public.admin_audit_logs (admin_user_id, action, target_type, target_id, metadata) values ('${rE}', 'real', 'job', '${rJob}', '{"note":"${marker}"}'::jsonb);`)
+  const rJob2 = newJob(`CTY Real2 ${real}`)
+  const rJob3 = newJob(`CTY Real3 ${real}`) // 시험 계정이 상호작용하는 실제 공고(실제 크롤링 공고 역할) — 공고는 보존, 시험 계정 소유 지원·대화·면접·메시지만 정리
+  const rJobPrefix = newJob(`VGB-E2E ${marker}zz`) // 같은 접두 글자지만 경계가 달라 시험 공고가 아님(실제 공고 역할)
+  raw(`insert into public.messages (thread_id, from_role, body) select id, 'seeker', 'real' from public.message_threads where job_id = ${rJob};`)
+  const before = snapshot()
+
+  // 시험 데이터
+  const tE = uid(), tS = uid()
+  user(tE, `vgb-e2e-${marker}-employer@example.invalid`, { role: 'employer', e2e_marker: marker }); user(tS, `vgb-e2e-${marker}-seeker@example.invalid`, { role: 'seeker', e2e_marker: marker })
+  const tJob = newJob(`VGB-E2E ${marker}`); assert.ok(tJob > 0)
+  raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${tJob}, '${tS}', '${tE}');
+    insert into public.message_threads (job_id, seeker_id, employer_id) values (${tJob}, '${tS}', '${tE}');
+    insert into public.messages (thread_id, from_role, body) select id, 'seeker', 'e2e ${marker}' from public.message_threads where job_id = ${tJob};
+    insert into public.interviews (job_id, seeker_id, employer_id, datetime) values (${tJob}, '${tS}', '${tE}', now());`)
+  // 시험 계정(구직자·고용주 양쪽)이 실제 공고 rJob3에 한 지원·대화·메시지·면접
+  raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${rJob3}, '${tS}', '${tE}');
+    insert into public.message_threads (job_id, seeker_id, employer_id) values (${rJob3}, '${tS}', '${tE}');
+    insert into public.messages (thread_id, from_role, body) select id, 'seeker', 'e2e real-job ${marker}' from public.message_threads where job_id = ${rJob3} and seeker_id = '${tS}';
+    insert into public.interviews (job_id, seeker_id, employer_id, datetime) values (${rJob3}, '${tS}', '${tE}', now());`)
+  const mid = snapshot(); assert.notEqual(before, mid)
+  assert.equal(c.scalar(countSql(marker)).replace(/\s/g, ''), '1|2')
+
+  // ── C 중단 사례(삭제 0건·전체 취소). 각 사례 뒤 개수가 그대로여야 하고, 원인을 치우면 정리가 통과해야 한다.
+  const mustAbort = (label, sql, re, opts) => {
+    const snap = snapshot(); const r = run(sql ?? cleanupSql(marker, opts))
+    assert.equal(r.ok, false, `${label}: 중단됐어야 함`); assert.match(r.out, re, `${label}: 중단 사유 — ${r.out.slice(0, 200)}`)
+    assert.equal(snapshot(), snap, `${label}: 중단 뒤 데이터 불변(전체 취소)`)
+    console.log(`PASS(중단): ${label}`)
+  }
+  // C1 실제 이용자가 시험 공고에 지원
+  raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${tJob}, '${rS}', '${tE}');`)
+  mustAbort('실제 이용자가 시험 공고에 지원', null, /시험 계정이 아닌 이용자/)
+  raw(`delete from public.applications where seeker_id = '${rS}' and job_id = ${tJob};`)
+  // C2 시험 계정이 실제 공고에 지원 → 시험 계정 쪽 행이라도 실제 공고에 걸린 건 정리 대상이지만, 실제 고용주(employer_id) 칸이 시험 계정이 아니므로 중단
+  raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${rJob2}, '${tS}', '${rE}');`)
+  mustAbort('시험 계정이 실제 공고에 지원(실제 고용주 칸)', null, /시험 계정이 아닌 이용자/)
+  raw(`delete from public.applications where job_id = ${rJob2};`)
+  // C3 뿌리 개수 상한 초과(표식 충돌 시뮬레이션)
+  const extraJob = newJob(`VGB-E2E ${marker} extra`)
+  mustAbort('시험 공고 뿌리가 상한 초과', null, /상한 1/)
+  raw(`delete from public.local_jobs where id = ${extraJob};`)
+  // C4 허용 목록 밖 표가 외래키로 닿음
+  c.admin(`create table public.zz_unexpected (id serial primary key, job_id bigint references public.local_jobs(id)); insert into public.zz_unexpected (job_id) values (${tJob});`)
+  mustAbort('명시 목록 밖 표가 외래키로 붙잡음(삭제 전 점검)', null, /명시 처리 열이 아닌/)
+  c.admin('drop table public.zz_unexpected;')
+  // C5 허용 목록 밖 표에 외래키 없는 참조
+  c.admin(`create table public.zz_nofk (job_id bigint); insert into public.zz_nofk values (${tJob});`)
+  mustAbort('외래키 없는 참조가 명시 목록 밖에 남음', null, /남은 참조/)
+  c.admin('drop table public.zz_nofk;')
+
+  // C7 실제 구직자가 시험 공고에 대화·면접
+  raw(`insert into public.message_threads (job_id, seeker_id, employer_id) values (${tJob}, '${rS}', '${tE}');`)
+  mustAbort('실제 구직자가 시험 공고에 대화(소유권)', null, /시험 계정이 아닌 이용자/)
+  raw(`delete from public.message_threads where seeker_id = '${rS}' and job_id = ${tJob};`)
+  raw(`insert into public.interviews (job_id, seeker_id, employer_id, datetime) values (${tJob}, '${rS}', '${tE}', now());`)
+  mustAbort('실제 구직자가 시험 공고에 면접(소유권)', null, /시험 계정이 아닌 이용자/)
+  raw(`delete from public.interviews where seeker_id = '${rS}' and job_id = ${tJob};`)
+  // C8 감사 기록은 보존 정책상 지우지 않는다: 시험 계정 명의 기록이 있으면(대상이 시험·실제 어느 쪽이든) 삭제하지 않고 중단
+  for (const target of [tJob, rJob]) {
+    c.admin(`insert into public.admin_audit_logs (admin_user_id, action, target_type, target_id, metadata) values ('${tE}', 'e2e-audit', 'job', '${target}', '{}'::jsonb);`)
+    mustAbort(`시험 계정 명의 감사 기록(대상 ${target === tJob ? '시험' : '실제'} 공고)은 보존하고 중단`, null, /명시 처리 열이 아닌/)
+    c.admin(`delete from public.admin_audit_logs where action = 'e2e-audit';`)
+  }
+  // C9 명시 처리 목록 밖 표(reports)가 시험 계정을 참조 → 연쇄 삭제 전에 중단
+  c.admin(`insert into public.reports (reporter_id, target_type, target_id, category) values ('${tS}', 'job', '${rJob}', 'x');`)
+  mustAbort('명시 목록 밖 표(reports)가 시험 계정을 참조(삭제 전 점검)', null, /명시 처리 열이 아닌/)
+  c.admin(`delete from public.reports where reporter_id = '${tS}';`)
+  // C10 실제 구독자의 알림이 시험 공고에 걸림
+  c.admin(`insert into public.job_alert_preferences (seeker_id, region_importance, region_ids) values ('${rS}', 'required', array['bac-ninh']);
+    insert into public.job_alert_notifications (seeker_id, preference_id, job_id, result) select '${rS}', id, ${tJob}, '{}'::jsonb from public.job_alert_preferences where seeker_id = '${rS}';`)
+  mustAbort('실제 구독자의 알림이 시험 공고에 걸림(소유권)', null, /시험 공고에 걸린 알림/)
+  c.admin(`delete from public.job_alert_notifications where seeker_id = '${rS}'; delete from public.job_alert_preferences where seeker_id = '${rS}';`)
+  // C11 삭제 대상 표(지원서)를 외래키로 참조하는 새 표 → 연쇄 삭제 전에 중단(부모 확대 점검)
+  c.admin(`create table public.zz_app_child (id serial primary key, app_id uuid references public.applications(id) on delete cascade); insert into public.zz_app_child (app_id) select id from public.applications where job_id = ${tJob};`)
+  mustAbort('지원서를 참조하는 명시 밖 표(연쇄 삭제 위험)', null, /명시 처리 열이 아닌/)
+  c.admin('drop table public.zz_app_child;')
+  // C12 명시 처리 표 안의 다른 열이 시험 계정을 가리킴(열 단위 점검): 실제 공고가 시험 계정을 승인자로 참조(SET NULL로 조용히 바뀔 경우)
+  c.admin(`alter table public.local_jobs add column zz_approved_by uuid references auth.users(id) on delete set null; update public.local_jobs set zz_approved_by = '${tE}' where id = ${rJob};`)
+  mustAbort('실제 공고의 다른 열이 시험 계정을 참조(열 단위 점검)', null, /명시 처리 열이 아닌/)
+  c.admin(`update public.local_jobs set zz_approved_by = null where id = ${rJob}; alter table public.local_jobs drop column zz_approved_by;`)
+  // C6 DELETE … RETURNING 수가 예상과 다름(트리거가 삭제를 가로채는 경우) → 전체 취소
+  c.admin(`create function public.zz_skip_del() returns trigger language plpgsql as $$ begin return null; end $$;
+    create trigger zz_skip before delete on public.interviews for each row execute function public.zz_skip_del();`)
+  mustAbort('DELETE RETURNING 수 ≠ 예상 수', null, /삭제 0 건 ≠ 예상 2 건/)
+  c.admin('drop trigger zz_skip on public.interviews; drop function public.zz_skip_del();')
+
+  // 저장소 경로 계획(정리 SQL이 지원서 행을 지우기 전에 읽는다): 시험 소유 경로만, 실제 이용자 경로는 제외
+  c.admin(`update public.local_jobs set images = '["t1-${marker}.jpg","t2-${marker}.jpg"]'::jsonb where id = ${tJob};
+    update public.local_jobs set images = '["real-${real}.jpg"]'::jsonb where id = ${rJob};
+    update public.applications set cv_photo_snapshot_path = 'applications/${tJob}/${tS}/photo.jpg' where job_id = ${tJob} and seeker_id = '${tS}';
+    update public.applications set cv_photo_snapshot_path = 'applications/${rJob}/${rS}/photo.jpg' where job_id = ${rJob} and seeker_id = '${rS}';
+    insert into public.user_cvs (user_id, cv_data, photo_path) values ('${tS}', '{}'::jsonb, '${tS}/profile.jpg'), ('${rS}', '{}'::jsonb, '${rS}/profile.jpg');`)
+  const planOf = () => c.admin(storagePlanSql(marker)).split('\n').filter((l) => l.includes('|')).map((l) => l.replace(/\s+/g, ' ').trim()).slice(1)
+  assert.deepEqual(planOf().sort(), [`cv-photos | ${tS}/profile.jpg | t`, `cv-photos | applications/${tJob}/${tS}/photo.jpg | t`, `job-images | t1-${marker}.jpg | t`, `job-images | t2-${marker}.jpg | t`].sort(), '저장소 계획은 시험 소유 경로만, 모두 ok')
+  // 소유 검증: 접두 위반·시험 밖 행이 같은 경로를 참조하면 ok=f
+  c.admin(`update public.local_jobs set images = '["t1-${marker}.jpg","t2-${marker}.jpg","noprefix.jpg"]'::jsonb where id = ${tJob}; update public.local_jobs set images = '["t2-${marker}.jpg"]'::jsonb where id = ${rJob};`)
+  const bad = planOf().filter((l) => l.endsWith('| f')).sort()
+  assert.deepEqual(bad, [`job-images | noprefix.jpg | f`, `job-images | t2-${marker}.jpg | f`].sort(), '접두 위반·실제 공고와 같은 경로는 ok=f')
+  c.admin(`update public.local_jobs set images = '["t1-${marker}.jpg","t2-${marker}.jpg"]'::jsonb where id = ${tJob}; update public.local_jobs set images = '["real-${real}.jpg"]'::jsonb where id = ${rJob};`)
+  // 저장소 삭제 도우미(가짜 Storage 클라이언트): 정확한 경로만 remove, 목록 조회로 잔존 확인, ok=false면 아무것도 지우지 않음
+  const calls = []; const mk = (still) => ({ storage: { from: (b) => ({ remove: async (n) => { calls.push([b, n]); return { error: null } }, list: async (dir, o) => ({ data: still ? [{ name: o.search }] : [], error: null }) }) } })
+  assert.equal(await removeStorageObjects(mk(false), [{ bucket: 'cv-photos', name: 'a/x', ok: true }, { bucket: 'job-images', name: 'y', ok: true }]), 2)
+  assert.deepEqual(calls, [['cv-photos', ['a/x']], ['job-images', ['y']]])
+  await assert.rejects(removeStorageObjects(mk(true), [{ bucket: 'cv-photos', name: 'x', ok: true }]), /storage 잔존/)
+  const n0 = calls.length
+  await assert.rejects(removeStorageObjects(mk(false), [{ bucket: 'cv-photos', name: 'ok1', ok: true }, { bucket: 'cv-photos', name: 'bad1', ok: false }]), /소유 검증 실패/)
+  assert.equal(calls.length, n0, 'ok=false가 있으면 어떤 파일도 지우지 않음')
+  console.log('PASS: 저장소 경로 계획(시험 소유만)·삭제 도우미(정확한 경로·잔존 확인)')
+
+  // ── A 정상 + B 반례
+  const out1 = c.admin(cleanupSql(marker))
+  console.log(out1.split('\n').filter((l) => /\|/.test(l)).map((l) => l.replace(/\s+/g, ' ').trim()).join('\n'))
+  const after = snapshot()
+  assert.equal(after, before, '정리 뒤 모든 개수가 시험 데이터 생성 전(실제 데이터만)과 정확히 같아야 함')
+  assert.equal(c.scalar(`select count(*) from public.local_jobs where id = ${rJobPrefix}`), '1', '접두 글자만 같은 공고는 시험 공고가 아니므로 보존')
+  assert.equal(c.scalar(`select count(*) from auth.users where id in ('${rE}', '${rS}')`), '2', '실제 계정 2개 보존')
+  // 시험 데이터가 만든 행만큼 줄었고, 실제 역할(공고 2: rJob·rJob2, 계정 2, 지원 1, 대화 1, 면접 1, 감사 1)만 남는다
+  assert.equal(c.scalar(`select count(*) from public.local_jobs where id in (${rJob}, ${rJob2}, ${rJob3})`), '3', '실제 공고 보존(시험 계정이 상호작용한 rJob3 포함)')
+  assert.equal(c.scalar(`select count(*) from public.applications where job_id = ${rJob3}`), '0', '실제 공고에 걸린 시험 계정 지원은 정리')
+  assert.equal(c.scalar(`select count(*) from public.messages where body like '%${marker}%'`), '0')
+  assert.equal(c.scalar(`select count(*) from public.local_jobs where company = 'VGB-E2E ${marker}' or company like 'VGB-E2E ${marker} %'`), '0')
+  assert.equal(c.scalar(`select count(*) from auth.users where raw_app_meta_data->>'e2e_marker' = '${marker}'`), '0')
+  assert.equal(c.scalar(`select count(*) from public.applications where job_id = ${rJob}`), '1', '실제 지원 보존')
+  assert.equal(c.scalar(`select count(*) from public.message_threads where job_id = ${rJob}`), '1')
+  assert.equal(c.scalar(`select count(*) from public.interviews where job_id = ${rJob}`), '1')
+  assert.equal(c.scalar(`select count(*) from public.admin_audit_logs where metadata->>'note' = '${marker}'`), '1', 'B: marker 글자가 든 실제 감사 기록 보존')
+  assert.equal(c.scalar(`select count(*) from public.local_jobs where source_text like '%${marker}%'`), '1', 'B: marker 글자가 든 실제 공고 원문 보존')
+  assert.match(out1, /residual\s*\|\s*0/)
+  assert.ok(out1.split('\n').some((l) => /^\s*public\.applications\s*\|\s*2\s*$/.test(l)), '지원서 2건(시험 공고 1 + 실제 공고 1) 삭제 표')
+  assert.equal(c.scalar(`select count(*) from public.messages where body like '%${marker}%'`), '0', '시험 메시지 0')
+  console.log('PASS(정상·반례): 표식 소유 데이터만 삭제, marker 글자가 든 실제 데이터 보존, 뿌리 잔존 0 /', after)
+
+  // ── D 재실행·끊긴 실행·표식 없는 계정
+  assert.match(c.admin(cleanupSql(marker)), /residual\s*\|\s*0/)
+  const m2 = hex(), pE = uid(); user(pE, `vgb-e2e-${m2}-employer@example.invalid`, { role: 'employer', e2e_marker: m2 })
+  assert.match(c.admin(cleanupSql(m2)), /residual\s*\|\s*0/)
+  assert.equal(c.scalar(`select count(*) from auth.users where id = '${pE}'`), '0', '끊긴 실행(계정만)도 정리')
+  // 시험 공고 없이(실제 수집 공고만) 시험 계정 둘이 상호작용한 경우: maxJobs 0 으로 정리 — 실제 공고 보존·시험 계정 소유 지원 삭제, 재실행 0
+  const m4 = hex(), uE = uid(), uS = uid()
+  user(uE, `vgb-e2e-${m4}-employer@example.invalid`, { role: 'employer', e2e_marker: m4 }); user(uS, `vgb-e2e-${m4}-seeker@example.invalid`, { role: 'seeker', e2e_marker: m4 })
+  raw(`insert into public.applications (job_id, seeker_id, employer_id) values (${rJob3}, '${uS}', '${uE}');
+    insert into public.message_threads (job_id, seeker_id, employer_id) values (${rJob3}, '${uS}', '${uE}');
+    insert into public.interviews (job_id, seeker_id, employer_id, datetime) values (${rJob3}, '${uS}', '${uE}', now());`)
+  assert.match(c.admin(cleanupSql(m4, { maxJobs: 0 })), /residual\s*\|\s*0/)
+  assert.equal(c.scalar(`select count(*) from public.local_jobs where id = ${rJob3}`), '1', '실제 공고 보존')
+  assert.equal(c.scalar(`select count(*) from public.applications where seeker_id = '${uS}'`), '0')
+  assert.match(c.admin(cleanupSql(m4, { maxJobs: 0 })), /residual\s*\|\s*0/)
+  const m3 = hex(), qE = uid(); user(qE, `vgb-e2e-${m3}-employer@example.invalid`, { role: 'employer' })
+  c.admin(cleanupSql(m3))
+  assert.equal(c.scalar(`select count(*) from auth.users where id = '${qE}'`), '1', '가입 정보 표식 없는 계정은 보존')
+  assert.throws(() => cleanupSql("x'; select 1;--"), /marker/)
+  assert.throws(() => cleanupSql(marker, { maxJobs: -1 }), /maxJobs/)
+  console.log('PASS: 시험 데이터 정리 경로 전 사례 — 소유권 기준 삭제·fail-closed·반례·재실행·끊긴 실행·표식 없는 계정 보존')
+} finally { c.drop() }
