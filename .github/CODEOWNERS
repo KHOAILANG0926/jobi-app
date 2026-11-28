@@ -18,6 +18,7 @@
 /.github/workflows/bot-pr-automerge.yml                     @KHOAILANG0926
 /.github/workflows/brand-logo-watch.yml                     @KHOAILANG0926
 /.github/workflows/brand-logo.yml                           @KHOAILANG0926
+/.github/workflows/image-register.yml                         @KHOAILANG0926
 /.github/workflows/business-search-compare.yml              @KHOAILANG0926
 /.github/workflows/claude-auto.yml                          @KHOAILANG0926
 /.github/workflows/codex-wait-timer.yml                     @KHOAILANG0926
