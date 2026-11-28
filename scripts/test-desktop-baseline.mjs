@@ -116,7 +116,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "e6fd3b8ee23d47db9d0b884ac6915fc1c24b98531ff6be66e4091dec8ffbccd3",
+    "sha256": "0ce9c766b5e8632b3b17084b7d8e625b0a43057ec8eefcdf5968a7872ee051a6",
     "restore": []
   },
   {

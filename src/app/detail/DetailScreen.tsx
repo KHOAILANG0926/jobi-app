@@ -4,7 +4,7 @@ import { Bookmark, BookmarkCheck, ChevronLeft, MapPin, MessageCircle, Phone, Bus
 import { useBrandsOptional } from '../../context/BrandsContext'
 import { useJobs } from '../../context/JobsContext'
 import { jobPhotoUrl } from '../../lib/cardPhoto'
-import { AiPhotoBadge } from '../../components/AiPhotoBadge'
+import { AiPhotoBadge } from '../../lib/AiPhotoBadge'
 import { jobImagePublicUrl, jobRepresentativeImageUrl } from '../../lib/companyLogo'
 import { DIRECTIONS_LABEL, planJobDirections } from '../../lib/directionsPlan'
 import { JOB_SECTION_LABELS, contactOf } from '../../lib/jobDetailView'

@@ -15,7 +15,7 @@ function PayLine({ kind, text, block }: { kind: PayKind; text: string; block?: b
   )
 }
 import { conditionBadges } from '../lib/jobConditions'
-import { AiPhotoBadge } from './AiPhotoBadge'
+import { AiPhotoBadge } from '../lib/AiPhotoBadge'
 import { shortArea } from '../lib/shortArea'
 import { cardCompanyParts, cardTitle } from '../lib/cardText'
 

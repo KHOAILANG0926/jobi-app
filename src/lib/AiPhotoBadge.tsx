@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { AI_PHOTO_LABEL, isAiPhoto } from '../lib/cardPhoto'
+import { AI_PHOTO_LABEL, isAiPhoto } from './cardPhoto'
 
 // AI 그림 표시(대표 2026-11-28): 우리가 만든 AI 그림(이미지 목록 kind='ai')일 때만 표시한다. 실제 기업 사진·브랜드 로고·실제 사진(stock)에는 붙이지 않는다.
 // 판정은 이미지 목록 한 곳(cardPhoto.managedPhotoKind) — 화면마다 따로 판단하지 않는다. 위치를 맞추는 부모 CSS를 건드리지 않도록 스타일은 여기 둔다(레이아웃 영향 없음: 절대 위치 또는 음수 여백).
