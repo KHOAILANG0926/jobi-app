@@ -12767,3 +12767,11 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-mobile-cta__inner { min-width: 0; }
   .jd2-mobile-cta__call, .jd2-mobile-cta__zalo, .jd2-mobile-cta__apply { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* 2026-11-28: 휴대폰(≤640px)만 — 웹 /cong-dong 목록 표와 /ho-so 이력서 만들기가 화면보다 넓어 옆으로 밀리던 것(390px에서 가로 659·477px). PC 규칙 변경 없음.
+   표: 제목 칸의 한 줄 말줄임(white-space: nowrap)이 자동 폭 표를 넓히므로 고정 폭 표로. 이력서: 한 칸 격자 최소 폭을 0으로, 미리보기는 자기 안에서만 옆으로 넘김. */
+@media (max-width: 640px) {
+  .community-table { table-layout: fixed; }
+  .cv-builder__split { grid-template-columns: minmax(0, 1fr); }
+  .cv-builder__preview-wrap { min-width: 0; overflow-x: auto; }
+}
