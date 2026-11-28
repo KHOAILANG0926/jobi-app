@@ -775,6 +775,13 @@ try {
   }
   const planRows = sql(storagePlanSql(m)).split('\n').filter(Boolean).map((l) => l.split('|')).map(([bucket, name, ok]) => ({ bucket, name, ok: ok === 't' }))
   rec('W4', '정리 전 저장소 경로 계획이 시험 파일 2개만 가리키고 모두 소유 검증 통과(ok)', planRows.length === 2 && planRows.every((r) => r.ok) && planRows.some((r) => r.name === snapPath) && planRows.some((r) => r.name === `k1-${m}.png`), JSON.stringify(planRows.map((r) => `${r.bucket}/${r.name}:${r.ok}`)))
+  // W9 실제 스택에서 소유권 중단: 실제 이용자(users.seeker)가 시험 공고에 지원해 둔 상태면 정리 SQL은 중단·전체 취소되어야 한다(삭제 0건). 지원 행을 치우면 정상 정리.
+  const mixed = await call('POST', '/rest/v1/applications', { token: users.seeker.token, body: { job_id: kJob, seeker_id: users.seeker.id, employer_id: kE.id, job_title: TITLE, company: 'VGB-E2E ' + m, seeker_name: 'E2E', seeker_phone: '0900000000' } })
+  const countsNow = () => sql(`select (select count(*) from public.local_jobs where id = ${kJob}) || '/' || (select count(*) from public.applications where job_id = ${kJob}) || '/' || (select count(*) from public.message_threads where job_id = ${kJob}) || '/' || (select count(*) from public.interviews where job_id = ${kJob}) || '/' || (select count(*) from auth.users where id in (${idList}))`)
+  const beforeAbort = countsNow()
+  const abortRun = spawnSync('psql', [DB, '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: cleanupSql(m, { deleteUsers: false }), encoding: 'utf8' })
+  rec('W9', '실제 이용자가 시험 공고에 지원해 둔 상태에서는 정리가 소유권 검사로 중단되고 아무것도 지워지지 않음(전체 취소)', mixed.status === 201 && abortRun.status !== 0 && /시험 계정이 아닌 이용자/.test(abortRun.stderr) && countsNow() === beforeAbort, `지원 ${mixed.status} / 중단 ${abortRun.status !== 0} / 개수 ${beforeAbort} → ${countsNow()}`)
+  sql(`delete from public.applications where seeker_id = '${users.seeker.id}' and job_id = ${kJob}`)
   // 부분 실패 모사: 첫 호출에서 계정 삭제를 한 명만 하고 끝났다고 가정 → 같은 순서를 다시 호출해도 안전하게 끝나야 한다
   const rows1 = await runSequence()
   rec('W5', '저장소 파일 삭제 → 공개 데이터 정리 SQL(단일 트랜잭션, 계정 제외)이 오류 없이 끝남', rows1.length === 2, `파일 ${rows1.length}개`)
