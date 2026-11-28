@@ -1,3 +1,4 @@
+// 2026-11-28: index.css — 웹 휴대폰(≤640px)만: /cong-dong 목록 표(table-layout: fixed)·/ho-so 이력서 칸(격자 최소 폭 0, 미리보기만 안에서 가로 스크롤) 옆으로 밀림 고침(운영 화면 점검에서 가로 659·477px 확인). PC 규칙·승인된 공고 카드·상세 틀 변경 없음.
 // 2026-11-28: JobDetail.tsx — Lee "AI 생성 이미지에 Ảnh minh họa (AI) 표시 적용": ④ 머리 그림(.jd2-desc-visual) 안에 AI 그림일 때만 작은 반투명 문구 칸 하나(AiPhotoBadge) 추가. 칸·순서·치수·간격 변경 없음(절대 위치, 실제 기업 사진에는 없음).
 // 2026-11-27: JobDetail.tsx — Lee "고정 이미지 배정 마무리 지시"(#1182 적용 뒤): ④ 그림 선택에 고정 배정 번호(representativeImageId) 한 인자만 더 넘김. 틀·칸·CSS·문구 변경 없음.
 // 2026-11-27: JobDetail.tsx — Lee "최소 수정 설계 승인"(직무 중심 대표 이미지, #1180): ④ 그림을 고르는 입력 두 곳만(photoCategory(job)·대표 직무 코드)을 카드와 같게 맞춤. 틀·칸·CSS·문구 변경 없음.
@@ -121,7 +122,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "9abb77521c0616bf185b79243efc85fe3836637915eadf43cb21c09e4ed85ed6",
+    "sha256": "2b028cd74db4a70ec9cc752b9305950303451af268377acf8c3af137f42df65d",
     "restore": []
   },
   {
