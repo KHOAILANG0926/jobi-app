@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-27 23:53 (VN)**
-- 기준 커밋: `efdaeba` (chore(ocr): 대표 이미지 배정 로그에 건너뜀 이유 건수 추가 (#1189))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/46037196839
+- 생성 시각: **2026-11-28 12:01 (VN)**
+- 기준 커밋: `74a9a7c` (ops(e2e): 시험 데이터 정리 경로 사전 검증 — 표식 데이터만 삭제·잔존 0 (#701 D 3단계 준비) (#1192))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/46110032013
 - 검증 스크립트 지문(SHA-256): `a7387291a9c75cc7`
 
 ## 한눈에 보기
@@ -46,12 +46,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 150/150 파일 통과 |
+| 테스트 `npm test` | ✅ 152/152 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `efdaeba` · 상태 **success** · 2026-11-27 23:51 (VN)
+- 마지막 Production 배포: `74a9a7c` · 상태 **success** · 2026-11-28 11:59 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -59,20 +59,20 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #1192 | 2026-11-28 11:58 (VN) | `74a9a7c` | ops(e2e): 시험 데이터 정리 경로 사전 검증 — 표식 데이터만 삭제·잔존 0 (#701 D 3단계 준비) |
+| #1193 | 2026-11-28 11:58 (VN) | `7059962` | ops(e2e): 앱 실제 화면 확인 — 기업·구직자 로그인 연결·지도·한국 일자리 칸·상세 하단 바 (#1031) |
+| #1191 | 2026-11-28 10:33 (VN) | `fbb4946` | 이미지 등록 PR을 기존 게시 단계(이미지 모드)로 연결 — 필수 검사·자동 병합 |
+| #1178 | 2026-11-28 09:46 (VN) | `be18ece` | perf(ci): 운영 검사 중복 제거·변경 영향 범위 재사용·그림 요청 생략 (사용량 정리, Draft) |
+| #1190 | 2026-11-28 08:04 (VN) | `374407a` | 이미지 자동 등록: 파일 이름만으로 분류·최적화·중복검사·번호·등록 |
+| #1188 | 2026-11-28 06:04 (VN) | `8982f6d` | ops(e2e): 시험 워크플로 SUPABASE_URL 공개 주소 지정 (#1184 첫 실행 실패 수정) |
+| #1176 | 2026-11-28 05:55 (VN) | `c35bef9` | perf(web): 첫 화면 전송량 — 로고 3.35MB→32KB·경계 좌표 첫 로드 분리·정적 파일 캐시 헤더 (사용량 정리, Draft) |
+| #1186 | 2026-11-28 05:55 (VN) | `5f4f248` | feat(photo): 웹 상세 ④가 고정 배정 번호 사용 (PC 틀 잠금 해시 갱신) |
 | #1189 | 2026-11-27 23:51 (VN) | `efdaeba` | chore(ocr): 대표 이미지 배정 로그에 건너뜀 이유 건수 추가 |
 | #1187 | 2026-11-27 23:48 (VN) | `3efe826` | feat(photo): 추가 이미지 16장 이미지 목록 등록 |
-| #1185 | 2026-11-27 23:37 (VN) | `1fad83f` | feat(photo): 대표 이미지 고정 배정 + 카드·앱 화면 연동 (3단계) |
-| #1184 | 2026-11-27 23:26 (VN) | `bfa3659` | ops(e2e): 고용주·구직자 실제 로그인 시험 — 대표 가입 없이 일회용 시험 계정 생성·삭제 (#701 D) |
-| #1181 | 2026-11-27 23:09 (VN) | `5beba48` | feat(photo): 전달 이미지 ZIP 23장을 이미지 목록(manifest)에 등록 (#1180 연동, Draft) |
-| #1180 | 2026-11-27 22:59 (VN) | `852f798` | feat(photo): 직무 중심 대표 이미지 선택 + 이미지 목록 (설계 2단계, Draft) |
-| #1182 | 2026-11-27 22:58 (VN) | `2f094fa` | feat(db): 대표 이미지 고정 배정 칸 representative_image_id (대표 Approve 대상) |
-| #1183 | 2026-11-27 22:48 (VN) | `3f549fd` | docs: HANDOFF·WORK_LOG — 직무 중심 분류·대표 이미지 1·2단계 |
-| #1179 | 2026-11-27 22:39 (VN) | `77acd04` | feat(roles): 복수 직무 공고를 모든 모집 직무로 검색 — category·공식 코드 유지 (설계 1단계, Draft) |
-| #1175 | 2026-11-27 17:29 (VN) | `2ce49c0` | fix(home): Theo vị trí 공고가 원문 급여 금액이 있으면 메인 목록에서 빠지지 않게 (#1168 후속) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **30건** (전체 57건, 숨김·비활성 27건)
+- 공개 중: **30건** (전체 58건, 숨김·비활성 28건)
 - 출처별: 출처 없음 26 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -104,16 +104,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-27 23:52 (VN) | location_candidate.approve | job 6827 |
-| 2026-11-27 23:52 (VN) | location_candidate.add | job 6827 |
-| 2026-11-27 23:50 (VN) | location_candidate.approve | job 6825 |
-| 2026-11-27 23:50 (VN) | location_candidate.add | job 6825 |
-| 2026-11-27 23:40 (VN) | location_candidate.approve | job 6821 |
-| 2026-11-27 23:40 (VN) | location_candidate.add | job 6821 |
-| 2026-11-27 23:27 (VN) | location_candidate.approve | job 6818 |
-| 2026-11-27 23:27 (VN) | location_candidate.add | job 6818 |
-| 2026-11-27 23:11 (VN) | location_candidate.approve | job 6815 |
-| 2026-11-27 23:11 (VN) | location_candidate.add | job 6815 |
+| 2026-11-28 12:00 (VN) | location_candidate.approve | job 6852 |
+| 2026-11-28 12:00 (VN) | location_candidate.add | job 6852 |
+| 2026-11-28 11:59 (VN) | location_candidate.approve | job 6849 |
+| 2026-11-28 11:59 (VN) | location_candidate.add | job 6849 |
+| 2026-11-28 10:35 (VN) | location_candidate.approve | job 6845 |
+| 2026-11-28 10:35 (VN) | location_candidate.add | job 6845 |
+| 2026-11-28 09:47 (VN) | location_candidate.approve | job 6842 |
+| 2026-11-28 09:47 (VN) | location_candidate.add | job 6842 |
+| 2026-11-28 08:06 (VN) | location_candidate.approve | job 6840 |
+| 2026-11-28 08:06 (VN) | location_candidate.add | job 6840 |
 
 ## 8. 검증 장치 변경 이력
 
